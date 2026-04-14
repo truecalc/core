@@ -88,7 +88,8 @@ proptest! {
     #[test]
     fn display_number_parses_back(n in -1e9f64..=1e9f64) {
         // display_number should produce a string that, when parsed as f64,
-        // is close to the original (within floating-point rounding).
+        // round-trips with relative tolerance 1e-9 and absolute floor 1e-12
+        // (consistent with display_number's 14 significant digits of precision).
         let s = ganit_core::display_number(n);
         // If it is a valid display string (not "#NUM!"), it should parse back.
         if !s.starts_with('#') {
@@ -97,4 +98,14 @@ proptest! {
                 "round-trip failed for n={n}, displayed as {s:?}, parsed back as {parsed}");
         }
     }
+}
+
+#[test]
+fn display_number_nan_returns_num_error() {
+    assert_eq!(ganit_core::display_number(f64::NAN), "#NUM!");
+}
+
+#[test]
+fn display_number_infinity_returns_num_error() {
+    assert_eq!(ganit_core::display_number(f64::INFINITY), "#NUM!");
 }
