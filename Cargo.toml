@@ -1,0 +1,17 @@
+[workspace]
+members = ["crates/core", "crates/wasm", "crates/mcp"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["tryganit"]
+repository = "https://github.com/tryganit/ganit"
+
+[profile.release]
+lto = true
+opt-level = 's'
+codegen-units = 1
+strip = true
+panic = 'abort'

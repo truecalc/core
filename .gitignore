@@ -1,0 +1,16 @@
+# Rust build artifacts
+/target
+
+# WASM output
+/pkg
+*.wasm
+
+# Node / frontend tooling
+/node_modules
+/dist
+
+# Cargo.lock — kept for workspace with binary components
+# Cargo.lock
+
+# macOS metadata
+.DS_Store

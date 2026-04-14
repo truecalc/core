@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Test
+        run: cargo test --workspace
+
+      - name: Clippy
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Audit
+        run: cargo audit
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Add wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Build WASM
+        run: wasm-pack build crates/wasm --target web
+
+      - name: WASM size check
+        run: |
+          SIZE=$(gzip -c crates/wasm/pkg/ganit_wasm_bg.wasm | wc -c)
+          echo "Gzipped WASM size: ${SIZE} bytes"
+          if [ "$SIZE" -gt 102400 ]; then
+            echo "WASM size ${SIZE} bytes exceeds 100 KB limit (102400 bytes)"
+            exit 1
+          fi
