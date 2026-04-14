@@ -29,5 +29,7 @@ mod tests {
         assert_eq!(display_number(1234567890.12345), "1234567890.12345");
         assert_eq!(display_number(0.0), "0");
         assert_eq!(display_number(-3.5), "-3.5");
+        assert_eq!(display_number(f64::NAN), "#NUM!");
+        assert_eq!(display_number(f64::INFINITY), "#NUM!");
     }
 }
