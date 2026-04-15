@@ -80,13 +80,7 @@ Return the full catalogue of supported spreadsheet functions with category, synt
 
 ## Supported functions
 
-| Category    | Functions |
-|-------------|-----------|
-| math        | SUM, AVERAGE, PRODUCT, ROUND, ROUNDUP, ROUNDDOWN, INT, ABS, SIGN, MOD, POWER, SQRT, LOG, LOG10, LN, EXP, CEILING, FLOOR, RAND, RANDBETWEEN, PI, SIN, COS, TAN, QUOTIENT |
-| logical     | IF, AND, OR, NOT, IFERROR, IFNA, IFS, SWITCH, ISNUMBER, ISTEXT, ISERROR, ISBLANK, ISNA |
-| text        | LEFT, MID, RIGHT, LEN, LOWER, UPPER, TRIM, CONCATENATE, FIND, SUBSTITUTE, REPLACE, TEXT, VALUE, REPT |
-| financial   | PMT, NPV, IRR, PV, FV, RATE, NPER |
-| statistical | COUNT, COUNTA, MAX, MIN, MEDIAN |
+Covers math, logical, text, financial, and statistical categories. For the full list with signatures and descriptions, call the `list_functions` tool — it returns the live registry.
 
 ## Related
 
