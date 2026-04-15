@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.1.4...ganit-core-v0.1.6) - 2026-04-15
+
+### Other
+
+- release v0.1.5
+- Merge pull request #73 from tryganit/docs/readme-badges-and-usage
+- add badges and per-crate READMEs for crates.io and npm
+
 ## [0.1.5](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.1.4...ganit-core-v0.1.5) - 2026-04-15
 
 ### Other

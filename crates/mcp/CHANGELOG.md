@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6](https://github.com/tryganit/ganit-core/compare/ganit-mcp-v0.1.5...ganit-mcp-v0.1.6) - 2026-04-15
+
+### Other
+
+- update Cargo.lock dependencies
+
 ## [0.1.3](https://github.com/tryganit/ganit-core/compare/ganit-mcp-v0.1.2...ganit-mcp-v0.1.3) - 2026-04-15
 
 ### Other
