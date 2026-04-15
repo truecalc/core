@@ -14,6 +14,10 @@ fn ascii_string() -> impl Strategy<Value = String> {
     "[a-z]{0,20}".prop_map(|s| s)
 }
 
+fn spacey_string() -> impl Strategy<Value = String> {
+    "[a-z ]{0,20}".prop_map(|s| s)
+}
+
 proptest! {
     // 1. LEN(CONCATENATE(a, b)) == LEN(a) + LEN(b)
     #[test]
@@ -35,7 +39,7 @@ proptest! {
     // Since we can't nest variable references easily, we verify that
     // TRIM of a clean string (no leading/trailing spaces) == the string itself.
     #[test]
-    fn trim_idempotent(s in ascii_string()) {
+    fn trim_idempotent(s in spacey_string()) {
         let vars: HashMap<String, Value> = vec![
             ("s".to_string(), Value::Text(s.clone())),
         ].into_iter().collect();

@@ -21,6 +21,7 @@ proptest! {
     ) {
         let result = run_vars("=NPV(0, v1, v2, v3)", vec![("v1", v1), ("v2", v2), ("v3", v3)]);
         let expected = v1 + v2 + v3;
+        prop_assert!(matches!(result, Value::Number(_)), "expected Number, got {:?}", result);
         if let Value::Number(n) = result {
             prop_assert!((n - expected).abs() < 1e-6, "NPV(0,...)={} expected={}", n, expected);
         }
@@ -34,6 +35,7 @@ proptest! {
         pv in 1000.0f64..100_000.0f64
     ) {
         let result = run_vars("=PMT(r, n, p)", vec![("r", rate), ("n", nper), ("p", pv)]);
+        prop_assert!(matches!(result, Value::Number(_)), "expected Number, got {:?}", result);
         if let Value::Number(pmt) = result {
             // positive PV (loan amount) should give negative PMT (payment out)
             prop_assert!(pmt < 0.0, "PMT should be negative for positive PV, got {}", pmt);
@@ -48,6 +50,7 @@ proptest! {
         pv in 1000.0f64..100_000.0f64
     ) {
         let result = run_vars("=PMT(r, n, p)", vec![("r", rate), ("n", nper), ("p", -pv)]);
+        prop_assert!(matches!(result, Value::Number(_)), "expected Number, got {:?}", result);
         if let Value::Number(pmt) = result {
             prop_assert!(pmt > 0.0, "PMT should be positive for negative PV, got {}", pmt);
         }

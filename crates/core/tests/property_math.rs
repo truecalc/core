@@ -31,7 +31,9 @@ proptest! {
     // 2. ABS always non-negative
     #[test]
     fn abs_non_negative(x in finite_f64()) {
-        if let Value::Number(n) = run_vars("=ABS(x)", vec![("x", x)]) {
+        let result = run_vars("=ABS(x)", vec![("x", x)]);
+        prop_assert!(matches!(result, Value::Number(_)), "expected Number, got {:?}", result);
+        if let Value::Number(n) = result {
             prop_assert!(n >= 0.0);
         }
     }
@@ -41,6 +43,8 @@ proptest! {
     fn sqrt_of_square(x in 0.0f64..1e6f64) {
         let sqrt_sq = run_vars("=SQRT(x*x)", vec![("x", x)]);
         let abs_x = run_vars("=ABS(x)", vec![("x", x)]);
+        prop_assert!(matches!(sqrt_sq, Value::Number(_)), "expected Number for sqrt_sq, got {:?}", sqrt_sq);
+        prop_assert!(matches!(abs_x, Value::Number(_)), "expected Number for abs_x, got {:?}", abs_x);
         if let (Value::Number(a), Value::Number(b)) = (sqrt_sq, abs_x) {
             prop_assert!((a - b).abs() < 1e-6, "SQRT(x^2)={} ABS(x)={}", a, b);
         }
@@ -50,6 +54,7 @@ proptest! {
     #[test]
     fn ln_exp_identity(x in -10.0f64..10.0f64) {
         let result = run_vars("=LN(EXP(x))", vec![("x", x)]);
+        prop_assert!(matches!(result, Value::Number(_)), "expected Number, got {:?}", result);
         if let Value::Number(n) = result {
             prop_assert!((n - x).abs() < 1e-9, "LN(EXP({}))={}", x, n);
         }
@@ -60,6 +65,8 @@ proptest! {
     fn sin_cos_pythagorean(x in -1e4f64..1e4f64) {
         let sin_sq = run_vars("=SIN(x)*SIN(x)", vec![("x", x)]);
         let cos_sq = run_vars("=COS(x)*COS(x)", vec![("x", x)]);
+        prop_assert!(matches!(sin_sq, Value::Number(_)), "expected Number for sin_sq, got {:?}", sin_sq);
+        prop_assert!(matches!(cos_sq, Value::Number(_)), "expected Number for cos_sq, got {:?}", cos_sq);
         if let (Value::Number(s), Value::Number(c)) = (sin_sq, cos_sq) {
             prop_assert!((s + c - 1.0).abs() < 1e-9, "sin^2+cos^2={}", s + c);
         }
@@ -68,7 +75,9 @@ proptest! {
     // 6. ROUND(x, 0) result is an integer (fractional part < 1e-10)
     #[test]
     fn round_zero_decimals_is_integer(x in small_f64()) {
-        if let Value::Number(n) = run_vars("=ROUND(x, 0)", vec![("x", x)]) {
+        let result = run_vars("=ROUND(x, 0)", vec![("x", x)]);
+        prop_assert!(matches!(result, Value::Number(_)), "expected Number, got {:?}", result);
+        if let Value::Number(n) = result {
             prop_assert!((n - n.floor()).abs() < 1e-10, "ROUND(x,0)={} is not integer", n);
         }
     }
@@ -76,7 +85,9 @@ proptest! {
     // 7. INT(x) <= x for all finite x
     #[test]
     fn int_lte_x(x in finite_f64()) {
-        if let Value::Number(n) = run_vars("=INT(x)", vec![("x", x)]) {
+        let result = run_vars("=INT(x)", vec![("x", x)]);
+        prop_assert!(matches!(result, Value::Number(_)), "expected Number, got {:?}", result);
+        if let Value::Number(n) = result {
             prop_assert!(n <= x + 1e-10, "INT({})={} > x", x, n);
         }
     }
@@ -92,6 +103,7 @@ proptest! {
     #[test]
     fn abs_idempotent(x in finite_f64()) {
         let abs1 = run_vars("=ABS(x)", vec![("x", x)]);
+        prop_assert!(matches!(abs1, Value::Number(_)), "expected Number, got {:?}", abs1);
         if let Value::Number(a) = abs1 {
             let abs2 = run_vars("=ABS(x)", vec![("x", a)]);
             prop_assert_eq!(abs2, Value::Number(a));
