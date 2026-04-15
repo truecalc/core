@@ -30,6 +30,11 @@ jobs:
       - name: Audit
         run: cargo audit
 
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+      - name: Deny check
+        run: cargo deny check
+
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 

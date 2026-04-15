@@ -1,0 +1,10 @@
+{
+  "name": "@ganit/engine",
+  "publishConfig": {
+    "provenance": true,
+    "access": "public"
+  },
+  "scripts": {
+    "prepublishOnly": "echo 'Use CI to publish' && exit 1"
+  }
+}
