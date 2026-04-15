@@ -1,5 +1,5 @@
 {
-  "name": "@ganit/engine",
+  "name": "@tryganit/core",
   "publishConfig": {
     "provenance": true,
     "access": "public"

@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 description = "Spreadsheet formula engine — parser and evaluator for Excel-compatible formulas"
 repository.workspace = true
+readme = "README.md"
 
 [dependencies]
 nom = "8"

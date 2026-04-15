@@ -81,13 +81,13 @@ evaluate('CONCAT("Hello, ", name)', { name: 'world' })
 
 **Return value shape:**
 
-| `type`    | Shape                            |
-|-----------|----------------------------------|
-| `number`  | `{ type: 'number', value: 6 }`   |
-| `text`    | `{ type: 'text', value: 'yes' }` |
-| `boolean` | `{ type: 'boolean', value: true }`|
+| `type`    | Shape                                |
+|-----------|--------------------------------------|
+| `number`  | `{ type: 'number', value: 6 }`       |
+| `text`    | `{ type: 'text', value: 'yes' }`     |
+| `boolean` | `{ type: 'boolean', value: true }`   |
 | `error`   | `{ type: 'error', error: '#NAME?' }` |
-| `empty`   | `{ type: 'empty', value: null }` |
+| `empty`   | `{ type: 'empty', value: null }`     |
 
 ### `validate(formula)`
 
@@ -100,8 +100,24 @@ validate('SUM(A1,')      // => { valid: false, error: '...' }
 
 ### `list_functions()`
 
-Returns metadata for all built-in functions.
+Returns metadata for all built-in functions as an array of `{ name, category, syntax, description }`.
 
 ```js
 const fns = list_functions();
+// [
+//   { name: 'SUM',     category: 'math',     syntax: 'SUM(value1, ...)',   description: 'Sum of all arguments' },
+//   { name: 'AVERAGE', category: 'math',     syntax: 'AVERAGE(value1, ...)', description: 'Arithmetic mean of all arguments' },
+//   { name: 'IF',      category: 'logical',  syntax: 'IF(condition, value_if_true, value_if_false)', description: 'Conditional evaluation' },
+//   ...
+// ]
 ```
+
+**Available functions by category:**
+
+| Category   | Functions |
+|------------|-----------|
+| math       | SUM, AVERAGE, PRODUCT, ROUND, ROUNDUP, ROUNDDOWN, INT, ABS, SIGN, MOD, POWER, SQRT, LOG, LOG10, LN, EXP, CEILING, FLOOR, RAND, RANDBETWEEN, PI, SIN, COS, TAN, QUOTIENT |
+| logical    | IF, AND, OR, NOT, IFERROR, IFNA, IFS, SWITCH, ISNUMBER, ISTEXT, ISERROR, ISBLANK, ISNA |
+| text       | LEFT, MID, RIGHT, LEN, LOWER, UPPER, TRIM, CONCATENATE, FIND, SUBSTITUTE, REPLACE, TEXT, VALUE, REPT |
+| financial  | PMT, NPV, IRR, PV, FV, RATE, NPER |
+| statistical | COUNT, COUNTA, MAX, MIN, MEDIAN |
