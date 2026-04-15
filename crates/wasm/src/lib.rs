@@ -11,7 +11,10 @@ use ganit_core::Value;
 /// Convert a JSON value (from JS) into a ganit-core Value.
 fn json_to_value(v: &serde_json::Value) -> Value {
     match v {
-        serde_json::Value::Number(n) => Value::Number(n.as_f64().unwrap_or(0.0)),
+        serde_json::Value::Number(n) => n
+            .as_f64()
+            .map(Value::Number)
+            .unwrap_or(Value::Error(ganit_core::ErrorKind::Num)),
         serde_json::Value::String(s) => Value::Text(s.clone()),
         serde_json::Value::Bool(b) => Value::Bool(*b),
         serde_json::Value::Null => Value::Empty,
