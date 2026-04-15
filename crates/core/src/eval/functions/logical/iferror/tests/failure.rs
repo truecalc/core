@@ -1,20 +1,40 @@
 use super::super::{iferror_fn, ifna_fn};
+use crate::eval::{Context, EvalCtx, Registry};
+use crate::parser::ast::{Expr, Span};
 use crate::types::{ErrorKind, Value};
+
+fn span() -> Span { Span::new(0, 1) }
+
+fn run_iferror(args: Vec<Expr>) -> Value {
+    let reg = Registry::new();
+    let mut ctx = EvalCtx::new(Context::empty(), &reg);
+    iferror_fn(&args, &mut ctx)
+}
+
+fn run_ifna(args: Vec<Expr>) -> Value {
+    let reg = Registry::new();
+    let mut ctx = EvalCtx::new(Context::empty(), &reg);
+    ifna_fn(&args, &mut ctx)
+}
 
 #[test]
 fn iferror_too_few_args() {
-    assert_eq!(iferror_fn(&[Value::Number(1.0)]), Value::Error(ErrorKind::Value));
+    let args = vec![Expr::Number(1.0, span())];
+    assert_eq!(run_iferror(args), Value::Error(ErrorKind::Value));
 }
 
 #[test]
 fn iferror_too_many_args() {
-    assert_eq!(
-        iferror_fn(&[Value::Number(1.0), Value::Number(2.0), Value::Number(3.0)]),
-        Value::Error(ErrorKind::Value)
-    );
+    let args = vec![
+        Expr::Number(1.0, span()),
+        Expr::Number(2.0, span()),
+        Expr::Number(3.0, span()),
+    ];
+    assert_eq!(run_iferror(args), Value::Error(ErrorKind::Value));
 }
 
 #[test]
 fn ifna_too_few_args() {
-    assert_eq!(ifna_fn(&[Value::Number(1.0)]), Value::Error(ErrorKind::Value));
+    let args = vec![Expr::Number(1.0, span())];
+    assert_eq!(run_ifna(args), Value::Error(ErrorKind::Value));
 }

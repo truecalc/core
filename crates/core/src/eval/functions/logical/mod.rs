@@ -14,8 +14,8 @@ pub fn register_logical(registry: &mut Registry) {
     registry.register_lazy("AND", and::and_fn);
     registry.register_lazy("OR", or::or_fn);
     registry.register_eager("NOT", not::not_fn);
-    registry.register_eager("IFERROR", iferror::iferror_fn);
-    registry.register_eager("IFNA", iferror::ifna_fn);
+    registry.register_lazy("IFERROR", iferror::iferror_fn);
+    registry.register_lazy("IFNA", iferror::ifna_fn);
     registry.register_lazy("IFS", ifs::ifs_fn);
     registry.register_lazy("SWITCH", switch::switch_fn);
     registry.register_eager("ISNUMBER", is_checks::isnumber_fn);

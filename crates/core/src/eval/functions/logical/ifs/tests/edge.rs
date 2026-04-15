@@ -1,6 +1,6 @@
 use super::super::ifs_fn;
 use crate::eval::{Context, EvalCtx, Registry};
-use crate::parser::ast::{Expr, Span};
+use crate::parser::ast::{BinaryOp, Expr, Span};
 use crate::types::{ErrorKind, Value};
 
 fn span() -> Span { Span::new(0, 1) }
@@ -35,4 +35,21 @@ fn number_zero_condition_is_falsy() {
         Expr::Number(2.0, span()),
     ];
     assert_eq!(run(args), Value::Number(2.0));
+}
+
+#[test]
+fn matched_result_does_not_evaluate_later_branches() {
+    // IFS(TRUE, 42, FALSE, 1/0) → 42 (second result 1/0 is never evaluated)
+    let args = vec![
+        Expr::Bool(true, span()),
+        Expr::Number(42.0, span()),
+        Expr::Bool(false, span()),
+        Expr::BinaryOp {
+            op: BinaryOp::Div,
+            left: Box::new(Expr::Number(1.0, span())),
+            right: Box::new(Expr::Number(0.0, span())),
+            span: span(),
+        },
+    ];
+    assert_eq!(run(args), Value::Number(42.0));
 }
