@@ -4,6 +4,9 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish = false  # published to npm via wasm-pack, not crates.io
+description = "Spreadsheet formula engine for the browser — Excel-compatible formula evaluator compiled to WebAssembly"
+keywords = ["spreadsheet", "formula", "excel", "wasm", "evaluator"]
+repository.workspace = true
 
 [lib]
 crate-type = ["cdylib"]
