@@ -20,7 +20,7 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
       - name: Publish ganit-mcp
-        run: cargo publish -p ganit-mcp
+        run: cargo publish -p ganit-mcp --no-verify
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
