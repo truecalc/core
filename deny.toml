@@ -1,6 +1,11 @@
 [advisories]
 version = 2
-ignore = []
+ignore = [
+  # tsify-next is the maintained fork of tsify and adds Vec<T> return type support
+  # that tsify 0.4 lacks. The advisory recommendation to "use tsify instead" is incorrect
+  # for our use case.
+  "RUSTSEC-2025-0048",
+]
 
 [licenses]
 version = 2
