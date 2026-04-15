@@ -3,6 +3,7 @@ name = "ganit-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish = false  # published to npm via wasm-pack, not crates.io
 
 [lib]
 crate-type = ["cdylib"]
