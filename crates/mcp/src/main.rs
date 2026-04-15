@@ -12,15 +12,38 @@ fn main() {
     let mut out = stdout.lock();
 
     for line in stdin.lock().lines() {
-        let line = line.expect("stdin read error");
+        let line = match line {
+            Ok(l) => l,
+            Err(_) => break, // EOF or broken pipe — exit cleanly
+        };
         if line.is_empty() {
             continue;
         }
 
         let request: JsonValue = match serde_json::from_str(&line) {
             Ok(v) => v,
-            Err(_) => continue,
+            Err(_) => {
+                let err = json!({
+                    "jsonrpc": "2.0",
+                    "id": null,
+                    "error": { "code": -32700, "message": "Parse error" }
+                });
+                writeln!(out, "{}", serde_json::to_string(&err).unwrap()).unwrap();
+                out.flush().unwrap();
+                continue;
+            }
         };
+
+        if !request.is_object() {
+            let err = json!({
+                "jsonrpc": "2.0",
+                "id": null,
+                "error": { "code": -32700, "message": "Parse error" }
+            });
+            writeln!(out, "{}", serde_json::to_string(&err).unwrap()).unwrap();
+            out.flush().unwrap();
+            continue;
+        }
 
         // Notifications have no "id"; respond only to requests.
         if request.get("id").is_none() {
@@ -61,12 +84,17 @@ fn handle_request(req: &JsonValue) -> JsonValue {
             let name = params["name"].as_str().unwrap_or("");
             let args = &params["arguments"];
             let result = dispatch_tool(name, args);
+            let is_error = result.get("error").is_some();
+            let mut tool_result = json!({
+                "content": [{ "type": "text", "text": serde_json::to_string(&result).expect("result serialisation is infallible") }]
+            });
+            if is_error {
+                tool_result["isError"] = json!(true);
+            }
             json!({
                 "jsonrpc": "2.0",
                 "id": id,
-                "result": {
-                    "content": [{ "type": "text", "text": serde_json::to_string(&result).unwrap() }]
-                }
+                "result": tool_result
             })
         }
 
@@ -87,7 +115,7 @@ fn dispatch_tool(name: &str, args: &JsonValue) -> JsonValue {
         "explain" => tool_explain(args),
         "batch_evaluate" => tool_batch_evaluate(args),
         "list_functions" => tool_list_functions(),
-        _ => json!({ "error": "Unknown tool" }),
+        _ => json!({ "error": format!("Unknown tool: {}", name) }),
     }
 }
 
