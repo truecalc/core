@@ -15,10 +15,10 @@ fn min_single_number() {
 }
 
 #[test]
-fn min_ignores_text() {
-    // MIN(1, "text", 3) → 1
+fn min_bool_coerced() {
+    // TRUE=1, FALSE=0; min(1, 2, 0) = 0
     assert_eq!(
-        min_fn(&[Value::Number(1.0), Value::Text("text".to_string()), Value::Number(3.0)]),
-        Value::Number(1.0)
+        min_fn(&[Value::Bool(true), Value::Number(2.0), Value::Bool(false)]),
+        Value::Number(0.0)
     );
 }

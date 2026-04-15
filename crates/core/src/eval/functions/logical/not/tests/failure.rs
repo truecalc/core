@@ -13,5 +13,5 @@ fn empty_returns_value_error() {
 
 #[test]
 fn too_many_args_returns_value_error() {
-    assert_eq!(not_fn(&[Value::Bool(true), Value::Bool(false)]), Value::Error(ErrorKind::Value));
+    assert_eq!(not_fn(&[Value::Bool(true), Value::Bool(false)]), Value::Error(ErrorKind::NA));
 }

@@ -11,7 +11,7 @@ fn negative_times() {
 
 #[test]
 fn wrong_arity_no_args() {
-    assert_eq!(rept_fn(&[]), Value::Error(ErrorKind::Value));
+    assert_eq!(rept_fn(&[]), Value::Error(ErrorKind::NA));
 }
 
 #[test]

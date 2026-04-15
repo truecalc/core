@@ -3,7 +3,7 @@ use crate::types::{ErrorKind, Value};
 
 #[test]
 fn no_args_returns_value_error() {
-    assert_eq!(average_fn(&[]), Value::Error(ErrorKind::Value));
+    assert_eq!(average_fn(&[]), Value::Error(ErrorKind::NA));
 }
 
 #[test]

@@ -3,7 +3,7 @@ use crate::types::{ErrorKind, Value};
 
 #[test]
 fn min_ignores_error_values() {
-    // The dispatcher strips errors before calling min_fn; errors are simply ignored
+    // The eager dispatcher strips errors; min_fn itself skips them too
     assert_eq!(
         min_fn(&[Value::Number(3.0), Value::Error(ErrorKind::Value), Value::Number(5.0)]),
         Value::Number(3.0)
@@ -11,10 +11,15 @@ fn min_ignores_error_values() {
 }
 
 #[test]
-fn min_ignores_bool() {
-    // Bool values are ignored; only Number(2) counts
+fn min_text_returns_value_error() {
+    // Text in direct args → #VALUE!
     assert_eq!(
-        min_fn(&[Value::Bool(true), Value::Number(2.0), Value::Bool(false)]),
-        Value::Number(2.0)
+        min_fn(&[Value::Number(1.0), Value::Text("abc".to_string())]),
+        Value::Error(ErrorKind::Value)
     );
+}
+
+#[test]
+fn min_no_args_returns_na() {
+    assert_eq!(min_fn(&[]), Value::Error(ErrorKind::NA));
 }

@@ -2,13 +2,14 @@ use super::super::*;
 use crate::types::{ErrorKind, Value};
 
 #[test]
-fn round_wrong_arity() {
-    assert_eq!(round_fn(&[Value::Number(1.0)]), Value::Error(ErrorKind::Value));
+fn round_no_args_returns_na() {
+    // 0 args → #N/A; 1 arg is now valid (num_digits defaults to 0)
+    assert_eq!(round_fn(&[]), Value::Error(ErrorKind::NA));
 }
 
 #[test]
 fn roundup_wrong_arity() {
-    assert_eq!(roundup_fn(&[]), Value::Error(ErrorKind::Value));
+    assert_eq!(roundup_fn(&[]), Value::Error(ErrorKind::NA));
 }
 
 #[test]

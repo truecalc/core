@@ -11,7 +11,7 @@ fn negative_num_chars() {
 
 #[test]
 fn wrong_arity_zero_args() {
-    assert_eq!(right_fn(&[]), Value::Error(ErrorKind::Value));
+    assert_eq!(right_fn(&[]), Value::Error(ErrorKind::NA));
 }
 
 #[test]

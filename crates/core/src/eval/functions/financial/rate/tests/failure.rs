@@ -3,7 +3,7 @@ use crate::types::{ErrorKind, Value};
 
 #[test]
 fn too_few_args() {
-    assert_eq!(rate_fn(&[Value::Number(5.0), Value::Number(-100.0)]), Value::Error(ErrorKind::Value));
+    assert_eq!(rate_fn(&[Value::Number(5.0), Value::Number(-100.0)]), Value::Error(ErrorKind::NA));
 }
 
 #[test]
@@ -11,7 +11,7 @@ fn too_many_args() {
     let args = vec![Value::Number(0.1), Value::Number(0.1), Value::Number(0.1),
                     Value::Number(0.1), Value::Number(0.1), Value::Number(0.1),
                     Value::Number(0.1)];
-    assert_eq!(rate_fn(&args), Value::Error(ErrorKind::Value));
+    assert_eq!(rate_fn(&args), Value::Error(ErrorKind::NA));
 }
 
 #[test]

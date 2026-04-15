@@ -13,7 +13,7 @@ fn run(args: Vec<Expr>) -> Value {
 
 #[test]
 fn no_args_returns_value_error() {
-    assert_eq!(run(vec![]), Value::Error(ErrorKind::Value));
+    assert_eq!(run(vec![]), Value::Error(ErrorKind::NA));
 }
 
 #[test]

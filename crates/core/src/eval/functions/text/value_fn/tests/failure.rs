@@ -11,7 +11,7 @@ fn unparseable_text() {
 
 #[test]
 fn wrong_arity_no_args() {
-    assert_eq!(value_fn(&[]), Value::Error(ErrorKind::Value));
+    assert_eq!(value_fn(&[]), Value::Error(ErrorKind::NA));
 }
 
 #[test]

@@ -3,7 +3,7 @@ use crate::types::{ErrorKind, Value};
 
 #[test]
 fn wrong_arity_no_args() {
-    assert_eq!(concatenate_fn(&[]), Value::Error(ErrorKind::Value));
+    assert_eq!(concatenate_fn(&[]), Value::Error(ErrorKind::NA));
 }
 
 #[test]

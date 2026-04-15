@@ -7,11 +7,11 @@ fn log_of_one_is_zero() {
 }
 
 #[test]
-fn log_base_one_returns_num_error() {
-    // log base 1 is undefined
+fn log_base_one_returns_div_by_zero() {
+    // log base 1: ln(b)=0, division by zero → #DIV/0! (GS behavior)
     assert_eq!(
         log_fn(&[Value::Number(10.0), Value::Number(1.0)]),
-        Value::Error(ErrorKind::Num)
+        Value::Error(ErrorKind::DivByZero)
     );
 }
 

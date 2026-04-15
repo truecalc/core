@@ -3,12 +3,12 @@ use crate::types::{ErrorKind, Value};
 
 #[test]
 fn too_few_args_one() {
-    assert_eq!(npv_fn(&[Value::Number(0.1)]), Value::Error(ErrorKind::Value));
+    assert_eq!(npv_fn(&[Value::Number(0.1)]), Value::Error(ErrorKind::NA));
 }
 
 #[test]
 fn too_few_args_zero() {
-    assert_eq!(npv_fn(&[]), Value::Error(ErrorKind::Value));
+    assert_eq!(npv_fn(&[]), Value::Error(ErrorKind::NA));
 }
 
 #[test]

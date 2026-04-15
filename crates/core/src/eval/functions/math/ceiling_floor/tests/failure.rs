@@ -3,12 +3,12 @@ use crate::types::{ErrorKind, Value};
 
 #[test]
 fn ceiling_no_args_returns_value_error() {
-    assert_eq!(ceiling_fn(&[]), Value::Error(ErrorKind::Value));
+    assert_eq!(ceiling_fn(&[]), Value::Error(ErrorKind::NA));
 }
 
 #[test]
 fn floor_no_args_returns_value_error() {
-    assert_eq!(floor_fn(&[]), Value::Error(ErrorKind::Value));
+    assert_eq!(floor_fn(&[]), Value::Error(ErrorKind::NA));
 }
 
 #[test]

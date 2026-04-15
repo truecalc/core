@@ -164,7 +164,8 @@ pub fn cosh_fn(args: &[Value]) -> Value {
         Ok(v) => v,
     };
     let result = n.cosh();
-    if !result.is_finite() {
+    // GS/Excel max representable value ≈ 9.99e307; anything larger → #NUM!
+    if !result.is_finite() || result > 9.99e307 {
         return Value::Error(ErrorKind::Num);
     }
     Value::Number(result)
@@ -329,8 +330,8 @@ pub fn acot_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(v) => v,
     };
-    // ACOT(x) = PI/2 - atan(x); output range (0, PI) for all real x
-    Value::Number(std::f64::consts::FRAC_PI_2 - n.atan())
+    // ACOT(x) = atan(1/x); matches Google Sheets behavior
+    Value::Number((1.0 / n).atan())
 }
 
 pub fn acoth_fn(args: &[Value]) -> Value {

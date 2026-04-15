@@ -3,12 +3,12 @@ use crate::types::{ErrorKind, Value};
 
 #[test]
 fn rand_with_args_returns_value_error() {
-    assert_eq!(rand_fn(&[Value::Number(1.0)]), Value::Error(ErrorKind::Value));
+    assert_eq!(rand_fn(&[Value::Number(1.0)]), Value::Error(ErrorKind::NA));
 }
 
 #[test]
 fn randbetween_no_args_returns_value_error() {
-    assert_eq!(randbetween_fn(&[]), Value::Error(ErrorKind::Value));
+    assert_eq!(randbetween_fn(&[]), Value::Error(ErrorKind::NA));
 }
 
 #[test]

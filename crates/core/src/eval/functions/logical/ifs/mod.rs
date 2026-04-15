@@ -12,7 +12,7 @@ use crate::types::{ErrorKind, Value};
 pub fn ifs_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     let count = args.len();
     if count < 2 || !count.is_multiple_of(2) {
-        return Value::Error(ErrorKind::Value);
+        return Value::Error(ErrorKind::NA);
     }
     let mut i = 0;
     while i < count {

@@ -13,14 +13,14 @@ fn run(args: Vec<Expr>) -> Value {
 
 #[test]
 fn no_args_returns_value_error() {
-    assert_eq!(run(vec![]), Value::Error(ErrorKind::Value));
+    assert_eq!(run(vec![]), Value::Error(ErrorKind::NA));
 }
 
 #[test]
 fn too_few_args_returns_value_error() {
     // Only expr + one more arg — not enough for a case/value pair
     let args = vec![Expr::Number(1.0, span()), Expr::Number(1.0, span())];
-    assert_eq!(run(args), Value::Error(ErrorKind::Value));
+    assert_eq!(run(args), Value::Error(ErrorKind::NA));
 }
 
 #[test]

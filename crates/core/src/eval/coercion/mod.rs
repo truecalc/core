@@ -14,7 +14,10 @@ pub fn to_number(v: Value) -> Result<f64, Value> {
         Value::Number(n) => Ok(n),
         Value::Bool(b)   => Ok(if b { 1.0 } else { 0.0 }),
         Value::Empty     => Ok(0.0),
-        Value::Text(s)   => s.parse::<f64>().map_err(|_| Value::Error(ErrorKind::Value)),
+        Value::Text(s)   => {
+            if s.is_empty() { Ok(0.0) }
+            else { s.parse::<f64>().map_err(|_| Value::Error(ErrorKind::Value)) }
+        }
         Value::Error(_)  => Err(v),
         Value::Array(_)  => Err(Value::Error(ErrorKind::Value)),
     }
@@ -43,14 +46,21 @@ pub fn to_string_val(v: Value) -> Result<String, Value> {
 ///
 /// - `Bool` → its value
 /// - `Number` → `false` if zero, `true` otherwise
+/// - `Text("TRUE"/"FALSE")` → true/false (case-insensitive, Excel/GS compatible)
+/// - `Text` (other) → `Value::Error(ErrorKind::Value)`
 /// - `Error` → propagated as `Err`
-/// - `Text`, `Empty`, `Array` → `Value::Error(ErrorKind::Value)`
+/// - `Empty`, `Array` → `Value::Error(ErrorKind::Value)`
 pub fn to_bool(v: Value) -> Result<bool, Value> {
     match v {
-        Value::Bool(b)  => Ok(b),
+        Value::Bool(b)   => Ok(b),
         Value::Number(n) => Ok(n != 0.0),
-        Value::Error(_) => Err(v),
-        Value::Text(_) | Value::Empty | Value::Array(_) => Err(Value::Error(ErrorKind::Value)),
+        Value::Error(_)  => Err(v),
+        Value::Text(ref s) => match s.to_uppercase().as_str() {
+            "TRUE"  => Ok(true),
+            "FALSE" => Ok(false),
+            _       => Err(Value::Error(ErrorKind::Value)),
+        },
+        Value::Empty | Value::Array(_) => Err(Value::Error(ErrorKind::Value)),
     }
 }
 

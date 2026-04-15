@@ -11,7 +11,7 @@ fn denominator_zero_returns_div_by_zero() {
 
 #[test]
 fn no_args_returns_value_error() {
-    assert_eq!(quotient_fn(&[]), Value::Error(ErrorKind::Value));
+    assert_eq!(quotient_fn(&[]), Value::Error(ErrorKind::NA));
 }
 
 #[test]

@@ -21,6 +21,6 @@ fn case_sensitive_not_found() {
 fn wrong_arity() {
     assert_eq!(
         find_fn(&[Value::Text("x".to_string())]),
-        Value::Error(ErrorKind::Value)
+        Value::Error(ErrorKind::NA)
     );
 }

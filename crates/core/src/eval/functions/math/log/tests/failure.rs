@@ -26,5 +26,5 @@ fn log10_of_negative_returns_num_error() {
 
 #[test]
 fn no_args_returns_value_error() {
-    assert_eq!(log_fn(&[]), Value::Error(ErrorKind::Value));
+    assert_eq!(log_fn(&[]), Value::Error(ErrorKind::NA));
 }

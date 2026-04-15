@@ -13,8 +13,18 @@ fn error_propagates_through_to_number() {
 }
 
 #[test]
-fn text_to_bool_fails() {
-    assert_eq!(to_bool(Value::Text("true".into())), Err(Value::Error(ErrorKind::Value)));
+fn non_bool_text_to_bool_fails() {
+    assert_eq!(to_bool(Value::Text("abc".into())), Err(Value::Error(ErrorKind::Value)));
+}
+
+#[test]
+fn true_text_to_bool_succeeds() {
+    assert_eq!(to_bool(Value::Text("true".into())), Ok(true));
+}
+
+#[test]
+fn false_text_to_bool_succeeds() {
+    assert_eq!(to_bool(Value::Text("FALSE".into())), Ok(false));
 }
 
 #[test]

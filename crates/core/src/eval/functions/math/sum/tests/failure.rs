@@ -19,13 +19,13 @@ fn first_error_wins() {
 
 #[test]
 fn wrong_arity_zero_args() {
-    assert_eq!(sum_fn(&[]), Value::Error(ErrorKind::Value));
+    assert_eq!(sum_fn(&[]), Value::Error(ErrorKind::NA));
 }
 
 #[test]
 fn wrong_arity_256_args() {
     let args: Vec<Value> = vec![Value::Number(1.0); 256];
-    assert_eq!(sum_fn(&args), Value::Error(ErrorKind::Value));
+    assert_eq!(sum_fn(&args), Value::Error(ErrorKind::NA));
 }
 
 #[test]

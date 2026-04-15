@@ -3,12 +3,12 @@ use crate::types::{ErrorKind, Value};
 
 #[test]
 fn pi_with_args_returns_value_error() {
-    assert_eq!(pi_fn(&[Value::Number(1.0)]), Value::Error(ErrorKind::Value));
+    assert_eq!(pi_fn(&[Value::Number(1.0)]), Value::Error(ErrorKind::NA));
 }
 
 #[test]
 fn sin_no_args_returns_value_error() {
-    assert_eq!(sin_fn(&[]), Value::Error(ErrorKind::Value));
+    assert_eq!(sin_fn(&[]), Value::Error(ErrorKind::NA));
 }
 
 #[test]

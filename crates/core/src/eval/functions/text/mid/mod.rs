@@ -20,7 +20,11 @@ pub fn mid_fn(args: &[Value]) -> Value {
         Ok(n) => n,
         Err(e) => return e,
     };
-    if start < 1.0 || num_chars < 0.0 {
+    // GS: start < 1 → domain error #NUM!; num_chars < 0 → type error #VALUE!
+    if start < 1.0 {
+        return Value::Error(ErrorKind::Num);
+    }
+    if num_chars < 0.0 {
         return Value::Error(ErrorKind::Value);
     }
     let start = (start as usize) - 1;

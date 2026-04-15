@@ -31,6 +31,6 @@ fn negative_num_chars() {
 fn wrong_arity() {
     assert_eq!(
         replace_fn(&[Value::Text("Hello".to_string()), Value::Number(1.0)]),
-        Value::Error(ErrorKind::Value)
+        Value::Error(ErrorKind::NA)
     );
 }

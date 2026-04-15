@@ -3,7 +3,7 @@ use crate::types::{ErrorKind, Value};
 
 #[test]
 fn max_ignores_error_values() {
-    // The dispatcher strips errors before calling max_fn; errors are simply ignored
+    // The eager dispatcher strips errors; max_fn itself skips them too
     assert_eq!(
         max_fn(&[Value::Number(3.0), Value::Error(ErrorKind::Value), Value::Number(5.0)]),
         Value::Number(5.0)
@@ -11,10 +11,15 @@ fn max_ignores_error_values() {
 }
 
 #[test]
-fn max_ignores_bool() {
-    // Bool values are ignored; only Number(10) counts
+fn max_text_returns_value_error() {
+    // Text in direct args → #VALUE!
     assert_eq!(
-        max_fn(&[Value::Bool(true), Value::Number(10.0), Value::Bool(false)]),
-        Value::Number(10.0)
+        max_fn(&[Value::Number(1.0), Value::Text("abc".to_string())]),
+        Value::Error(ErrorKind::Value)
     );
+}
+
+#[test]
+fn max_no_args_returns_na() {
+    assert_eq!(max_fn(&[]), Value::Error(ErrorKind::NA));
 }

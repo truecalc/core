@@ -1,16 +1,16 @@
 use super::super::*;
-use crate::types::Value;
+use crate::types::{ErrorKind, Value};
 
 #[test]
-fn min_no_args_returns_zero() {
-    assert_eq!(min_fn(&[]), Value::Number(0.0));
+fn min_no_args_returns_na() {
+    assert_eq!(min_fn(&[]), Value::Error(ErrorKind::NA));
 }
 
 #[test]
-fn min_all_non_numeric_returns_zero() {
+fn min_text_in_args_returns_value_error() {
     assert_eq!(
         min_fn(&[Value::Text("a".to_string()), Value::Bool(true), Value::Empty]),
-        Value::Number(0.0)
+        Value::Error(ErrorKind::Value)
     );
 }
 

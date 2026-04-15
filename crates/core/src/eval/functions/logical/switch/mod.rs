@@ -13,7 +13,7 @@ use crate::types::{ErrorKind, Value};
 pub fn switch_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     // Need at least: expr + 1 case + 1 value = 3 args
     if args.len() < 3 {
-        return Value::Error(ErrorKind::Value);
+        return Value::Error(ErrorKind::NA);
     }
     let expr_val = evaluate_expr(&args[0], ctx);
     let rest = &args[1..];

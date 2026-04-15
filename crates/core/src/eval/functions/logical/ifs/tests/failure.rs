@@ -13,7 +13,7 @@ fn run(args: Vec<Expr>) -> Value {
 
 #[test]
 fn no_args_returns_value_error() {
-    assert_eq!(run(vec![]), Value::Error(ErrorKind::Value));
+    assert_eq!(run(vec![]), Value::Error(ErrorKind::NA));
 }
 
 #[test]
@@ -23,7 +23,7 @@ fn odd_arg_count_returns_value_error() {
         Expr::Number(1.0, span()),
         Expr::Bool(false, span()),
     ];
-    assert_eq!(run(args), Value::Error(ErrorKind::Value));
+    assert_eq!(run(args), Value::Error(ErrorKind::NA));
 }
 
 #[test]

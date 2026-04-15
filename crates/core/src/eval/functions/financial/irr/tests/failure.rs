@@ -3,7 +3,7 @@ use crate::types::{ErrorKind, Value};
 
 #[test]
 fn too_few_args() {
-    assert_eq!(irr_fn(&[Value::Number(-100.0)]), Value::Error(ErrorKind::Value));
+    assert_eq!(irr_fn(&[Value::Number(-100.0)]), Value::Error(ErrorKind::NA));
 }
 
 #[test]

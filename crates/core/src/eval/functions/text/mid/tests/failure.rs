@@ -5,7 +5,7 @@ use crate::types::{ErrorKind, Value};
 fn start_less_than_one() {
     assert_eq!(
         mid_fn(&[Value::Text("Hello".to_string()), Value::Number(0.0), Value::Number(3.0)]),
-        Value::Error(ErrorKind::Value)
+        Value::Error(ErrorKind::Num)
     );
 }
 
@@ -21,6 +21,6 @@ fn negative_num_chars() {
 fn wrong_arity() {
     assert_eq!(
         mid_fn(&[Value::Text("Hello".to_string()), Value::Number(1.0)]),
-        Value::Error(ErrorKind::Value)
+        Value::Error(ErrorKind::NA)
     );
 }

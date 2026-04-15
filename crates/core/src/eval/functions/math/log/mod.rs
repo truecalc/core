@@ -19,8 +19,12 @@ pub fn log_fn(args: &[Value]) -> Value {
             Err(e) => return e,
             Ok(v) => v,
         };
-        if base <= 0.0 || base == 1.0 {
+        if base <= 0.0 {
             return Value::Error(ErrorKind::Num);
+        }
+        if base == 1.0 {
+            // log base 1 = ln(x)/ln(1) = ln(x)/0 → #DIV/0!
+            return Value::Error(ErrorKind::DivByZero);
         }
         n.log(base)
     } else {

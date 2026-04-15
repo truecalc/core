@@ -5,7 +5,7 @@ use crate::types::{ErrorKind, Value};
 fn wrong_arity_too_few() {
     assert_eq!(
         substitute_fn(&[Value::Text("a".to_string()), Value::Text("b".to_string())]),
-        Value::Error(ErrorKind::Value)
+        Value::Error(ErrorKind::NA)
     );
 }
 

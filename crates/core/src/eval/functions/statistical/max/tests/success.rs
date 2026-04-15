@@ -15,10 +15,10 @@ fn max_single_number() {
 }
 
 #[test]
-fn max_ignores_text() {
-    // MAX(1, "text", 3) → 3
+fn max_bool_coerced() {
+    // TRUE=1, FALSE=0; max(1, 10, 0) = 10
     assert_eq!(
-        max_fn(&[Value::Number(1.0), Value::Text("text".to_string()), Value::Number(3.0)]),
-        Value::Number(3.0)
+        max_fn(&[Value::Bool(true), Value::Number(10.0), Value::Bool(false)]),
+        Value::Number(10.0)
     );
 }

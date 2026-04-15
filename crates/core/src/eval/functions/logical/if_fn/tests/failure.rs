@@ -46,7 +46,7 @@ fn error_condition_propagates() {
 fn zero_args_returns_value_error() {
     let reg = Registry::new();
     let mut ctx = make_eval_ctx(&reg);
-    assert_eq!(if_fn(&[], &mut ctx), Value::Error(ErrorKind::Value));
+    assert_eq!(if_fn(&[], &mut ctx), Value::Error(ErrorKind::NA));
 }
 
 #[test]
@@ -54,7 +54,7 @@ fn one_arg_returns_value_error() {
     let reg = Registry::new();
     let mut ctx = make_eval_ctx(&reg);
     let args = vec![Expr::Bool(true, dummy_span())];
-    assert_eq!(if_fn(&args, &mut ctx), Value::Error(ErrorKind::Value));
+    assert_eq!(if_fn(&args, &mut ctx), Value::Error(ErrorKind::NA));
 }
 
 #[test]
@@ -67,5 +67,5 @@ fn four_args_returns_value_error() {
         Expr::Number(2.0, dummy_span()),
         Expr::Number(3.0, dummy_span()),
     ];
-    assert_eq!(if_fn(&args, &mut ctx), Value::Error(ErrorKind::Value));
+    assert_eq!(if_fn(&args, &mut ctx), Value::Error(ErrorKind::NA));
 }

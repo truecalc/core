@@ -19,6 +19,10 @@ pub fn mod_fn(args: &[Value]) -> Value {
     if d == 0.0 {
         return Value::Error(ErrorKind::DivByZero);
     }
+    // GS/Excel: MOD on very large numbers loses precision → #NUM!
+    if n.abs() >= 1e15 {
+        return Value::Error(ErrorKind::Num);
+    }
     let result = n - d * (n / d).floor();
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);

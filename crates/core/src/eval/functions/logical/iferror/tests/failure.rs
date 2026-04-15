@@ -18,9 +18,8 @@ fn run_ifna(args: Vec<Expr>) -> Value {
 }
 
 #[test]
-fn iferror_too_few_args() {
-    let args = vec![Expr::Number(1.0, span())];
-    assert_eq!(run_iferror(args), Value::Error(ErrorKind::Value));
+fn iferror_zero_args_returns_na() {
+    assert_eq!(run_iferror(vec![]), Value::Error(ErrorKind::NA));
 }
 
 #[test]
@@ -30,11 +29,10 @@ fn iferror_too_many_args() {
         Expr::Number(2.0, span()),
         Expr::Number(3.0, span()),
     ];
-    assert_eq!(run_iferror(args), Value::Error(ErrorKind::Value));
+    assert_eq!(run_iferror(args), Value::Error(ErrorKind::NA));
 }
 
 #[test]
-fn ifna_too_few_args() {
-    let args = vec![Expr::Number(1.0, span())];
-    assert_eq!(run_ifna(args), Value::Error(ErrorKind::Value));
+fn ifna_zero_args_returns_na() {
+    assert_eq!(run_ifna(vec![]), Value::Error(ErrorKind::NA));
 }

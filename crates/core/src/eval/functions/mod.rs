@@ -79,20 +79,21 @@ impl Default for Registry {
 }
 
 /// Validate argument count for eager functions (args already evaluated to `&[Value]`).
-/// Returns `Some(Value::Error(ErrorKind::Value))` if the count is out of range.
+/// Returns `Some(Value::Error(ErrorKind::NA))` if the count is out of range
+/// (matches Google Sheets / Excel behaviour for wrong argument count).
 pub fn check_arity(args: &[Value], min: usize, max: usize) -> Option<Value> {
     if args.len() < min || args.len() > max {
-        Some(Value::Error(ErrorKind::Value))
+        Some(Value::Error(ErrorKind::NA))
     } else {
         None
     }
 }
 
 /// Validate argument count for lazy functions (args are `&[Expr]`).
-/// Returns `Some(Value::Error(ErrorKind::Value))` if the count is out of range.
+/// Returns `Some(Value::Error(ErrorKind::NA))` if the count is out of range.
 pub fn check_arity_len(count: usize, min: usize, max: usize) -> Option<Value> {
     if count < min || count > max {
-        Some(Value::Error(ErrorKind::Value))
+        Some(Value::Error(ErrorKind::NA))
     } else {
         None
     }

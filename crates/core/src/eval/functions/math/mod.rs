@@ -4,6 +4,7 @@ pub mod abs;
 pub mod average;
 pub mod ceiling_floor;
 pub mod exp;
+pub mod fact;
 pub mod int_fn;
 pub mod log;
 pub mod mod_fn;
@@ -63,4 +64,9 @@ pub fn register_math(registry: &mut Registry) {
     registry.register_eager("ACOT", trig::acot_fn);
     registry.register_eager("ACOTH", trig::acoth_fn);
     registry.register_eager("QUOTIENT", quotient::quotient_fn);
+    registry.register_eager("EVEN",    round::even_fn);
+    registry.register_eager("ODD",     round::odd_fn);
+    registry.register_eager("FACT",    fact::fact_fn);
+    registry.register_eager("MROUND",  round::mround_fn);
+    registry.register_eager("TRUNC",   round::trunc_fn);
 }
