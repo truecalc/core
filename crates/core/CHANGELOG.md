@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.2.0...ganit-core-v0.2.1) - 2026-04-15
+
+### Other
+
+- Merge pull request #266 from tryganit/fix/registry-driven-list-functions
+- replace static function tables with live registry reference
+
 ## [0.2.0](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.1.6...ganit-core-v0.2.0) - 2026-04-15
 
 ### Fixed
