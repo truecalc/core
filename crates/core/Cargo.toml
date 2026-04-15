@@ -6,3 +6,6 @@ license.workspace = true
 
 [dependencies]
 nom = "8"
+
+[dev-dependencies]
+proptest = "1"
