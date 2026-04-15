@@ -3,6 +3,8 @@ name = "ganit-mcp"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "MCP server exposing ganit formula evaluation as a tool for AI assistants"
+repository.workspace = true
 
 [[bin]]
 name = "ganit-mcp"

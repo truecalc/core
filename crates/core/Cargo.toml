@@ -3,6 +3,8 @@ name = "ganit-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Spreadsheet formula engine — parser and evaluator for Excel-compatible formulas"
+repository.workspace = true
 
 [dependencies]
 nom = "8"
