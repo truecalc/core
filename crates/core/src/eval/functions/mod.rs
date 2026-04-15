@@ -1,3 +1,4 @@
+pub mod financial;
 pub mod logical;
 pub mod math;
 pub mod text;
@@ -50,6 +51,7 @@ impl Registry {
         math::register_math(&mut r);
         logical::register_logical(&mut r);
         text::register_text(&mut r);
+        financial::register_financial(&mut r);
         r
     }
 
