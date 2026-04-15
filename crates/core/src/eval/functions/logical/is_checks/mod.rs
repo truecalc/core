@@ -80,7 +80,7 @@ pub fn isna_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
 
 /// `ISERR(value)` — TRUE if value is any Error **except** `#N/A`.
 pub fn iserr_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
-    if let Some(_) = check_arity_len(args.len(), 1, 1) {
+    if check_arity_len(args.len(), 1, 1).is_some() {
         return Value::Error(ErrorKind::NA);
     }
     let val = evaluate_expr(&args[0], ctx);
@@ -93,7 +93,7 @@ pub fn iserr_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
 
 /// `ISLOGICAL(value)` — TRUE if value is a boolean (TRUE or FALSE).
 pub fn islogical_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
-    if let Some(_) = check_arity_len(args.len(), 1, 1) {
+    if check_arity_len(args.len(), 1, 1).is_some() {
         return Value::Error(ErrorKind::NA);
     }
     let val = evaluate_expr(&args[0], ctx);
@@ -102,7 +102,7 @@ pub fn islogical_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
 
 /// `ISNONTEXT(value)` — TRUE if value is NOT text (including errors and empty).
 pub fn isnontext_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
-    if let Some(_) = check_arity_len(args.len(), 1, 1) {
+    if check_arity_len(args.len(), 1, 1).is_some() {
         return Value::Error(ErrorKind::NA);
     }
     let val = evaluate_expr(&args[0], ctx);
