@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.1.3...ganit-core-v0.1.4) - 2026-04-15
+
+### Added
+
+- *(eval)* implement wave-1 M1 functions (#49–#53, #56–#58)
+
+### Fixed
+
+- *(clippy)* use is_some() instead of if let Some(_) pattern
+- *(conformance)* pass all 6 M1 oracle conformance test suites
+
 ## [0.1.3](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.1.1...ganit-core-v0.1.3) - 2026-04-15
 
 ### Other
