@@ -1,8 +1,6 @@
 name: Release
 
 on:
-  push:
-    tags: ["ganit-core-v*"]
   workflow_dispatch:
     inputs:
       tag:
@@ -94,5 +92,5 @@ jobs:
       - name: Attach binaries to GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+          TAG: ${{ github.event.inputs.tag }}
         run: gh release upload "$TAG" artifacts/**/* --clobber
