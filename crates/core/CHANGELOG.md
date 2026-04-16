@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.9](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.8...ganit-core-v0.3.9) - 2026-04-16
+
+### Added
+
+- implement BITAND, BITOR, BITXOR, BITLSHIFT, BITRSHIFT, DELTA, GESTEP
+
 ## [0.3.8](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.6...ganit-core-v0.3.8) - 2026-04-16
 
 ### Added
