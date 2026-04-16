@@ -10,6 +10,7 @@ use crate::types::{ErrorKind, Value};
 /// - Month 13 of 2024 → January 2025
 /// - Month 0 of 2024 → December 2023
 /// - Day 0 of March → last day of February
+///
 /// All inputs are truncated to integer before use.
 pub fn date_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 3, 3) {
@@ -30,7 +31,7 @@ pub fn date_fn(args: &[Value]) -> Value {
     let month_norm = (month_adj.rem_euclid(12) + 1) as u32; // back to 1-indexed
     year_i += year_delta;
 
-    if year_i < 0 || year_i > 9999 {
+    if !(0..=9999).contains(&year_i) {
         return Value::Error(ErrorKind::Num);
     }
 

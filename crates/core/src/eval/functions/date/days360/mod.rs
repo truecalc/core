@@ -47,15 +47,11 @@ pub fn days360_fn(args: &[Value]) -> Value {
         let start_is_feb_end = m1 == 2 && is_last_day_of_month(start_date);
         let end_is_feb_end   = m2 == 2 && is_last_day_of_month(end_date);
 
-        if start_is_feb_end {
-            d1 = 30;
-        } else if d1 == 31 {
+        if start_is_feb_end || d1 == 31 {
             d1 = 30;
         }
 
-        if start_is_feb_end && end_is_feb_end {
-            d2 = 30;
-        } else if d2 == 31 && d1 == 30 {
+        if (start_is_feb_end && end_is_feb_end) || (d2 == 31 && d1 == 30) {
             d2 = 30;
         }
     }
