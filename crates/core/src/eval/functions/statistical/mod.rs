@@ -2,10 +2,19 @@ use super::super::{FunctionMeta, Registry};
 
 pub mod count;
 pub mod countblank;
+pub mod geomean;
+pub mod harmean;
+pub mod kurt;
 pub mod max;
 pub mod median;
 pub mod min;
+pub mod mode;
+pub mod mode_mult;
+pub mod mode_sngl;
+pub mod skew;
+pub mod skew_p;
 pub mod stat_helpers;
+pub mod trimmean;
 
 pub mod avedev;
 pub mod covariance_p;
@@ -28,9 +37,18 @@ pub fn register_statistical(registry: &mut Registry) {
     registry.register_lazy("COUNT",  count::count_lazy_fn,  FunctionMeta { category: "statistical", signature: "COUNT(value1,...)",  description: "Count numeric values" });
     registry.register_lazy("COUNTA", count::counta_lazy_fn, FunctionMeta { category: "statistical", signature: "COUNTA(value1,...)", description: "Count non-empty values" });
     registry.register_eager("COUNTBLANK", countblank::countblank_fn, FunctionMeta { category: "statistical", signature: "COUNTBLANK(range)", description: "Count blank/empty cells" });
+    registry.register_eager("GEOMEAN",  geomean::geomean_fn,  FunctionMeta { category: "statistical", signature: "GEOMEAN(value1,...)", description: "Geometric mean" });
+    registry.register_eager("HARMEAN",  harmean::harmean_fn,  FunctionMeta { category: "statistical", signature: "HARMEAN(value1,...)", description: "Harmonic mean" });
+    registry.register_eager("KURT",     kurt::kurt_fn,        FunctionMeta { category: "statistical", signature: "KURT(value1,...)",    description: "Excess kurtosis" });
     registry.register_eager("MAX",   max::max_fn,           FunctionMeta { category: "statistical", signature: "MAX(value1,...)",    description: "Maximum value" });
-    registry.register_eager("MIN",   min::min_fn,           FunctionMeta { category: "statistical", signature: "MIN(value1,...)",    description: "Minimum value" });
     registry.register_eager("MEDIAN",median::median_fn,     FunctionMeta { category: "statistical", signature: "MEDIAN(value1,...)", description: "Median value" });
+    registry.register_eager("MIN",   min::min_fn,           FunctionMeta { category: "statistical", signature: "MIN(value1,...)",    description: "Minimum value" });
+    registry.register_eager("MODE",      mode::mode_fn,           FunctionMeta { category: "statistical", signature: "MODE(value1,...)",      description: "Most frequent value" });
+    registry.register_eager("MODE.MULT", mode_mult::mode_mult_fn, FunctionMeta { category: "statistical", signature: "MODE.MULT(value1,...)", description: "All most frequent values" });
+    registry.register_eager("MODE.SNGL", mode_sngl::mode_sngl_fn, FunctionMeta { category: "statistical", signature: "MODE.SNGL(value1,...)", description: "Most frequent value" });
+    registry.register_eager("SKEW",   skew::skew_fn,        FunctionMeta { category: "statistical", signature: "SKEW(value1,...)",   description: "Sample skewness" });
+    registry.register_eager("SKEW.P", skew_p::skew_p_fn,   FunctionMeta { category: "statistical", signature: "SKEW.P(value1,...)", description: "Population skewness" });
+    registry.register_eager("TRIMMEAN", trimmean::trimmean_fn, FunctionMeta { category: "statistical", signature: "TRIMMEAN(data,percent)", description: "Trimmed mean" });
 
     registry.register_eager("AVEDEV",      avedev::avedev_fn,           FunctionMeta { category: "statistical", signature: "AVEDEV(value1,...)",       description: "Average of absolute deviations from the mean" });
     registry.register_eager("DEVSQ",       devsq::devsq_fn,             FunctionMeta { category: "statistical", signature: "DEVSQ(value1,...)",        description: "Sum of squared deviations from the mean" });
