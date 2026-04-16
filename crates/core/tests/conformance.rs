@@ -21,9 +21,10 @@ use std::path::{Path, PathBuf};
 // helpers
 // ---------------------------------------------------------------------------
 
-fn fixture(name: &str) -> PathBuf {
+fn fixture(milestone: &str, name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/m1")
+        .join("tests/fixtures")
+        .join(milestone)
         .join(name)
 }
 
@@ -188,17 +189,54 @@ fn run_fixture(path: &Path) {
 // ---------------------------------------------------------------------------
 
 macro_rules! conformance_test {
-    ($fn_name:ident, $file:literal) => {
+    ($fn_name:ident, $milestone:literal, $file:literal) => {
         #[test]
         fn $fn_name() {
-            run_fixture(&fixture($file));
+            run_fixture(&fixture($milestone, $file));
+        }
+    };
+    // Pending variant: fixture exists and defines the target, but the functions
+    // are not yet implemented.  Run with `cargo test -- --include-ignored` to
+    // see the full failure list and use it to drive implementation.
+    (pending, $fn_name:ident, $milestone:literal, $file:literal) => {
+        #[test]
+        #[ignore = "pending implementation — run with --include-ignored to see failures"]
+        fn $fn_name() {
+            run_fixture(&fixture($milestone, $file));
         }
     };
 }
 
-conformance_test!(m1_math_conformance,        "Math.xlsx");
-conformance_test!(m1_logical_conformance,     "Logical.xlsx");
-conformance_test!(m1_info_conformance,        "Info.xlsx");
-conformance_test!(m1_statistical_conformance, "Statistical.xlsx");
-conformance_test!(m1_operator_conformance,    "Operator.xlsx");
-conformance_test!(m1_text_conformance,        "Text.xlsx");
+conformance_test!(m1_math_conformance,        "m1", "Math.xlsx");
+conformance_test!(m1_logical_conformance,     "m1", "Logical.xlsx");
+conformance_test!(m1_info_conformance,        "m1", "Info.xlsx");
+conformance_test!(m1_statistical_conformance, "m1", "Statistical.xlsx");
+conformance_test!(m1_operator_conformance,    "m1", "Operator.xlsx");
+conformance_test!(m1_text_conformance,        "m1", "Text.xlsx");
+
+conformance_test!(pending, m2_date_conformance,        "m2", "Date.xlsx");
+conformance_test!(pending, m2_engineering_conformance, "m2", "Engineering.xlsx");
+conformance_test!(pending, m2_info_conformance,        "m2", "Info.xlsx");
+conformance_test!(pending, m2_logical_conformance,     "m2", "Logical.xlsx");
+conformance_test!(pending, m2_lookup_conformance,      "m2", "Lookup.xlsx");
+conformance_test!(pending, m2_math_conformance,        "m2", "Math.xlsx");
+conformance_test!(pending, m2_parser_conformance,      "m2", "Parser.xlsx");
+conformance_test!(pending, m2_statistical_conformance, "m2", "Statistical.xlsx");
+conformance_test!(pending, m2_text_conformance,        "m2", "Text.xlsx");
+
+conformance_test!(pending, m3_database_conformance,    "m3", "Database.xlsx");
+conformance_test!(pending, m3_engineering_conformance, "m3", "Engineering.xlsx");
+conformance_test!(pending, m3_financial_conformance,   "m3", "Financial.xlsx");
+conformance_test!(pending, m3_info_conformance,        "m3", "Info.xlsx");
+conformance_test!(pending, m3_lookup_conformance,      "m3", "Lookup.xlsx");
+conformance_test!(pending, m3_math_conformance,        "m3", "Math.xlsx");
+conformance_test!(pending, m3_statistical_conformance, "m3", "Statistical.xlsx");
+
+conformance_test!(pending, m4_array_conformance,       "m4", "Array.xlsx");
+conformance_test!(pending, m4_filter_conformance,      "m4", "Filter.xlsx");
+conformance_test!(pending, m4_info_conformance,        "m4", "Info.xlsx");
+conformance_test!(pending, m4_logical_conformance,     "m4", "Logical.xlsx");
+conformance_test!(pending, m4_lookup_conformance,      "m4", "Lookup.xlsx");
+conformance_test!(pending, m4_math_conformance,        "m4", "Math.xlsx");
+conformance_test!(pending, m4_operator_conformance,    "m4", "Operator.xlsx");
+conformance_test!(pending, m4_web_conformance,         "m4", "Web.xlsx");
