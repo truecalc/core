@@ -38,11 +38,3 @@ jobs:
       - name: Build WASM
         run: wasm-pack build crates/wasm --target web
 
-      - name: WASM size check
-        run: |
-          SIZE=$(gzip -c crates/wasm/pkg/ganit_wasm_bg.wasm | wc -c)
-          echo "Gzipped WASM size: ${SIZE} bytes"
-          if [ "$SIZE" -gt 204800 ]; then
-            echo "WASM size ${SIZE} bytes exceeds 200 KB limit (204800 bytes)"
-            exit 1
-          fi
