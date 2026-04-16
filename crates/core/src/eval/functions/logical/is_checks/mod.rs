@@ -33,12 +33,17 @@ pub fn isna_fn(args: &[Value]) -> Value {
 // ── Lazy versions (registered — can inspect error arguments) ─────────────────
 
 /// `ISNUMBER(value)` — TRUE if value is a Number.
+/// When given an array, checks the first element (implicit intersection).
 pub fn isnumber_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     if check_arity_len(args.len(), 1, 1).is_some() {
         return Value::Error(ErrorKind::NA);
     }
     let val = evaluate_expr(&args[0], ctx);
-    Value::Bool(matches!(val, Value::Number(_) | Value::Date(_)))
+    let scalar = match val {
+        Value::Array(ref elems) => elems.first().cloned().unwrap_or(Value::Empty),
+        other => other,
+    };
+    Value::Bool(matches!(scalar, Value::Number(_) | Value::Date(_)))
 }
 
 /// `ISTEXT(value)` — TRUE if value is a Text string.

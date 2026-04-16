@@ -4,7 +4,7 @@ use crate::types::{ErrorKind, Value};
 /// Formula: (1/n) * Σ((x-mean)/σ)^3
 /// where σ is the population standard deviation (sqrt(Σ(x-mean)²/n)).
 /// Flattens `Value::Array` args. Ignores Text, Bool, Empty.
-/// Requires n ≥ 1. Returns `#DIV/0!` if n < 1 or σ = 0.
+/// Requires n ≥ 3. Returns `#N/A` if n=0, `#DIV/0!` if n < 3 or σ = 0.
 pub fn skew_p_fn(args: &[Value]) -> Value {
     let mut nums: Vec<f64> = Vec::new();
     for arg in args {
@@ -21,7 +21,10 @@ pub fn skew_p_fn(args: &[Value]) -> Value {
         }
     }
     let n = nums.len();
-    if n < 1 {
+    if n == 0 {
+        return Value::Error(ErrorKind::NA);
+    }
+    if n < 3 {
         return Value::Error(ErrorKind::DivByZero);
     }
     let mean = nums.iter().sum::<f64>() / n as f64;

@@ -21,6 +21,9 @@ pub fn skew_fn(args: &[Value]) -> Value {
         }
     }
     let n = nums.len();
+    if n == 0 {
+        return Value::Error(ErrorKind::NA);
+    }
     if n < 3 {
         return Value::Error(ErrorKind::DivByZero);
     }

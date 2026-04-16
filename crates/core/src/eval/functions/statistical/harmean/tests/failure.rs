@@ -18,6 +18,6 @@ fn harmean_zero_value_returns_num() {
 }
 
 #[test]
-fn harmean_no_values_returns_num() {
-    assert_eq!(harmean_fn(&[]), Value::Error(ErrorKind::Num));
+fn harmean_no_values_returns_na() {
+    assert_eq!(harmean_fn(&[]), Value::Error(ErrorKind::NA));
 }

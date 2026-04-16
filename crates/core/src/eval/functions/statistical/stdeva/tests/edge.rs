@@ -24,14 +24,10 @@ fn stdeva_false_counts_as_zero() {
 }
 
 #[test]
-fn stdeva_text_counts_as_zero() {
-    // Text=0.0; [0.0, 4.0]: sample var=8, stdev=sqrt(8)
+fn stdeva_text_returns_value_error() {
+    // Literal text as direct arg → #VALUE! (Google Sheets oracle)
     let result = stdeva_fn(&[Value::Text("hello".to_string()), Value::Number(4.0)]);
-    if let Value::Number(v) = result {
-        assert!((v - 8.0_f64.sqrt()).abs() < 1e-10);
-    } else {
-        panic!("Expected Number, got {:?}", result);
-    }
+    assert_eq!(result, Value::Error(crate::types::ErrorKind::Value));
 }
 
 #[test]

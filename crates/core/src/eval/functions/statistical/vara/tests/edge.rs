@@ -16,10 +16,10 @@ fn vara_false_counts_as_zero() {
 }
 
 #[test]
-fn vara_text_counts_as_zero() {
-    // Text=0.0 is included; [0.0, 4.0]: mean=2, var=8
+fn vara_text_returns_value_error() {
+    // Literal text as direct arg → #VALUE! (Google Sheets oracle)
     let result = vara_fn(&[Value::Text("hello".to_string()), Value::Number(4.0)]);
-    assert_eq!(result, Value::Number(8.0));
+    assert_eq!(result, Value::Error(crate::types::ErrorKind::Value));
 }
 
 #[test]

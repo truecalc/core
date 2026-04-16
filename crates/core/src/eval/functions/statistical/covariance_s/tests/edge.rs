@@ -16,10 +16,10 @@ fn covariance_s_all_same_both_returns_zero() {
 }
 
 #[test]
-fn covariance_s_plain_number_args_single_each_div_zero() {
-    // Two plain numbers → n=1 → DivByZero
+fn covariance_s_plain_number_args_single_each_returns_num() {
+    // Two plain numbers → n=1 → Num (Google Sheets oracle)
     assert_eq!(
         covariance_s_fn(&[Value::Number(5.0), Value::Number(10.0)]),
-        Value::Error(crate::types::ErrorKind::DivByZero)
+        Value::Error(crate::types::ErrorKind::Num)
     );
 }

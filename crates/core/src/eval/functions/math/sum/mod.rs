@@ -13,8 +13,7 @@ pub fn sum_fn(args: &[Value]) -> Value {
     }
     let mut sum = 0.0_f64;
     for arg in args {
-        // .clone() required because to_number takes ownership; coercion API is fixed.
-        match to_number(arg.clone()) {
+        match sum_value(arg) {
             Err(e) => return e,
             Ok(n) => sum += n,
         }
@@ -23,6 +22,21 @@ pub fn sum_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::Num);
     }
     Value::Number(sum)
+}
+
+/// Recursively sum a value, flattening arrays.
+fn sum_value(v: &Value) -> Result<f64, Value> {
+    match v {
+        Value::Array(elems) => {
+            let mut total = 0.0_f64;
+            for elem in elems {
+                total += sum_value(elem)?;
+            }
+            Ok(total)
+        }
+        // .clone() required because to_number takes ownership; coercion API is fixed.
+        other => to_number(other.clone()),
+    }
 }
 
 #[cfg(test)]

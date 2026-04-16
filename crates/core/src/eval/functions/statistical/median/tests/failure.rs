@@ -2,9 +2,9 @@ use super::super::*;
 use crate::types::{ErrorKind, Value};
 
 #[test]
-fn median_no_numeric_returns_num_error() {
-    // MEDIAN() → #NUM!
-    assert_eq!(median_fn(&[]), Value::Error(ErrorKind::Num));
+fn median_no_args_returns_na() {
+    // MEDIAN() → #N/A (Google Sheets oracle)
+    assert_eq!(median_fn(&[]), Value::Error(ErrorKind::NA));
 }
 
 #[test]

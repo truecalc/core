@@ -14,10 +14,10 @@ fn stdevpa_false_counts_as_zero() {
 }
 
 #[test]
-fn stdevpa_text_counts_as_zero() {
-    // Text=0.0; [0.0, 4.0]: pop var=4, stdev=2.0
+fn stdevpa_text_returns_value_error() {
+    // Literal text as direct arg → #VALUE! (Google Sheets oracle)
     let result = stdevpa_fn(&[Value::Text("hello".to_string()), Value::Number(4.0)]);
-    assert_eq!(result, Value::Number(2.0));
+    assert_eq!(result, Value::Error(crate::types::ErrorKind::Value));
 }
 
 #[test]

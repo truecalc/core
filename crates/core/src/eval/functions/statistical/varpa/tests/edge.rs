@@ -14,10 +14,10 @@ fn varpa_false_counts_as_zero() {
 }
 
 #[test]
-fn varpa_text_counts_as_zero() {
-    // Text=0.0 included; [0.0, 4.0]: mean=2, pop var=((0-2)²+(4-2)²)/2=4
+fn varpa_text_returns_value_error() {
+    // Literal text as direct arg → #VALUE! (Google Sheets oracle)
     let result = varpa_fn(&[Value::Text("hello".to_string()), Value::Number(4.0)]);
-    assert_eq!(result, Value::Number(4.0));
+    assert_eq!(result, Value::Error(crate::types::ErrorKind::Value));
 }
 
 #[test]

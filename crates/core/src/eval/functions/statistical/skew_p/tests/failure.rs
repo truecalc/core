@@ -2,8 +2,8 @@ use super::super::*;
 use crate::types::{ErrorKind, Value};
 
 #[test]
-fn skew_p_no_values_returns_div0() {
-    assert_eq!(skew_p_fn(&[]), Value::Error(ErrorKind::DivByZero));
+fn skew_p_no_values_returns_na() {
+    assert_eq!(skew_p_fn(&[]), Value::Error(ErrorKind::NA));
 }
 
 #[test]

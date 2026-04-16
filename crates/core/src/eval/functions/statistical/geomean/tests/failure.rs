@@ -18,6 +18,6 @@ fn geomean_zero_value_returns_num() {
 }
 
 #[test]
-fn geomean_no_values_returns_num() {
-    assert_eq!(geomean_fn(&[]), Value::Error(ErrorKind::Num));
+fn geomean_no_values_returns_na() {
+    assert_eq!(geomean_fn(&[]), Value::Error(ErrorKind::NA));
 }

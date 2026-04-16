@@ -15,7 +15,7 @@ pub fn covariance_s_fn(args: &[Value]) -> Value {
     }
     let n = xs.len();
     if n < 2 {
-        return Value::Error(ErrorKind::DivByZero);
+        return Value::Error(ErrorKind::Num);
     }
     let mean_x = xs.iter().sum::<f64>() / n as f64;
     let mean_y = ys.iter().sum::<f64>() / n as f64;

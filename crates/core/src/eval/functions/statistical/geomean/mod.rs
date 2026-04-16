@@ -18,6 +18,9 @@ pub fn geomean_fn(args: &[Value]) -> Value {
             _ => {}
         }
     }
+    if args.is_empty() {
+        return Value::Error(ErrorKind::NA);
+    }
     if nums.is_empty() {
         return Value::Error(ErrorKind::Num);
     }

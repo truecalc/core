@@ -28,16 +28,16 @@ fn covariance_s_unequal_lengths_returns_na() {
 }
 
 #[test]
-fn covariance_s_single_point_returns_div_zero() {
-    // n < 2 → DivByZero
+fn covariance_s_single_point_returns_num() {
+    // n < 2 → Num (Google Sheets oracle)
     let arr1 = Value::Array(vec![Value::Number(5.0)]);
     let arr2 = Value::Array(vec![Value::Number(10.0)]);
-    assert_eq!(covariance_s_fn(&[arr1, arr2]), Value::Error(ErrorKind::DivByZero));
+    assert_eq!(covariance_s_fn(&[arr1, arr2]), Value::Error(ErrorKind::Num));
 }
 
 #[test]
-fn covariance_s_empty_arrays_returns_div_zero() {
+fn covariance_s_empty_arrays_returns_num() {
     let arr1 = Value::Array(vec![]);
     let arr2 = Value::Array(vec![]);
-    assert_eq!(covariance_s_fn(&[arr1, arr2]), Value::Error(ErrorKind::DivByZero));
+    assert_eq!(covariance_s_fn(&[arr1, arr2]), Value::Error(ErrorKind::Num));
 }
