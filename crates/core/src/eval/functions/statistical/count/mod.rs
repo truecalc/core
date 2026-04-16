@@ -20,6 +20,23 @@ pub fn counta_fn(args: &[Value]) -> Value {
 
 // ── Lazy versions (registered) ────────────────────────────────────────────────
 
+fn count_in_value(v: &Value) -> usize {
+    match v {
+        Value::Number(_) | Value::Bool(_) => 1,
+        Value::Text(s) if s.parse::<f64>().is_ok() => 1,
+        Value::Array(items) => items.iter().map(count_in_value).sum(),
+        _ => 0,
+    }
+}
+
+fn counta_in_value(v: &Value) -> usize {
+    match v {
+        Value::Empty => 0,
+        Value::Array(items) => items.iter().map(counta_in_value).sum(),
+        _ => 1,
+    }
+}
+
 /// Lazy COUNT: counts Numbers, Booleans, and numeric Text; ignores errors/empty.
 /// Returns #N/A when called with no arguments.
 pub fn count_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
@@ -28,12 +45,7 @@ pub fn count_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     }
     let mut n = 0usize;
     for arg in args {
-        match evaluate_expr(arg, ctx) {
-            Value::Number(_) => n += 1,
-            Value::Bool(_)   => n += 1,
-            Value::Text(s) if s.parse::<f64>().is_ok() => n += 1,
-            _ => {}
-        }
+        n += count_in_value(&evaluate_expr(arg, ctx));
     }
     Value::Number(n as f64)
 }
@@ -46,9 +58,7 @@ pub fn counta_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     }
     let mut n = 0usize;
     for arg in args {
-        if !matches!(evaluate_expr(arg, ctx), Value::Empty) {
-            n += 1;
-        }
+        n += counta_in_value(&evaluate_expr(arg, ctx));
     }
     Value::Number(n as f64)
 }
