@@ -60,6 +60,11 @@ pub fn evaluate_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
             Value::Array(values)
         }
 
+        // ── Immediately-invoked apply: LAMBDA(x, body)(arg) ────────────────
+        Expr::Apply { func, call_args, .. } => {
+            eval_apply(func, call_args, ctx)
+        }
+
         // ── Function calls ──────────────────────────────────────────────────
         Expr::FunctionCall { name, args, .. } => {
             match ctx.registry.get(name) {
@@ -86,6 +91,59 @@ pub fn evaluate_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
             }
         }
     }
+}
+
+// ── LAMBDA application ───────────────────────────────────────────────────────
+
+fn eval_apply(func: &Expr, call_args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
+    // Only LAMBDA is supported as the func expression.
+    let (param_names, body) = match func {
+        Expr::FunctionCall { name, args: lambda_args, .. } if name == "LAMBDA" => {
+            if lambda_args.is_empty() {
+                return Value::Error(ErrorKind::NA);
+            }
+            let param_count = lambda_args.len() - 1;
+            let mut params: Vec<String> = Vec::with_capacity(param_count);
+            for param_expr in &lambda_args[..param_count] {
+                match param_expr {
+                    Expr::Variable(n, _) => params.push(n.to_uppercase()),
+                    _ => return Value::Error(ErrorKind::Value),
+                }
+            }
+            let body = &lambda_args[lambda_args.len() - 1];
+            (params, body)
+        }
+        _ => return Value::Error(ErrorKind::Value),
+    };
+
+    if call_args.len() != param_names.len() {
+        return Value::Error(ErrorKind::NA);
+    }
+
+    // Evaluate arguments before binding (avoids param name shadowing during eval).
+    let mut evaluated_args: Vec<Value> = Vec::with_capacity(call_args.len());
+    for arg in call_args {
+        evaluated_args.push(evaluate_expr(arg, ctx));
+    }
+
+    // Save existing values for any param names we are about to shadow.
+    let mut saved: Vec<(String, Option<Value>)> = Vec::with_capacity(param_names.len());
+    for (name, val) in param_names.iter().zip(evaluated_args.into_iter()) {
+        let old = ctx.ctx.set(name.clone(), val);
+        saved.push((name.clone(), old));
+    }
+
+    let result = evaluate_expr(body, ctx);
+
+    // Restore context.
+    for (name, old) in saved {
+        match old {
+            Some(v) => { ctx.ctx.set(name, v); }
+            None    => { ctx.ctx.remove(&name); }
+        }
+    }
+
+    result
 }
 
 // ── Type ordering for cross-type comparisons (Excel semantics) ───────────────

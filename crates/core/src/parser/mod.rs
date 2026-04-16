@@ -75,12 +75,30 @@ impl<'a> Parser<'a> {
                 // Function call
                 let (rest2, args) = self.parse_arg_list(args_input)?;
                 let rest2 = multispace0(rest2)?.0;
-                if let Some(after) = rest2.strip_prefix(')') {
-                    return Ok((after, Expr::FunctionCall {
+                if let Some(after_close) = rest2.strip_prefix(')') {
+                    let func_expr = Expr::FunctionCall {
                         name: name.to_uppercase(),
                         args,
-                        span: self.span(i, after),
-                    }));
+                        span: self.span(i, after_close),
+                    };
+                    // Detect immediately-invoked call: FUNC(lambda_args)(call_args)
+                    let after_ws = multispace0(after_close)?.0;
+                    if let Some(call_input) = after_ws.strip_prefix('(') {
+                        let (rest3, call_args) = self.parse_arg_list(call_input)?;
+                        let rest3 = multispace0(rest3)?.0;
+                        if let Some(after_apply) = rest3.strip_prefix(')') {
+                            return Ok((after_apply, Expr::Apply {
+                                func: Box::new(func_expr),
+                                call_args,
+                                span: self.span(i, after_apply),
+                            }));
+                        }
+                        return Err(nom::Err::Error(nom::error::Error::new(
+                            rest3,
+                            nom::error::ErrorKind::Char,
+                        )));
+                    }
+                    return Ok((after_close, func_expr));
                 }
                 return Err(nom::Err::Error(nom::error::Error::new(
                     rest2,
