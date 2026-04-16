@@ -1,5 +1,5 @@
-use super::*;
-use crate::types::{ErrorKind, Value};
+use super::super::*;
+use crate::types::Value;
 
 fn run(s: &str) -> Value {
     clean_fn(&[Value::Text(s.to_string())])
@@ -23,7 +23,6 @@ fn removes_control_chars() {
 
 #[test]
 fn removes_all_control_range() {
-    // Build a string with chars 1..31 prepended
     let controls: String = (1u8..32).map(|b| b as char).collect();
     let input = format!("{}ABC", controls);
     assert_eq!(run(&input), Value::Text("ABC".into()));
@@ -31,11 +30,5 @@ fn removes_all_control_range() {
 
 #[test]
 fn space_preserved() {
-    // space (32) should NOT be removed
     assert_eq!(run("hello world"), Value::Text("hello world".into()));
-}
-
-#[test]
-fn no_args_returns_na() {
-    assert_eq!(clean_fn(&[]), Value::Error(ErrorKind::NA));
 }

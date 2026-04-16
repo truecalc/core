@@ -1,5 +1,5 @@
-use super::*;
-use crate::types::{ErrorKind, Value};
+use super::super::*;
+use crate::types::Value;
 
 fn run1(n: f64) -> Value {
     dollar_fn(&[Value::Number(n)])
@@ -47,11 +47,6 @@ fn million() {
 #[test]
 fn negative_decimals() {
     assert_eq!(run2(1234.567, -1.0), Value::Text("$1,230".into()));
-}
-
-#[test]
-fn no_args_returns_na() {
-    assert_eq!(dollar_fn(&[]), Value::Error(ErrorKind::NA));
 }
 
 #[test]

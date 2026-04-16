@@ -1,5 +1,5 @@
-use super::*;
-use crate::types::{ErrorKind, Value};
+use super::super::*;
+use crate::types::Value;
 
 fn run1(n: f64) -> Value {
     fixed_fn(&[Value::Number(n)])
@@ -36,9 +36,4 @@ fn no_commas_flag() {
 #[test]
 fn negative_number() {
     assert_eq!(run1(-1234.567), Value::Text("-1,234.57".into()));
-}
-
-#[test]
-fn no_args_returns_na() {
-    assert_eq!(fixed_fn(&[]), Value::Error(ErrorKind::NA));
 }

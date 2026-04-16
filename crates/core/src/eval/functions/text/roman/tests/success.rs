@@ -1,5 +1,5 @@
-use super::*;
-use crate::types::{ErrorKind, Value};
+use super::super::*;
+use crate::types::Value;
 
 fn run(n: f64) -> Value {
     roman_fn(&[Value::Number(n)])
@@ -33,19 +33,4 @@ fn max_value() {
 #[test]
 fn four_hundred() {
     assert_eq!(run(400.0), Value::Text("CD".into()));
-}
-
-#[test]
-fn zero_returns_value_error() {
-    assert_eq!(run(0.0), Value::Error(ErrorKind::Value));
-}
-
-#[test]
-fn negative_returns_value_error() {
-    assert_eq!(run(-1.0), Value::Error(ErrorKind::Value));
-}
-
-#[test]
-fn no_args_returns_na() {
-    assert_eq!(roman_fn(&[]), Value::Error(ErrorKind::NA));
 }
