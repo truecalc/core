@@ -26,9 +26,12 @@ fn one_arg_returns_na() {
 
 #[test]
 fn too_many_args_returns_na() {
+    // SPLIT accepts up to 4 args; 5 is too many
     let r = split_fn(&[
         Value::Text("a,b".into()),
         Value::Text(",".into()),
+        Value::Bool(true),
+        Value::Bool(true),
         Value::Text("extra".into()),
     ]);
     assert_eq!(r, Value::Error(ErrorKind::NA));

@@ -39,6 +39,7 @@ pub fn count_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
 }
 
 /// Lazy COUNTA: counts everything that is not Empty (including errors).
+/// Arrays are flattened: each non-empty element is counted individually.
 /// Returns #N/A when called with no arguments.
 pub fn counta_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     if args.is_empty() {
@@ -46,8 +47,18 @@ pub fn counta_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     }
     let mut n = 0usize;
     for arg in args {
-        if !matches!(evaluate_expr(arg, ctx), Value::Empty) {
-            n += 1;
+        match evaluate_expr(arg, ctx) {
+            Value::Array(elems) => {
+                for elem in &elems {
+                    match elem {
+                        Value::Empty => {}
+                        Value::Text(s) if s.is_empty() => {}
+                        _ => n += 1,
+                    }
+                }
+            }
+            Value::Empty => {}
+            _ => n += 1,
         }
     }
     Value::Number(n as f64)

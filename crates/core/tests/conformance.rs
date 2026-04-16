@@ -227,7 +227,7 @@ conformance_test!(pending, m2_lookup_conformance,      "m2", "Lookup.xlsx");
 conformance_test!(pending, m2_math_conformance,        "m2", "Math.xlsx");
 conformance_test!(m2_parser_conformance,               "m2", "Parser.xlsx");
 conformance_test!(m2_statistical_conformance,          "m2", "Statistical.xlsx");
-conformance_test!(pending, m2_text_conformance,        "m2", "Text.xlsx");
+conformance_test!(m2_text_conformance,                 "m2", "Text.xlsx");
 
 conformance_test!(pending, m3_database_conformance,    "m3", "Database.xlsx");
 conformance_test!(pending, m3_engineering_conformance, "m3", "Engineering.xlsx");
