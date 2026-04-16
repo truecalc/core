@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.5](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.4...ganit-core-v0.3.5) - 2026-04-16
+
+### Added
+
+- implement LEFTB, RIGHTB, LENB, MIDB, FINDB, REPLACEB, SEARCHB
+- implement REGEXMATCH, REGEXEXTRACT, REGEXREPLACE (#89 group C)
+- implement ASC, JOIN, SPLIT, TEXTJOIN text functions
+- implement LEFTB, RIGHTB, LENB, MIDB, FINDB, REPLACEB, SEARCHB
+- implement ARABIC, ROMAN, CLEAN, FIXED, DOLLAR text functions
+
+### Fixed
+
+- replace regex with regex-lite to reduce WASM binary size
+- remove stray module declarations from other PRs in text/mod.rs
+
+### Other
+
+- replace flat tests.rs with tests/ subdirectory structure for arabic, clean, dollar, fixed, roman
+
 ## [0.3.4](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.2...ganit-core-v0.3.4) - 2026-04-16
 
 ### Added
