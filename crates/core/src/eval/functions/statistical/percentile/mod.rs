@@ -21,3 +21,6 @@ pub fn percentile_fn(args: &[Value]) -> Value {
     nums.sort_by(|a, b| a.partial_cmp(b).unwrap());
     Value::Number(percentile_inc_calc(&nums, k))
 }
+
+#[cfg(test)]
+mod tests;

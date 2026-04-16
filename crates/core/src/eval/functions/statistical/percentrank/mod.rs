@@ -39,3 +39,6 @@ pub fn percentrank_fn(args: &[Value]) -> Value {
     let result = percentrank_inc_calc(&nums, x);
     Value::Number(round_to_sig(result, sig))
 }
+
+#[cfg(test)]
+mod tests;

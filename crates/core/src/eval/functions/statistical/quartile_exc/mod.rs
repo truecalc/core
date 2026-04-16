@@ -29,3 +29,6 @@ pub fn quartile_exc_fn(args: &[Value]) -> Value {
         None => Value::Error(ErrorKind::Num),
     }
 }
+
+#[cfg(test)]
+mod tests;

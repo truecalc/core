@@ -68,3 +68,6 @@ pub fn round_to_sig(v: f64, sig: usize) -> f64 {
     let factor = 10f64.powi(sig as i32);
     (v * factor).round() / factor
 }
+
+#[cfg(test)]
+mod tests;

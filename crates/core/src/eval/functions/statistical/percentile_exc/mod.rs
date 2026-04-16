@@ -44,3 +44,6 @@ pub fn percentile_exc_calc(sorted: &[f64], k: f64) -> Option<f64> {
     };
     Some(result)
 }
+
+#[cfg(test)]
+mod tests;

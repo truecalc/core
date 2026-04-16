@@ -25,3 +25,6 @@ pub fn quartile_fn(args: &[Value]) -> Value {
     let k = quart as f64 / 4.0;
     Value::Number(percentile_inc_calc(&nums, k))
 }
+
+#[cfg(test)]
+mod tests;

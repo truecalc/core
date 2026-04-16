@@ -38,3 +38,6 @@ fn collect_numbers(v: &Value) -> Vec<f64> {
         _ => vec![],
     }
 }
+
+#[cfg(test)]
+mod tests;

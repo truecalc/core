@@ -38,6 +38,9 @@ pub fn percentrank_exc_fn(args: &[Value]) -> Value {
     Value::Number(round_to_sig(result, sig))
 }
 
+#[cfg(test)]
+mod tests;
+
 pub fn percentrank_exc_calc(sorted: &[f64], x: f64, n: usize) -> f64 {
     // EXC formula: rank / (n+1) where values get 1-based rank
     let count_below = sorted.iter().filter(|&&v| v < x).count();
