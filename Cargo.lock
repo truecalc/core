@@ -226,17 +226,18 @@ checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
 
 [[package]]
 name = "ganit-core"
-version = "0.3.4"
+version = "0.3.5"
 dependencies = [
  "calamine",
  "chrono",
  "nom",
  "proptest",
+ "regex-lite",
 ]
 
 [[package]]
 name = "ganit-mcp"
-version = "0.3.4"
+version = "0.3.5"
 dependencies = [
  "ganit-core",
  "serde",
@@ -245,7 +246,7 @@ dependencies = [
 
 [[package]]
 name = "ganit-wasm"
-version = "0.3.4"
+version = "0.3.5"
 dependencies = [
  "ganit-core",
  "serde",
@@ -557,6 +558,12 @@ checksum = "513962919efc330f829edb2535844d1b912b0fbe2ca165d613e4e8788bb05a5a"
 dependencies = [
  "rand_core",
 ]
+
+[[package]]
+name = "regex-lite"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cab834c73d247e67f4fae452806d17d3c7501756d98c8808d7c9c7aa7d18f973"
 
 [[package]]
 name = "regex-syntax"
