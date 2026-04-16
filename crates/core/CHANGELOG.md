@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.2...ganit-core-v0.3.3) - 2026-04-16
+
+### Added
+
+- implement 14 order statistics functions (M2 #82)
+- implement shape/distribution statistical functions (M2 #82)
+- implement variance, stddev, covariance, and deviation statistical functions
+
+### Fixed
+
+- restore shape-stats module files deleted during rebase conflict resolution
+
+### Other
+
+- enable m2 statistical conformance test (all 46 functions implemented)
+- Merge pull request #298 from tryganit/feat/82-order-stats
+- add unit tests for order statistics functions; remove shape-stats duplicates
+- add edge tests and failure tests for shape-stats functions
+- add unit tests for variance/stddev statistical functions
+
 ## [0.3.2](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.0...ganit-core-v0.3.2) - 2026-04-16
 
 ### Added
