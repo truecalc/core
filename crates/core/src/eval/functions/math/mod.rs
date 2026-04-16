@@ -9,8 +9,6 @@ pub mod ceiling_floor_math;
 pub mod combin;
 pub mod combina;
 pub mod countif;
-pub mod countifs;
-pub mod countunique;
 pub mod criterion;
 pub mod decimal;
 pub mod exp;
@@ -33,7 +31,6 @@ pub mod sqrt;
 pub mod sqrtpi;
 pub mod sum;
 pub mod sumif;
-pub mod sumifs;
 pub mod sumsq;
 pub mod trig;
 
@@ -95,16 +92,14 @@ pub fn register_math(registry: &mut Registry) {
     registry.register_eager("DECIMAL",    decimal::decimal_fn,          FunctionMeta { category: "math",        signature: "DECIMAL(text, base)",                   description: "Convert string in given base to decimal" });
     registry.register_eager("MROUND",     round::mround_fn,             FunctionMeta { category: "math",        signature: "MROUND(number, multiple)",               description: "Round to nearest multiple" });
     registry.register_eager("TRUNC",      round::trunc_fn,              FunctionMeta { category: "math",        signature: "TRUNC(number, digits)",                 description: "Truncate to integer or decimal places" });
-    registry.register_eager("COUNTIF",    countif::countif_fn,          FunctionMeta { category: "math",        signature: "COUNTIF(range, criterion)",                             description: "Count cells matching criterion" });
-    registry.register_eager("COUNTIFS",   countifs::countifs_fn,        FunctionMeta { category: "math",        signature: "COUNTIFS(range1, criterion1, ...)",                     description: "Count rows where all criteria match" });
-    registry.register_eager("COUNTUNIQUE",countunique::countunique_fn,  FunctionMeta { category: "math",        signature: "COUNTUNIQUE(value1, ...)",                              description: "Count unique distinct values" });
-    registry.register_eager("SUMIF",      sumif::sumif_fn,              FunctionMeta { category: "math",        signature: "SUMIF(range, criterion, [sum_range])",                  description: "Sum cells where range matches criterion" });
-    registry.register_eager("SUMIFS",     sumifs::sumifs_fn,            FunctionMeta { category: "math",        signature: "SUMIFS(sum_range, range1, criterion1, ...)",            description: "Sum cells where all criteria match" });
-    registry.register_eager("AVERAGEIF",  averageif::averageif_fn,      FunctionMeta { category: "statistical", signature: "AVERAGEIF(range, criterion, [avg_range])",              description: "Average cells where range matches criterion" });
+    registry.register_eager("COUNTIF",    countif::countif_fn,          FunctionMeta { category: "math",        signature: "COUNTIF(range, criterion)",              description: "Count cells matching criterion" });
+    registry.register_eager("SUMIF",      sumif::sumif_fn,              FunctionMeta { category: "math",        signature: "SUMIF(range, criterion, [sum_range])",   description: "Sum cells where range matches criterion" });
+    registry.register_eager("AVERAGEIF",  averageif::averageif_fn,      FunctionMeta { category: "statistical", signature: "AVERAGEIF(range, criterion, [avg_range])", description: "Average cells where range matches criterion" });
     registry.register_eager("SQRTPI",     sqrtpi::sqrtpi_fn,            FunctionMeta { category: "math",        signature: "SQRTPI(n)",                                 description: "Square root of n times pi" });
     registry.register_eager("SUMSQ",      sumsq::sumsq_fn,              FunctionMeta { category: "math",        signature: "SUMSQ(value1,...)",                          description: "Sum of squares of arguments" });
     registry.register_eager("FACTDOUBLE", factdouble::factdouble_fn,    FunctionMeta { category: "math",        signature: "FACTDOUBLE(n)",                              description: "Double factorial of a number" });
     registry.register_eager("SERIESSUM",  seriessum::seriessum_fn,      FunctionMeta { category: "math",        signature: "SERIESSUM(x, n, m, coefficients)",           description: "Sum of a power series" });
+
     registry.register_eager("COMBIN",      combin::combin_fn,            FunctionMeta { category: "math",        signature: "COMBIN(n, k)",                               description: "Number of combinations without repetition" });
     registry.register_eager("COMBINA",     combina::combina_fn,          FunctionMeta { category: "math",        signature: "COMBINA(n, k)",                              description: "Number of combinations with repetition" });
     registry.register_eager("MULTINOMIAL", multinomial::multinomial_fn,  FunctionMeta { category: "math",        signature: "MULTINOMIAL(value1,...)",                    description: "Multinomial coefficient of given arguments" });
