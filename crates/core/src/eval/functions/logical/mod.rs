@@ -11,6 +11,7 @@ pub mod is_checks;
 pub mod constants;
 pub mod xor;
 pub mod info;
+pub mod cell_fn;
 
 pub fn register_logical(registry: &mut Registry) {
     registry.register_lazy("IF",        if_fn::if_fn,               FunctionMeta { category: "logical", signature: "IF(condition, true_val, false_val)",    description: "Conditional value" });
@@ -38,4 +39,5 @@ pub fn register_logical(registry: &mut Registry) {
     registry.register_lazy("TYPE",      info::type_fn,              FunctionMeta { category: "logical", signature: "TYPE(value)",                          description: "Number indicating value type" });
     registry.register_lazy("ISREF",     is_checks::isref_fn,        FunctionMeta { category: "logical", signature: "ISREF(value)",                         description: "True if value is a cell reference" });
     registry.register_lazy("ISFORMULA", is_checks::isformula_fn,    FunctionMeta { category: "logical", signature: "ISFORMULA(ref)",                       description: "True if cell contains a formula" });
+    registry.register_lazy("CELL",      cell_fn::cell_fn,           FunctionMeta { category: "logical", signature: "CELL(info_type, reference)",             description: "Returns information about a cell" });
 }
