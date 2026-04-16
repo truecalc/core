@@ -36,4 +36,6 @@ pub fn register_logical(registry: &mut Registry) {
     registry.register_lazy("ERROR.TYPE",info::error_type_fn,        FunctionMeta { category: "logical", signature: "ERROR.TYPE(value)",                    description: "Number corresponding to the error type" });
     registry.register_lazy("N",         info::n_fn,                 FunctionMeta { category: "logical", signature: "N(value)",                             description: "Convert value to number" });
     registry.register_lazy("TYPE",      info::type_fn,              FunctionMeta { category: "logical", signature: "TYPE(value)",                          description: "Number indicating value type" });
+    registry.register_lazy("ISREF",     is_checks::isref_fn,        FunctionMeta { category: "logical", signature: "ISREF(value)",                         description: "True if value is a cell reference" });
+    registry.register_lazy("ISFORMULA", is_checks::isformula_fn,    FunctionMeta { category: "logical", signature: "ISFORMULA(ref)",                       description: "True if cell contains a formula" });
 }

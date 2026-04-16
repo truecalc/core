@@ -109,5 +109,28 @@ pub fn isnontext_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     Value::Bool(!matches!(val, Value::Text(_)))
 }
 
+/// `ISREF(value)` — TRUE if the argument is a cell reference (Variable node).
+/// Errors in the argument are NOT propagated; they return FALSE.
+/// Only 0 args → `#N/A`.
+pub fn isref_fn(args: &[Expr], _ctx: &mut EvalCtx<'_>) -> Value {
+    if check_arity_len(args.len(), 1, 1).is_some() {
+        return Value::Error(ErrorKind::NA);
+    }
+    Value::Bool(matches!(args[0], Expr::Variable(_, _)))
+}
+
+/// `ISFORMULA(value)` — TRUE if the argument is a cell ref containing a formula.
+/// Requires exactly 1 arg that is a cell reference; otherwise → `#N/A`.
+/// We have no formula context, so a valid cell ref returns FALSE.
+pub fn isformula_fn(args: &[Expr], _ctx: &mut EvalCtx<'_>) -> Value {
+    if check_arity_len(args.len(), 1, 1).is_some() {
+        return Value::Error(ErrorKind::NA);
+    }
+    if !matches!(args[0], Expr::Variable(_, _)) {
+        return Value::Error(ErrorKind::NA);
+    }
+    Value::Bool(false)
+}
+
 #[cfg(test)]
 mod tests;

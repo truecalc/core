@@ -60,6 +60,15 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## 5. Worktree-Based Development
+
+**Always develop on branches. Never commit directly to `main`.**
+
+- Each issue gets its own branch: `feat/<issue-number>-<short-description>`
+- Branches ship as PRs against `main`; they are never merged locally
+- When dispatching parallel agents, always pass `isolation: "worktree"` so each agent commits to its own branch — never to `main`
+- Tests must pass on the branch before the PR is opened
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
