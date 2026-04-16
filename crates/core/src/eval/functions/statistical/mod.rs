@@ -1,13 +1,19 @@
 use super::super::{FunctionMeta, Registry};
 
+pub mod averagea;
+pub mod averageifs;
 pub mod count;
 pub mod countblank;
 pub mod geomean;
 pub mod harmean;
 pub mod kurt;
 pub mod max;
+pub mod maxa;
+pub mod maxifs;
 pub mod median;
 pub mod min;
+pub mod mina;
+pub mod minifs;
 pub mod mode;
 pub mod mode_mult;
 pub mod mode_sngl;
@@ -34,6 +40,8 @@ pub mod varp;
 pub mod varpa;
 
 pub fn register_statistical(registry: &mut Registry) {
+    registry.register_eager("AVERAGEA",  averagea::averagea_fn,   FunctionMeta { category: "statistical", signature: "AVERAGEA(value1,...)",                          description: "Average including booleans and text" });
+    registry.register_eager("AVERAGEIFS",averageifs::averageifs_fn,FunctionMeta { category: "statistical", signature: "AVERAGEIFS(avg_range,criteria_range1,criteria1,...)", description: "Conditional average with multiple criteria" });
     registry.register_lazy("COUNT",  count::count_lazy_fn,  FunctionMeta { category: "statistical", signature: "COUNT(value1,...)",  description: "Count numeric values" });
     registry.register_lazy("COUNTA", count::counta_lazy_fn, FunctionMeta { category: "statistical", signature: "COUNTA(value1,...)", description: "Count non-empty values" });
     registry.register_eager("COUNTBLANK", countblank::countblank_fn, FunctionMeta { category: "statistical", signature: "COUNTBLANK(range)", description: "Count blank/empty cells" });
@@ -41,8 +49,12 @@ pub fn register_statistical(registry: &mut Registry) {
     registry.register_eager("HARMEAN",  harmean::harmean_fn,  FunctionMeta { category: "statistical", signature: "HARMEAN(value1,...)", description: "Harmonic mean" });
     registry.register_eager("KURT",     kurt::kurt_fn,        FunctionMeta { category: "statistical", signature: "KURT(value1,...)",    description: "Excess kurtosis" });
     registry.register_eager("MAX",   max::max_fn,           FunctionMeta { category: "statistical", signature: "MAX(value1,...)",    description: "Maximum value" });
+    registry.register_eager("MAXA",  maxa::maxa_fn,         FunctionMeta { category: "statistical", signature: "MAXA(value1,...)",   description: "Maximum including booleans and text" });
+    registry.register_eager("MAXIFS",maxifs::maxifs_fn,     FunctionMeta { category: "statistical", signature: "MAXIFS(max_range,criteria_range1,criteria1,...)", description: "Maximum with multiple criteria" });
     registry.register_eager("MEDIAN",median::median_fn,     FunctionMeta { category: "statistical", signature: "MEDIAN(value1,...)", description: "Median value" });
     registry.register_eager("MIN",   min::min_fn,           FunctionMeta { category: "statistical", signature: "MIN(value1,...)",    description: "Minimum value" });
+    registry.register_eager("MINA",  mina::mina_fn,         FunctionMeta { category: "statistical", signature: "MINA(value1,...)",   description: "Minimum including booleans and text" });
+    registry.register_eager("MINIFS",minifs::minifs_fn,     FunctionMeta { category: "statistical", signature: "MINIFS(min_range,criteria_range1,criteria1,...)", description: "Minimum with multiple criteria" });
     registry.register_eager("MODE",      mode::mode_fn,           FunctionMeta { category: "statistical", signature: "MODE(value1,...)",      description: "Most frequent value" });
     registry.register_eager("MODE.MULT", mode_mult::mode_mult_fn, FunctionMeta { category: "statistical", signature: "MODE.MULT(value1,...)", description: "All most frequent values" });
     registry.register_eager("MODE.SNGL", mode_sngl::mode_sngl_fn, FunctionMeta { category: "statistical", signature: "MODE.SNGL(value1,...)", description: "Most frequent value" });

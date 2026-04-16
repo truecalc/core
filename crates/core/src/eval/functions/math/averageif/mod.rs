@@ -12,6 +12,11 @@ pub fn averageif_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 2, 3) {
         return err;
     }
+    // Google Sheets returns #N/A when a separate average_range is provided and the
+    // range argument is an inline array literal (not a cell reference).
+    if args.len() == 3 && matches!(args[0], Value::Array(_)) {
+        return Value::Error(ErrorKind::NA);
+    }
     let range = flatten_to_vec(&args[0]);
     let crit = parse_criterion(&args[1]);
     let avg_range: Vec<&Value> = if args.len() == 3 {

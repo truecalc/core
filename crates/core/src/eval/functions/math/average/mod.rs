@@ -9,11 +9,17 @@ pub fn average_fn(args: &[Value]) -> Value {
     let mut sum = 0.0_f64;
     let mut count = 0usize;
     for arg in args {
-        match to_number(arg.clone()) {
-            Err(e) => return e,
-            Ok(n) => {
-                sum += n;
-                count += 1;
+        let scalars: Vec<&Value> = match arg {
+            Value::Array(elems) => elems.iter().collect(),
+            other => vec![other],
+        };
+        for scalar in scalars {
+            match to_number(scalar.clone()) {
+                Err(e) => return e,
+                Ok(n) => {
+                    sum += n;
+                    count += 1;
+                }
             }
         }
     }
