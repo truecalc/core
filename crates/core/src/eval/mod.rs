@@ -50,6 +50,16 @@ pub fn evaluate_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
             eval_binary(op, lv, rv)
         }
 
+        // ── Array literals ──────────────────────────────────────────────────
+        Expr::Array(elems, _) => {
+            let mut values = Vec::with_capacity(elems.len());
+            for elem in elems {
+                let v = evaluate_expr(elem, ctx);
+                values.push(v);
+            }
+            Value::Array(values)
+        }
+
         // ── Function calls ──────────────────────────────────────────────────
         Expr::FunctionCall { name, args, .. } => {
             match ctx.registry.get(name) {
