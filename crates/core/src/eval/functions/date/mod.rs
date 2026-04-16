@@ -1,4 +1,5 @@
 pub mod serial;
+pub mod weekend;
 
 pub mod date_fn;
 pub mod datedif;
