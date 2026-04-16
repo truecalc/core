@@ -1,11 +1,15 @@
 use super::Registry;
 use super::FunctionMeta;
 
+pub mod arabic;
 pub mod char_fn;
+pub mod clean;
 pub mod code_fn;
 pub mod concatenate;
+pub mod dollar;
 pub mod exact;
 pub mod find;
+pub mod fixed;
 pub mod left;
 pub mod len;
 pub mod lower;
@@ -13,6 +17,7 @@ pub mod mid;
 pub mod replace;
 pub mod rept;
 pub mod right;
+pub mod roman;
 pub mod substitute;
 pub mod t_fn;
 pub mod text_fn;
@@ -45,4 +50,9 @@ pub fn register_text(registry: &mut Registry) {
     registry.register_eager("T",           t_fn::t_fn,                 FunctionMeta { category: "text", signature: "T(value)",                                   description: "Return text if value is text, else empty string" });
     registry.register_eager("PROPER",      proper::proper_fn,          FunctionMeta { category: "text", signature: "PROPER(text)",                                  description: "Capitalize first letter of each word" });
     registry.register_eager("SEARCH",      search::search_fn,          FunctionMeta { category: "text", signature: "SEARCH(find_text, within_text, [start_num])",   description: "Case-insensitive search with wildcards" });
+    registry.register_eager("ARABIC",      arabic::arabic_fn,          FunctionMeta { category: "text", signature: "ARABIC(roman_text)",                             description: "Convert Roman numeral to integer" });
+    registry.register_eager("ROMAN",       roman::roman_fn,            FunctionMeta { category: "text", signature: "ROMAN(number)",                                  description: "Convert integer to Roman numeral string" });
+    registry.register_eager("CLEAN",       clean::clean_fn,            FunctionMeta { category: "text", signature: "CLEAN(text)",                                    description: "Remove non-printable characters from text" });
+    registry.register_eager("FIXED",       fixed::fixed_fn,            FunctionMeta { category: "text", signature: "FIXED(number, [decimals], [no_commas])",         description: "Format number as text with fixed decimal places" });
+    registry.register_eager("DOLLAR",      dollar::dollar_fn,          FunctionMeta { category: "text", signature: "DOLLAR(number, [decimals])",                     description: "Format number as currency text" });
 }
