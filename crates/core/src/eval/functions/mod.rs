@@ -7,7 +7,6 @@ pub mod operator;
 pub mod parser;
 pub mod statistical;
 pub mod text;
-pub mod web;
 
 use std::collections::HashMap;
 use crate::eval::context::Context;
@@ -75,7 +74,6 @@ impl Registry {
         date::register_date(&mut r);
         parser::register_parser(&mut r);
         engineering::register_engineering(&mut r);
-        web::register_web(&mut r);
         r
     }
 
