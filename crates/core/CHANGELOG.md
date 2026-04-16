@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.2.1...ganit-core-v0.3.0) - 2026-04-16
+
+### Added
+
+- add Value::Date and implement ISDATE (closes #208)
+- implement CELL function (closes #215)
+- implement ISREF and ISFORMULA (closes #211, #213)
+- *(math)* implement COUNTIF, SUMIF, AVERAGEIF (#273, #274, #275)
+- *(text)* implement SEARCH with wildcard support ([#271](https://github.com/tryganit/ganit-core/pull/271))
+- *(statistical)* implement COUNTBLANK ([#272](https://github.com/tryganit/ganit-core/pull/272))
+- *(text)* implement PROPER function ([#270](https://github.com/tryganit/ganit-core/pull/270))
+- *(parser)* add {} array literal syntax ([#269](https://github.com/tryganit/ganit-core/pull/269))
+- *(date)* implement all 26 M2 date/time functions ([#75](https://github.com/tryganit/ganit-core/pull/75))
+- *(date)* scaffold 26 date/time function stubs
+- *(tests)* add Google Sheets oracle fixtures for M2, M3, M4 conformance
+
+### Fixed
+
+- align CELL info_type list with Google Sheets docs
+- use range contains() for clippy manual_range_contains lint
+- use is_empty() for clippy len_zero lint
+- *(clippy)* remove unused ErrorKind import in countblank
+- *(clippy)* resolve 4 clippy warnings in date functions
+- *(tests)* mark M2/M3/M4 conformance tests as pending until implemented
+
+### Other
+
+- Expand M2 conformance coverage for issue #276 functions
+
 ## [0.2.1](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.2.0...ganit-core-v0.2.1) - 2026-04-15
 
 ### Other

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/tryganit/ganit-core/compare/ganit-mcp-v0.2.1...ganit-mcp-v0.3.0) - 2026-04-16
+
+### Added
+
+- add Value::Date and implement ISDATE (closes #208)
+
 ## [0.2.1](https://github.com/tryganit/ganit-core/compare/ganit-mcp-v0.2.0...ganit-mcp-v0.2.1) - 2026-04-15
 
 ### Other
