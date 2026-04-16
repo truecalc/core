@@ -19,8 +19,8 @@ pub fn multinomial_fn(args: &[Value]) -> Value {
         values.push(n.trunc() as u64);
     }
     let sum: u64 = values.iter().sum();
-    // Compute sum! / product(i!)
-    // Use the identity: MULTINOMIAL = C(sum, v1) * C(sum-v1, v2) * ...
+    // Compute sum! / product(i!) using the identity:
+    // MULTINOMIAL = C(sum, v1) * C(sum-v1, v2) * ...
     let mut result = 1.0f64;
     let mut remaining = sum;
     for &v in &values {
