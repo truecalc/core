@@ -17,6 +17,7 @@ pub mod substitute;
 pub mod t_fn;
 pub mod text_fn;
 pub mod proper;
+pub mod search;
 pub mod trim;
 pub mod upper;
 pub mod value_fn;
@@ -43,4 +44,5 @@ pub fn register_text(registry: &mut Registry) {
     registry.register_eager("EXACT",       exact::exact_fn,            FunctionMeta { category: "text", signature: "EXACT(text1, text2)",                        description: "Case-sensitive string comparison" });
     registry.register_eager("T",           t_fn::t_fn,                 FunctionMeta { category: "text", signature: "T(value)",                                   description: "Return text if value is text, else empty string" });
     registry.register_eager("PROPER",      proper::proper_fn,          FunctionMeta { category: "text", signature: "PROPER(text)",                                  description: "Capitalize first letter of each word" });
+    registry.register_eager("SEARCH",      search::search_fn,          FunctionMeta { category: "text", signature: "SEARCH(find_text, within_text, [start_num])",   description: "Case-insensitive search with wildcards" });
 }
