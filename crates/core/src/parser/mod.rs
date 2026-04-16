@@ -75,12 +75,30 @@ impl<'a> Parser<'a> {
                 // Function call
                 let (rest2, args) = self.parse_arg_list(args_input)?;
                 let rest2 = multispace0(rest2)?.0;
-                if let Some(after) = rest2.strip_prefix(')') {
-                    return Ok((after, Expr::FunctionCall {
+                if let Some(after_close) = rest2.strip_prefix(')') {
+                    let func_expr = Expr::FunctionCall {
                         name: name.to_uppercase(),
                         args,
-                        span: self.span(i, after),
-                    }));
+                        span: self.span(i, after_close),
+                    };
+                    // Detect immediately-invoked call: FUNC(lambda_args)(call_args)
+                    let after_ws = multispace0(after_close)?.0;
+                    if let Some(call_input) = after_ws.strip_prefix('(') {
+                        let (rest3, call_args) = self.parse_arg_list(call_input)?;
+                        let rest3 = multispace0(rest3)?.0;
+                        if let Some(after) = rest3.strip_prefix(')') {
+                            return Ok((after, Expr::Apply {
+                                func: Box::new(func_expr),
+                                call_args,
+                                span: self.span(i, after),
+                            }));
+                        }
+                        return Err(nom::Err::Error(nom::error::Error::new(
+                            rest3,
+                            nom::error::ErrorKind::Char,
+                        )));
+                    }
+                    return Ok((after_close, func_expr));
                 }
                 return Err(nom::Err::Error(nom::error::Error::new(
                     rest2,
@@ -120,25 +138,43 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_array_elements(&self, i: &'a str) -> IResult<&'a str, Vec<Expr>> {
-        let mut elems = Vec::new();
+        let mut rows: Vec<Vec<Expr>> = Vec::new();
+        let mut current_row: Vec<Expr> = Vec::new();
         let mut rest = multispace0(i)?.0;
         if rest.starts_with('}') {
-            return Ok((rest, elems)); // empty array {}
+            return Ok((rest, current_row)); // empty array {}
         }
         let (r, first) = self.parse_comparison(rest)?;
-        elems.push(first);
+        current_row.push(first);
         rest = r;
         loop {
             rest = multispace0(rest)?.0;
             if let Some(after_comma) = rest.strip_prefix(',') {
                 let (r, elem) = self.parse_comparison(after_comma)?;
-                elems.push(elem);
+                current_row.push(elem);
+                rest = r;
+            } else if let Some(after_semi) = rest.strip_prefix(';') {
+                // Row separator: finish current row and start a new one.
+                rows.push(std::mem::take(&mut current_row));
+                let (r, elem) = self.parse_comparison(after_semi)?;
+                current_row.push(elem);
                 rest = r;
             } else {
                 break;
             }
         }
-        Ok((rest, elems))
+        // If we encountered any row separators, wrap each row in its own Array node.
+        if rows.is_empty() {
+            Ok((rest, current_row))
+        } else {
+            rows.push(current_row);
+            let span_dummy = Span::new(0, 0);
+            let nested: Vec<Expr> = rows
+                .into_iter()
+                .map(|row| Expr::Array(row, span_dummy.clone()))
+                .collect();
+            Ok((rest, nested))
+        }
     }
 
     // ── postfix % ─────────────────────────────────────────────────────────
