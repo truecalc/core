@@ -46,6 +46,7 @@ pub enum Expr {
         args: Vec<Expr>,
         span: Span,
     },
+    Array(Vec<Expr>, Span),
 }
 
 impl Expr {
@@ -55,6 +56,7 @@ impl Expr {
             Expr::UnaryOp { span, .. }
             | Expr::BinaryOp { span, .. }
             | Expr::FunctionCall { span, .. } => span,
+            Expr::Array(_, span) => span,
         }
     }
 }

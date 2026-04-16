@@ -37,6 +37,19 @@ impl<'a> Parser<'a> {
             return Ok((rest, Expr::Text(text, self.span(i, rest))));
         }
 
+        // Array literal: {expr, expr, ...}
+        if let Some(inner) = i.strip_prefix('{') {
+            let (rest, elems) = self.parse_array_elements(inner)?;
+            let rest = multispace0(rest)?.0;
+            if let Some(after) = rest.strip_prefix('}') {
+                return Ok((after, Expr::Array(elems, self.span(i, after))));
+            }
+            return Err(nom::Err::Error(nom::error::Error::new(
+                rest,
+                nom::error::ErrorKind::Char,
+            )));
+        }
+
         // Parenthesised expression
         if let Some(inner) = i.strip_prefix('(') {
             let (rest, expr) = self.parse_comparison(inner)?;
@@ -104,6 +117,28 @@ impl<'a> Parser<'a> {
         }
 
         Ok((rest, args))
+    }
+
+    fn parse_array_elements(&self, i: &'a str) -> IResult<&'a str, Vec<Expr>> {
+        let mut elems = Vec::new();
+        let mut rest = multispace0(i)?.0;
+        if rest.starts_with('}') {
+            return Ok((rest, elems)); // empty array {}
+        }
+        let (r, first) = self.parse_comparison(rest)?;
+        elems.push(first);
+        rest = r;
+        loop {
+            rest = multispace0(rest)?.0;
+            if let Some(after_comma) = rest.strip_prefix(',') {
+                let (r, elem) = self.parse_comparison(after_comma)?;
+                elems.push(elem);
+                rest = r;
+            } else {
+                break;
+            }
+        }
+        Ok((rest, elems))
     }
 
     // ── postfix % ─────────────────────────────────────────────────────────
@@ -379,6 +414,40 @@ mod tests {
     fn parse_variable() {
         let expr = parse("=myVar").unwrap();
         assert!(matches!(expr, Expr::Variable(ref n, _) if n == "myVar"));
+    }
+
+    #[test]
+    fn parse_array_literal_numbers() {
+        let expr = parse("={1,2,3}").unwrap();
+        match expr {
+            Expr::Array(elems, _) => assert_eq!(elems.len(), 3),
+            _ => panic!("Expected Array"),
+        }
+    }
+
+    #[test]
+    fn parse_array_literal_mixed() {
+        let expr = parse("={1,\"hello\",TRUE}").unwrap();
+        assert!(matches!(expr, Expr::Array(_, _)));
+    }
+
+    #[test]
+    fn parse_array_literal_empty() {
+        let expr = parse("={}").unwrap();
+        assert!(matches!(expr, Expr::Array(ref e, _) if e.is_empty()));
+    }
+
+    #[test]
+    fn parse_array_in_function_call() {
+        let expr = parse("=SUM({1,2,3})").unwrap();
+        match expr {
+            Expr::FunctionCall { name, args, .. } => {
+                assert_eq!(name, "SUM");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(args[0], Expr::Array(_, _)));
+            }
+            _ => panic!("Expected FunctionCall"),
+        }
     }
 
     #[test]
