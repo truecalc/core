@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.12](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.10...ganit-core-v0.3.12) - 2026-04-16
+
+### Other
+
+- Merge pull request #320 from tryganit/release-plz-2026-04-16T22-48-53Z
+- activate M2 info and logical conformance tests
+- Merge pull request #321 from tryganit/feat/120-activate-engineering-conformance
+- activate M2 engineering conformance and fix 10 failures
+
 ## [0.3.11](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.10...ganit-core-v0.3.11) - 2026-04-16
 
 ### Other
