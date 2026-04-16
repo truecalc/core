@@ -92,7 +92,7 @@ pub fn evaluate_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
 // Number < Text < Bool  (Empty counts as Number)
 fn type_rank(v: &Value) -> u8 {
     match v {
-        Value::Number(_) | Value::Empty => 0,
+        Value::Number(_) | Value::Date(_) | Value::Empty => 0,
         Value::Text(_)                  => 1,
         Value::Bool(_)                  => 2,
         // Error and Array cannot reach compare_values through the normal eval path
@@ -152,6 +152,9 @@ fn eval_binary(op: &BinaryOp, lv: Value, rv: Value) -> Value {
 fn compare_values(op: &BinaryOp, lv: &Value, rv: &Value) -> bool {
     match (lv, rv) {
         (Value::Number(a), Value::Number(b)) => apply_cmp(op, a.partial_cmp(b)),
+        (Value::Date(a),   Value::Date(b))   => apply_cmp(op, a.partial_cmp(b)),
+        (Value::Date(a),   Value::Number(b)) => apply_cmp(op, a.partial_cmp(b)),
+        (Value::Number(a), Value::Date(b))   => apply_cmp(op, a.partial_cmp(b)),
         (Value::Text(a),   Value::Text(b))   => apply_cmp(op, Some(a.cmp(b))),
         (Value::Bool(a),   Value::Bool(b))   => apply_cmp(op, Some(a.cmp(b))),
         (Value::Empty,     Value::Empty)     => apply_cmp(op, Some(std::cmp::Ordering::Equal)),

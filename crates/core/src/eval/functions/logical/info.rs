@@ -29,7 +29,7 @@ pub fn n_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     }
     let val = evaluate_expr(&args[0], ctx);
     match val {
-        Value::Number(n)        => Value::Number(n),
+        Value::Number(n) | Value::Date(n) => Value::Number(n),
         Value::Bool(b)          => Value::Number(if b { 1.0 } else { 0.0 }),
         Value::Empty | Value::Text(_) | Value::Array(_) => Value::Number(0.0),
         Value::Error(_)         => val,
@@ -44,7 +44,7 @@ pub fn type_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     }
     let val = evaluate_expr(&args[0], ctx);
     let code = match val {
-        Value::Number(_) => 1.0,
+        Value::Number(_) | Value::Date(_) => 1.0,
         Value::Text(_)   => 2.0,
         Value::Bool(_)   => 4.0,
         Value::Error(_)  => 16.0,

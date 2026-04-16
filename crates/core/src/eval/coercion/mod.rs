@@ -11,7 +11,7 @@ use crate::types::{ErrorKind, Value};
 /// - `Array` → `Value::Error(ErrorKind::Value)`
 pub fn to_number(v: Value) -> Result<f64, Value> {
     match v {
-        Value::Number(n) => Ok(n),
+        Value::Number(n) | Value::Date(n) => Ok(n),
         Value::Bool(b)   => Ok(if b { 1.0 } else { 0.0 }),
         Value::Empty     => Ok(0.0),
         Value::Text(s)   => {
@@ -34,7 +34,7 @@ pub fn to_number(v: Value) -> Result<f64, Value> {
 pub fn to_string_val(v: Value) -> Result<String, Value> {
     match v {
         Value::Text(s)  => Ok(s),
-        Value::Number(n) => Ok(display_number(n)),
+        Value::Number(n) | Value::Date(n) => Ok(display_number(n)),
         Value::Bool(b)  => Ok(if b { "TRUE".to_string() } else { "FALSE".to_string() }),
         Value::Empty    => Ok(String::new()),
         Value::Error(_) => Err(v),
@@ -53,7 +53,7 @@ pub fn to_string_val(v: Value) -> Result<String, Value> {
 pub fn to_bool(v: Value) -> Result<bool, Value> {
     match v {
         Value::Bool(b)   => Ok(b),
-        Value::Number(n) => Ok(n != 0.0),
+        Value::Number(n) | Value::Date(n) => Ok(n != 0.0),
         Value::Error(_)  => Err(v),
         Value::Text(ref s) => match s.to_uppercase().as_str() {
             "TRUE"  => Ok(true),

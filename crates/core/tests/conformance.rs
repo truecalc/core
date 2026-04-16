@@ -103,6 +103,11 @@ fn values_match(actual: &Value, expected: &Value) -> bool {
             // still catching order-of-magnitude errors.
             (a - b).abs() <= b.abs() * 1e-4 + 1e-10
         }
+        // Date values from our engine are typed as Value::Date, but the oracle
+        // stores them as plain numbers in xlsx.
+        (Value::Date(a), Value::Number(b)) => {
+            (a - b).abs() <= b.abs() * 1e-4 + 1e-10
+        }
         // Oracle artifact: xlsx stores numeric-looking text (e.g. "0", "123") as a float.
         // Text functions like CHAR, LOWER, CONCATENATE correctly return Text; the oracle
         // appears as Number due to calamine reading the cell as a float.

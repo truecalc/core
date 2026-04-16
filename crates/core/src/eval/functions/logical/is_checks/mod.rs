@@ -7,7 +7,7 @@ use crate::types::{ErrorKind, Value};
 
 pub fn isnumber_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 1, 1) { return err; }
-    Value::Bool(matches!(args[0], Value::Number(_)))
+    Value::Bool(matches!(args[0], Value::Number(_) | Value::Date(_)))
 }
 
 pub fn istext_fn(args: &[Value]) -> Value {
@@ -38,7 +38,7 @@ pub fn isnumber_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let val = evaluate_expr(&args[0], ctx);
-    Value::Bool(matches!(val, Value::Number(_)))
+    Value::Bool(matches!(val, Value::Number(_) | Value::Date(_)))
 }
 
 /// `ISTEXT(value)` — TRUE if value is a Text string.
@@ -134,3 +134,30 @@ pub fn isformula_fn(args: &[Expr], _ctx: &mut EvalCtx<'_>) -> Value {
 
 #[cfg(test)]
 mod tests;
+
+/// `ISDATE(value)` — TRUE if value is a date (typed as Date, or a valid ISO date string).
+pub fn isdate_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
+    if check_arity_len(args.len(), 1, 1).is_some() {
+        return Value::Error(ErrorKind::NA);
+    }
+    let val = evaluate_expr(&args[0], ctx);
+    match val {
+        Value::Error(_) => val,
+        Value::Date(_) => Value::Bool(true),
+        Value::Text(ref s) => Value::Bool(is_date_string(s)),
+        _ => Value::Bool(false),
+    }
+}
+
+fn is_date_string(s: &str) -> bool {
+    // Match ISO 8601: YYYY-MM-DD
+    let parts: Vec<&str> = s.split('-').collect();
+    if parts.len() != 3 { return false; }
+    let ok_year  = parts[0].len() == 4 && parts[0].chars().all(|c| c.is_ascii_digit());
+    let ok_month = parts[1].len() == 2 && parts[1].chars().all(|c| c.is_ascii_digit());
+    let ok_day   = parts[2].len() == 2 && parts[2].chars().all(|c| c.is_ascii_digit());
+    if !(ok_year && ok_month && ok_day) { return false; }
+    let month: u32 = parts[1].parse().unwrap_or(0);
+    let day: u32   = parts[2].parse().unwrap_or(0);
+    (1..=12).contains(&month) && (1..=31).contains(&day)
+}

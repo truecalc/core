@@ -9,7 +9,7 @@ pub fn today_fn(args: &[Value]) -> Value {
         return e;
     }
     let today = Local::now().date_naive();
-    Value::Number(date_to_serial(today))
+    Value::Date(date_to_serial(today))
 }
 
 #[cfg(test)]

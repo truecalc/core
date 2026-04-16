@@ -70,7 +70,7 @@ pub fn evaluate(formula: &str, variables: JsValue) -> EvalResult {
     };
 
     match ganit_core::evaluate(formula, &vars) {
-        Value::Number(n) => EvalResult::Number { value: n },
+        Value::Number(n) | Value::Date(n) => EvalResult::Number { value: n },
         Value::Text(s) => EvalResult::Text { value: s },
         Value::Bool(b) => EvalResult::Bool { value: b },
         Value::Error(e) => EvalResult::Error { error: e.to_string() },

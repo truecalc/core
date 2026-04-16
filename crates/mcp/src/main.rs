@@ -225,7 +225,7 @@ fn parse_variables(vars_json: &JsonValue) -> HashMap<String, Value> {
 
 fn value_to_json(v: &Value) -> JsonValue {
     match v {
-        Value::Number(n) => json!({ "value": n, "type": "number" }),
+        Value::Number(n) | Value::Date(n) => json!({ "value": n, "type": "number" }),
         Value::Text(s) => json!({ "value": s, "type": "text" }),
         Value::Bool(b) => json!({ "value": b, "type": "bool" }),
         Value::Empty => json!({ "value": null, "type": "empty" }),

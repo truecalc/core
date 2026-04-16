@@ -10,4 +10,7 @@ pub enum Value {
     Error(ErrorKind),
     Empty,
     Array(Vec<Value>),
+    /// A spreadsheet serial date number — same float encoding as Number but
+    /// typed so ISDATE can distinguish it from a plain numeric literal.
+    Date(f64),
 }

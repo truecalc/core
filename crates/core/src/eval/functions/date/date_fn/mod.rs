@@ -51,7 +51,7 @@ pub fn date_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::Num);
     }
 
-    Value::Number(serial)
+    Value::Date(serial)
 }
 
 #[cfg(test)]
