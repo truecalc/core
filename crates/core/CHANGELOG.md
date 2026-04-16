@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.0...ganit-core-v0.3.1) - 2026-04-16
+
+### Added
+
+- implement CONVERT unit conversion function ([#176](https://github.com/tryganit/ganit-core/pull/176))
+- implement TO_DATE, TO_DOLLARS, TO_PERCENT, TO_PURE_NUMBER, TO_TEXT parser functions
+
+### Fixed
+
+- truncate mi3 volume literal to suppress clippy::excessive_precision
+
+### Other
+
+- Merge pull request #292 from tryganit/feat/176-convert
+- activate m2_parser_conformance (all 6 parser functions implemented)
+
 ## [0.3.0](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.2.1...ganit-core-v0.3.0) - 2026-04-16
 
 ### Added
