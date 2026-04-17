@@ -11,6 +11,9 @@ pub mod misc;
 pub mod row_col;
 pub mod vlookup;
 
+#[cfg(test)]
+mod tests;
+
 pub fn register_lookup(registry: &mut Registry) {
     registry.register_eager(
         "INDIRECT",
