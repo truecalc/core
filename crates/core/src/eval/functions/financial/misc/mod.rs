@@ -381,7 +381,7 @@ pub fn db_fn(args: &[Value]) -> Value {
 
     // Rate = 1 - (salvage/cost)^(1/life), rounded to 3 decimal places
     let rate = {
-        let r = 1.0 - (salvage / cost).powf(1.0 / life as f64);
+        let r = 1.0 - (salvage / cost).powf(1.0 / life);
         (r * 1000.0).round() / 1000.0
     };
 
