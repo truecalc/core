@@ -44,3 +44,6 @@ pub fn erfc_fn(args: &[Value]) -> Value {
 pub fn erfc_precise_fn(args: &[Value]) -> Value {
     erfc_fn(args)
 }
+
+#[cfg(test)]
+mod tests;

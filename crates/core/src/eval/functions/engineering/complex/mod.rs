@@ -523,3 +523,6 @@ pub fn imcoth_fn(args: &[Value]) -> Value {
         Err(e) => e,
     }
 }
+
+#[cfg(test)]
+mod tests;
