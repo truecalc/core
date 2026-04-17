@@ -2,6 +2,7 @@ use super::super::{FunctionMeta, Registry};
 
 pub mod abs;
 pub mod average;
+pub mod special_fn;
 pub mod averageif;
 pub mod base;
 pub mod ceiling_floor;
@@ -111,4 +112,12 @@ pub fn register_math(registry: &mut Registry) {
     registry.register_eager("MULTINOMIAL", multinomial::multinomial_fn,  FunctionMeta { category: "math",        signature: "MULTINOMIAL(value1,...)",                    description: "Multinomial coefficient of given arguments" });
     registry.register_eager("GCD",         gcd::gcd_fn,                  FunctionMeta { category: "math",        signature: "GCD(value1,...)",                            description: "Greatest common divisor" });
     registry.register_eager("LCM",         lcm::lcm_fn,                  FunctionMeta { category: "math",        signature: "LCM(value1,...)",                            description: "Least common multiple" });
+
+    // Special functions
+    registry.register_eager("ERF",              special_fn::erf_fn,              FunctionMeta { category: "math", signature: "ERF(lower_limit, [upper_limit])", description: "Error function" });
+    registry.register_eager("ERF.PRECISE",      special_fn::erf_precise_fn,      FunctionMeta { category: "math", signature: "ERF.PRECISE(x)",                 description: "Error function (precise)" });
+    registry.register_eager("ERFC",             special_fn::erfc_fn,             FunctionMeta { category: "math", signature: "ERFC(x)",                        description: "Complementary error function" });
+    registry.register_eager("ERFC.PRECISE",     special_fn::erfc_precise_fn,     FunctionMeta { category: "math", signature: "ERFC.PRECISE(x)",               description: "Complementary error function (precise)" });
+    registry.register_eager("GAMMALN",          special_fn::gammaln_fn,          FunctionMeta { category: "math", signature: "GAMMALN(x)",                     description: "Natural logarithm of the gamma function" });
+    registry.register_eager("GAMMALN.PRECISE",  special_fn::gammaln_precise_fn,  FunctionMeta { category: "math", signature: "GAMMALN.PRECISE(x)",            description: "Natural logarithm of the gamma function (precise)" });
 }

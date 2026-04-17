@@ -1,5 +1,7 @@
-use super::super::{isblank_fn, iserror_fn, isna_fn, isnumber_fn, istext_fn};
+use super::super::{is_valid_email, isblank_fn, iserror_fn, isna_fn, isnumber_fn, istext_fn};
+use crate::evaluate;
 use crate::types::{ErrorKind, Value};
+use std::collections::HashMap;
 
 #[test]
 fn isnumber_false_for_bool() {
@@ -25,4 +27,34 @@ fn isblank_false_for_text() {
 #[test]
 fn isna_false_for_other_error() {
     assert_eq!(isna_fn(&[Value::Error(ErrorKind::Value)]), Value::Bool(false));
+}
+
+#[test]
+fn isemail_missing_at_sign() {
+    assert!(!is_valid_email("notanemail"));
+}
+
+#[test]
+fn isemail_missing_domain() {
+    assert!(!is_valid_email("user@"));
+}
+
+#[test]
+fn isemail_missing_local_part() {
+    assert!(!is_valid_email("@example.com"));
+}
+
+#[test]
+fn isemail_no_dot_in_domain() {
+    assert!(!is_valid_email("user@localhost"));
+}
+
+#[test]
+fn isemail_number_arg_returns_false() {
+    assert_eq!(evaluate("=ISEMAIL(42)", &HashMap::new()), Value::Bool(false));
+}
+
+#[test]
+fn isemail_bool_arg_returns_false() {
+    assert_eq!(evaluate("=ISEMAIL(TRUE)", &HashMap::new()), Value::Bool(false));
 }

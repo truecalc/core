@@ -11,18 +11,34 @@ pub fn max_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let mut result: Option<f64> = None;
+    fn max_val(v: &Value, result: &mut Option<f64>) -> Option<Value> {
+        match v {
+            Value::Array(elems) => {
+                for elem in elems {
+                    if let Some(e) = max_val(elem, result) {
+                        return Some(e);
+                    }
+                }
+                None
+            }
+            Value::Number(n) => {
+                *result = Some(result.map_or(*n, |cur: f64| cur.max(*n)));
+                None
+            }
+            Value::Bool(b) => {
+                let n = if *b { 1.0 } else { 0.0 };
+                *result = Some(result.map_or(n, |cur: f64| cur.max(n)));
+                None
+            }
+            Value::Text(_) => Some(Value::Error(ErrorKind::Value)),
+            Value::Empty => None,
+            _ => None,
+        }
+    }
     for arg in args {
-        let n = match arg {
-            Value::Number(n) => *n,
-            Value::Bool(b)   => if *b { 1.0 } else { 0.0 },
-            Value::Text(_)   => return Value::Error(ErrorKind::Value),
-            Value::Empty     => continue,
-            _                => continue,
-        };
-        result = Some(match result {
-            None      => n,
-            Some(cur) => cur.max(n),
-        });
+        if let Some(e) = max_val(arg, &mut result) {
+            return e;
+        }
     }
     Value::Number(result.unwrap_or(0.0))
 }
