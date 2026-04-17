@@ -54,6 +54,15 @@ fn complex_0_1() {
 }
 
 #[test]
+fn complex_pure_real() {
+    // COMPLEX(5, 0) → 5 (returns Number, no imaginary part)
+    assert_eq!(
+        complex_fn(&[Value::Number(5.0), Value::Number(0.0)]),
+        Value::Number(5.0)
+    );
+}
+
+#[test]
 fn complex_with_j_suffix() {
     assert_eq!(
         complex_fn(&[Value::Number(3.0), Value::Number(4.0), t("j")]),
@@ -67,6 +76,12 @@ fn complex_with_j_suffix() {
 fn imabs_3_4i() {
     // |3+4i| = 5
     assert_eq!(imabs_fn(&[t("3+4i")]), Value::Number(5.0));
+}
+
+#[test]
+fn imabs_zero() {
+    // |0| = 0
+    assert_eq!(imabs_fn(&[t("0")]), Value::Number(0.0));
 }
 
 #[test]
@@ -89,6 +104,12 @@ fn imaginary_3_4i() {
 #[test]
 fn imreal_pure_real() {
     assert_eq!(imreal_fn(&[Value::Number(5.0)]), Value::Number(5.0));
+}
+
+#[test]
+fn imaginary_pure_imag() {
+    // "3i" has no real part; imaginary part is 3
+    assert_eq!(imaginary_fn(&[t("3i")]), Value::Number(3.0));
 }
 
 #[test]
@@ -154,6 +175,15 @@ fn impower_square() {
 }
 
 // ── IMPRODUCT ─────────────────────────────────────────────────────────────────
+
+#[test]
+fn improduct_rotation_90() {
+    // (1+0i) * (0+1i) = 0+1i → "i"
+    assert_eq!(
+        improduct_fn(&[t("1+0i"), t("0+1i")]),
+        t("i")
+    );
+}
 
 #[test]
 fn improduct_1_2i_times_3_4i() {

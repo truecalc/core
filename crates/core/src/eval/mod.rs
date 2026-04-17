@@ -85,7 +85,64 @@ pub fn evaluate_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
                 }
             }
         }
+
+        // ── Immediately-invoked lambda application ──────────────────────────
+        Expr::Apply { func, call_args, .. } => {
+            eval_apply(func, call_args, ctx)
+        }
     }
+}
+
+/// Evaluate an immediately-invoked function application `func(call_args)`.
+fn eval_apply(func: &Expr, call_args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
+    let (lambda_params, body) = match func {
+        Expr::FunctionCall { name, args: lambda_args, .. } if name == "LAMBDA" => {
+            if lambda_args.is_empty() {
+                return Value::Error(ErrorKind::NA);
+            }
+            let param_count = lambda_args.len() - 1;
+            let mut params: Vec<String> = Vec::with_capacity(param_count);
+            for param_expr in &lambda_args[..param_count] {
+                match param_expr {
+                    Expr::Variable(n, _) => params.push(n.to_uppercase()),
+                    _ => return Value::Error(ErrorKind::Value),
+                }
+            }
+            let body = &lambda_args[lambda_args.len() - 1];
+            (params, body)
+        }
+        _ => return Value::Error(ErrorKind::Value),
+    };
+
+    if call_args.len() != lambda_params.len() {
+        return Value::Error(ErrorKind::NA);
+    }
+
+    let mut evaluated_args: Vec<Value> = Vec::with_capacity(call_args.len());
+    for arg in call_args {
+        let v = evaluate_expr(arg, ctx);
+        if matches!(v, Value::Error(_)) {
+            return v;
+        }
+        evaluated_args.push(v);
+    }
+
+    let mut saved: Vec<(String, Option<Value>)> = Vec::with_capacity(lambda_params.len());
+    for (param, val) in lambda_params.iter().zip(evaluated_args) {
+        let old = ctx.ctx.vars.insert(param.clone(), val);
+        saved.push((param.clone(), old));
+    }
+
+    let result = evaluate_expr(body, ctx);
+
+    for (name, old_val) in saved.into_iter().rev() {
+        match old_val {
+            Some(v) => { ctx.ctx.vars.insert(name, v); }
+            None    => { ctx.ctx.vars.remove(&name); }
+        }
+    }
+
+    result
 }
 
 // ── Type ordering for cross-type comparisons (Excel semantics) ───────────────
@@ -102,6 +159,24 @@ fn type_rank(v: &Value) -> u8 {
 }
 
 fn eval_binary(op: &BinaryOp, lv: Value, rv: Value) -> Value {
+    // ── Array broadcasting ───────────────────────────────────────────────────
+    match (&lv, &rv) {
+        (Value::Array(elems), _) => {
+            let result: Vec<Value> = elems
+                .iter()
+                .map(|e| eval_binary(op, e.clone(), rv.clone()))
+                .collect();
+            return Value::Array(result);
+        }
+        (_, Value::Array(elems)) => {
+            let result: Vec<Value> = elems
+                .iter()
+                .map(|e| eval_binary(op, lv.clone(), e.clone()))
+                .collect();
+            return Value::Array(result);
+        }
+        _ => {}
+    }
     match op {
         // ── Arithmetic ──────────────────────────────────────────────────────
         BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Pow => {

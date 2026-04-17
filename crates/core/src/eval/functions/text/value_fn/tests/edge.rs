@@ -1,5 +1,5 @@
 use super::super::*;
-use crate::types::{ErrorKind, Value};
+use crate::types::Value;
 
 #[test]
 fn whitespace_trimmed() {
@@ -10,10 +10,11 @@ fn whitespace_trimmed() {
 }
 
 #[test]
-fn empty_string_fails() {
+fn empty_string_returns_zero() {
+    // Google Sheets: VALUE("") → 0
     assert_eq!(
         value_fn(&[Value::Text("".to_string())]),
-        Value::Error(ErrorKind::Value)
+        Value::Number(0.0)
     );
 }
 

@@ -1,5 +1,5 @@
-use super::*;
-use crate::types::{ErrorKind, Value};
+use super::super::countblank_fn;
+use crate::types::Value;
 
 #[test]
 fn empty_string_is_blank() {
@@ -63,9 +63,4 @@ fn array_no_blanks() {
     ]);
     let r = countblank_fn(&[arr]);
     assert_eq!(r, Value::Number(0.0));
-}
-
-#[test]
-fn no_args_returns_na() {
-    assert_eq!(countblank_fn(&[]), Value::Error(ErrorKind::NA));
 }

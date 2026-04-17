@@ -1,6 +1,8 @@
 pub mod array;
+pub mod database;
 pub mod date;
 pub mod engineering;
+pub mod filter;
 pub mod financial;
 pub mod logical;
 pub mod lookup;
@@ -76,7 +78,9 @@ impl Registry {
         date::register_date(&mut r);
         parser::register_parser(&mut r);
         engineering::register_engineering(&mut r);
+        filter::register_filter(&mut r);
         array::register_array(&mut r);
+        database::register_database(&mut r);
         lookup::register_lookup(&mut r);
         r
     }

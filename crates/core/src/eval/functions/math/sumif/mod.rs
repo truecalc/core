@@ -1,23 +1,42 @@
-use crate::eval::functions::check_arity;
+use crate::eval::evaluate_expr;
+use crate::eval::functions::{check_arity_len, EvalCtx};
+use crate::parser::ast::Expr;
 use crate::types::{ErrorKind, Value};
 use super::criterion::{flatten_to_vec, matches_criterion, parse_criterion};
 
 /// `SUMIF(range, criterion, [sum_range])` — sum the `sum_range` elements for which
 /// the corresponding `range` element matches `criterion`.
 ///
-/// If `sum_range` is omitted, `range` is both the test range and the sum range.
-/// When `sum_range` is shorter than `range`, only positions that have a corresponding
-/// `sum_range` value are considered (zip stops at the shorter sequence).
-///
-/// Non-finite results return `Value::Error(ErrorKind::Num)`.
-pub fn sumif_fn(args: &[Value]) -> Value {
-    if let Some(err) = check_arity(args, 2, 3) {
+/// Returns `#N/A` when `range` or `sum_range` is a literal array constant (`{...}`).
+pub fn sumif_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
+    if let Some(err) = check_arity_len(args.len(), 2, 3) {
         return err;
     }
-    let range = flatten_to_vec(&args[0]);
-    let crit = parse_criterion(&args[1]);
+    // When sum_range is provided (3-arg form), literal array constants are not valid
+    // as either range or sum_range — Google Sheets returns #N/A.
+    if args.len() == 3 && (matches!(args[0], Expr::Array(..)) || matches!(args[2], Expr::Array(..))) {
+        return Value::Error(ErrorKind::NA);
+    }
+
+    let range_val = evaluate_expr(&args[0], ctx);
+    if matches!(range_val, Value::Error(_)) {
+        return range_val;
+    }
+    let crit_val = evaluate_expr(&args[1], ctx);
+    if matches!(crit_val, Value::Error(_)) {
+        return crit_val;
+    }
+
+    let range = flatten_to_vec(&range_val);
+    let crit = parse_criterion(&crit_val);
+
+    let sum_range_val;
     let sum_range: Vec<&Value> = if args.len() == 3 {
-        flatten_to_vec(&args[2])
+        sum_range_val = evaluate_expr(&args[2], ctx);
+        if matches!(sum_range_val, Value::Error(_)) {
+            return sum_range_val;
+        }
+        flatten_to_vec(&sum_range_val)
     } else {
         range.clone()
     };
@@ -32,9 +51,8 @@ pub fn sumif_fn(args: &[Value]) -> Value {
                     if let Ok(n) = s.parse::<f64>() {
                         total += n;
                     }
-                    // Non-numeric text in sum_range: skip (Google Sheets behaviour)
                 }
-                _ => {} // Empty, Error: skip
+                _ => {}
             }
         }
     }

@@ -47,6 +47,13 @@ pub enum Expr {
         span: Span,
     },
     Array(Vec<Expr>, Span),
+    /// Immediately-invoked function application: `expr(call_args)`.
+    /// Used for LAMBDA: `LAMBDA(x, x*2)(5)` → `Apply { func: LAMBDA(...), call_args: [5] }`.
+    Apply {
+        func: Box<Expr>,
+        call_args: Vec<Expr>,
+        span: Span,
+    },
 }
 
 impl Expr {
@@ -55,7 +62,8 @@ impl Expr {
             Expr::Number(_, s) | Expr::Text(_, s) | Expr::Bool(_, s) | Expr::Variable(_, s) => s,
             Expr::UnaryOp { span, .. }
             | Expr::BinaryOp { span, .. }
-            | Expr::FunctionCall { span, .. } => span,
+            | Expr::FunctionCall { span, .. }
+            | Expr::Apply { span, .. } => span,
             Expr::Array(_, span) => span,
         }
     }
