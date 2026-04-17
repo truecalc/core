@@ -60,6 +60,11 @@ pub fn evaluate_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
             Value::Array(values)
         }
 
+        // ── Immediately-invoked apply: LAMBDA(x, body)(arg) ────────────────
+        Expr::Apply { func, call_args, .. } => {
+            eval_apply(func, call_args, ctx)
+        }
+
         // ── Function calls ──────────────────────────────────────────────────
         Expr::FunctionCall { name, args, .. } => {
             match ctx.registry.get(name) {
@@ -86,10 +91,6 @@ pub fn evaluate_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
             }
         }
 
-        // ── Immediately-invoked lambda application ──────────────────────────
-        Expr::Apply { func, call_args, .. } => {
-            eval_apply(func, call_args, ctx)
-        }
     }
 }
 
@@ -129,7 +130,7 @@ fn eval_apply(func: &Expr, call_args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
 
     let mut saved: Vec<(String, Option<Value>)> = Vec::with_capacity(lambda_params.len());
     for (param, val) in lambda_params.iter().zip(evaluated_args) {
-        let old = ctx.ctx.vars.insert(param.clone(), val);
+        let old = ctx.ctx.set(param.clone(), val);
         saved.push((param.clone(), old));
     }
 
@@ -137,8 +138,8 @@ fn eval_apply(func: &Expr, call_args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
 
     for (name, old_val) in saved.into_iter().rev() {
         match old_val {
-            Some(v) => { ctx.ctx.vars.insert(name, v); }
-            None    => { ctx.ctx.vars.remove(&name); }
+            Some(v) => { ctx.ctx.set(name, v); }
+            None    => { ctx.ctx.remove(&name); }
         }
     }
 

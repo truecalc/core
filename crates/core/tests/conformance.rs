@@ -254,7 +254,7 @@ conformance_test!(m3_statistical_conformance, "m3", "Statistical.xlsx");
 conformance_test!(m4_array_conformance,       "m4", "Array.xlsx");
 conformance_test!(m4_filter_conformance,               "m4", "Filter.xlsx");
 conformance_test!(m4_info_conformance,                 "m4", "Info.xlsx");
-conformance_test!(pending, m4_logical_conformance,     "m4", "Logical.xlsx");
+conformance_test!(m4_logical_conformance,              "m4", "Logical.xlsx");
 conformance_test!(m4_lookup_conformance,      "m4", "Lookup.xlsx");
 conformance_test!(m4_math_conformance,        "m4", "Math.xlsx");
 conformance_test!(m4_operator_conformance,    "m4", "Operator.xlsx");

@@ -32,9 +32,14 @@ impl Context {
             .unwrap_or(Value::Empty)
     }
 
-    /// Set a variable binding (case-insensitive key).
-    pub fn set(&mut self, name: String, value: Value) {
-        self.vars.insert(name.to_uppercase(), value);
+    /// Insert or overwrite a binding. Returns the previous value if one existed.
+    pub fn set(&mut self, name: String, value: Value) -> Option<Value> {
+        self.vars.insert(name.to_uppercase(), value)
+    }
+
+    /// Remove a binding. Used to restore context after lambda/let evaluation.
+    pub fn remove(&mut self, name: &str) {
+        self.vars.remove(&name.to_uppercase());
     }
 }
 
