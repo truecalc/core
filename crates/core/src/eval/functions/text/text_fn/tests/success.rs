@@ -2,6 +2,24 @@ use super::super::*;
 use crate::types::Value;
 
 #[test]
+fn format_comma_grouped_with_decimals() {
+    // TEXT(1234.5, "#,##0.00") → "1,234.50"
+    assert_eq!(
+        text_fn(&[Value::Number(1234.5), Value::Text("#,##0.00".to_string())]),
+        Value::Text("1,234.50".to_string())
+    );
+}
+
+#[test]
+fn format_percentage() {
+    // TEXT(0.25, "0%") → "25%"
+    assert_eq!(
+        text_fn(&[Value::Number(0.25), Value::Text("0%".to_string())]),
+        Value::Text("25%".to_string())
+    );
+}
+
+#[test]
 fn format_zero_integer() {
     assert_eq!(
         text_fn(&[Value::Number(42.0), Value::Text("0".to_string())]),

@@ -48,6 +48,7 @@ fn count_numeric(v: &Value, n: &mut usize) {
 }
 
 /// Lazy COUNTA: counts everything that is not Empty (including errors).
+/// Arrays are flattened: each non-empty element is counted individually.
 /// Returns #N/A when called with no arguments.
 pub fn counta_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     if args.is_empty() {
