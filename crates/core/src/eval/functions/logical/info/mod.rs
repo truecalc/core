@@ -72,3 +72,6 @@ pub fn type_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     };
     Value::Number(code)
 }
+
+#[cfg(test)]
+mod tests;
