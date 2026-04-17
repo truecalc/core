@@ -215,4 +215,12 @@ pub fn register_engineering(registry: &mut Registry) {
     registry.register_eager("IMCOTH",       complex::imcoth_fn,       FunctionMeta { category: "engineering", signature: "IMCOTH(complex)",                  description: "Hyperbolic cotangent of a complex number" });
     registry.register_eager("IMCSCH",       complex::imcsch_fn,       FunctionMeta { category: "engineering", signature: "IMCSCH(complex)",                  description: "Hyperbolic cosecant of a complex number" });
     registry.register_eager("IMSECH",       complex::imsech_fn,       FunctionMeta { category: "engineering", signature: "IMSECH(complex)",                  description: "Hyperbolic secant of a complex number" });
+
+    // Error functions
+    registry.register_eager("ERF",          erf::erf_fn,          FunctionMeta { category: "engineering", signature: "ERF(lower_limit, [upper_limit])", description: "Error function" });
+    registry.register_eager("ERF.PRECISE",  erf::erf_precise_fn,  FunctionMeta { category: "engineering", signature: "ERF.PRECISE(x)",                 description: "Error function (precise)" });
+    registry.register_eager("ERFC",         erf::erfc_fn,         FunctionMeta { category: "engineering", signature: "ERFC(x)",                        description: "Complementary error function" });
+    registry.register_eager("ERFC.PRECISE", erf::erfc_precise_fn, FunctionMeta { category: "engineering", signature: "ERFC.PRECISE(x)",               description: "Complementary error function (precise)" });
 }
+
+pub mod erf;

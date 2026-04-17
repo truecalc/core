@@ -2,6 +2,11 @@ use super::super::*;
 use crate::eval::{Context, EvalCtx, Registry};
 use crate::parser::ast::{Expr, Span};
 use crate::types::Value;
+use std::collections::HashMap;
+
+fn run(formula: &str, vars: HashMap<String, Value>) -> Value {
+    crate::evaluate(formula, &vars)
+}
 
 fn span() -> Span { Span::new(0, 1) }
 
@@ -82,4 +87,53 @@ fn counta_empty_values_not_counted() {
         counta_fn(&[Value::Empty, Value::Number(1.0), Value::Empty]),
         Value::Number(1.0)
     );
+}
+
+#[test]
+fn count_array_variable_counts_numbers() {
+    // COUNT with a variable holding an array → recursively counts numbers
+    let vars: HashMap<_, _> = [(
+        "A".to_string(),
+        Value::Array(vec![
+            Value::Number(1.0),
+            Value::Number(2.0),
+            Value::Number(3.0),
+        ]),
+    )]
+    .into();
+    assert_eq!(run("=COUNT(A)", vars), Value::Number(3.0));
+}
+
+#[test]
+fn count_array_variable_skips_non_numeric() {
+    // COUNT with mixed array — only numbers are counted
+    let vars: HashMap<_, _> = [(
+        "A".to_string(),
+        Value::Array(vec![
+            Value::Number(1.0),
+            Value::Text("hello".to_string()),
+            Value::Bool(true),
+            Value::Number(2.0),
+            Value::Empty,
+        ]),
+    )]
+    .into();
+    // COUNT counts Numbers and Bools and numeric text
+    assert_eq!(run("=COUNT(A)", vars), Value::Number(3.0));
+}
+
+#[test]
+fn counta_array_variable_counts_non_empty() {
+    // COUNTA with a variable holding an array → recursively counts non-empty
+    let vars: HashMap<_, _> = [(
+        "A".to_string(),
+        Value::Array(vec![
+            Value::Number(1.0),
+            Value::Text("hello".to_string()),
+            Value::Empty,
+            Value::Bool(false),
+        ]),
+    )]
+    .into();
+    assert_eq!(run("=COUNTA(A)", vars), Value::Number(3.0));
 }

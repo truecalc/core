@@ -28,6 +28,26 @@ fn imaginary_non_parseable() {
     );
 }
 
+// ── Non-numeric args to COMPLEX → Error(Value) ────────────────────────────────
+
+#[test]
+fn complex_non_numeric_real() {
+    // Non-numeric first arg → #VALUE!
+    assert_eq!(
+        complex_fn(&[t("abc"), Value::Number(1.0)]),
+        Value::Error(ErrorKind::Value)
+    );
+}
+
+#[test]
+fn complex_non_numeric_imag() {
+    // Non-numeric second arg → #VALUE!
+    assert_eq!(
+        complex_fn(&[Value::Number(1.0), t("abc")]),
+        Value::Error(ErrorKind::Value)
+    );
+}
+
 // ── Arity errors ──────────────────────────────────────────────────────────────
 
 #[test]

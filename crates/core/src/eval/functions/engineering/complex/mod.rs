@@ -605,7 +605,7 @@ pub fn imcsc_fn(args: &[Value]) -> Value {
             let sin_im = c.re.cos() * c.im.sinh();
             let denom = sin_re * sin_re + sin_im * sin_im;
             if denom == 0.0 {
-                return Value::Error(ErrorKind::DivByZero);
+                return Value::Error(ErrorKind::Num);
             }
             let re = sin_re / denom;
             let im = -sin_im / denom;
