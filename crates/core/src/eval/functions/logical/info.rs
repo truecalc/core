@@ -72,3 +72,60 @@ pub fn type_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     };
     Value::Number(code)
 }
+
+#[cfg(test)]
+mod sheets_tests {
+    use super::sheets_fn;
+    use crate::eval::{Context, EvalCtx, Registry};
+    use crate::parser::ast::{Expr, Span};
+    use crate::types::{ErrorKind, Value};
+
+    fn span() -> Span { Span::new(0, 1) }
+
+    fn run(args: Vec<Expr>) -> Value {
+        let reg = Registry::new();
+        let mut ctx = EvalCtx::new(Context::empty(), &reg);
+        sheets_fn(&args, &mut ctx)
+    }
+
+    // --- success ---
+
+    #[test]
+    fn no_args_returns_one() {
+        // SHEETS() → 1
+        assert_eq!(run(vec![]), Value::Number(1.0));
+    }
+
+    #[test]
+    fn ref_arg_returns_one() {
+        // SHEETS(A1) — Variable is a cell reference → 1
+        let args = vec![Expr::Variable("A1".to_string(), span())];
+        assert_eq!(run(args), Value::Number(1.0));
+    }
+
+    // --- edge cases ---
+
+    #[test]
+    fn number_literal_returns_na() {
+        // SHEETS(42) — non-reference literal → #N/A
+        let args = vec![Expr::Number(42.0, span())];
+        assert_eq!(run(args), Value::Error(ErrorKind::NA));
+    }
+
+    #[test]
+    fn text_literal_returns_na() {
+        // SHEETS("hello") — non-reference literal → #N/A
+        let args = vec![Expr::Text("hello".to_string(), span())];
+        assert_eq!(run(args), Value::Error(ErrorKind::NA));
+    }
+
+    #[test]
+    fn too_many_args_returns_na() {
+        // SHEETS(A1, B1) — wrong arity → #N/A
+        let args = vec![
+            Expr::Variable("A1".to_string(), span()),
+            Expr::Variable("B1".to_string(), span()),
+        ];
+        assert_eq!(run(args), Value::Error(ErrorKind::NA));
+    }
+}
