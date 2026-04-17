@@ -292,6 +292,9 @@ pub fn columns_fn(args: &[Value]) -> Value {
     }
 }
 
+#[cfg(test)]
+mod tests;
+
 pub fn register_filter(registry: &mut Registry) {
     registry.register_eager("FILTER",  filter_fn,  FunctionMeta { category: "filter", signature: "FILTER(array, include, [if_empty])",  description: "Filter an array by a boolean mask" });
     registry.register_eager("SORT",    sort_fn,    FunctionMeta { category: "filter", signature: "SORT(array, [sort_index], [is_ascending], [by_col])", description: "Sort an array" });
