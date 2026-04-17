@@ -41,4 +41,6 @@ pub fn register_logical(registry: &mut Registry) {
     registry.register_lazy("ISFORMULA", is_checks::isformula_fn,    FunctionMeta { category: "logical", signature: "ISFORMULA(ref)",                       description: "True if cell contains a formula" });
     registry.register_lazy("CELL",      cell_fn::cell_fn,           FunctionMeta { category: "logical", signature: "CELL(info_type, reference)",             description: "Returns information about a cell" });
     registry.register_lazy("ISDATE",    is_checks::isdate_fn,        FunctionMeta { category: "logical", signature: "ISDATE(value)",                        description: "True if value is a date" });
+    registry.register_lazy("SHEETS",    info::sheets_fn,             FunctionMeta { category: "logical", signature: "SHEETS([reference])",                  description: "Number of sheets in a reference or workbook" });
+    registry.register_lazy("ISEMAIL",   is_checks::isemail_fn,       FunctionMeta { category: "logical", signature: "ISEMAIL(value)",                       description: "True if value is a valid email address" });
 }

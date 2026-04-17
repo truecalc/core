@@ -2,6 +2,25 @@ use crate::eval::{evaluate_expr, functions::{check_arity_len, EvalCtx}};
 use crate::parser::ast::Expr;
 use crate::types::{ErrorKind, Value};
 
+/// `SHEETS([reference])` — returns the number of sheets in a reference or the workbook.
+/// In the standalone evaluator there is always exactly 1 sheet.
+/// With no argument, returns 1.
+/// With a cell-reference argument, returns 1.
+/// With a non-reference argument (number, text, etc.) returns `#N/A`.
+pub fn sheets_fn(args: &[Expr], _ctx: &mut EvalCtx<'_>) -> Value {
+    match args.len() {
+        0 => Value::Number(1.0),
+        1 => {
+            if matches!(args[0], Expr::Variable(_, _)) {
+                Value::Number(1.0)
+            } else {
+                Value::Error(ErrorKind::NA)
+            }
+        }
+        _ => Value::Error(ErrorKind::NA),
+    }
+}
+
 /// `ERROR.TYPE(error_value)` — returns a number identifying the error type,
 /// or `#N/A` if the argument is not an error.
 pub fn error_type_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
