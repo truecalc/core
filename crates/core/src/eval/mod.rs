@@ -91,10 +91,6 @@ pub fn evaluate_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
             }
         }
 
-        // ── Immediately-invoked lambda application ──────────────────────────
-        Expr::Apply { func, call_args, .. } => {
-            eval_apply(func, call_args, ctx)
-        }
     }
 }
 
