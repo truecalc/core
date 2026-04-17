@@ -31,6 +31,11 @@ impl Context {
             .cloned()
             .unwrap_or(Value::Empty)
     }
+
+    /// Set a variable binding (case-insensitive key).
+    pub fn set(&mut self, name: String, value: Value) {
+        self.vars.insert(name.to_uppercase(), value);
+    }
 }
 
 #[cfg(test)]

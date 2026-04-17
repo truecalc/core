@@ -2,6 +2,7 @@ use super::super::{FunctionMeta, Registry};
 
 pub mod abs;
 pub mod average;
+pub mod special_fn;
 pub mod averageif;
 pub mod base;
 pub mod ceiling_floor;
@@ -119,11 +120,16 @@ pub fn register_math(registry: &mut Registry) {
     registry.register_eager("LCM",         lcm::lcm_fn,                  FunctionMeta { category: "math",        signature: "LCM(value1,...)",                            description: "Least common multiple" });
     registry.register_eager("ISEVEN", iseven_isodd::iseven_fn, FunctionMeta { category: "math", signature: "ISEVEN(number)",                           description: "Returns TRUE if number is even" });
     registry.register_eager("ISODD",  iseven_isodd::isodd_fn,  FunctionMeta { category: "math", signature: "ISODD(number)",                            description: "Returns TRUE if number is odd" });
-    registry.register_eager("ROWS",      array_fns::rows_fn,    FunctionMeta { category: "math", signature: "ROWS(array)",                                description: "Number of rows in array" });
-    registry.register_eager("COLUMNS",   array_fns::columns_fn, FunctionMeta { category: "math", signature: "COLUMNS(array)",                             description: "Number of columns in array" });
-    registry.register_eager("INDEX",     array_fns::index_fn,   FunctionMeta { category: "math", signature: "INDEX(array, row, [col])",                   description: "Return element at row/col of array" });
     registry.register_eager("MUNIT",     munit::munit_fn,       FunctionMeta { category: "math", signature: "MUNIT(dimension)",                           description: "Returns identity matrix of given dimension" });
     registry.register_eager("SEQUENCE",  sequence::sequence_fn, FunctionMeta { category: "math", signature: "SEQUENCE(rows, [cols], [start], [step])",    description: "Generate a sequence of numbers" });
     registry.register_eager("RANDARRAY", randarray::randarray_fn, FunctionMeta { category: "math", signature: "RANDARRAY([rows], [cols])",                description: "Array of random numbers" });
     registry.register_eager("SUBTOTAL",  subtotal::subtotal_fn, FunctionMeta { category: "math", signature: "SUBTOTAL(function_code, ref1, ...)",         description: "Apply function to a list (not supported with arrays)" });
+
+    // Special functions
+    registry.register_eager("ERF",              special_fn::erf_fn,              FunctionMeta { category: "math", signature: "ERF(lower_limit, [upper_limit])", description: "Error function" });
+    registry.register_eager("ERF.PRECISE",      special_fn::erf_precise_fn,      FunctionMeta { category: "math", signature: "ERF.PRECISE(x)",                 description: "Error function (precise)" });
+    registry.register_eager("ERFC",             special_fn::erfc_fn,             FunctionMeta { category: "math", signature: "ERFC(x)",                        description: "Complementary error function" });
+    registry.register_eager("ERFC.PRECISE",     special_fn::erfc_precise_fn,     FunctionMeta { category: "math", signature: "ERFC.PRECISE(x)",               description: "Complementary error function (precise)" });
+    registry.register_eager("GAMMALN",          special_fn::gammaln_fn,          FunctionMeta { category: "math", signature: "GAMMALN(x)",                     description: "Natural logarithm of the gamma function" });
+    registry.register_eager("GAMMALN.PRECISE",  special_fn::gammaln_precise_fn,  FunctionMeta { category: "math", signature: "GAMMALN.PRECISE(x)",            description: "Natural logarithm of the gamma function (precise)" });
 }

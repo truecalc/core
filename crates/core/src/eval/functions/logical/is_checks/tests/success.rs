@@ -1,4 +1,4 @@
-use super::super::{isblank_fn, iserror_fn, isna_fn, isnumber_fn, istext_fn};
+use super::super::{is_valid_email, isblank_fn, iserror_fn, isna_fn, isnumber_fn, istext_fn};
 use crate::types::{ErrorKind, Value};
 
 #[test]
@@ -24,4 +24,19 @@ fn isblank_with_empty() {
 #[test]
 fn isna_with_na() {
     assert_eq!(isna_fn(&[Value::Error(ErrorKind::NA)]), Value::Bool(true));
+}
+
+#[test]
+fn isemail_valid_simple() {
+    assert!(is_valid_email("user@example.com"));
+}
+
+#[test]
+fn isemail_valid_subdomain() {
+    assert!(is_valid_email("user@mail.example.com"));
+}
+
+#[test]
+fn isemail_valid_plus_tag() {
+    assert!(is_valid_email("user+tag@example.com"));
 }

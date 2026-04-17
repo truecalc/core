@@ -45,9 +45,23 @@ pub fn count_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     }
     let mut n = 0usize;
     for arg in args {
-        n += count_in_value(&evaluate_expr(arg, ctx));
+        count_numeric(&evaluate_expr(arg, ctx), &mut n);
     }
     Value::Number(n as f64)
+}
+
+fn count_numeric(v: &Value, n: &mut usize) {
+    match v {
+        Value::Array(elems) => {
+            for elem in elems {
+                count_numeric(elem, n);
+            }
+        }
+        Value::Number(_) => *n += 1,
+        Value::Bool(_) => *n += 1,
+        Value::Text(s) if s.parse::<f64>().is_ok() => *n += 1,
+        _ => {}
+    }
 }
 
 /// Lazy COUNTA: counts everything that is not Empty (including errors).
@@ -59,9 +73,21 @@ pub fn counta_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     }
     let mut n = 0usize;
     for arg in args {
-        n += counta_in_value(&evaluate_expr(arg, ctx));
+        count_non_empty(&evaluate_expr(arg, ctx), &mut n);
     }
     Value::Number(n as f64)
+}
+
+fn count_non_empty(v: &Value, n: &mut usize) {
+    match v {
+        Value::Array(elems) => {
+            for elem in elems {
+                count_non_empty(elem, n);
+            }
+        }
+        Value::Empty => {}
+        _ => *n += 1,
+    }
 }
 
 #[cfg(test)]

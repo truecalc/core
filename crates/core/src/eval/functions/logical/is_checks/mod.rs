@@ -154,6 +154,42 @@ pub fn isdate_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     }
 }
 
+/// `ISEMAIL(value)` — TRUE if the argument is a valid email address string.
+/// Non-text values return FALSE (not an error).
+pub fn isemail_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
+    if check_arity_len(args.len(), 1, 1).is_some() {
+        return Value::Error(ErrorKind::NA);
+    }
+    let val = evaluate_expr(&args[0], ctx);
+    match val {
+        Value::Text(ref s) => Value::Bool(is_valid_email(s)),
+        _ => Value::Bool(false),
+    }
+}
+
+fn is_valid_email(s: &str) -> bool {
+    // Split on '@': must have exactly one '@', non-empty local and domain parts
+    let at_pos = match s.find('@') {
+        Some(pos) => pos,
+        None => return false,
+    };
+    // Ensure only one '@'
+    if s[at_pos + 1..].contains('@') {
+        return false;
+    }
+    let local = &s[..at_pos];
+    let domain = &s[at_pos + 1..];
+    if local.is_empty() || domain.is_empty() {
+        return false;
+    }
+    // Domain must have at least one dot with non-empty parts
+    let domain_parts: Vec<&str> = domain.split('.').collect();
+    if domain_parts.len() < 2 {
+        return false;
+    }
+    domain_parts.iter().all(|p| !p.is_empty())
+}
+
 fn is_date_string(s: &str) -> bool {
     // Match ISO 8601: YYYY-MM-DD
     let parts: Vec<&str> = s.split('-').collect();
@@ -166,3 +202,4 @@ fn is_date_string(s: &str) -> bool {
     let day: u32   = parts[2].parse().unwrap_or(0);
     (1..=12).contains(&month) && (1..=31).contains(&day)
 }
+
