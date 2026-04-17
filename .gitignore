@@ -17,3 +17,6 @@
 
 # git worktrees
 .worktrees/
+
+# generated docs
+docs/

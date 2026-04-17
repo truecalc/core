@@ -1,7 +1,8 @@
 # @tryganit/core
 
 [![npm](https://img.shields.io/npm/v/@tryganit/core)](https://www.npmjs.com/package/@tryganit/core)
-[![crates.io](https://img.shields.io/crates/v/ganit-core)](https://crates.io/crates/ganit-core)
+[![ganit-core](https://img.shields.io/crates/v/ganit-core?label=ganit-core)](https://crates.io/crates/ganit-core)
+[![ganit-mcp](https://img.shields.io/crates/v/ganit-mcp?label=ganit-mcp)](https://crates.io/crates/ganit-mcp)
 [![docs.rs](https://img.shields.io/docsrs/ganit-core)](https://docs.rs/ganit-core)
 [![license](https://img.shields.io/crates/l/ganit-core)](LICENSE)
 
