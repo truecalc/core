@@ -20,23 +20,6 @@ pub fn counta_fn(args: &[Value]) -> Value {
 
 // ── Lazy versions (registered) ────────────────────────────────────────────────
 
-fn count_in_value(v: &Value) -> usize {
-    match v {
-        Value::Number(_) | Value::Bool(_) => 1,
-        Value::Text(s) if s.parse::<f64>().is_ok() => 1,
-        Value::Array(items) => items.iter().map(count_in_value).sum(),
-        _ => 0,
-    }
-}
-
-fn counta_in_value(v: &Value) -> usize {
-    match v {
-        Value::Empty => 0,
-        Value::Array(items) => items.iter().map(counta_in_value).sum(),
-        _ => 1,
-    }
-}
-
 /// Lazy COUNT: counts Numbers, Booleans, and numeric Text; ignores errors/empty.
 /// Returns #N/A when called with no arguments.
 pub fn count_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
