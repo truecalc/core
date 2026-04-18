@@ -38,7 +38,7 @@ jobs:
         if: always() && github.event_name == 'pull_request'
         run: |
           printf '## Test Results\n```\n' > pr-comment.txt
-          cat nextest-output.txt >> pr-comment.txt
+          sed 's/\x1b\[[0-9;]*[mGKHF]//g' nextest-output.txt | tail -40 >> pr-comment.txt
           printf '\n```\n' >> pr-comment.txt
           gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
             --body-file pr-comment.txt --edit-last 2>/dev/null || \
