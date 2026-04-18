@@ -37,14 +37,13 @@ jobs:
       - name: Post per-suite results as PR comment
         if: always() && github.event_name == 'pull_request'
         run: |
-          body="## Test Results
-          \`\`\`
-          $(cat nextest-output.txt)
-          \`\`\`"
+          printf '## Test Results\n```\n' > pr-comment.txt
+          cat nextest-output.txt >> pr-comment.txt
+          printf '\n```\n' >> pr-comment.txt
           gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
-            --body "$body" --edit-last 2>/dev/null || \
+            --body-file pr-comment.txt --edit-last 2>/dev/null || \
           gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
-            --body "$body"
+            --body-file pr-comment.txt
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
