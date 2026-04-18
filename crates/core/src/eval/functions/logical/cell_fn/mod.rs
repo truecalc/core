@@ -2,6 +2,9 @@ use crate::eval::{evaluate_expr, functions::EvalCtx};
 use crate::parser::ast::Expr;
 use crate::types::{ErrorKind, Value};
 
+#[cfg(test)]
+mod tests;
+
 // Source: https://support.google.com/docs/answer/3267071
 const VALID_INFO_TYPES: &[&str] = &[
     "address", "col", "color", "contents", "prefix", "row", "sheet", "type", "width",
