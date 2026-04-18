@@ -127,7 +127,7 @@ jobs:
             $(python3 -c "
           import json, sys
           d = json.load(open('target/conformance-report.json'))
-          cats = d.get('categories', {})
+          cats = d.get('by_category', {})
           if not cats:
               print('<p>No per-category data available.</p>')
               sys.exit()
@@ -153,7 +153,8 @@ jobs:
           git checkout gh-pages 2>/dev/null || git checkout --orphan gh-pages
           echo "$badge_json" > conformance-badge.json
           cp /tmp/conformance.html index.html
-          git add conformance-badge.json index.html
+          touch .nojekyll
+          git add conformance-badge.json index.html .nojekyll
           git diff --cached --quiet || git commit -m "chore: update Google Sheets conformance report [skip ci]"
           git push origin gh-pages
         env:
