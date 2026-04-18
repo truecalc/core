@@ -116,6 +116,45 @@ proptest! {
         let result = run_vars("=PRODUCT(x, 1)", vec![("x", x)]);
         prop_assert_eq!(result, Value::Number(x));
     }
+
+    // Monotonicity: MAX(a,b) >= a and MAX(a,b) >= b
+    #[test]
+    fn max_dominates_both(a in small_f64(), b in small_f64()) {
+        let max = run_vars("=MAX(x, y)", vec![("x", a), ("y", b)]);
+        if let Value::Number(m) = max {
+            prop_assert!(m >= a - 1e-12, "MAX({},{}) = {} < a", a, b, m);
+            prop_assert!(m >= b - 1e-12, "MAX({},{}) = {} < b", a, b, m);
+        }
+    }
+
+    // Monotonicity: MIN(a,b) <= a and MIN(a,b) <= b
+    #[test]
+    fn min_dominated_by_both(a in small_f64(), b in small_f64()) {
+        let min = run_vars("=MIN(x, y)", vec![("x", a), ("y", b)]);
+        if let Value::Number(m) = min {
+            prop_assert!(m <= a + 1e-12, "MIN({},{}) = {} > a", a, b, m);
+            prop_assert!(m <= b + 1e-12, "MIN({},{}) = {} > b", a, b, m);
+        }
+    }
+
+    // Round-trip: EXP(LN(x)) ≈ x for x > 0
+    #[test]
+    fn exp_ln_roundtrip(x in 1e-6f64..1e6f64) {
+        let result = run_vars("=EXP(LN(x))", vec![("x", x)]);
+        if let Value::Number(n) = result {
+            prop_assert!((n - x).abs() / x.abs().max(1.0) < 1e-9,
+                "EXP(LN({})) = {} (delta {})", x, n, (n-x).abs());
+        }
+    }
+
+    // ABS is always >= 0 (explicit non-negativity property)
+    #[test]
+    fn abs_always_non_negative(x in finite_f64()) {
+        let result = run_vars("=ABS(x)", vec![("x", x)]);
+        if let Value::Number(n) = result {
+            prop_assert!(n >= 0.0, "ABS({}) returned {}", x, n);
+        }
+    }
 }
 
 #[test]
