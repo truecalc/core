@@ -17,6 +17,9 @@ use ganit_core::{evaluate, ErrorKind, Value};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+mod conformance_reporter;
+use conformance_reporter::{collect_fixture_results, ConformanceReport, KNOWN_DEVIATIONS};
+
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
@@ -259,3 +262,68 @@ conformance_test!(m4_lookup_conformance,      "m4", "Lookup.xlsx");
 conformance_test!(m4_math_conformance,        "m4", "Math.xlsx");
 conformance_test!(m4_operator_conformance,    "m4", "Operator.xlsx");
 conformance_test!(pending, m4_web_conformance,         "m4", "Web.xlsx");
+
+// ---------------------------------------------------------------------------
+// Conformance report generator — writes target/conformance-report.json
+// ---------------------------------------------------------------------------
+
+#[test]
+fn generate_conformance_report() {
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+
+    let mut report = ConformanceReport::default();
+    report.known_deviations = KNOWN_DEVIATIONS.to_vec();
+
+    // m1 fixtures
+    collect_fixture_results(&fixture("m1", "Math.xlsx"),        "math",        &mut report);
+    collect_fixture_results(&fixture("m1", "Logical.xlsx"),     "logical",     &mut report);
+    collect_fixture_results(&fixture("m1", "Info.xlsx"),        "info",        &mut report);
+    collect_fixture_results(&fixture("m1", "Statistical.xlsx"), "statistical", &mut report);
+    collect_fixture_results(&fixture("m1", "Operator.xlsx"),    "operator",    &mut report);
+    collect_fixture_results(&fixture("m1", "Text.xlsx"),        "text",        &mut report);
+
+    // m2 fixtures
+    collect_fixture_results(&fixture("m2", "Date.xlsx"),        "date",        &mut report);
+    collect_fixture_results(&fixture("m2", "Engineering.xlsx"), "engineering", &mut report);
+    collect_fixture_results(&fixture("m2", "Info.xlsx"),        "info",        &mut report);
+    collect_fixture_results(&fixture("m2", "Logical.xlsx"),     "logical",     &mut report);
+    collect_fixture_results(&fixture("m2", "Lookup.xlsx"),      "lookup",      &mut report);
+    collect_fixture_results(&fixture("m2", "Math.xlsx"),        "math",        &mut report);
+    collect_fixture_results(&fixture("m2", "Parser.xlsx"),      "parser",      &mut report);
+    collect_fixture_results(&fixture("m2", "Statistical.xlsx"), "statistical", &mut report);
+    collect_fixture_results(&fixture("m2", "Text.xlsx"),        "text",        &mut report);
+
+    // m3 fixtures
+    collect_fixture_results(&fixture("m3", "Database.xlsx"),    "database",    &mut report);
+    collect_fixture_results(&fixture("m3", "Engineering.xlsx"), "engineering", &mut report);
+    collect_fixture_results(&fixture("m3", "Financial.xlsx"),   "financial",   &mut report);
+    collect_fixture_results(&fixture("m3", "Info.xlsx"),        "info",        &mut report);
+    collect_fixture_results(&fixture("m3", "Lookup.xlsx"),      "lookup",      &mut report);
+    collect_fixture_results(&fixture("m3", "Math.xlsx"),        "math",        &mut report);
+    collect_fixture_results(&fixture("m3", "Statistical.xlsx"), "statistical", &mut report);
+
+    // m4 fixtures
+    collect_fixture_results(&fixture("m4", "Array.xlsx"),       "array",       &mut report);
+    collect_fixture_results(&fixture("m4", "Filter.xlsx"),      "filter",      &mut report);
+    collect_fixture_results(&fixture("m4", "Info.xlsx"),        "info",        &mut report);
+    collect_fixture_results(&fixture("m4", "Logical.xlsx"),     "logical",     &mut report);
+    collect_fixture_results(&fixture("m4", "Lookup.xlsx"),      "lookup",      &mut report);
+    collect_fixture_results(&fixture("m4", "Math.xlsx"),        "math",        &mut report);
+    collect_fixture_results(&fixture("m4", "Operator.xlsx"),    "operator",    &mut report);
+    collect_fixture_results(&fixture("m4", "Web.xlsx"),         "web",         &mut report);
+
+    // Write JSON to target/
+    let out_dir = manifest.join("../../target");
+    std::fs::create_dir_all(&out_dir).ok();
+    let out_path = out_dir.join("conformance-report.json");
+    std::fs::write(&out_path, report.to_json())
+        .expect("failed to write conformance-report.json");
+
+    println!("conformance-report.json written to {}", out_path.display());
+    println!(
+        "Total: {}/{} passed ({} failed)",
+        report.total_passed(),
+        report.total_tests(),
+        report.total_failed(),
+    );
+}
