@@ -111,21 +111,35 @@ jobs:
           else color="red"; hex="#e05"
           fi
           badge_json="{\"schemaVersion\":1,\"label\":\"Google Sheets Conformance\",\"message\":\"${passed}/${total} · ${pct}%\",\"color\":\"${color}\"}"
+          cov_pct=$(python3 -c "
+import re
+content = open('lcov.info').read()
+lh = sum(int(m) for m in re.findall(r'^LH:(\d+)', content, re.M))
+lf = sum(int(m) for m in re.findall(r'^LF:(\d+)', content, re.M))
+print(f'{lh/lf*100:.1f}' if lf else '0.0')
+")
+          if   (( $(echo "$cov_pct >= 80.0" | bc -l) )); then cov_color="brightgreen"
+          elif (( $(echo "$cov_pct >= 60.0" | bc -l) )); then cov_color="green"
+          elif (( $(echo "$cov_pct >= 40.0" | bc -l) )); then cov_color="yellow"
+          else cov_color="red"
+          fi
+          cov_badge_json="{\"schemaVersion\":1,\"label\":\"coverage\",\"message\":\"${cov_pct}%\",\"color\":\"${cov_color}\"}"
           run_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           python3 .github/scripts/generate-pages-html.py \
             target/nextest/ci/junit.xml \
             target/conformance-report.json \
-            "$run_url" "${hex}" "${passed}" "${total}" "${pct}" \
+            "$run_url" "${hex}" "${passed}" "${total}" "${pct}" "${cov_pct}" \
             > /tmp/conformance.html
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch origin gh-pages 2>/dev/null || true
           git checkout gh-pages 2>/dev/null || git checkout --orphan gh-pages
           echo "$badge_json" > conformance-badge.json
+          echo "$cov_badge_json" > coverage-badge.json
           cp /tmp/conformance.html index.html
           touch .nojekyll
-          git add conformance-badge.json index.html .nojekyll
-          git diff --cached --quiet || git commit -m "chore: update Google Sheets conformance report [skip ci]"
+          git add conformance-badge.json coverage-badge.json index.html .nojekyll
+          git diff --cached --quiet || git commit -m "chore: update conformance + coverage report [skip ci]"
           git push --force origin gh-pages
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Generates index.html for gh-pages with Google Sheets Conformance + Test Coverage by Category.
-# Usage: generate-pages-html.py <junit.xml> <conformance.json> <run_url> <hex> <passed> <total> <pct>
+# Usage: generate-pages-html.py <junit.xml> <conformance.json> <run_url> <hex> <passed> <total> <pct> <cov_pct>
 
 import sys
 import json
@@ -8,7 +8,13 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import datetime, timezone
 
-junit_path, conf_path, run_url, hex_color, passed, total, pct = sys.argv[1:8]
+junit_path, conf_path, run_url, hex_color, passed, total, pct, cov_pct = sys.argv[1:9]
+
+cov_float = float(cov_pct)
+if   cov_float >= 80.0: cov_hex = "#4c1"
+elif cov_float >= 60.0: cov_hex = "#3c3"
+elif cov_float >= 40.0: cov_hex = "#db1"
+else:                   cov_hex = "#e05"
 
 # ── Unit tests per category ───────────────────────────────────────────────────
 tree = ET.parse(junit_path)
@@ -115,7 +121,7 @@ print(f"""<!DOCTYPE html>
   <h2>Google Sheets Conformance</h2>
   <div class="badges">
     <span class="badge">{passed}/{total} · {pct}%</span>
-    <img src="https://img.shields.io/codecov/c/github/truecalc/core?label=coverage&style=flat-square" alt="Code Coverage" height="22">
+    <span class="badge" style="background:{cov_hex}">coverage · {cov_pct}%</span>
   </div>
 
   <div class="explainer">
