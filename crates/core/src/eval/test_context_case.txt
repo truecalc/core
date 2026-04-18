@@ -1,0 +1,6 @@
+Test: Create Context with lowercase key "var"
+Call context.get("VAR") 
+Expected: Should find the value because get() converts "VAR" to uppercase "VAR"
+Actual behavior: Will NOT find it because HashMap has "var", not "VAR"
+
+This indicates a SPEC MISMATCH: Context does NOT implement true case-insensitive lookup.

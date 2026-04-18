@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Transparency — truecalc</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #24292f; }
+    h1 { font-size: 1.5rem; }
+    h2 { font-size: 1.1rem; margin-top: 2rem; color: #57606a; }
+    .badges { margin: 8px 0 24px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .badge { display: inline-block; background: #4c1; color: #fff; padding: 4px 12px; border-radius: 4px; font-size: 1.1rem; font-weight: bold; }
+    .explainer { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; line-height: 1.6; }
+    .explainer strong { color: #24292f; }
+    table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+    th, td { border: 1px solid #d0d7de; padding: 8px 12px; text-align: left; }
+    th { background: #f6f8fa; }
+    tfoot td { font-weight: bold; background: #f6f8fa; }
+    .pass { color: #1a7f37; }
+    .fail { color: #cf222e; }
+    footer { margin-top: 32px; font-size: 0.85rem; color: #57606a; }
+  </style>
+</head>
+<body>
+  <h1>truecalc — Test Transparency</h1>
+
+  <h2>Google Sheets Conformance</h2>
+  <div class="badges">
+    <span class="badge">5024/5048 · 99.5%</span>
+    <img src="https://img.shields.io/codecov/c/github/truecalc/core?label=coverage&style=flat-square" alt="Code Coverage" height="22">
+  </div>
+
+  <div class="explainer">
+    <strong>What is Google Sheets conformance?</strong><br>
+    truecalc evaluates spreadsheet formulas. To verify correctness, every supported formula is run against
+    a <em>Google Sheets oracle</em> — real Google Sheets spreadsheets that produce the expected output.
+    On every commit to <code>main</code>, truecalc re-runs all 5048 conformance cases and compares
+    results. A ✓ means truecalc matches Google Sheets exactly; ⚠ means a known, intentional deviation
+    (e.g. a locale difference or an unsupported edge case).<br><br>
+    <strong>Property tests</strong> go further: for each formula category, randomly generated inputs
+    are checked against mathematical invariants (e.g. <code>ABS(x) ≥ 0</code> for all x,
+    <code>SQRT(x)² ≈ x</code> for x &gt; 0). Each property runs 500 random cases per commit.
+  </div>
+
+  <h2>Test Coverage by Category</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Category</th>
+        <th>Unit Tests</th>
+        <th>Google Sheets Conformance</th>
+        <th>Property Cases</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Array</td><td>38</td><td><span class="pass">209/209 ✓</span></td><td>1,000 (2×500)</td><td>1,247</td></tr><tr><td>Database</td><td>35</td><td><span class="pass">115/115 ✓</span></td><td>—</td><td>150</td></tr><tr><td>Date</td><td>314</td><td><span class="pass">259/259 ✓</span></td><td>2,500 (5×500)</td><td>3,073</td></tr><tr><td>Engineering</td><td>245</td><td><span class="pass">471/471 ✓</span></td><td>—</td><td>716</td></tr><tr><td>Filter</td><td>32</td><td><span class="pass">28/28 ✓</span></td><td>—</td><td>60</td></tr><tr><td>Financial</td><td>110</td><td><span class="pass">500/500 ✓</span></td><td>2,000 (4×500)</td><td>2,610</td></tr><tr><td>Info</td><td>0</td><td><span class="pass">203/203 ✓</span></td><td>—</td><td>203</td></tr><tr><td>Logical</td><td>114</td><td><span class="pass">183/183 ✓</span></td><td>3,500 (7×500)</td><td>3,797</td></tr><tr><td>Lookup</td><td>40</td><td><span class="fail">144/145 ⚠</span></td><td>1,000 (2×500)</td><td>1,185</td></tr><tr><td>Math</td><td>485</td><td><span class="pass">1,119/1,119 ✓</span></td><td>7,500 (15×500)</td><td>9,104</td></tr><tr><td>Operator</td><td>14</td><td><span class="pass">218/218 ✓</span></td><td>—</td><td>232</td></tr><tr><td>Parser</td><td>80</td><td><span class="pass">62/62 ✓</span></td><td>—</td><td>142</td></tr><tr><td>Statistical</td><td>480</td><td><span class="pass">1,024/1,024 ✓</span></td><td>—</td><td>1,504</td></tr><tr><td>Text</td><td>305</td><td><span class="pass">489/489 ✓</span></td><td>4,000 (8×500)</td><td>4,794</td></tr><tr><td>Web</td><td>0</td><td><span class="fail">0/23 ⚠</span></td><td>—</td><td>23</td></tr>
+    </tbody>
+    <tfoot>
+      <tr>
+        <td>Total</td>
+        <td>2,388</td>
+        <td>5,024/5,048</td>
+        <td>21,500 (43×500)</td>
+        <td>~28,936</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <footer>
+    Oracle: Google Sheets &nbsp;·&nbsp;
+    ✓ = 100% passing &nbsp;·&nbsp; ⚠ = known deviation &nbsp;·&nbsp;
+    Updated: 2026-04-18 08:45 UTC &nbsp;·&nbsp;
+    <a href="https://github.com/truecalc/core/actions/runs/24601034137">CI run</a>
+  </footer>
+</body>
+</html>

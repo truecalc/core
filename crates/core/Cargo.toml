@@ -1,0 +1,17 @@
+[package]
+name = "truecalc-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Spreadsheet formula engine — parser and evaluator for Excel-compatible formulas"
+repository.workspace = true
+readme = "README.md"
+
+[dependencies]
+nom = "8"
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+regex-lite = "0.1"
+
+[dev-dependencies]
+proptest = "1"
+calamine = "0.26"

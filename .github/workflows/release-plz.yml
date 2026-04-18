@@ -1,0 +1,39 @@
+name: Release-plz
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-plz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: MarcoIeni/release-plz-action@v0.5
+        id: release-plz
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Trigger npm release for truecalc-core
+        if: steps.release-plz.outputs.releases != ''
+        env:
+          RELEASES: ${{ steps.release-plz.outputs.releases }}
+          GH_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+        run: |
+          TAG=$(echo "$RELEASES" | python3 -c "
+          import json, sys
+          releases = json.load(sys.stdin)
+          r = next((r for r in releases if r['package_name'] == 'truecalc-core'), None)
+          if r:
+              print(r['tag'])
+          ")
+          if [ -n "$TAG" ]; then
+            gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --field "tag=$TAG"
+          fi

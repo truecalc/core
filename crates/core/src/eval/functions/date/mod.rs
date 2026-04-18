@@ -1,0 +1,60 @@
+pub mod serial;
+pub mod weekend;
+
+pub mod date_fn;
+pub mod datedif;
+pub mod datevalue;
+pub mod day;
+pub mod days;
+pub mod days360;
+pub mod edate;
+pub mod eomonth;
+pub mod epochtodate;
+pub mod hour;
+pub mod isoweeknum;
+pub mod minute;
+pub mod month;
+pub mod networkdays;
+pub mod networkdays_intl;
+pub mod now;
+pub mod second;
+pub mod time_fn;
+pub mod timevalue;
+pub mod today;
+pub mod weekday;
+pub mod weeknum;
+pub mod workday;
+pub mod workday_intl;
+pub mod year;
+pub mod yearfrac;
+
+use super::super::{FunctionMeta, Registry};
+
+pub fn register_date(registry: &mut Registry) {
+    registry.register_eager("DATE",             date_fn::date_fn,                   FunctionMeta { category: "date", signature: "DATE(year,month,day)",                      description: "Creates a date serial number from year, month, and day" });
+    registry.register_eager("DATEDIF",          datedif::datedif_fn,                FunctionMeta { category: "date", signature: "DATEDIF(start,end,unit)",                   description: "Difference between two dates in specified units" });
+    registry.register_eager("DATEVALUE",        datevalue::datevalue_fn,            FunctionMeta { category: "date", signature: "DATEVALUE(date_text)",                       description: "Converts a date string to a serial number" });
+    registry.register_eager("DAY",              day::day_fn,                        FunctionMeta { category: "date", signature: "DAY(date)",                                  description: "Day of month from a date serial number" });
+    registry.register_eager("DAYS",             days::days_fn,                      FunctionMeta { category: "date", signature: "DAYS(end,start)",                            description: "Number of days between two dates" });
+    registry.register_eager("DAYS360",          days360::days360_fn,                FunctionMeta { category: "date", signature: "DAYS360(start,end,[method])",                description: "Days between dates using 360-day year" });
+    registry.register_eager("EDATE",            edate::edate_fn,                    FunctionMeta { category: "date", signature: "EDATE(start,months)",                        description: "Date serial N months before or after a start date" });
+    registry.register_eager("EOMONTH",          eomonth::eomonth_fn,                FunctionMeta { category: "date", signature: "EOMONTH(start,months)",                      description: "Last day of month N months from start date" });
+    registry.register_eager("EPOCHTODATE",      epochtodate::epochtodate_fn,        FunctionMeta { category: "date", signature: "EPOCHTODATE(timestamp,[unit])",              description: "Converts Unix timestamp to date serial number" });
+    registry.register_eager("HOUR",             hour::hour_fn,                      FunctionMeta { category: "date", signature: "HOUR(time)",                                 description: "Hour component of a time serial number" });
+    registry.register_eager("ISOWEEKNUM",       isoweeknum::isoweeknum_fn,          FunctionMeta { category: "date", signature: "ISOWEEKNUM(date)",                           description: "ISO week number of the year for a date" });
+    registry.register_eager("MINUTE",           minute::minute_fn,                  FunctionMeta { category: "date", signature: "MINUTE(time)",                               description: "Minute component of a time serial number" });
+    registry.register_eager("MONTH",            month::month_fn,                    FunctionMeta { category: "date", signature: "MONTH(date)",                                description: "Month number from a date serial number" });
+    registry.register_eager("NETWORKDAYS",      networkdays::networkdays_fn,        FunctionMeta { category: "date", signature: "NETWORKDAYS(start,end,[holidays])",          description: "Number of working days between two dates" });
+    registry.register_eager("NETWORKDAYS.INTL", networkdays_intl::networkdays_intl_fn, FunctionMeta { category: "date", signature: "NETWORKDAYS.INTL(start,end,[weekend],[holidays])", description: "Working days between dates with custom weekends" });
+    registry.register_eager("NOW",              now::now_fn,                        FunctionMeta { category: "date", signature: "NOW()",                                      description: "Current date and time as a serial number" });
+    registry.register_eager("SECOND",           second::second_fn,                  FunctionMeta { category: "date", signature: "SECOND(time)",                               description: "Second component of a time serial number" });
+    registry.register_eager("TIME",             time_fn::time_fn,                   FunctionMeta { category: "date", signature: "TIME(hour,minute,second)",                   description: "Creates a time serial number from components" });
+    registry.register_eager("TIMEVALUE",        timevalue::timevalue_fn,            FunctionMeta { category: "date", signature: "TIMEVALUE(time_text)",                       description: "Converts a time string to a fractional serial number" });
+    registry.register_eager("TODAY",            today::today_fn,                    FunctionMeta { category: "date", signature: "TODAY()",                                    description: "Current date as a serial number" });
+    registry.register_eager("WEEKDAY",          weekday::weekday_fn,                FunctionMeta { category: "date", signature: "WEEKDAY(date,[type])",                       description: "Day of week as a number" });
+    registry.register_eager("WEEKNUM",          weeknum::weeknum_fn,                FunctionMeta { category: "date", signature: "WEEKNUM(date,[type])",                       description: "Week number of the year for a date" });
+    registry.register_eager("WORKDAY",          workday::workday_fn,                FunctionMeta { category: "date", signature: "WORKDAY(start,days,[holidays])",             description: "Date N working days from start date" });
+    registry.register_eager("WORKDAY.INTL",     workday_intl::workday_intl_fn,      FunctionMeta { category: "date", signature: "WORKDAY.INTL(start,days,[weekend],[holidays])", description: "Date N working days from start with custom weekends" });
+    registry.register_eager("YEAR",             year::year_fn,                      FunctionMeta { category: "date", signature: "YEAR(date)",                                 description: "Year from a date serial number" });
+    registry.register_eager("YEARFRAC",         yearfrac::yearfrac_fn,              FunctionMeta { category: "date", signature: "YEARFRAC(start,end,[basis])",                description: "Fraction of year between two dates" });
+}

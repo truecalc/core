@@ -1,0 +1,149 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Test
+        run: |
+          cargo nextest run --workspace --profile ci 2>&1 | tee nextest-output.txt
+          exit ${PIPESTATUS[0]}
+
+      - name: Write test summary
+        if: always()
+        run: |
+          echo '## Test Results' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat nextest-output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: target/nextest/ci/junit.xml
+          check_name: truecalc-core tests
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Generate coverage report
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+
+      - name: Upload coverage to codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: lcov.info
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Generate conformance report
+        run: cargo test -p truecalc-core --test conformance generate_conformance_report -- --nocapture
+
+      - name: Download main-branch conformance baseline
+        run: |
+          gh run download \
+            --repo "$GITHUB_REPOSITORY" \
+            --name conformance-report \
+            --dir baseline/ \
+            2>/dev/null || echo "No baseline found (first run or main has no artifact)"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        continue-on-error: true
+
+      - name: Upload conformance report as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-report
+          path: target/conformance-report.json
+          retention-days: 30
+
+      - name: Post conformance PR comment
+        if: github.event_name == 'pull_request'
+        run: |
+          bash .github/scripts/post-conformance-comment.sh \
+            target/conformance-report.json \
+            baseline/conformance-report.json \
+            "$PR_NUMBER"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+
+      - name: Post coverage table as PR comment
+        if: github.event_name == 'pull_request'
+        run: |
+          bash .github/scripts/post-coverage-comment.sh \
+            target/nextest/ci/junit.xml \
+            target/conformance-report.json \
+            "$PR_NUMBER"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+
+      - name: Publish conformance report to gh-pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          total=$(grep '"total"'  target/conformance-report.json | grep -o '[0-9]*' | head -1)
+          passed=$(grep '"passed"' target/conformance-report.json | grep -o '[0-9]*' | head -1)
+          pct=$(awk "BEGIN { printf \"%.1f\", ($passed/$total)*100 }")
+          if   (( $(echo "$pct >= 99.0" | bc -l) )); then color="brightgreen"; hex="#4c1"
+          elif (( $(echo "$pct >= 95.0" | bc -l) )); then color="green";       hex="#3c3"
+          elif (( $(echo "$pct >= 90.0" | bc -l) )); then color="yellow";      hex="#db1"
+          else color="red"; hex="#e05"
+          fi
+          badge_json="{\"schemaVersion\":1,\"label\":\"Google Sheets Conformance\",\"message\":\"${passed}/${total} · ${pct}%\",\"color\":\"${color}\"}"
+          run_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          python3 .github/scripts/generate-pages-html.py \
+            target/nextest/ci/junit.xml \
+            target/conformance-report.json \
+            "$run_url" "${hex}" "${passed}" "${total}" "${pct}" \
+            > /tmp/conformance.html
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages 2>/dev/null || true
+          git checkout gh-pages 2>/dev/null || git checkout --orphan gh-pages
+          echo "$badge_json" > conformance-badge.json
+          cp /tmp/conformance.html index.html
+          touch .nojekyll
+          git add conformance-badge.json index.html .nojekyll
+          git diff --cached --quiet || git commit -m "chore: update Google Sheets conformance report [skip ci]"
+          git push --force origin gh-pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clippy
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+      - name: Deny check
+        run: cargo deny check
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Add wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Build WASM
+        run: wasm-pack build crates/wasm --target web

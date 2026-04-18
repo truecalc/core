@@ -1,0 +1,13 @@
+# codecov.yml
+coverage:
+  status:
+    patch:
+      default:
+        target: 80%
+        only_pulls: true
+        informational: false
+    project:
+      truecalc-core:
+        target: 80%
+        paths:
+          - crates/core/
