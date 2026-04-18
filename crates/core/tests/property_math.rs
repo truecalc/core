@@ -203,3 +203,22 @@ fn abs_always_non_negative() {
 fn abs_sanity() {
     assert_eq!(run("=ABS(-5)"), Value::Number(5.0));
 }
+
+// ── Array function properties ─────────────────────────────────────────────────
+
+#[test]
+fn rows_times_columns_equals_element_count() {
+    use truecalc_core::eval::functions::math::array_fns::{columns_fn, rows_fn};
+    proptest!(ProptestConfig::with_cases(CASES), |(r in 1usize..=8usize, c in 1usize..=8usize)| {
+        let arr = Value::Array(
+            (0..r).map(|_| Value::Array(
+                (0..c).map(|_| Value::Number(1.0)).collect()
+            )).collect()
+        );
+        let rows = rows_fn(&[arr.clone()]);
+        let cols = columns_fn(&[arr]);
+        prop_assert_eq!(rows, Value::Number(r as f64));
+        prop_assert_eq!(cols, Value::Number(c as f64));
+    });
+    eprintln!("proptest: {CASES} cases");
+}
