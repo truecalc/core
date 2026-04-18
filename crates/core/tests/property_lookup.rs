@@ -4,7 +4,7 @@
 // Verifies invariants: out-of-range inputs produce errors, in-range inputs
 // produce values within the searched set.
 
-use ganit_core::{evaluate, Value};
+use truecalc_core::{evaluate, Value};
 use proptest::prelude::*;
 use std::collections::HashMap;
 

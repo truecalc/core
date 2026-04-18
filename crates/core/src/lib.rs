@@ -1,4 +1,4 @@
-// ganit-core: spreadsheet formula parser and evaluator
+// truecalc-core: spreadsheet formula parser and evaluator
 
 pub mod display;
 pub mod eval;

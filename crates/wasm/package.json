@@ -1,5 +1,5 @@
 {
-  "name": "@tryganit/core",
+  "name": "@truecalc/core",
   "publishConfig": {
     "provenance": true,
     "access": "public"

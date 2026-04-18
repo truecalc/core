@@ -4,9 +4,9 @@
 
 **Goal:** Add property-based tests for date, lookup, and array functions — three categories currently not covered by any property tests. These tests verify mathematical invariants that hold independently of specific input values.
 
-**Architecture:** Three new integration test files, one per category, each following the existing pattern in `property_math.rs` (a `run` helper + `proptest!` block). No new dependencies — `proptest` and `ganit_core` are already dev-dependencies.
+**Architecture:** Three new integration test files, one per category, each following the existing pattern in `property_math.rs` (a `run` helper + `proptest!` block). No new dependencies — `proptest` and `truecalc_core` are already dev-dependencies.
 
-**Tech Stack:** proptest 1.x, ganit_core (evaluate, Value, ErrorKind), chrono (for understanding valid date ranges)
+**Tech Stack:** proptest 1.x, truecalc_core (evaluate, Value, ErrorKind), chrono (for understanding valid date ranges)
 
 **GitHub issue:** Closes #372 (sub-issue of epic #366)
 
@@ -44,7 +44,7 @@ ls /path/to/crates/core/src/eval/functions/date/ 2>/dev/null || \
 // Property-based tests for date functions.
 // Verifies mathematical invariants that hold for any valid date input.
 
-use ganit_core::{evaluate, Value};
+use truecalc_core::{evaluate, Value};
 use proptest::prelude::*;
 use std::collections::HashMap;
 
@@ -159,7 +159,7 @@ proptest! {
 - [ ] **Step 2: Run to verify**
 
 ```bash
-cargo test -p ganit-core --test property_date -- --nocapture 2>&1 | tail -10
+cargo test -p truecalc-core --test property_date -- --nocapture 2>&1 | tail -10
 ```
 
 Expected: all tests pass. If a date function is not yet implemented, some tests may return `Value::Error` and be skipped (the `match` guards handle this). Do not add failing tests for unimplemented functions — note them in the PR description instead.
@@ -193,7 +193,7 @@ grep -r "\"VLOOKUP\"\|\"INDEX\"\|\"MATCH\"\|\"CHOOSE\"\|\"OFFSET\"" \
 // Verifies invariants: out-of-range inputs produce errors, in-range inputs
 // produce values within the searched set.
 
-use ganit_core::{evaluate, ErrorKind, Value};
+use truecalc_core::{evaluate, ErrorKind, Value};
 use proptest::prelude::*;
 use std::collections::HashMap;
 
@@ -245,7 +245,7 @@ proptest! {
 - [ ] **Step 2: Run**
 
 ```bash
-cargo test -p ganit-core --test property_lookup -- --nocapture 2>&1 | tail -10
+cargo test -p truecalc-core --test property_lookup -- --nocapture 2>&1 | tail -10
 ```
 
 Expected: all tests pass. If CHOOSE is not implemented, the test will show errors — note in PR description and add `prop_assume!` guards as needed.
@@ -272,7 +272,7 @@ git commit -m "test(proptest): add lookup function property tests — CHOOSE ran
 // Property-based tests for array functions.
 // Verifies length-preservation and element-wise invariants.
 
-use ganit_core::{evaluate, Value};
+use truecalc_core::{evaluate, Value};
 use proptest::prelude::*;
 use std::collections::HashMap;
 
@@ -320,7 +320,7 @@ proptest! {
 - [ ] **Step 2: Run**
 
 ```bash
-cargo test -p ganit-core --test property_array -- --nocapture 2>&1 | tail -10
+cargo test -p truecalc-core --test property_array -- --nocapture 2>&1 | tail -10
 ```
 
 Expected: all tests pass, or tests are skipped gracefully if array functions aren't implemented. Do not commit tests that fail due to unimplemented functions — use `prop_assume!` to skip unimplemented cases and note them in the PR.
@@ -342,7 +342,7 @@ Closes #372"
 
 ```bash
 gh pr create \
-  --repo tryganit/ganit-core \
+  --repo truecalc/core \
   --title "test(proptest): property tests for date, lookup, and array functions" \
   --assignee hhimanshu \
   --body "$(cat <<'EOF'
@@ -364,7 +364,7 @@ gh pr edit --add-assignee hhimanshu
 - [ ] **Step 2: Monitor CI**
 
 ```bash
-gh run list --repo tryganit/ganit-core --limit 3
+gh run list --repo truecalc/core --limit 3
 ```
 
-On failure: `gh run view <run-id> --log-failed --repo tryganit/ganit-core`
+On failure: `gh run view <run-id> --log-failed --repo truecalc/core`

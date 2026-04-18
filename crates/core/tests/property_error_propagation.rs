@@ -4,7 +4,7 @@
 // than silently resolving them. This is a correctness invariant derived from
 // Google Sheets behavior: errors are contagious.
 
-use ganit_core::{evaluate, ErrorKind, Value};
+use truecalc_core::{evaluate, ErrorKind, Value};
 use proptest::prelude::*;
 use std::collections::HashMap;
 

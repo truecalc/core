@@ -1,16 +1,16 @@
-# @tryganit/core
+# @truecalc/core
 
-[![npm](https://img.shields.io/npm/v/@tryganit/core)](https://www.npmjs.com/package/@tryganit/core)
-[![crates.io](https://img.shields.io/crates/v/ganit-core)](https://crates.io/crates/ganit-core)
-[![docs.rs](https://img.shields.io/docsrs/ganit-core)](https://docs.rs/ganit-core)
-[![license](https://img.shields.io/crates/l/ganit-core)](LICENSE)
+[![npm](https://img.shields.io/npm/v/@truecalc/core)](https://www.npmjs.com/package/@truecalc/core)
+[![crates.io](https://img.shields.io/crates/v/truecalc-core)](https://crates.io/crates/truecalc-core)
+[![docs.rs](https://img.shields.io/docsrs/truecalc-core)](https://docs.rs/truecalc-core)
+[![license](https://img.shields.io/crates/l/truecalc-core)](LICENSE)
 
 WebAssembly-powered spreadsheet formula engine for JavaScript/TypeScript.
 
 ## Install
 
 ```sh
-npm install @tryganit/core
+npm install @truecalc/core
 ```
 
 ## Usage
@@ -20,7 +20,7 @@ npm install @tryganit/core
 Works out of the box — no bundler configuration needed.
 
 ```js
-const { evaluate, validate, list_functions } = require('@tryganit/core');
+const { evaluate, validate, list_functions } = require('@truecalc/core');
 
 const result = evaluate('SUM(A1, B1)', { A1: 100, B1: 200 });
 // => { type: 'number', value: 300 }
@@ -47,7 +47,7 @@ export default {
 Then import and use normally:
 
 ```js
-import { evaluate } from '@tryganit/core';
+import { evaluate } from '@truecalc/core';
 
 const result = evaluate('IF(A1 > 0, "yes", "no")', { A1: 1 });
 // => { type: 'text', value: 'yes' }

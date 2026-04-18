@@ -1,5 +1,5 @@
 mod helpers;
-use ganit_core::{Value, ErrorKind};
+use truecalc_core::{Value, ErrorKind};
 use helpers::{eval, eval_with};
 
 // 1. Basic arithmetic
@@ -90,7 +90,7 @@ proptest! {
         // display_number should produce a string that, when parsed as f64,
         // round-trips with relative tolerance 1e-9 and absolute floor 1e-12
         // (consistent with display_number's 14 significant digits of precision).
-        let s = ganit_core::display_number(n);
+        let s = truecalc_core::display_number(n);
         // If it is a valid display string (not "#NUM!"), it should parse back.
         if !s.starts_with('#') {
             let parsed: f64 = s.parse().expect("display_number output should be parseable");
@@ -102,12 +102,12 @@ proptest! {
 
 #[test]
 fn display_number_nan_returns_num_error() {
-    assert_eq!(ganit_core::display_number(f64::NAN), "#NUM!");
+    assert_eq!(truecalc_core::display_number(f64::NAN), "#NUM!");
 }
 
 #[test]
 fn display_number_infinity_returns_num_error() {
-    assert_eq!(ganit_core::display_number(f64::INFINITY), "#NUM!");
+    assert_eq!(truecalc_core::display_number(f64::INFINITY), "#NUM!");
 }
 
 // Temporary debug test for UNIQUE

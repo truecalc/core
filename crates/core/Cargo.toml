@@ -1,5 +1,5 @@
 [package]
-name = "ganit-core"
+name = "truecalc-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -5,7 +5,7 @@
 
 ## Summary
 
-ganit's calculations match Google Sheets — and we can prove it. This spec defines the work to measure, enforce, report, and market that claim through five phases of test infrastructure improvements.
+truecalc's calculations match Google Sheets — and we can prove it. This spec defines the work to measure, enforce, report, and market that claim through five phases of test infrastructure improvements.
 
 ---
 
@@ -64,7 +64,7 @@ One GitHub epic. Eight sub-issues across five phases. Each issue is scoped for a
 - Outputs JUnit XML; the GitHub test reporter action parses this and posts inline annotations on the PR diff for each failing test
 - Failure annotation format:
   ```
-  ● ganit-core/src/eval/functions/concat.rs line 42
+  ● truecalc-core/src/eval/functions/concat.rs line 42
     FAILED: concat_numbers
     expected: Text("12")   got: Text("12.0")
   ```
@@ -78,12 +78,12 @@ One GitHub epic. Eight sub-issues across five phases. Each issue is scoped for a
 - Every PR gets a comment showing per-crate coverage delta:
   ```
   Coverage Report
-  ganit-core    87.3%  (+2.1%)  ↑
-  ganit-wasm     0.0%  (new)    ⚠
-  ganit-mcp     12.4%  (new)    ⚠
+  truecalc-core    87.3%  (+2.1%)  ↑
+  truecalc-wasm     0.0%  (new)    ⚠
+  truecalc-mcp     12.4%  (new)    ⚠
   PR drops overall coverage by 0.2%. Gate: 80%.
   ```
-- Coverage gate: 80% minimum on `ganit-core`. PRs that drop below fail CI.
+- Coverage gate: 80% minimum on `truecalc-core`. PRs that drop below fail CI.
 - Files changed: `.github/workflows/ci.yml`, new `codecov.yml`
 
 ### Phase 3 — Conformance Reporter (Issue 3)
@@ -151,7 +151,7 @@ Depends on: Issues 1 (nextest/JUnit), 2 (coverage), 3 (reporter JSON) merged.
 - Files: new `property_date.rs`, `property_lookup.rs`, `property_array.rs`
 
 **Issue 7 — Conformance-driven property tests:**
-- For each function present in the fixture files, generate varied inputs beyond the fixture rows and verify `ganit(formula) ≈ google_sheets_oracle` within documented tolerance
+- For each function present in the fixture files, generate varied inputs beyond the fixture rows and verify `truecalc(formula) ≈ google_sheets_oracle` within documented tolerance
 - This catches regressions in functions that have oracle fixtures but limited hand-written edge cases
 - Files: new `property_conformance.rs`
 
@@ -203,7 +203,7 @@ Issues 5, 6, 7 are pure test additions — no CI files, no shared code — safe 
 ## Success Criteria
 
 - Every PR shows: nextest pass/fail with inline annotations, coverage delta with 80% gate, Google Sheets conformance table with regression detection
-- `ganit-core` coverage ≥ 80% enforced on CI
+- `truecalc-core` coverage ≥ 80% enforced on CI
 - Conformance badge visible in README: `N/M tests · X% · Google Sheets`
 - Property tests cover date, lookup, and array functions
 - Known deviations from GS are documented with reasons and do not fail CI

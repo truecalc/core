@@ -7,14 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.4](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.4.3...ganit-core-v0.4.4) - 2026-04-18
+## [0.4.4](https://github.com/truecalc/core/compare/truecalc-core-v0.4.3...truecalc-core-v0.4.4) - 2026-04-18
 
 ### Added
 
 - *(tests)* use CASES=500 constant for all proptest files — up from 256
 - *(tests)* surface proptest case counts in CI output per property test
-- *(conformance)* emit structured JSON summary — per-category pass/fail vs Google Sheets ([#378](https://github.com/tryganit/ganit-core/pull/378))
-- *(proptest)* property tests for date, lookup, and array functions ([#376](https://github.com/tryganit/ganit-core/pull/376))
+- *(conformance)* emit structured JSON summary — per-category pass/fail vs Google Sheets ([#378](https://github.com/truecalc/core/pull/378))
+- *(proptest)* property tests for date, lookup, and array functions ([#376](https://github.com/truecalc/core/pull/376))
 
 ### Fixed
 
@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(proptest)* add idempotency, monotonicity, and round-trip properties for math functions
 - *(proptest)* add idempotency and length properties for text functions
 
-## [0.4.2](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.4.0...ganit-core-v0.4.2) - 2026-04-17
+## [0.4.2](https://github.com/truecalc/core/compare/truecalc-core-v0.4.0...truecalc-core-v0.4.2) - 2026-04-17
 
 ### Fixed
 
@@ -39,13 +39,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - release v0.4.1
 
-## [0.4.1](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.4.0...ganit-core-v0.4.1) - 2026-04-17
+## [0.4.1](https://github.com/truecalc/core/compare/truecalc-core-v0.4.0...truecalc-core-v0.4.1) - 2026-04-17
 
 ### Fixed
 
 - *(concat)* always return Value::Text, remove numeric oracle workaround
 
-## [0.4.0](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.12...ganit-core-v0.4.0) - 2026-04-17
+## [0.4.0](https://github.com/truecalc/core/compare/truecalc-core-v0.3.12...truecalc-core-v0.4.0) - 2026-04-17
 
 ### Added
 
@@ -54,10 +54,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- Merge pull request #352 from tryganit/feat/334-m4-logical-lambda-impl
+- Merge pull request #352 from truecalc/feat/334-m4-logical-lambda-impl
 - Merge remote-tracking branch 'origin/main' into feat/334-m4-logical-lambda-impl
-- Merge pull request #348 from tryganit/feat/325-m3-engineering-complex
-- Merge pull request #347 from tryganit/feat/332-m4-filter
+- Merge pull request #348 from truecalc/feat/325-m3-engineering-complex
+- Merge pull request #347 from truecalc/feat/332-m4-filter
 - resolve merge conflicts with origin/main in count/mod.rs and eval/mod.rs
 - activate M2 text conformance
 - resolve merge conflicts with main; fix SPLIT to return Value::Empty for empty parts
@@ -66,35 +66,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add unit tests for SPLIT, TEXT, VALUE, COUNTA fixes
 - activate M2 text conformance
 
-## [0.3.12](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.10...ganit-core-v0.3.12) - 2026-04-16
+## [0.3.12](https://github.com/truecalc/core/compare/truecalc-core-v0.3.10...truecalc-core-v0.3.12) - 2026-04-16
 
 ### Other
 
-- Merge pull request #320 from tryganit/release-plz-2026-04-16T22-48-53Z
+- Merge pull request #320 from truecalc/release-plz-2026-04-16T22-48-53Z
 - activate M2 info and logical conformance tests
-- Merge pull request #321 from tryganit/feat/120-activate-engineering-conformance
+- Merge pull request #321 from truecalc/feat/120-activate-engineering-conformance
 - activate M2 engineering conformance and fix 10 failures
 
-## [0.3.11](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.10...ganit-core-v0.3.11) - 2026-04-16
+## [0.3.11](https://github.com/truecalc/core/compare/truecalc-core-v0.3.10...truecalc-core-v0.3.11) - 2026-04-16
 
 ### Other
 
-- Merge pull request #321 from tryganit/feat/120-activate-engineering-conformance
+- Merge pull request #321 from truecalc/feat/120-activate-engineering-conformance
 - activate M2 engineering conformance and fix 10 failures
 
-## [0.3.10](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.9...ganit-core-v0.3.10) - 2026-04-16
+## [0.3.10](https://github.com/truecalc/core/compare/truecalc-core-v0.3.9...truecalc-core-v0.3.10) - 2026-04-16
 
 ### Added
 
 - implement BIN2DEC/HEX/OCT, DEC2BIN/HEX/OCT, HEX2BIN/DEC/OCT, OCT2BIN/DEC/HEX
 
-## [0.3.9](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.8...ganit-core-v0.3.9) - 2026-04-16
+## [0.3.9](https://github.com/truecalc/core/compare/truecalc-core-v0.3.8...truecalc-core-v0.3.9) - 2026-04-16
 
 ### Added
 
 - implement BITAND, BITOR, BITXOR, BITLSHIFT, BITRSHIFT, DELTA, GESTEP
 
-## [0.3.8](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.6...ganit-core-v0.3.8) - 2026-04-16
+## [0.3.8](https://github.com/truecalc/core/compare/truecalc-core-v0.3.6...truecalc-core-v0.3.8) - 2026-04-16
 
 ### Added
 
@@ -111,11 +111,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Other
 
 - release v0.3.7
-- Merge pull request #311 from tryganit/feat/105-math-base-conversion
-- Merge pull request #310 from tryganit/feat/105-math-simple
-- Merge pull request #309 from tryganit/feat/105-math-advanced-rounding
+- Merge pull request #311 from truecalc/feat/105-math-base-conversion
+- Merge pull request #310 from truecalc/feat/105-math-simple
+- Merge pull request #309 from truecalc/feat/105-math-advanced-rounding
 
-## [0.3.7](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.6...ganit-core-v0.3.7) - 2026-04-16
+## [0.3.7](https://github.com/truecalc/core/compare/truecalc-core-v0.3.6...truecalc-core-v0.3.7) - 2026-04-16
 
 ### Added
 
@@ -131,11 +131,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- Merge pull request #311 from tryganit/feat/105-math-base-conversion
-- Merge pull request #310 from tryganit/feat/105-math-simple
-- Merge pull request #309 from tryganit/feat/105-math-advanced-rounding
+- Merge pull request #311 from truecalc/feat/105-math-base-conversion
+- Merge pull request #310 from truecalc/feat/105-math-simple
+- Merge pull request #309 from truecalc/feat/105-math-advanced-rounding
 
-## [0.3.6](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.4...ganit-core-v0.3.6) - 2026-04-16
+## [0.3.6](https://github.com/truecalc/core/compare/truecalc-core-v0.3.4...truecalc-core-v0.3.6) - 2026-04-16
 
 ### Added
 
@@ -155,7 +155,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - release v0.3.5
 - replace flat tests.rs with tests/ subdirectory structure for arabic, clean, dollar, fixed, roman
 
-## [0.3.5](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.4...ganit-core-v0.3.5) - 2026-04-16
+## [0.3.5](https://github.com/truecalc/core/compare/truecalc-core-v0.3.4...truecalc-core-v0.3.5) - 2026-04-16
 
 ### Added
 
@@ -174,7 +174,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - replace flat tests.rs with tests/ subdirectory structure for arabic, clean, dollar, fixed, roman
 
-## [0.3.4](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.2...ganit-core-v0.3.4) - 2026-04-16
+## [0.3.4](https://github.com/truecalc/core/compare/truecalc-core-v0.3.2...truecalc-core-v0.3.4) - 2026-04-16
 
 ### Added
 
@@ -190,12 +190,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - release v0.3.3
 - enable m2 statistical conformance test (all 46 functions implemented)
-- Merge pull request #298 from tryganit/feat/82-order-stats
+- Merge pull request #298 from truecalc/feat/82-order-stats
 - add unit tests for order statistics functions; remove shape-stats duplicates
 - add edge tests and failure tests for shape-stats functions
 - add unit tests for variance/stddev statistical functions
 
-## [0.3.3](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.2...ganit-core-v0.3.3) - 2026-04-16
+## [0.3.3](https://github.com/truecalc/core/compare/truecalc-core-v0.3.2...truecalc-core-v0.3.3) - 2026-04-16
 
 ### Added
 
@@ -210,16 +210,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Other
 
 - enable m2 statistical conformance test (all 46 functions implemented)
-- Merge pull request #298 from tryganit/feat/82-order-stats
+- Merge pull request #298 from truecalc/feat/82-order-stats
 - add unit tests for order statistics functions; remove shape-stats duplicates
 - add edge tests and failure tests for shape-stats functions
 - add unit tests for variance/stddev statistical functions
 
-## [0.3.2](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.0...ganit-core-v0.3.2) - 2026-04-16
+## [0.3.2](https://github.com/truecalc/core/compare/truecalc-core-v0.3.0...truecalc-core-v0.3.2) - 2026-04-16
 
 ### Added
 
-- implement CONVERT unit conversion function ([#176](https://github.com/tryganit/ganit-core/pull/176))
+- implement CONVERT unit conversion function ([#176](https://github.com/truecalc/core/pull/176))
 - implement TO_DATE, TO_DOLLARS, TO_PERCENT, TO_PURE_NUMBER, TO_TEXT parser functions
 
 ### Fixed
@@ -229,14 +229,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Other
 
 - release v0.3.1
-- Merge pull request #292 from tryganit/feat/176-convert
+- Merge pull request #292 from truecalc/feat/176-convert
 - activate m2_parser_conformance (all 6 parser functions implemented)
 
-## [0.3.1](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.3.0...ganit-core-v0.3.1) - 2026-04-16
+## [0.3.1](https://github.com/truecalc/core/compare/truecalc-core-v0.3.0...truecalc-core-v0.3.1) - 2026-04-16
 
 ### Added
 
-- implement CONVERT unit conversion function ([#176](https://github.com/tryganit/ganit-core/pull/176))
+- implement CONVERT unit conversion function ([#176](https://github.com/truecalc/core/pull/176))
 - implement TO_DATE, TO_DOLLARS, TO_PERCENT, TO_PURE_NUMBER, TO_TEXT parser functions
 
 ### Fixed
@@ -245,10 +245,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- Merge pull request #292 from tryganit/feat/176-convert
+- Merge pull request #292 from truecalc/feat/176-convert
 - activate m2_parser_conformance (all 6 parser functions implemented)
 
-## [0.3.0](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.2.1...ganit-core-v0.3.0) - 2026-04-16
+## [0.3.0](https://github.com/truecalc/core/compare/truecalc-core-v0.2.1...truecalc-core-v0.3.0) - 2026-04-16
 
 ### Added
 
@@ -256,11 +256,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - implement CELL function (closes #215)
 - implement ISREF and ISFORMULA (closes #211, #213)
 - *(math)* implement COUNTIF, SUMIF, AVERAGEIF (#273, #274, #275)
-- *(text)* implement SEARCH with wildcard support ([#271](https://github.com/tryganit/ganit-core/pull/271))
-- *(statistical)* implement COUNTBLANK ([#272](https://github.com/tryganit/ganit-core/pull/272))
-- *(text)* implement PROPER function ([#270](https://github.com/tryganit/ganit-core/pull/270))
-- *(parser)* add {} array literal syntax ([#269](https://github.com/tryganit/ganit-core/pull/269))
-- *(date)* implement all 26 M2 date/time functions ([#75](https://github.com/tryganit/ganit-core/pull/75))
+- *(text)* implement SEARCH with wildcard support ([#271](https://github.com/truecalc/core/pull/271))
+- *(statistical)* implement COUNTBLANK ([#272](https://github.com/truecalc/core/pull/272))
+- *(text)* implement PROPER function ([#270](https://github.com/truecalc/core/pull/270))
+- *(parser)* add {} array literal syntax ([#269](https://github.com/truecalc/core/pull/269))
+- *(date)* implement all 26 M2 date/time functions ([#75](https://github.com/truecalc/core/pull/75))
 - *(date)* scaffold 26 date/time function stubs
 - *(tests)* add Google Sheets oracle fixtures for M2, M3, M4 conformance
 
@@ -277,35 +277,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Expand M2 conformance coverage for issue #276 functions
 
-## [0.2.1](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.2.0...ganit-core-v0.2.1) - 2026-04-15
+## [0.2.1](https://github.com/truecalc/core/compare/truecalc-core-v0.2.0...truecalc-core-v0.2.1) - 2026-04-15
 
 ### Other
 
-- Merge pull request #266 from tryganit/fix/registry-driven-list-functions
+- Merge pull request #266 from truecalc/fix/registry-driven-list-functions
 - replace static function tables with live registry reference
 
-## [0.2.0](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.1.6...ganit-core-v0.2.0) - 2026-04-15
+## [0.2.0](https://github.com/truecalc/core/compare/truecalc-core-v0.1.6...truecalc-core-v0.2.0) - 2026-04-15
 
 ### Fixed
 
 - *(mcp)* make list_functions registry-driven, delete static catalogue
 
-## [0.1.6](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.1.4...ganit-core-v0.1.6) - 2026-04-15
+## [0.1.6](https://github.com/truecalc/core/compare/truecalc-core-v0.1.4...truecalc-core-v0.1.6) - 2026-04-15
 
 ### Other
 
 - release v0.1.5
-- Merge pull request #73 from tryganit/docs/readme-badges-and-usage
+- Merge pull request #73 from truecalc/docs/readme-badges-and-usage
 - add badges and per-crate READMEs for crates.io and npm
 
-## [0.1.5](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.1.4...ganit-core-v0.1.5) - 2026-04-15
+## [0.1.5](https://github.com/truecalc/core/compare/truecalc-core-v0.1.4...truecalc-core-v0.1.5) - 2026-04-15
 
 ### Other
 
-- Merge pull request #73 from tryganit/docs/readme-badges-and-usage
+- Merge pull request #73 from truecalc/docs/readme-badges-and-usage
 - add badges and per-crate READMEs for crates.io and npm
 
-## [0.1.4](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.1.3...ganit-core-v0.1.4) - 2026-04-15
+## [0.1.4](https://github.com/truecalc/core/compare/truecalc-core-v0.1.3...truecalc-core-v0.1.4) - 2026-04-15
 
 ### Added
 
@@ -316,21 +316,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(clippy)* use is_some() instead of if let Some(_) pattern
 - *(conformance)* pass all 6 M1 oracle conformance test suites
 
-## [0.1.3](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.1.1...ganit-core-v0.1.3) - 2026-04-15
+## [0.1.3](https://github.com/truecalc/core/compare/truecalc-core-v0.1.1...truecalc-core-v0.1.3) - 2026-04-15
 
 ### Other
 
 - release v0.1.2
 - add M1 oracle conformance harness driven by Google Sheets
 
-## [0.1.2](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.1.1...ganit-core-v0.1.2) - 2026-04-15
+## [0.1.2](https://github.com/truecalc/core/compare/truecalc-core-v0.1.1...truecalc-core-v0.1.2) - 2026-04-15
 
 ### Other
 
 - add M1 oracle conformance harness driven by Google Sheets
 
-## [0.1.1](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.1.0...ganit-core-v0.1.1) - 2026-04-15
+## [0.1.1](https://github.com/truecalc/core/compare/truecalc-core-v0.1.0...truecalc-core-v0.1.1) - 2026-04-15
 
 ### Fixed
 
-- *(core)* evaluate() takes variables by reference ([#34](https://github.com/tryganit/ganit-core/pull/34))
+- *(core)* evaluate() takes variables by reference ([#34](https://github.com/truecalc/core/pull/34))

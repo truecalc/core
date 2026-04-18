@@ -5,7 +5,7 @@
 ///
 /// # Examples
 /// ```
-/// # use ganit_core::display::display_number;
+/// # use truecalc_core::display::display_number;
 /// assert_eq!(display_number(1.0), "1");
 /// assert_eq!(display_number(0.1 + 0.2), "0.3");
 /// assert_eq!(display_number(f64::NAN), "#NUM!");

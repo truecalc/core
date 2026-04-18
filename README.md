@@ -1,18 +1,18 @@
-# @tryganit/core
+# @truecalc/core
 
-[![npm](https://img.shields.io/npm/v/@tryganit/core)](https://www.npmjs.com/package/@tryganit/core)
-[![ganit-core](https://img.shields.io/crates/v/ganit-core?label=ganit-core)](https://crates.io/crates/ganit-core)
-[![ganit-mcp](https://img.shields.io/crates/v/ganit-mcp?label=ganit-mcp)](https://crates.io/crates/ganit-mcp)
-[![docs.rs](https://img.shields.io/docsrs/ganit-core)](https://docs.rs/ganit-core)
-[![license](https://img.shields.io/crates/l/ganit-core)](LICENSE)
-[![Google Sheets Conformance](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/tryganit/ganit-core/gh-pages/conformance-badge.json)](https://tryganit.github.io/ganit-core/)
+[![npm](https://img.shields.io/npm/v/@truecalc/core)](https://www.npmjs.com/package/@truecalc/core)
+[![truecalc-core](https://img.shields.io/crates/v/truecalc-core?label=truecalc-core)](https://crates.io/crates/truecalc-core)
+[![truecalc-mcp](https://img.shields.io/crates/v/truecalc-mcp?label=truecalc-mcp)](https://crates.io/crates/truecalc-mcp)
+[![docs.rs](https://img.shields.io/docsrs/truecalc-core)](https://docs.rs/truecalc-core)
+[![license](https://img.shields.io/crates/l/truecalc-core)](LICENSE)
+[![Google Sheets Conformance](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/truecalc/core/gh-pages/conformance-badge.json)](https://truecalc.github.io/core/)
 
 WebAssembly-powered spreadsheet formula engine for JavaScript/TypeScript.
 
 ## Install
 
 ```sh
-npm install @tryganit/core
+npm install @truecalc/core
 ```
 
 ## Usage
@@ -22,7 +22,7 @@ npm install @tryganit/core
 Works out of the box — no bundler configuration needed.
 
 ```js
-const { evaluate, validate, list_functions } = require('@tryganit/core');
+const { evaluate, validate, list_functions } = require('@truecalc/core');
 
 const result = evaluate('SUM(A1, B1)', { A1: 100, B1: 200 });
 // => { type: 'number', value: 300 }
@@ -49,7 +49,7 @@ export default {
 Then import and use normally:
 
 ```js
-import { evaluate } from '@tryganit/core';
+import { evaluate } from '@truecalc/core';
 
 const result = evaluate('IF(A1 > 0, "yes", "no")', { A1: 1 });
 // => { type: 'text', value: 'yes' }

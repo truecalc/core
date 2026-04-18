@@ -61,7 +61,7 @@ fi
 # Build comment body
 comment="## Google Sheets Conformance
 
-ganit calculations match Google Sheets — ${passed}/${total} tests passing (${pct}%)
+truecalc calculations match Google Sheets — ${passed}/${total} tests passing (${pct}%)
 
 | Category | Passed | Rate |
 |----------|--------|------|

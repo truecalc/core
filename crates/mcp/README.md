@@ -1,17 +1,17 @@
-# ganit-mcp
+# truecalc-mcp
 
-[![ganit-core](https://img.shields.io/crates/v/ganit-core?label=ganit-core)](https://crates.io/crates/ganit-core)
-[![ganit-mcp](https://img.shields.io/crates/v/ganit-mcp?label=ganit-mcp)](https://crates.io/crates/ganit-mcp)
-[![license](https://img.shields.io/crates/l/ganit-mcp)](LICENSE)
+[![truecalc-core](https://img.shields.io/crates/v/truecalc-core?label=truecalc-core)](https://crates.io/crates/truecalc-core)
+[![truecalc-mcp](https://img.shields.io/crates/v/truecalc-mcp?label=truecalc-mcp)](https://crates.io/crates/truecalc-mcp)
+[![license](https://img.shields.io/crates/l/truecalc-mcp)](LICENSE)
 
-MCP server that exposes [ganit](https://crates.io/crates/ganit-core) spreadsheet formula evaluation as tools for AI assistants.
+MCP server that exposes [truecalc](https://crates.io/crates/truecalc-core) spreadsheet formula evaluation as tools for AI assistants.
 
 Plug it into Claude Desktop (or any MCP-compatible client) and your AI can evaluate, validate, and explain Excel-compatible formulas without writing any code.
 
 ## Install
 
 ```sh
-cargo install ganit-mcp --force
+cargo install truecalc-mcp --force
 ```
 
 ## Claude Desktop setup
@@ -21,8 +21,8 @@ Add the server to `~/Library/Application Support/Claude/claude_desktop_config.js
 ```json
 {
   "mcpServers": {
-    "ganit": {
-      "command": "/Users/your-username/.cargo/bin/ganit-mcp"
+    "truecalc": {
+      "command": "/Users/your-username/.cargo/bin/truecalc-mcp"
     }
   }
 }
@@ -85,8 +85,8 @@ Covers math, logical, text, financial, and statistical categories. For the full 
 
 ## Related
 
-- [`ganit-core`](https://crates.io/crates/ganit-core) — the underlying formula engine (Rust library)
-- [`@tryganit/core`](https://www.npmjs.com/package/@tryganit/core) — WebAssembly package for JavaScript/TypeScript
+- [`truecalc-core`](https://crates.io/crates/truecalc-core) — the underlying formula engine (Rust library)
+- [`@truecalc/core`](https://www.npmjs.com/package/@truecalc/core) — WebAssembly package for JavaScript/TypeScript
 
 ## License
 

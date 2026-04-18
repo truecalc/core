@@ -40,7 +40,7 @@ root = tree.getroot()
 
 unit_counts = defaultdict(int)
 for suite in root.findall('testsuite'):
-    if suite.get('name') == 'ganit-core':
+    if suite.get('name') == 'truecalc-core':
         for tc in suite.findall('testcase'):
             name = tc.get('name', '')
             parts = name.split('::')
@@ -62,8 +62,8 @@ CASES_PER_PROP = 500
 prop_fn_counts = defaultdict(int)  # number of property test functions per category
 for suite in root.findall('testsuite'):
     sname = suite.get('name', '')
-    if sname.startswith('ganit-core::property_'):
-        cat = sname[len('ganit-core::property_'):]
+    if sname.startswith('truecalc-core::property_'):
+        cat = sname[len('truecalc-core::property_'):]
         if cat not in SKIP_SUITES:
             prop_fn_counts[cat] += int(suite.get('tests', 0))
 

@@ -7,7 +7,7 @@ coverage:
         only_pulls: true
         informational: false
     project:
-      ganit-core:
+      truecalc-core:
         target: 80%
         paths:
           - crates/core/

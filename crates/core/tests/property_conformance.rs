@@ -6,7 +6,7 @@
 // These tests complement the fixed-row conformance tests in conformance.rs.
 // They catch regressions for inputs that don't appear in the fixture files.
 
-use ganit_core::{evaluate, Value};
+use truecalc_core::{evaluate, Value};
 use proptest::prelude::*;
 use std::collections::HashMap;
 

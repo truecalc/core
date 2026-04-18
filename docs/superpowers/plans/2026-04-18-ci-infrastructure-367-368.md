@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace `cargo test` with `cargo-nextest` for richer test output and inline PR annotations (#367), then add `cargo-llvm-cov` + codecov for per-PR coverage delta comments with an 80% gate on `ganit-core` (#368).
+**Goal:** Replace `cargo test` with `cargo-nextest` for richer test output and inline PR annotations (#367), then add `cargo-llvm-cov` + codecov for per-PR coverage delta comments with an 80% gate on `truecalc-core` (#368).
 
 **Architecture:** Two CI steps replace/extend the existing "Test" step. nextest runs first and writes JUnit XML; a separate coverage step runs llvm-cov and uploads LCOV to codecov.io. Both changes live entirely in `.github/workflows/ci.yml` and new config files.
 
@@ -18,7 +18,7 @@
 |--------|------|---------|
 | Create | `.config/nextest.toml` | nextest CI profile — JUnit XML output path |
 | Modify | `.github/workflows/ci.yml` | Replace `cargo test`, add nextest + test-reporter + llvm-cov + codecov steps |
-| Create | `codecov.yml` | Coverage gate: 80% patch minimum on `ganit-core` |
+| Create | `codecov.yml` | Coverage gate: 80% patch minimum on `truecalc-core` |
 
 ---
 
@@ -84,7 +84,7 @@ Replace the entire `Test` step with:
         uses: dorny/test-reporter@v1
         if: always()
         with:
-          name: ganit-core tests
+          name: truecalc-core tests
           path: target/nextest/ci/junit.xml
           reporter: java-junit
           fail-on-error: false
@@ -137,7 +137,7 @@ coverage:
         only_pulls: true
         informational: false
     project:
-      ganit-core:
+      truecalc-core:
         target: 80%
         paths:
           - crates/core/
@@ -147,7 +147,7 @@ coverage:
 
 ```bash
 git add codecov.yml
-git commit -m "chore: add codecov config with 80% coverage gate on ganit-core"
+git commit -m "chore: add codecov config with 80% coverage gate on truecalc-core"
 ```
 
 ---
@@ -210,13 +210,13 @@ Closes #368"
 
 ```bash
 gh pr create \
-  --repo tryganit/ganit-core \
+  --repo truecalc/core \
   --title "feat(ci): nextest + llvm-cov coverage — inline PR annotations and 80% gate" \
   --assignee hhimanshu \
   --body "$(cat <<'EOF'
 ## Summary
 - Replaces `cargo test` with `cargo-nextest` for per-test timing and inline PR failure annotations (via JUnit XML + dorny/test-reporter)
-- Adds `cargo-llvm-cov` + codecov integration with an 80% coverage gate on `ganit-core`
+- Adds `cargo-llvm-cov` + codecov integration with an 80% coverage gate on `truecalc-core`
 
 ## What a failing test looks like in a PR now
 The `dorny/test-reporter` action parses JUnit XML and posts inline annotations on the PR diff showing exactly which file/line failed and what the expected vs actual values were.
@@ -234,12 +234,12 @@ gh pr edit --add-assignee hhimanshu
 - [ ] **Step 2: Monitor CI**
 
 ```bash
-gh run list --repo tryganit/ganit-core --limit 3
+gh run list --repo truecalc/core --limit 3
 ```
 
 Wait for the run triggered by the PR push. If it fails:
 ```bash
-gh run view <run-id> --log-failed --repo tryganit/ganit-core
+gh run view <run-id> --log-failed --repo truecalc/core
 ```
 
 Fix the root cause and push a new commit (do not amend).

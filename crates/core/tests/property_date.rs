@@ -3,7 +3,7 @@
 // Property-based tests for date functions.
 // Verifies mathematical invariants that hold for any valid date input.
 
-use ganit_core::{evaluate, Value};
+use truecalc_core::{evaluate, Value};
 use proptest::prelude::*;
 use std::collections::HashMap;
 

@@ -1,24 +1,24 @@
-# ganit-core
+# truecalc-core
 
-[![crates.io](https://img.shields.io/crates/v/ganit-core)](https://crates.io/crates/ganit-core)
-[![docs.rs](https://img.shields.io/docsrs/ganit-core)](https://docs.rs/ganit-core)
-[![license](https://img.shields.io/crates/l/ganit-core)](LICENSE)
+[![crates.io](https://img.shields.io/crates/v/truecalc-core)](https://crates.io/crates/truecalc-core)
+[![docs.rs](https://img.shields.io/docsrs/truecalc-core)](https://docs.rs/truecalc-core)
+[![license](https://img.shields.io/crates/l/truecalc-core)](LICENSE)
 
 Spreadsheet formula engine — parser and evaluator for Excel-compatible formulas.
 
-Also available as a WebAssembly npm package: [`@tryganit/core`](https://www.npmjs.com/package/@tryganit/core)
+Also available as a WebAssembly npm package: [`@truecalc/core`](https://www.npmjs.com/package/@truecalc/core)
 
 ## Install
 
 ```toml
 [dependencies]
-ganit-core = "0.1"
+truecalc-core = "0.1"
 ```
 
 Or via cargo:
 
 ```sh
-cargo add ganit-core
+cargo add truecalc-core
 ```
 
 ## Usage
@@ -27,7 +27,7 @@ cargo add ganit-core
 
 ```rust
 use std::collections::HashMap;
-use ganit_core::{evaluate, Value};
+use truecalc_core::{evaluate, Value};
 
 let mut vars = HashMap::new();
 vars.insert("A1".to_string(), Value::Number(100.0));
@@ -41,7 +41,7 @@ assert_eq!(result, Value::Number(300.0));
 
 ```rust
 use std::collections::HashMap;
-use ganit_core::{evaluate, Value};
+use truecalc_core::{evaluate, Value};
 
 let mut vars = HashMap::new();
 vars.insert("score".to_string(), Value::Number(85.0));
@@ -59,7 +59,7 @@ match evaluate("IF(score >= 60, \"pass\", \"fail\")", &vars) {
 ### Validate without evaluating
 
 ```rust
-use ganit_core::validate;
+use truecalc_core::validate;
 
 match validate("SUM(A1, B1)") {
     Ok(_)  => println!("valid"),
@@ -70,7 +70,7 @@ match validate("SUM(A1, B1)") {
 ### Parse to an AST
 
 ```rust
-use ganit_core::parse;
+use truecalc_core::parse;
 
 let expr = parse("1 + 2 * 3").expect("valid formula");
 // expr is an Expr tree you can walk yourself
@@ -106,7 +106,7 @@ let expr = parse("1 + 2 * 3").expect("valid formula");
 Covers math, logical, text, financial, and statistical categories. For the full list with signatures and descriptions, query the live registry:
 
 ```rust
-use ganit_core::Registry;
+use truecalc_core::Registry;
 
 let registry = Registry::new();
 for (name, meta) in registry.list_functions() {

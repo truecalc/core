@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add property tests that verify `ganit(formula) ≈ Google Sheets oracle` across *generated* inputs for each function category — not just the fixed fixture rows. This catches regressions in functions that have oracle fixtures but limited hand-written edge cases.
+**Goal:** Add property tests that verify `truecalc(formula) ≈ Google Sheets oracle` across *generated* inputs for each function category — not just the fixed fixture rows. This catches regressions in functions that have oracle fixtures but limited hand-written edge cases.
 
-**Architecture:** A new `property_conformance.rs` integration test file. For each function category (math, text, logical, financial), proptest generates valid inputs and evaluates the formula through ganit, then asserts the result matches the *mathematical property* that the Google Sheets oracle implies (e.g. ABS always non-negative, ROUND precision, IF branching). This is not a live GS call — the properties are derived from the oracle behavior we've already confirmed in conformance tests.
+**Architecture:** A new `property_conformance.rs` integration test file. For each function category (math, text, logical, financial), proptest generates valid inputs and evaluates the formula through truecalc, then asserts the result matches the *mathematical property* that the Google Sheets oracle implies (e.g. ABS always non-negative, ROUND precision, IF branching). This is not a live GS call — the properties are derived from the oracle behavior we've already confirmed in conformance tests.
 
-**Tech Stack:** proptest 1.x, ganit_core (evaluate, Value, ErrorKind)
+**Tech Stack:** proptest 1.x, truecalc_core (evaluate, Value, ErrorKind)
 
 **GitHub issue:** Closes #373 (sub-issue of epic #366)
 
@@ -36,7 +36,7 @@
 // These tests complement the fixed-row conformance tests in conformance.rs.
 // They catch regressions for inputs that don't appear in the fixture files.
 
-use ganit_core::{evaluate, Value};
+use truecalc_core::{evaluate, Value};
 use proptest::prelude::*;
 use std::collections::HashMap;
 
@@ -234,7 +234,7 @@ proptest! {
 - [ ] **Step 2: Run all conformance-driven property tests**
 
 ```bash
-cargo test -p ganit-core --test property_conformance -- --nocapture 2>&1 | tail -15
+cargo test -p truecalc-core --test property_conformance -- --nocapture 2>&1 | tail -15
 ```
 
 Expected: all tests pass. If any fail, the output shows the exact input and formula — investigate the evaluator for that function.
@@ -242,7 +242,7 @@ Expected: all tests pass. If any fail, the output shows the exact input and form
 - [ ] **Step 3: Check test count**
 
 ```bash
-cargo test -p ganit-core --test property_conformance -- --list 2>&1 | grep "test$" | wc -l
+cargo test -p truecalc-core --test property_conformance -- --list 2>&1 | grep "test$" | wc -l
 ```
 
 Expected: at least 15 tests listed.
@@ -271,8 +271,8 @@ Closes #373"
 
 ```bash
 gh pr create \
-  --repo tryganit/ganit-core \
-  --title "test(proptest): conformance-driven property tests — ganit ≈ Google Sheets across generated inputs" \
+  --repo truecalc/core \
+  --title "test(proptest): conformance-driven property tests — truecalc ≈ Google Sheets across generated inputs" \
   --assignee hhimanshu \
   --body "$(cat <<'EOF'
 ## Summary
@@ -294,7 +294,7 @@ gh pr edit --add-assignee hhimanshu
 - [ ] **Step 2: Monitor CI**
 
 ```bash
-gh run list --repo tryganit/ganit-core --limit 3
+gh run list --repo truecalc/core --limit 3
 ```
 
-On failure: `gh run view <run-id> --log-failed --repo tryganit/ganit-core`
+On failure: `gh run view <run-id> --log-failed --repo truecalc/core`

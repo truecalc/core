@@ -6,7 +6,7 @@
 
 **Architecture:** Add a `collect_fixture_results` function alongside the existing `run_fixture` (which panics on failure). A new test `#[test] fn generate_conformance_report()` calls `collect_fixture_results` for every fixture file, aggregates into a `ConformanceReport` struct, and serializes to JSON. Known deviations (`#[ignore]`-tagged tests) are tracked via a separate `KNOWN_DEVIATIONS` slice. No new dependencies — JSON is hand-serialized.
 
-**Tech Stack:** Rust std, existing `calamine` + `ganit_core` dev-deps
+**Tech Stack:** Rust std, existing `calamine` + `truecalc_core` dev-deps
 
 **GitHub issue:** Closes #369 (sub-issue of epic #366)
 
@@ -35,7 +35,7 @@
 // Called by the generate_conformance_report test in conformance.rs.
 
 use calamine::{open_workbook, Data, Reader, Xlsx};
-use ganit_core::{evaluate, ErrorKind, Value};
+use truecalc_core::{evaluate, ErrorKind, Value};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -106,7 +106,7 @@ impl ConformanceReport {
     }
 }
 
-/// Known deviations: cases where ganit intentionally differs from Google Sheets.
+/// Known deviations: cases where truecalc intentionally differs from Google Sheets.
 /// These are excluded from failure counts but documented in the report.
 pub const KNOWN_DEVIATIONS: &[KnownDeviation] = &[
     // Add entries here as they are discovered. Format:
@@ -276,15 +276,15 @@ pub struct KnownDeviation {
 - [ ] **Step 4: Compile-check**
 
 ```bash
-cargo test -p ganit-core --test conformance generate_conformance_report --no-run 2>&1 | tail -10
+cargo test -p truecalc-core --test conformance generate_conformance_report --no-run 2>&1 | tail -10
 ```
 
-Expected: `Compiling ganit-core` then `Finished` — no errors.
+Expected: `Compiling truecalc-core` then `Finished` — no errors.
 
 - [ ] **Step 5: Run the report generator**
 
 ```bash
-cargo test -p ganit-core --test conformance generate_conformance_report -- --nocapture 2>&1 | tail -5
+cargo test -p truecalc-core --test conformance generate_conformance_report -- --nocapture 2>&1 | tail -5
 ```
 
 Expected output ends with:
@@ -304,7 +304,7 @@ Verify it is valid JSON with `total`, `passed`, `failed`, `by_category`, and `kn
 - [ ] **Step 7: Run existing conformance tests to confirm nothing regressed**
 
 ```bash
-cargo test -p ganit-core --test conformance 2>&1 | tail -5
+cargo test -p truecalc-core --test conformance 2>&1 | tail -5
 ```
 
 Expected: all existing tests pass (same count as before this change).
@@ -329,7 +329,7 @@ Closes #369"
 
 ```bash
 gh pr create \
-  --repo tryganit/ganit-core \
+  --repo truecalc/core \
   --title "feat(conformance): emit structured JSON summary — per-category pass/fail vs Google Sheets" \
   --assignee hhimanshu \
   --body "$(cat <<'EOF'
@@ -360,7 +360,7 @@ gh pr edit --add-assignee hhimanshu
 - [ ] **Step 2: Monitor CI**
 
 ```bash
-gh run list --repo tryganit/ganit-core --limit 3
+gh run list --repo truecalc/core --limit 3
 ```
 
-On failure: `gh run view <run-id> --log-failed --repo tryganit/ganit-core`
+On failure: `gh run view <run-id> --log-failed --repo truecalc/core`

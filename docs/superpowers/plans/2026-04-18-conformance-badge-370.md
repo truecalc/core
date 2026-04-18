@@ -97,7 +97,7 @@ fi
 # Build comment body
 comment="## Google Sheets Conformance
 
-ganit calculations match Google Sheets — ${passed}/${total} tests passing (${pct}%)
+truecalc calculations match Google Sheets — ${passed}/${total} tests passing (${pct}%)
 
 | Category | Passed | Rate |
 |----------|--------|------|
@@ -144,7 +144,7 @@ chmod +x .github/scripts/post-conformance-comment.sh
 
 ```bash
 # First generate a report
-cargo test -p ganit-core --test conformance generate_conformance_report -- --nocapture 2>/dev/null
+cargo test -p truecalc-core --test conformance generate_conformance_report -- --nocapture 2>/dev/null
 
 # Run the script without a PR number (skips posting)
 bash .github/scripts/post-conformance-comment.sh target/conformance-report.json "" ""
@@ -172,7 +172,7 @@ After the existing test step (nextest), add:
 
 ```yaml
       - name: Generate conformance report
-        run: cargo test -p ganit-core --test conformance generate_conformance_report -- --nocapture
+        run: cargo test -p truecalc-core --test conformance generate_conformance_report -- --nocapture
 
       - name: Download main-branch conformance baseline
         run: |
@@ -237,7 +237,7 @@ head -10 README.md
 Find the line with existing badges (likely shields.io img tags or markdown badge syntax). After the last existing badge, add:
 
 ```markdown
-[![Google Sheets Conformance](https://img.shields.io/badge/Google%20Sheets%20conformance-passing-brightgreen)](https://github.com/tryganit/ganit-core/actions)
+[![Google Sheets Conformance](https://img.shields.io/badge/Google%20Sheets%20conformance-passing-brightgreen)](https://github.com/truecalc/core/actions)
 ```
 
 Note: This is a static badge initially. It will show "passing" — the exact count can be made dynamic in a follow-up using a Shields.io endpoint badge once a public endpoint is set up. For now the static badge communicates the intent clearly.
@@ -263,7 +263,7 @@ git commit -m "docs: add Google Sheets conformance badge to README"
 
 ```bash
 gh pr create \
-  --repo tryganit/ganit-core \
+  --repo truecalc/core \
   --title "feat(ci): Google Sheets conformance badge + PR regression comment" \
   --assignee hhimanshu \
   --body "$(cat <<'EOF'
@@ -276,7 +276,7 @@ gh pr create \
 ## Sample PR comment
 ```
 ## Google Sheets Conformance
-ganit calculations match Google Sheets — 2430/2461 tests passing (98.7%)
+truecalc calculations match Google Sheets — 2430/2461 tests passing (98.7%)
 
 | Category | Passed | Rate |
 |----------|--------|------|
@@ -297,7 +297,7 @@ gh pr edit --add-assignee hhimanshu
 - [ ] **Step 2: Monitor CI**
 
 ```bash
-gh run list --repo tryganit/ganit-core --limit 3
+gh run list --repo truecalc/core --limit 3
 ```
 
-On failure: `gh run view <run-id> --log-failed --repo tryganit/ganit-core`
+On failure: `gh run view <run-id> --log-failed --repo truecalc/core`

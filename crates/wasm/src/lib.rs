@@ -8,15 +8,15 @@ use serde_json::json;
 use tsify_next::Tsify;
 use wasm_bindgen::prelude::*;
 
-use ganit_core::Value;
+use truecalc_core::Value;
 
-/// Convert a JSON value (from JS) into a ganit-core Value.
+/// Convert a JSON value (from JS) into a truecalc-core Value.
 fn json_to_value(v: &serde_json::Value) -> Value {
     match v {
         serde_json::Value::Number(n) => n
             .as_f64()
             .map(Value::Number)
-            .unwrap_or(Value::Error(ganit_core::ErrorKind::Num)),
+            .unwrap_or(Value::Error(truecalc_core::ErrorKind::Num)),
         serde_json::Value::String(s) => Value::Text(s.clone()),
         serde_json::Value::Bool(b) => Value::Bool(*b),
         serde_json::Value::Null => Value::Empty,
@@ -69,7 +69,7 @@ pub fn evaluate(formula: &str, variables: JsValue) -> EvalResult {
         None => HashMap::new(),
     };
 
-    match ganit_core::evaluate(formula, &vars) {
+    match truecalc_core::evaluate(formula, &vars) {
         Value::Number(n) | Value::Date(n) => EvalResult::Number { value: n },
         Value::Text(s) => EvalResult::Text { value: s },
         Value::Bool(b) => EvalResult::Bool { value: b },
@@ -84,7 +84,7 @@ pub fn evaluate(formula: &str, variables: JsValue) -> EvalResult {
 /// Returns `{ valid: true }` on success or `{ valid: false, error: "..." }` on failure.
 #[wasm_bindgen]
 pub fn validate(formula: &str) -> ValidateResult {
-    match ganit_core::validate(formula) {
+    match truecalc_core::validate(formula) {
         Ok(_) => ValidateResult { valid: true, error: None },
         Err(e) => ValidateResult { valid: false, error: Some(e.to_string()) },
     }

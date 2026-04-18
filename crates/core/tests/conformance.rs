@@ -8,12 +8,12 @@
 //!   col C  oracle value — the result Google Sheets produced
 //!   col D  test category (basic / edge / coercion / error / nested)
 //!
-//! The test evaluates the formula in col B with `ganit_core::evaluate`, then
+//! The test evaluates the formula in col B with `truecalc_core::evaluate`, then
 //! compares against the oracle in col C.  Number comparisons allow a small
 //! floating-point tolerance.  Rows whose oracle cell is empty are skipped.
 
 use calamine::{open_workbook, CellErrorType, Data, Reader, Xlsx};
-use ganit_core::{evaluate, ErrorKind, Value};
+use truecalc_core::{evaluate, ErrorKind, Value};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 

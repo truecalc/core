@@ -3,7 +3,7 @@
 // Property-based tests for array functions.
 // Verifies length-preservation and element-wise invariants.
 
-use ganit_core::{evaluate, Value};
+use truecalc_core::{evaluate, Value};
 use proptest::prelude::*;
 use std::collections::HashMap;
 

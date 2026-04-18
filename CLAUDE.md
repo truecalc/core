@@ -74,10 +74,10 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 **A PR is not done until CI is green.**
 
 After opening or pushing to a PR:
-1. **Check CI immediately:** `gh run list --repo tryganit/ganit-core --branch <branch> --limit 3`
-2. **On failure, read the exact error:** `gh run view <run-id> --log-failed --repo tryganit/ganit-core`
+1. **Check CI immediately:** `gh run list --repo truecalc/core --branch <branch> --limit 3`
+2. **On failure, read the exact error:** `gh run view <run-id> --log-failed --repo truecalc/core`
 3. **Fix root cause** (not symptoms). Common culprits in this repo: `clippy -D warnings`, formatting, test failures from oracle fixture mismatches.
-4. **Verify locally before pushing:** `cargo clippy --workspace -- -D warnings && cargo test -p ganit-core`
+4. **Verify locally before pushing:** `cargo clippy --workspace -- -D warnings && cargo test -p truecalc-core`
 5. **Push the fix** and confirm CI re-runs green.
 
 **PR description must include:**

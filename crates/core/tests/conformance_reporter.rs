@@ -4,7 +4,7 @@
 // Called by the generate_conformance_report test in conformance.rs.
 
 use calamine::{open_workbook, CellErrorType, Data, Reader, Xlsx};
-use ganit_core::{evaluate, ErrorKind, Value};
+use truecalc_core::{evaluate, ErrorKind, Value};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -174,7 +174,7 @@ impl ConformanceReport {
     }
 }
 
-/// Known deviations: cases where ganit intentionally differs from Google Sheets.
+/// Known deviations: cases where truecalc intentionally differs from Google Sheets.
 /// These are excluded from failure counts but documented in the report.
 pub const KNOWN_DEVIATIONS: &[KnownDeviation] = &[
     // Add entries here as they are discovered. Format:

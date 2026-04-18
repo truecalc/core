@@ -15,7 +15,7 @@ tree = ET.parse(junit_path)
 root = tree.getroot()
 unit_counts = defaultdict(int)
 for suite in root.findall('testsuite'):
-    if suite.get('name') == 'ganit-core':
+    if suite.get('name') == 'truecalc-core':
         for tc in suite.findall('testcase'):
             parts = tc.get('name', '').split('::')
             cat = 'core'
@@ -31,8 +31,8 @@ CASES = 500
 prop_fns = defaultdict(int)
 for suite in root.findall('testsuite'):
     sname = suite.get('name', '')
-    if sname.startswith('ganit-core::property_'):
-        cat = sname[len('ganit-core::property_'):]
+    if sname.startswith('truecalc-core::property_'):
+        cat = sname[len('truecalc-core::property_'):]
         if cat not in SKIP:
             prop_fns[cat] += int(suite.get('tests', 0))
 
@@ -91,7 +91,7 @@ print(f"""<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Test Transparency — ganit</title>
+  <title>Test Transparency — truecalc</title>
   <style>
     body {{ font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #24292f; }}
     h1 {{ font-size: 1.5rem; }}
@@ -110,20 +110,20 @@ print(f"""<!DOCTYPE html>
   </style>
 </head>
 <body>
-  <h1>ganit — Test Transparency</h1>
+  <h1>truecalc — Test Transparency</h1>
 
   <h2>Google Sheets Conformance</h2>
   <div class="badges">
     <span class="badge">{passed}/{total} · {pct}%</span>
-    <img src="https://img.shields.io/codecov/c/github/tryganit/ganit-core?label=coverage&style=flat-square" alt="Code Coverage" height="22">
+    <img src="https://img.shields.io/codecov/c/github/truecalc/core?label=coverage&style=flat-square" alt="Code Coverage" height="22">
   </div>
 
   <div class="explainer">
     <strong>What is Google Sheets conformance?</strong><br>
-    ganit evaluates spreadsheet formulas. To verify correctness, every supported formula is run against
+    truecalc evaluates spreadsheet formulas. To verify correctness, every supported formula is run against
     a <em>Google Sheets oracle</em> — real Google Sheets spreadsheets that produce the expected output.
-    On every commit to <code>main</code>, ganit re-runs all {total} conformance cases and compares
-    results. A ✓ means ganit matches Google Sheets exactly; ⚠ means a known, intentional deviation
+    On every commit to <code>main</code>, truecalc re-runs all {total} conformance cases and compares
+    results. A ✓ means truecalc matches Google Sheets exactly; ⚠ means a known, intentional deviation
     (e.g. a locale difference or an unsupported edge case).<br><br>
     <strong>Property tests</strong> go further: for each formula category, randomly generated inputs
     are checked against mathematical invariants (e.g. <code>ABS(x) ≥ 0</code> for all x,

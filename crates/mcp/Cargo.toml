@@ -1,17 +1,17 @@
 [package]
-name = "ganit-mcp"
+name = "truecalc-mcp"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "MCP server exposing ganit formula evaluation as a tool for AI assistants"
+description = "MCP server exposing truecalc formula evaluation as a tool for AI assistants"
 repository.workspace = true
 readme = "README.md"
 
 [[bin]]
-name = "ganit-mcp"
+name = "truecalc-mcp"
 path = "src/main.rs"
 
 [dependencies]
-ganit-core = { path = "../core", version = "0.4" }
+truecalc-core = { path = "../core", version = "0.4" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

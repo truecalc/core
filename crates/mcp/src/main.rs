@@ -1,9 +1,9 @@
-// ganit MCP server — hand-rolled JSON-RPC over stdio (MCP protocol 2024-11-05)
+// truecalc MCP server — hand-rolled JSON-RPC over stdio (MCP protocol 2024-11-05)
 
 use std::collections::HashMap;
 use std::io::{self, BufRead, Write};
 
-use ganit_core::{evaluate, parse, validate, Expr, Registry, Value};
+use truecalc_core::{evaluate, parse, validate, Expr, Registry, Value};
 use serde_json::{json, Value as JsonValue};
 
 fn main() {
@@ -70,7 +70,7 @@ fn handle_request(req: &JsonValue) -> JsonValue {
             "result": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": { "tools": {} },
-                "serverInfo": { "name": "ganit-mcp", "version": "0.1.0" }
+                "serverInfo": { "name": "truecalc-mcp", "version": "0.1.0" }
             }
         }),
 

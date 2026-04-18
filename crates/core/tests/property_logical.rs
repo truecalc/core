@@ -1,5 +1,5 @@
 use proptest::prelude::*;
-use ganit_core::{evaluate, Value};
+use truecalc_core::{evaluate, Value};
 use std::collections::HashMap;
 
 const CASES: u32 = 500;

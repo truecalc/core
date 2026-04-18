@@ -4,9 +4,9 @@
 
 **Goal:** Add three new *classes* of property-based tests: idempotency (applying a function twice gives the same result as once), round-trips (composing inverse functions returns the original value), and error propagation (errors passed to non-error-handling functions always produce errors). These properties are mathematical invariants — any violation is a bug, independent of the specific input.
 
-**Architecture:** Expand `property_text.rs` and `property_math.rs` with new proptest blocks. Create `property_error_propagation.rs` for the error class. All tests use the existing `proptest` + `ganit_core` dev-dependencies. Error values are injected as variables using `evaluate(formula, &vars)` where `vars` contains a `Value::Error(ErrorKind::...)` entry.
+**Architecture:** Expand `property_text.rs` and `property_math.rs` with new proptest blocks. Create `property_error_propagation.rs` for the error class. All tests use the existing `proptest` + `truecalc_core` dev-dependencies. Error values are injected as variables using `evaluate(formula, &vars)` where `vars` contains a `Value::Error(ErrorKind::...)` entry.
 
-**Tech Stack:** proptest 1.x, ganit_core (evaluate, Value, ErrorKind)
+**Tech Stack:** proptest 1.x, truecalc_core (evaluate, Value, ErrorKind)
 
 **GitHub issue:** Closes #371 (sub-issue of epic #366)
 
@@ -100,7 +100,7 @@ Read the current end of `crates/core/tests/property_text.rs` to find the closing
 - [ ] **Step 2: Run to verify tests pass**
 
 ```bash
-cargo test -p ganit-core --test property_text 2>&1 | tail -8
+cargo test -p truecalc-core --test property_text 2>&1 | tail -8
 ```
 
 Expected: all tests pass including new ones.
@@ -176,7 +176,7 @@ Append before the closing `}` of the `proptest!` block:
 - [ ] **Step 2: Run tests**
 
 ```bash
-cargo test -p ganit-core --test property_math 2>&1 | tail -8
+cargo test -p truecalc-core --test property_math 2>&1 | tail -8
 ```
 
 Expected: all pass.
@@ -206,7 +206,7 @@ Error propagation rule: for any non-error-handling function `f`, if an input is 
 // than silently resolving them. This is a correctness invariant derived from
 // Google Sheets behavior: errors are contagious.
 
-use ganit_core::{evaluate, ErrorKind, Value};
+use truecalc_core::{evaluate, ErrorKind, Value};
 use proptest::prelude::*;
 use std::collections::HashMap;
 
@@ -291,7 +291,7 @@ proptest! {
 - [ ] **Step 2: Run to see if they pass or reveal bugs**
 
 ```bash
-cargo test -p ganit-core --test property_error_propagation -- --nocapture 2>&1 | tail -15
+cargo test -p truecalc-core --test property_error_propagation -- --nocapture 2>&1 | tail -15
 ```
 
 Expected: all 9 tests pass. If any fail, the failure output will show the exact error variant and function — investigate the evaluator for that function and fix the propagation before committing.
@@ -316,7 +316,7 @@ Closes #371"
 
 ```bash
 gh pr create \
-  --repo tryganit/ganit-core \
+  --repo truecalc/core \
   --title "test(proptest): idempotency, round-trips, and error propagation properties" \
   --assignee hhimanshu \
   --body "$(cat <<'EOF'
@@ -334,7 +334,7 @@ gh pr edit --add-assignee hhimanshu
 - [ ] **Step 2: Monitor CI**
 
 ```bash
-gh run list --repo tryganit/ganit-core --limit 3
+gh run list --repo truecalc/core --limit 3
 ```
 
-On failure: `gh run view <run-id> --log-failed --repo tryganit/ganit-core`
+On failure: `gh run view <run-id> --log-failed --repo truecalc/core`
