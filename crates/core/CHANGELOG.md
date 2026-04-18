@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.6](https://github.com/truecalc/core/compare/truecalc-core-v0.4.5...truecalc-core-v0.4.6) - 2026-04-18
+
+### Other
+
+- Merge pull request #420 from truecalc/test/logical-core-coverage-415
+- Merge pull request #419 from truecalc/test/financial-coverage-414
+- Merge pull request #418 from truecalc/test/date-coverage-413
+- Merge pull request #417 from truecalc/test/lookup-coverage-412
+- *(lookup)* add edge test for mismatched lookup result range
+- *(lookup)* add xlookup invalid match mode test
+- *(lookup)* add tests for LOOKUP, XLOOKUP, XMATCH, ROW, COLUMN gaps
+
 ## [0.4.4](https://github.com/truecalc/core/compare/truecalc-core-v0.4.3...truecalc-core-v0.4.4) - 2026-04-18
 
 ### Added
