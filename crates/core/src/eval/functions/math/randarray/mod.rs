@@ -55,3 +55,6 @@ pub fn randarray_fn(args: &[Value]) -> Value {
         .collect();
     Value::Array(outer)
 }
+
+#[cfg(test)]
+mod tests;
