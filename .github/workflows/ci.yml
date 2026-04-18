@@ -34,6 +34,22 @@ jobs:
           cat nextest-output.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
+      - name: Post per-suite results as PR comment
+        if: always() && github.event_name == 'pull_request'
+        run: |
+          body="## Test Results
+          \`\`\`
+          $(cat nextest-output.txt)
+          \`\`\`"
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --body "$body" --edit-last 2>/dev/null || \
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --body "$body"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
