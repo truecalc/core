@@ -86,6 +86,34 @@ proptest! {
         }
     }
 
+    // LEN is non-negative for any string
+    #[test]
+    fn len_non_negative(s in ascii_string()) {
+        let vars: HashMap<String, Value> = [(
+            "s".to_string(), Value::Text(s.clone()),
+        )].into_iter().collect();
+        let result = evaluate("=LEN(s)", &vars);
+        if let Value::Number(n) = result {
+            prop_assert!(n >= 0.0, "LEN returned negative for {:?}", s);
+        }
+    }
+
+    // CONCATENATE length: LEN(CONCATENATE(a, b)) == LEN(a) + LEN(b)
+    #[test]
+    fn concatenate_preserves_total_length(a in ascii_string(), b in ascii_string()) {
+        let vars: HashMap<String, Value> = [
+            ("a".to_string(), Value::Text(a.clone())),
+            ("b".to_string(), Value::Text(b.clone())),
+        ].into_iter().collect();
+        let ab_len = evaluate("=LEN(CONCATENATE(a,b))", &vars);
+        let a_len  = evaluate("=LEN(a)", &vars);
+        let b_len  = evaluate("=LEN(b)", &vars);
+        if let (Value::Number(total), Value::Number(la), Value::Number(lb)) = (ab_len, a_len, b_len) {
+            prop_assert_eq!(total, la + lb,
+                "LEN(CONCATENATE({:?},{:?})) != LEN(a)+LEN(b)", a, b);
+        }
+    }
+
     // 5. LEFT(s, LEN(s)) == s  (taking all characters returns the full string)
     #[test]
     fn left_full_len_is_identity(s in ascii_string()) {
