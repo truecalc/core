@@ -46,8 +46,8 @@ jobs:
 
       - name: Generate coverage report
         run: |
-          cargo llvm-cov --workspace --lcov --output-path lcov.info
-          cargo llvm-cov --workspace --html --output-dir target/coverage-html
+          cargo llvm-cov -p truecalc-core --lcov --output-path lcov.info
+          cargo llvm-cov -p truecalc-core --html --output-dir target/coverage-html
 
       - name: Generate conformance report
         run: cargo test -p truecalc-core --test conformance generate_conformance_report -- --nocapture
