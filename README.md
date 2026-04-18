@@ -5,7 +5,7 @@
 [![ganit-mcp](https://img.shields.io/crates/v/ganit-mcp?label=ganit-mcp)](https://crates.io/crates/ganit-mcp)
 [![docs.rs](https://img.shields.io/docsrs/ganit-core)](https://docs.rs/ganit-core)
 [![license](https://img.shields.io/crates/l/ganit-core)](LICENSE)
-[![Google Sheets Conformance](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/tryganit/ganit-core/gh-pages/conformance-badge.json&label=Google%20Sheets%20Conformance)](https://github.com/tryganit/ganit-core/actions)
+[![Google Sheets Conformance](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/tryganit/ganit-core/gh-pages/conformance-badge.json)](https://tryganit.github.io/ganit-core/)
 
 WebAssembly-powered spreadsheet formula engine for JavaScript/TypeScript.
 

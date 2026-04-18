@@ -88,25 +88,73 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
 
-      - name: Publish conformance badge to gh-pages
+      - name: Publish conformance report to gh-pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           total=$(grep '"total"'  target/conformance-report.json | grep -o '[0-9]*' | head -1)
           passed=$(grep '"passed"' target/conformance-report.json | grep -o '[0-9]*' | head -1)
           pct=$(awk "BEGIN { printf \"%.1f\", ($passed/$total)*100 }")
-          if   (( $(echo "$pct >= 99.0" | bc -l) )); then color="brightgreen"
-          elif (( $(echo "$pct >= 95.0" | bc -l) )); then color="green"
-          elif (( $(echo "$pct >= 90.0" | bc -l) )); then color="yellow"
-          else color="red"
+          if   (( $(echo "$pct >= 99.0" | bc -l) )); then color="brightgreen"; hex="#4c1"
+          elif (( $(echo "$pct >= 95.0" | bc -l) )); then color="green";       hex="#3c3"
+          elif (( $(echo "$pct >= 90.0" | bc -l) )); then color="yellow";      hex="#db1"
+          else color="red"; hex="#e05"
           fi
           badge_json="{\"schemaVersion\":1,\"label\":\"Google Sheets Conformance\",\"message\":\"${passed}/${total} · ${pct}%\",\"color\":\"${color}\"}"
+          run_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          cat > /tmp/conformance.html <<HTML
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Google Sheets Conformance — ganit</title>
+            <style>
+              body { font-family: system-ui, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; color: #24292f; }
+              h1 { font-size: 1.5rem; }
+              .badge { display: inline-block; background: ${hex}; color: #fff; padding: 4px 12px; border-radius: 4px; font-size: 1.1rem; font-weight: bold; margin: 8px 0 24px; }
+              table { border-collapse: collapse; width: 100%; }
+              th, td { border: 1px solid #d0d7de; padding: 8px 12px; text-align: left; }
+              th { background: #f6f8fa; }
+              .pass { color: #1a7f37; }
+              .fail { color: #cf222e; }
+              footer { margin-top: 32px; font-size: 0.85rem; color: #57606a; }
+            </style>
+          </head>
+          <body>
+            <h1>Google Sheets Conformance</h1>
+            <div class="badge">${passed}/${total} · ${pct}%</div>
+            <p>ganit formula results verified against Google Sheets oracle on every commit to <code>main</code>.</p>
+            $(python3 -c "
+          import json, sys
+          d = json.load(open('target/conformance-report.json'))
+          cats = d.get('categories', {})
+          if not cats:
+              print('<p>No per-category data available.</p>')
+              sys.exit()
+          print('<table><tr><th>Category</th><th>Passed</th><th>Total</th><th>Rate</th></tr>')
+          for name, v in sorted(cats.items()):
+              p, t = v['passed'], v['total']
+              pct2 = f'{p/t*100:.1f}' if t else '0.0'
+              cls = 'pass' if p == t else 'fail'
+              print(f'<tr><td>{name.title()}</td><td class=\"{cls}\">{p}</td><td>{t}</td><td class=\"{cls}\">{pct2}%</td></tr>')
+          print('</table>')
+          " 2>/dev/null || echo "<p>Category breakdown not available.</p>")
+            <footer>
+              Oracle: Google Sheets &nbsp;·&nbsp;
+              Updated: $(date -u '+%Y-%m-%d %H:%M UTC') &nbsp;·&nbsp;
+              <a href="${run_url}">CI run</a>
+            </footer>
+          </body>
+          </html>
+          HTML
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch origin gh-pages 2>/dev/null || true
           git checkout gh-pages 2>/dev/null || git checkout --orphan gh-pages
           echo "$badge_json" > conformance-badge.json
-          git add conformance-badge.json
-          git diff --cached --quiet || git commit -m "chore: update Google Sheets conformance badge [skip ci]"
+          cp /tmp/conformance.html index.html
+          git add conformance-badge.json index.html
+          git diff --cached --quiet || git commit -m "chore: update Google Sheets conformance report [skip ci]"
           git push origin gh-pages
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
