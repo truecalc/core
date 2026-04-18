@@ -1,6 +1,7 @@
 use crate::evaluate;
 use crate::eval::functions::lookup::{
     index_match::{index_fn, match_fn},
+    lookup_fn::{lookup_fn, xlookup_fn, xmatch_fn},
     vlookup::{hlookup_fn, vlookup_fn},
 };
 use crate::types::Value;
@@ -116,4 +117,108 @@ fn index_2d_row2_col1() {
 fn index_2d_row1_col2() {
     let arr = make_2d(vec![vec![n(1.0), n(2.0)], vec![n(3.0), n(4.0)]]);
     assert_eq!(index_fn(&[arr, n(1.0), n(2.0)]), n(2.0));
+}
+
+// LOOKUP
+#[test]
+fn lookup_finds_exact_match() {
+    let search = make_1d(vec![n(1.0), n(2.0), n(3.0), n(4.0)]);
+    assert_eq!(lookup_fn(&[n(3.0), search]), n(3.0));
+}
+
+#[test]
+fn lookup_returns_from_result_range() {
+    let keys = make_1d(vec![n(1.0), n(2.0), n(3.0)]);
+    let vals = make_1d(vec![t("a"), t("b"), t("c")]);
+    assert_eq!(lookup_fn(&[n(2.0), keys, vals]), t("b"));
+}
+
+#[test]
+fn lookup_approximate_finds_largest_lte() {
+    let search = make_1d(vec![n(1.0), n(2.0), n(3.0)]);
+    assert_eq!(lookup_fn(&[n(2.5), search]), n(2.0));
+}
+
+// XLOOKUP
+#[test]
+fn xlookup_exact_match_found() {
+    let lookup = make_1d(vec![n(1.0), n(2.0), n(3.0)]);
+    let result = make_1d(vec![t("a"), t("b"), t("c")]);
+    assert_eq!(xlookup_fn(&[n(2.0), lookup, result]), t("b"));
+}
+
+#[test]
+fn xlookup_not_found_returns_if_not_found() {
+    let lookup = make_1d(vec![n(1.0), n(2.0)]);
+    let result = make_1d(vec![t("a"), t("b")]);
+    assert_eq!(xlookup_fn(&[n(9.0), lookup, result, t("missing")]), t("missing"));
+}
+
+#[test]
+fn xlookup_match_mode_1_next_larger() {
+    let lookup = make_1d(vec![n(1.0), n(2.0), n(3.0)]);
+    let result = make_1d(vec![t("a"), t("b"), t("c")]);
+    assert_eq!(xlookup_fn(&[n(2.5), lookup, result, t("n/a"), n(1.0)]), t("c"));
+}
+
+#[test]
+fn xlookup_match_mode_neg1_next_smaller() {
+    let lookup = make_1d(vec![n(1.0), n(2.0), n(3.0)]);
+    let result = make_1d(vec![t("a"), t("b"), t("c")]);
+    assert_eq!(xlookup_fn(&[n(2.5), lookup, result, t("n/a"), n(-1.0)]), t("b"));
+}
+
+// XMATCH
+#[test]
+fn xmatch_exact_returns_1based_position() {
+    let lookup = make_1d(vec![t("a"), t("b"), t("c")]);
+    assert_eq!(xmatch_fn(&[t("b"), lookup]), n(2.0));
+}
+
+#[test]
+fn xmatch_mode_1_returns_position_of_lte() {
+    let lookup = make_1d(vec![n(1.0), n(2.0), n(3.0)]);
+    assert_eq!(xmatch_fn(&[n(2.5), lookup, n(1.0)]), n(2.0));
+}
+
+#[test]
+fn xmatch_mode_neg1_returns_position_of_gte() {
+    let lookup = make_1d(vec![n(3.0), n(2.0), n(1.0)]);
+    assert_eq!(xmatch_fn(&[n(2.5), lookup, n(-1.0)]), n(1.0));
+}
+
+// ROW / COLUMN
+#[test]
+fn row_no_args_returns_1() {
+    assert_eq!(run("=ROW()"), n(1.0));
+}
+
+#[test]
+fn column_no_args_returns_1() {
+    assert_eq!(run("=COLUMN()"), n(1.0));
+}
+
+#[test]
+fn row_with_cell_ref_returns_row_number() {
+    assert_eq!(run("=ROW(A5)"), n(5.0));
+    assert_eq!(run("=ROW(B10)"), n(10.0));
+}
+
+#[test]
+fn column_with_cell_ref_returns_col_number() {
+    assert_eq!(run("=COLUMN(A1)"), n(1.0));
+    assert_eq!(run("=COLUMN(B1)"), n(2.0));
+    assert_eq!(run("=COLUMN(D1)"), n(4.0));
+}
+
+#[test]
+fn rows_with_range_ref_returns_row_count() {
+    assert_eq!(run("=ROWS(A1:A5)"), n(5.0));
+    assert_eq!(run("=ROWS(B2:B10)"), n(9.0));
+}
+
+#[test]
+fn columns_with_range_ref_returns_col_count() {
+    assert_eq!(run("=COLUMNS(A1:D1)"), n(4.0));
+    assert_eq!(run("=COLUMNS(A1:C5)"), n(3.0));
 }

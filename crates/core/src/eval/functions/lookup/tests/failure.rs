@@ -1,6 +1,7 @@
 use crate::evaluate;
 use crate::eval::functions::lookup::{
     index_match::{index_fn, match_fn},
+    lookup_fn::{lookup_fn, xlookup_fn, xmatch_fn},
     vlookup::{hlookup_fn, vlookup_fn},
 };
 use crate::types::{ErrorKind, Value};
@@ -115,4 +116,41 @@ fn index_2d_row_out_of_bounds() {
 fn index_wrong_arg_count() {
     assert_eq!(index_fn(&[]), Value::Error(ErrorKind::NA));
     assert_eq!(index_fn(&[n(1.0)]), Value::Error(ErrorKind::NA));
+}
+
+// LOOKUP failures
+#[test]
+fn lookup_not_found_returns_na() {
+    let search = make_1d(vec![n(5.0), n(6.0), n(7.0)]);
+    assert_eq!(lookup_fn(&[n(1.0), search]), Value::Error(ErrorKind::NA));
+}
+
+#[test]
+fn xlookup_not_found_no_fallback_returns_na() {
+    let lookup = make_1d(vec![n(1.0), n(2.0)]);
+    let result = make_1d(vec![t("a"), t("b")]);
+    assert_eq!(xlookup_fn(&[n(9.0), lookup, result]), Value::Error(ErrorKind::NA));
+}
+
+#[test]
+fn xmatch_not_found_returns_na() {
+    let lookup = make_1d(vec![n(1.0), n(2.0)]);
+    assert_eq!(xmatch_fn(&[n(9.0), lookup]), Value::Error(ErrorKind::NA));
+}
+
+#[test]
+fn xmatch_invalid_mode_returns_value_error() {
+    let lookup = make_1d(vec![n(1.0)]);
+    assert_eq!(xmatch_fn(&[n(1.0), lookup, n(99.0)]), Value::Error(ErrorKind::Value));
+}
+
+#[test]
+fn xlookup_invalid_match_mode_returns_not_found_fallback() {
+    let lookup = make_1d(vec![n(1.0)]);
+    let result = make_1d(vec![t("a")]);
+    // mode=99 → falls through to exact match, key not found → uses if_not_found fallback
+    assert_eq!(
+        xlookup_fn(&[n(9.0), lookup, result, t("n/a"), n(99.0)]),
+        t("n/a"),
+    );
 }
