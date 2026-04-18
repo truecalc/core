@@ -7,14 +7,16 @@ use ganit_core::{evaluate, Value};
 use proptest::prelude::*;
 use std::collections::HashMap;
 
+const CASES: u32 = 500;
+
 fn run(formula: &str) -> Value {
     evaluate(formula, &HashMap::new())
 }
 
-proptest! {
-    // SEQUENCE(n) produces exactly n values when n >= 1
-    #[test]
-    fn sequence_length(n in 1usize..=20) {
+// SEQUENCE(n) produces exactly n values when n >= 1
+#[test]
+fn sequence_length() {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(n in 1usize..=20)| {
         let formula = format!("=SEQUENCE({})", n);
         let result = run(&formula);
         match result {
@@ -29,11 +31,14 @@ proptest! {
                 let _ = other;
             }
         }
-    }
+    });
+    eprintln!("proptest: {CASES} cases (n ∈ [1, 20])");
+}
 
-    // SEQUENCE(n) values are 1..n (default start=1, step=1)
-    #[test]
-    fn sequence_values_start_at_one(n in 1usize..=10) {
+// SEQUENCE(n) values are 1..n (default start=1, step=1)
+#[test]
+fn sequence_values_start_at_one() {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(n in 1usize..=10)| {
         let formula = format!("=SEQUENCE({})", n);
         let result = run(&formula);
         if let Value::Array(arr) = result {
@@ -44,5 +49,6 @@ proptest! {
                 }
             }
         }
-    }
+    });
+    eprintln!("proptest: {CASES} cases (n ∈ [1, 10])");
 }
