@@ -47,12 +47,6 @@ jobs:
       - name: Generate coverage report
         run: cargo llvm-cov --workspace --lcov --output-path lcov.info
 
-      - name: Upload coverage to codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: lcov.info
-          fail_ci_if_error: false
-
       - name: Generate conformance report
         run: cargo test -p truecalc-core --test conformance generate_conformance_report -- --nocapture
 
