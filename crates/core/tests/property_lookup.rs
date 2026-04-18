@@ -8,6 +8,8 @@ use ganit_core::{evaluate, Value};
 use proptest::prelude::*;
 use std::collections::HashMap;
 
+const CASES: u32 = 500;
+
 fn run(formula: &str) -> Value {
     evaluate(formula, &HashMap::new())
 }
@@ -19,7 +21,7 @@ fn is_error(v: &Value) -> bool {
 // CHOOSE(idx, ...) with idx out of range [1, n] returns an error
 #[test]
 fn choose_out_of_range_errors() {
-    proptest!(|(
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(
         n_choices in 1usize..=5,
         idx_offset in 1usize..=10,
     )| {
@@ -31,13 +33,13 @@ fn choose_out_of_range_errors() {
         prop_assert!(is_error(&result),
             "CHOOSE({}, {} choices) should error but got {:?}", bad_idx, n, result);
     });
-    eprintln!("proptest: 256 cases (n_choices ∈ [1, 5], idx_offset ∈ [1, 10])");
+    eprintln!("proptest: {CASES} cases (n_choices ∈ [1, 5], idx_offset ∈ [1, 10])");
 }
 
 // CHOOSE(idx, ...) with idx in [1, n] returns one of the choices (a Number)
 #[test]
 fn choose_in_range_returns_value() {
-    proptest!(|(
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(
         n_choices in 1usize..=5,
         idx_minus_one in 0usize..5,
     )| {
@@ -53,5 +55,5 @@ fn choose_in_range_returns_value() {
                 "CHOOSE({}) returned {} instead of {}", idx, v, idx);
         }
     });
-    eprintln!("proptest: 256 cases (n_choices ∈ [1, 5], idx_minus_one ∈ [0, 5))");
+    eprintln!("proptest: {CASES} cases (n_choices ∈ [1, 5], idx_minus_one ∈ [0, 5))");
 }

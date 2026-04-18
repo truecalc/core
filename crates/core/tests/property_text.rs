@@ -2,6 +2,8 @@ use proptest::prelude::*;
 use ganit_core::{evaluate, Value};
 use std::collections::HashMap;
 
+const CASES: u32 = 500;
+
 fn run_text_vars(formula: &str, vars: Vec<(&str, &str)>) -> Value {
     let map: HashMap<String, Value> = vars
         .into_iter()
@@ -21,7 +23,7 @@ fn spacey_string() -> impl Strategy<Value = String> {
 // 1. LEN(CONCATENATE(a, b)) == LEN(a) + LEN(b)
 #[test]
 fn concatenate_len() {
-    proptest!(|(a in ascii_string(), b in ascii_string())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(a in ascii_string(), b in ascii_string())| {
         let vars: HashMap<String, Value> = vec![
             ("a".to_string(), Value::Text(a.clone())),
             ("b".to_string(), Value::Text(b.clone())),
@@ -33,13 +35,13 @@ fn concatenate_len() {
             prop_assert_eq!(total, la + lb);
         }
     });
-    eprintln!("proptest: 256 cases (a ∈ [a-z]{{0,20}}, b ∈ [a-z]{{0,20}})");
+    eprintln!("proptest: {CASES} cases (a ∈ [a-z]{{0,20}}, b ∈ [a-z]{{0,20}})");
 }
 
 // 2. TRIM is idempotent: TRIM(s) == TRIM(TRIM(s))
 #[test]
 fn trim_idempotent() {
-    proptest!(|(s in spacey_string())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(s in spacey_string())| {
         let vars: HashMap<String, Value> = vec![
             ("s".to_string(), Value::Text(s.clone())),
         ].into_iter().collect();
@@ -53,13 +55,13 @@ fn trim_idempotent() {
             prop_assert_eq!(trimmed2, Value::Text(t));
         }
     });
-    eprintln!("proptest: 256 cases (s ∈ [a-z ]{{0,20}})");
+    eprintln!("proptest: {CASES} cases (s ∈ [a-z ]{{0,20}})");
 }
 
 // 3. UPPER is idempotent: UPPER(UPPER(s)) == UPPER(s)
 #[test]
 fn upper_idempotent() {
-    proptest!(|(s in ascii_string())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(s in ascii_string())| {
         let vars: HashMap<String, Value> = vec![
             ("s".to_string(), Value::Text(s.clone())),
         ].into_iter().collect();
@@ -72,13 +74,13 @@ fn upper_idempotent() {
             prop_assert_eq!(upper2, Value::Text(u));
         }
     });
-    eprintln!("proptest: 256 cases (s ∈ [a-z]{{0,20}})");
+    eprintln!("proptest: {CASES} cases (s ∈ [a-z]{{0,20}})");
 }
 
 // 4. LOWER is idempotent: LOWER(LOWER(s)) == LOWER(s)
 #[test]
 fn lower_idempotent() {
-    proptest!(|(s in ascii_string())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(s in ascii_string())| {
         let vars: HashMap<String, Value> = vec![
             ("s".to_string(), Value::Text(s.clone())),
         ].into_iter().collect();
@@ -91,13 +93,13 @@ fn lower_idempotent() {
             prop_assert_eq!(lower2, Value::Text(l));
         }
     });
-    eprintln!("proptest: 256 cases (s ∈ [a-z]{{0,20}})");
+    eprintln!("proptest: {CASES} cases (s ∈ [a-z]{{0,20}})");
 }
 
 // LEN is non-negative for any string
 #[test]
 fn len_non_negative() {
-    proptest!(|(s in ascii_string())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(s in ascii_string())| {
         let vars: HashMap<String, Value> = [(
             "s".to_string(), Value::Text(s.clone()),
         )].into_iter().collect();
@@ -106,13 +108,13 @@ fn len_non_negative() {
             prop_assert!(n >= 0.0, "LEN returned negative for {:?}", s);
         }
     });
-    eprintln!("proptest: 256 cases (s ∈ [a-z]{{0,20}})");
+    eprintln!("proptest: {CASES} cases (s ∈ [a-z]{{0,20}})");
 }
 
 // CONCATENATE length: LEN(CONCATENATE(a, b)) == LEN(a) + LEN(b)
 #[test]
 fn concatenate_preserves_total_length() {
-    proptest!(|(a in ascii_string(), b in ascii_string())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(a in ascii_string(), b in ascii_string())| {
         let vars: HashMap<String, Value> = [
             ("a".to_string(), Value::Text(a.clone())),
             ("b".to_string(), Value::Text(b.clone())),
@@ -125,13 +127,13 @@ fn concatenate_preserves_total_length() {
                 "LEN(CONCATENATE({:?},{:?})) != LEN(a)+LEN(b)", a, b);
         }
     });
-    eprintln!("proptest: 256 cases (a ∈ [a-z]{{0,20}}, b ∈ [a-z]{{0,20}})");
+    eprintln!("proptest: {CASES} cases (a ∈ [a-z]{{0,20}}, b ∈ [a-z]{{0,20}})");
 }
 
 // 5. LEFT(s, LEN(s)) == s  (taking all characters returns the full string)
 #[test]
 fn left_full_len_is_identity() {
-    proptest!(|(s in ascii_string())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(s in ascii_string())| {
         let len = s.len() as f64;
         let text_var: HashMap<String, Value> = vec![
             ("s".to_string(), Value::Text(s.clone())),
@@ -140,7 +142,7 @@ fn left_full_len_is_identity() {
         let result = evaluate("=LEFT(s, n)", &text_var);
         prop_assert_eq!(result, Value::Text(s));
     });
-    eprintln!("proptest: 256 cases (s ∈ [a-z]{{0,20}})");
+    eprintln!("proptest: {CASES} cases (s ∈ [a-z]{{0,20}})");
 }
 
 // Smoke test for text helpers

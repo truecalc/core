@@ -8,6 +8,8 @@ use ganit_core::{evaluate, ErrorKind, Value};
 use proptest::prelude::*;
 use std::collections::HashMap;
 
+const CASES: u32 = 500;
+
 fn error_value() -> impl Strategy<Value = Value> {
     prop_oneof![
         Just(Value::Error(ErrorKind::Value)),
@@ -30,82 +32,82 @@ fn is_error(v: &Value) -> bool {
 // Math functions propagate errors
 #[test]
 fn abs_propagates_error() {
-    proptest!(|(e in error_value())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(e in error_value())| {
         let result = run_with_error("=ABS(x)", "x", e);
         prop_assert!(is_error(&result), "ABS did not propagate error, got {:?}", result);
     });
-    eprintln!("proptest: 256 cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
+    eprintln!("proptest: {CASES} cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
 }
 
 #[test]
 fn sqrt_propagates_error() {
-    proptest!(|(e in error_value())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(e in error_value())| {
         let result = run_with_error("=SQRT(x)", "x", e);
         prop_assert!(is_error(&result), "SQRT did not propagate error, got {:?}", result);
     });
-    eprintln!("proptest: 256 cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
+    eprintln!("proptest: {CASES} cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
 }
 
 #[test]
 fn ln_propagates_error() {
-    proptest!(|(e in error_value())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(e in error_value())| {
         let result = run_with_error("=LN(x)", "x", e);
         prop_assert!(is_error(&result), "LN did not propagate error, got {:?}", result);
     });
-    eprintln!("proptest: 256 cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
+    eprintln!("proptest: {CASES} cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
 }
 
 #[test]
 fn exp_propagates_error() {
-    proptest!(|(e in error_value())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(e in error_value())| {
         let result = run_with_error("=EXP(x)", "x", e);
         prop_assert!(is_error(&result), "EXP did not propagate error, got {:?}", result);
     });
-    eprintln!("proptest: 256 cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
+    eprintln!("proptest: {CASES} cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
 }
 
 #[test]
 fn round_propagates_error() {
-    proptest!(|(e in error_value())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(e in error_value())| {
         let result = run_with_error("=ROUND(x, 2)", "x", e);
         prop_assert!(is_error(&result), "ROUND did not propagate error, got {:?}", result);
     });
-    eprintln!("proptest: 256 cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
+    eprintln!("proptest: {CASES} cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
 }
 
 // Text functions propagate errors
 #[test]
 fn len_propagates_error() {
-    proptest!(|(e in error_value())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(e in error_value())| {
         let result = run_with_error("=LEN(x)", "x", e);
         prop_assert!(is_error(&result), "LEN did not propagate error, got {:?}", result);
     });
-    eprintln!("proptest: 256 cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
+    eprintln!("proptest: {CASES} cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
 }
 
 #[test]
 fn upper_propagates_error() {
-    proptest!(|(e in error_value())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(e in error_value())| {
         let result = run_with_error("=UPPER(x)", "x", e);
         prop_assert!(is_error(&result), "UPPER did not propagate error, got {:?}", result);
     });
-    eprintln!("proptest: 256 cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
+    eprintln!("proptest: {CASES} cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
 }
 
 #[test]
 fn lower_propagates_error() {
-    proptest!(|(e in error_value())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(e in error_value())| {
         let result = run_with_error("=LOWER(x)", "x", e);
         prop_assert!(is_error(&result), "LOWER did not propagate error, got {:?}", result);
     });
-    eprintln!("proptest: 256 cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
+    eprintln!("proptest: {CASES} cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
 }
 
 #[test]
 fn trim_propagates_error() {
-    proptest!(|(e in error_value())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(e in error_value())| {
         let result = run_with_error("=TRIM(x)", "x", e);
         prop_assert!(is_error(&result), "TRIM did not propagate error, got {:?}", result);
     });
-    eprintln!("proptest: 256 cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
+    eprintln!("proptest: {CASES} cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
 }

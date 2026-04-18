@@ -7,6 +7,8 @@ use ganit_core::{evaluate, Value};
 use proptest::prelude::*;
 use std::collections::HashMap;
 
+const CASES: u32 = 500;
+
 fn run(formula: &str) -> Value {
     evaluate(formula, &HashMap::new())
 }
@@ -30,7 +32,7 @@ fn valid_day() -> impl Strategy<Value = i32> {
 // (for unambiguous inputs: day 1-28, month 1-12, year 1900-2100)
 #[test]
 fn date_year_month_day_roundtrip() {
-    proptest!(|(
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(
         y in valid_year(),
         m in valid_month(),
         d in valid_day(),
@@ -53,13 +55,13 @@ fn date_year_month_day_roundtrip() {
             _ => {} // if DATE errors on some inputs, skip — don't fail the property
         }
     });
-    eprintln!("proptest: 256 cases (y ∈ [1900, 2100], m ∈ [1, 12], d ∈ [1, 28])");
+    eprintln!("proptest: {CASES} cases (y ∈ [1900, 2100], m ∈ [1, 12], d ∈ [1, 28])");
 }
 
 // DATEDIF(start, end, "D") >= 0 when end >= start
 #[test]
 fn datedif_days_non_negative() {
-    proptest!(|(
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(
         y in valid_year(),
         m in valid_month(),
         d in valid_day(),
@@ -79,44 +81,44 @@ fn datedif_days_non_negative() {
         }
         // If result is an error (e.g. date out of range when adding delta), skip gracefully
     });
-    eprintln!("proptest: 256 cases (y ∈ [1900, 2100], m ∈ [1, 12], d ∈ [1, 28], delta ∈ [0, 365])");
+    eprintln!("proptest: {CASES} cases (y ∈ [1900, 2100], m ∈ [1, 12], d ∈ [1, 28], delta ∈ [0, 365])");
 }
 
 // YEAR extracts a value in [1900, 2100] for valid dates in that range
 #[test]
 fn year_within_range() {
-    proptest!(|(y in valid_year(), m in valid_month(), d in valid_day())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(y in valid_year(), m in valid_month(), d in valid_day())| {
         let result = run(&format!("=YEAR(DATE({},{},{}))", y, m, d));
         if let Value::Number(n) = result {
             prop_assert!(n >= 1900.0 && n <= 2100.0,
                 "YEAR={} out of expected range for DATE({},{},{})", n, y, m, d);
         }
     });
-    eprintln!("proptest: 256 cases (y ∈ [1900, 2100], m ∈ [1, 12], d ∈ [1, 28])");
+    eprintln!("proptest: {CASES} cases (y ∈ [1900, 2100], m ∈ [1, 12], d ∈ [1, 28])");
 }
 
 // MONTH always in [1, 12]
 #[test]
 fn month_in_valid_range() {
-    proptest!(|(y in valid_year(), m in valid_month(), d in valid_day())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(y in valid_year(), m in valid_month(), d in valid_day())| {
         let result = run(&format!("=MONTH(DATE({},{},{}))", y, m, d));
         if let Value::Number(n) = result {
             prop_assert!(n >= 1.0 && n <= 12.0,
                 "MONTH={} out of [1,12] for DATE({},{},{})", n, y, m, d);
         }
     });
-    eprintln!("proptest: 256 cases (y ∈ [1900, 2100], m ∈ [1, 12], d ∈ [1, 28])");
+    eprintln!("proptest: {CASES} cases (y ∈ [1900, 2100], m ∈ [1, 12], d ∈ [1, 28])");
 }
 
 // DAY always in [1, 31]
 #[test]
 fn day_in_valid_range() {
-    proptest!(|(y in valid_year(), m in valid_month(), d in valid_day())| {
+    proptest!(proptest::prelude::ProptestConfig::with_cases(CASES), |(y in valid_year(), m in valid_month(), d in valid_day())| {
         let result = run(&format!("=DAY(DATE({},{},{}))", y, m, d));
         if let Value::Number(n) = result {
             prop_assert!(n >= 1.0 && n <= 31.0,
                 "DAY={} out of [1,31] for DATE({},{},{})", n, y, m, d);
         }
     });
-    eprintln!("proptest: 256 cases (y ∈ [1900, 2100], m ∈ [1, 12], d ∈ [1, 28])");
+    eprintln!("proptest: {CASES} cases (y ∈ [1900, 2100], m ∈ [1, 12], d ∈ [1, 28])");
 }
