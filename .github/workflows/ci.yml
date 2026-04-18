@@ -120,7 +120,7 @@ jobs:
             target/conformance-report.json \
             "$run_url" "${hex}" "${passed}" "${total}" "${pct}" "${cov_pct}" \
             > /tmp/conformance.html
-          cp -r target/coverage-html /tmp/coverage-html
+          cp -r target/coverage-html/html /tmp/coverage-html
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch origin gh-pages 2>/dev/null || true
