@@ -22,9 +22,17 @@ jobs:
         uses: taiki-e/install-action@nextest
 
       - name: Test
-        run: cargo nextest run --workspace --profile ci
-        env:
-          NEXTEST_EXPERIMENTAL_LIBTEST_JSON: 1
+        run: |
+          cargo nextest run --workspace --profile ci 2>&1 | tee nextest-output.txt
+          exit ${PIPESTATUS[0]}
+
+      - name: Write test summary
+        if: always()
+        run: |
+          echo '## Test Results' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat nextest-output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action@v2
