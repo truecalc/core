@@ -39,7 +39,7 @@ jobs:
         if: always()
         with:
           files: target/nextest/ci/junit.xml
-          check_name: ganit-core tests
+          check_name: truecalc-core tests
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
@@ -55,7 +55,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Generate conformance report
-        run: cargo test -p ganit-core --test conformance generate_conformance_report -- --nocapture
+        run: cargo test -p truecalc-core --test conformance generate_conformance_report -- --nocapture
 
       - name: Download main-branch conformance baseline
         run: |
