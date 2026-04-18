@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.4.3...ganit-core-v0.4.4) - 2026-04-18
+
+### Added
+
+- *(tests)* use CASES=500 constant for all proptest files — up from 256
+- *(tests)* surface proptest case counts in CI output per property test
+- *(conformance)* emit structured JSON summary — per-category pass/fail vs Google Sheets ([#378](https://github.com/tryganit/ganit-core/pull/378))
+- *(proptest)* property tests for date, lookup, and array functions ([#376](https://github.com/tryganit/ganit-core/pull/376))
+
+### Fixed
+
+- *(tests)* replace all hardcoded 256 with CASES constant in eprintln strings
+
+### Other
+
+- *(proptest)* add array function property tests — SEQUENCE length and value invariants
+- *(proptest)* add lookup function property tests — CHOOSE range invariants
+- *(proptest)* add date function property tests — YEAR/MONTH/DAY roundtrip, DATEDIF invariants
+- *(proptest)* add error propagation property tests for math and text functions
+- *(proptest)* add idempotency, monotonicity, and round-trip properties for math functions
+- *(proptest)* add idempotency and length properties for text functions
+
 ## [0.4.2](https://github.com/tryganit/ganit-core/compare/ganit-core-v0.4.0...ganit-core-v0.4.2) - 2026-04-17
 
 ### Fixed
