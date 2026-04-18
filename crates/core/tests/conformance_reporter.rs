@@ -3,14 +3,109 @@
 // Collects pass/fail counts per fixture and writes target/conformance-report.json.
 // Called by the generate_conformance_report test in conformance.rs.
 
-use calamine::{open_workbook, Data, Reader, Xlsx};
-use ganit_core::{evaluate, Value};
+use calamine::{open_workbook, CellErrorType, Data, Reader, Xlsx};
+use ganit_core::{evaluate, ErrorKind, Value};
 use std::collections::HashMap;
 use std::path::Path;
 
-// Re-use the oracle helpers from the parent module via super::
-// (oracle_to_value, values_match, is_volatile_formula are defined in conformance.rs
-//  and visible here through the test module tree)
+// ---------------------------------------------------------------------------
+// Oracle helpers (mirrors of the same functions in conformance.rs)
+// Duplicated here so that conformance_reporter.rs compiles as a standalone
+// integration test target (where super:: would be out of scope).
+// ---------------------------------------------------------------------------
+
+fn parse_error_string(s: &str) -> Option<ErrorKind> {
+    match s {
+        "#DIV/0!" => Some(ErrorKind::DivByZero),
+        "#VALUE!" => Some(ErrorKind::Value),
+        "#REF!" => Some(ErrorKind::Ref),
+        "#NAME?" => Some(ErrorKind::Name),
+        "#NUM!" => Some(ErrorKind::Num),
+        "#N/A" => Some(ErrorKind::NA),
+        "#NULL!" => Some(ErrorKind::Null),
+        "#ERROR!" => Some(ErrorKind::Value),
+        _ => None,
+    }
+}
+
+fn oracle_to_value(cell: &Data) -> Option<Value> {
+    match cell {
+        Data::Float(f) => Some(Value::Number(*f)),
+        Data::Int(i) => Some(Value::Number(*i as f64)),
+        Data::String(s) => {
+            if let Some(kind) = parse_error_string(s.trim()) {
+                Some(Value::Error(kind))
+            } else {
+                Some(Value::Text(s.clone()))
+            }
+        }
+        Data::Bool(b) => Some(Value::Bool(*b)),
+        Data::Error(e) => Some(Value::Error(match e {
+            CellErrorType::Div0 => ErrorKind::DivByZero,
+            CellErrorType::Value => ErrorKind::Value,
+            CellErrorType::Ref => ErrorKind::Ref,
+            CellErrorType::Name => ErrorKind::Name,
+            CellErrorType::Num => ErrorKind::Num,
+            CellErrorType::NA => ErrorKind::NA,
+            CellErrorType::Null => ErrorKind::Null,
+            _ => return None,
+        })),
+        Data::Empty | Data::DateTimeIso(_) | Data::DurationIso(_) | Data::DateTime(_) => None,
+    }
+}
+
+fn decode_xlsx_escapes(s: &str) -> String {
+    let mut result = String::new();
+    let mut rest = s;
+    while let Some(start) = rest.find("_x") {
+        result.push_str(&rest[..start]);
+        let after = &rest[start + 2..];
+        if let Some(end) = after.find('_') {
+            let hex = &after[..end];
+            if hex.len() == 4 && hex.chars().all(|c| c.is_ascii_hexdigit()) {
+                if let Ok(n) = u32::from_str_radix(hex, 16) {
+                    if let Some(c) = char::from_u32(n) {
+                        result.push(c);
+                        rest = &after[end + 1..];
+                        continue;
+                    }
+                }
+            }
+        }
+        result.push_str("_x");
+        rest = after;
+    }
+    result.push_str(rest);
+    result
+}
+
+fn values_match(actual: &Value, expected: &Value) -> bool {
+    match (actual, expected) {
+        (Value::Number(a), Value::Number(b)) => (a - b).abs() <= b.abs() * 1e-4 + 1e-10,
+        (Value::Date(a), Value::Number(b)) => (a - b).abs() <= b.abs() * 1e-4 + 1e-10,
+        (Value::Text(s), Value::Number(b)) => {
+            if let Ok(v) = s.trim().parse::<f64>() {
+                (v - b).abs() <= b.abs() * 1e-9 + 1e-10
+            } else {
+                false
+            }
+        }
+        (Value::Text(s), Value::Text(e)) if e.is_empty() => {
+            s.chars().all(|c| (c as u32) < 32)
+        }
+        (Value::Text(s), Value::Text(e)) => decode_xlsx_escapes(e) == *s,
+        _ => actual == expected,
+    }
+}
+
+fn is_volatile_formula(formula: &str) -> bool {
+    let upper = formula.to_uppercase();
+    upper.contains("RAND()") || upper.contains("RANDBETWEEN(") || upper.contains("RANDARRAY(")
+}
+
+// ---------------------------------------------------------------------------
+// Report types
+// ---------------------------------------------------------------------------
 
 #[derive(Default, Debug)]
 pub struct CategoryResult {
@@ -116,17 +211,17 @@ pub fn collect_fixture_results(path: &Path, category: &str, report: &mut Conform
                 Data::String(s) => s.as_str(),
                 _ => continue,
             };
-            let expected = match super::oracle_to_value(&row[2]) {
+            let expected = match oracle_to_value(&row[2]) {
                 Some(v) => v,
                 None => continue,
             };
-            if super::is_volatile_formula(formula) {
+            if is_volatile_formula(formula) {
                 continue;
             }
 
             entry.total += 1;
             let actual = evaluate(formula, &vars);
-            if super::values_match(&actual, &expected) {
+            if values_match(&actual, &expected) {
                 entry.passed += 1;
             } else {
                 let desc = match &row[0] {
