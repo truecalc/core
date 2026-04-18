@@ -127,7 +127,7 @@ jobs:
             $(python3 -c "
           import json, sys
           d = json.load(open('target/conformance-report.json'))
-          cats = d.get('categories', {})
+          cats = d.get('by_category', {})
           if not cats:
               print('<p>No per-category data available.</p>')
               sys.exit()
