@@ -6,8 +6,8 @@ resolver = "2"
 version = "0.4.3"
 edition = "2021"
 license = "MIT"
-authors = ["tryganit"]
-repository = "https://github.com/tryganit/ganit-core"
+authors = ["truecalc"]
+repository = "https://github.com/truecalc/core"
 
 [profile.release]
 lto = true
