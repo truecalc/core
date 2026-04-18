@@ -24,6 +24,11 @@ fn columns_no_args_returns_na() {
 }
 
 #[test]
+fn columns_too_many_args_returns_na() {
+    assert_eq!(columns_fn(&[n(1.0), n(2.0)]), Value::Error(ErrorKind::NA));
+}
+
+#[test]
 fn index_one_arg_returns_na() {
     assert_eq!(index_fn(&[n(1.0)]), Value::Error(ErrorKind::NA));
 }

@@ -207,7 +207,7 @@ fn abs_sanity() {
 // ── Array function properties ─────────────────────────────────────────────────
 
 #[test]
-fn rows_times_columns_equals_element_count() {
+fn rows_and_columns_report_correct_dimensions() {
     use truecalc_core::eval::functions::math::array_fns::{columns_fn, rows_fn};
     proptest!(ProptestConfig::with_cases(CASES), |(r in 1usize..=8usize, c in 1usize..=8usize)| {
         let arr = Value::Array(
@@ -220,5 +220,5 @@ fn rows_times_columns_equals_element_count() {
         prop_assert_eq!(rows, Value::Number(r as f64));
         prop_assert_eq!(cols, Value::Number(c as f64));
     });
-    eprintln!("proptest: {CASES} cases");
+    eprintln!("proptest: {CASES} cases (r ∈ [1, 8], c ∈ [1, 8])");
 }
