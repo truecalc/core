@@ -52,6 +52,7 @@ jobs:
         with:
           files: lcov.info
           fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Generate conformance report
         run: cargo test -p truecalc-core --test conformance generate_conformance_report -- --nocapture
