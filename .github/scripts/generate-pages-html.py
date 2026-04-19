@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# Generates index.html for gh-pages with two tabs: Conformance and Coverage.
-# Usage: generate-pages-html.py <junit.xml> <conformance.json> <run_url> <hex> <passed> <total> <pct> <cov_pct>
+# Generates index.html for gh-pages with three tabs: Functions, Conformance, Coverage.
+# Usage: generate-pages-html.py <junit.xml> <conformance.json> <run_url> <hex> <passed> <total> <pct> <cov_pct> <functions.json>
 
 import sys
 import json
@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import datetime, timezone
 
-junit_path, conf_path, run_url, hex_color, passed, total, pct, cov_pct = sys.argv[1:9]
+junit_path, conf_path, run_url, hex_color, passed, total, pct, cov_pct, fns_path = sys.argv[1:10]
 
 cov_float = float(cov_pct)
 if   cov_float >= 80.0: cov_hex = "#4c1"
@@ -90,6 +90,27 @@ tot_unit += core_unit
 tot_grand += core_unit
 tot_prop_fns = sum(prop_fns.values())
 
+# ── Functions data ─────────────────────────────────────────────────────────────
+def esc(s):
+    return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+
+fns = json.load(open(fns_path))
+fn_rows_html = []
+for fn in fns:
+    name    = esc(fn.get('name', ''))
+    cat     = esc(fn.get('category', ''))
+    syntax  = esc(fn.get('syntax', ''))
+    desc    = esc(fn.get('description', ''))
+    fn_rows_html.append(
+        f'<tr>'
+        f'<td><code>{name}</code></td>'
+        f'<td><span class="cat-badge">{cat}</span></td>'
+        f'<td><code class="syntax">{syntax}</code></td>'
+        f'<td>{desc}</td>'
+        f'</tr>'
+    )
+total_fns = len(fns)
+
 updated = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
 
 print(f"""<!DOCTYPE html>
@@ -97,10 +118,10 @@ print(f"""<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Test Transparency — truecalc</title>
+  <title>truecalc</title>
   <style>
     *, *::before, *::after {{ box-sizing: border-box; }}
-    body {{ font-family: system-ui, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #24292f; }}
+    body {{ font-family: system-ui, sans-serif; max-width: 1080px; margin: 40px auto; padding: 0 20px; color: #24292f; }}
     h1 {{ font-size: 1.5rem; margin-bottom: 4px; }}
     .subtitle {{ color: #57606a; font-size: 0.9rem; margin-bottom: 24px; }}
 
@@ -133,6 +154,26 @@ print(f"""<!DOCTYPE html>
     .pass {{ color: #1a7f37; }}
     .fail {{ color: #cf222e; }}
 
+    /* ── Functions tab ── */
+    .search-wrap {{
+      display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+    }}
+    #fn-search {{
+      flex: 1; padding: 8px 12px; font-size: 0.95rem;
+      border: 1px solid #d0d7de; border-radius: 6px; outline: none;
+      max-width: 400px;
+    }}
+    #fn-search:focus {{ border-color: #0969da; box-shadow: 0 0 0 3px rgba(9,105,218,.12); }}
+    #fn-count {{ font-size: 0.85rem; color: #57606a; white-space: nowrap; }}
+    #fn-table td:first-child code {{ font-weight: 700; color: #0550ae; font-size: 0.9rem; }}
+    #fn-table .syntax {{ font-size: 0.82rem; color: #57606a; }}
+    #fn-table td:last-child {{ font-size: 0.875rem; color: #24292f; }}
+    .cat-badge {{
+      display: inline-block; font-size: 0.75rem; font-weight: 600;
+      padding: 2px 8px; border-radius: 12px;
+      background: #ddf4ff; color: #0550ae;
+    }}
+
     /* ── Coverage iframe ── */
     .coverage-wrap {{
       border: 1px solid #d0d7de; border-radius: 6px; overflow: hidden;
@@ -147,18 +188,40 @@ print(f"""<!DOCTYPE html>
   </style>
 </head>
 <body>
-  <h1>truecalc — Test Transparency</h1>
+  <h1>truecalc</h1>
   <p class="subtitle">
     <a href="{run_url}">CI run</a> &nbsp;·&nbsp; Updated: {updated}
   </p>
 
   <div class="tab-bar">
-    <button class="tab-btn active" data-tab="conformance">Google Sheets Conformance</button>
+    <button class="tab-btn active" data-tab="functions">Functions</button>
+    <button class="tab-btn"        data-tab="conformance">Google Sheets Conformance</button>
     <button class="tab-btn"        data-tab="coverage">Code Coverage</button>
   </div>
 
+  <!-- ── Functions tab ── -->
+  <div id="tab-functions" class="tab-pane active">
+    <div class="search-wrap">
+      <input id="fn-search" type="search" placeholder="Search {total_fns} functions…" autocomplete="off" spellcheck="false">
+      <span id="fn-count">{total_fns} functions</span>
+    </div>
+    <table id="fn-table">
+      <thead>
+        <tr>
+          <th>Function</th>
+          <th>Category</th>
+          <th>Syntax</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {''.join(fn_rows_html)}
+      </tbody>
+    </table>
+  </div>
+
   <!-- ── Conformance tab ── -->
-  <div id="tab-conformance" class="tab-pane active">
+  <div id="tab-conformance" class="tab-pane">
     <div class="badges">
       <span class="badge" style="background:{hex_color}">{passed}/{total} · {pct}%</span>
     </div>
@@ -233,6 +296,10 @@ print(f"""<!DOCTYPE html>
         btns.forEach(function(b)  {{ b.classList.toggle('active', b.dataset.tab === id); }});
         panes.forEach(function(p) {{ p.classList.toggle('active', p.id === 'tab-' + id); }});
         history.replaceState(null, '', '#' + id);
+        if (id === 'functions') {{
+          var s = document.getElementById('fn-search');
+          if (s) s.focus();
+        }}
       }}
 
       btns.forEach(function(b) {{
@@ -241,7 +308,26 @@ print(f"""<!DOCTYPE html>
 
       // Honour URL hash on load
       var hash = location.hash.replace('#', '');
-      if (hash === 'conformance' || hash === 'coverage') {{ activate(hash); }}
+      if (hash === 'functions' || hash === 'conformance' || hash === 'coverage') {{
+        activate(hash);
+      }}
+
+      // Functions search
+      var searchInput = document.getElementById('fn-search');
+      var fnRows      = document.querySelectorAll('#fn-table tbody tr');
+      var countEl     = document.getElementById('fn-count');
+      var total       = fnRows.length;
+
+      searchInput.addEventListener('input', function () {{
+        var q = searchInput.value.toLowerCase().trim();
+        var visible = 0;
+        fnRows.forEach(function (row) {{
+          var show = !q || row.textContent.toLowerCase().indexOf(q) !== -1;
+          row.style.display = show ? '' : 'none';
+          if (show) visible++;
+        }});
+        countEl.textContent = (q ? visible + ' of ' + total : total) + ' functions';
+      }});
     }})();
   </script>
 </body>

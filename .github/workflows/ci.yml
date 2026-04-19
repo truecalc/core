@@ -115,10 +115,16 @@ jobs:
           fi
           cov_badge_json="{\"schemaVersion\":1,\"label\":\"coverage\",\"message\":\"${cov_pct}%\",\"color\":\"${cov_color}\"}"
           run_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          cargo build -p truecalc-mcp 2>&1 | tail -1
+          echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_functions","arguments":{}}}' \
+            | ./target/debug/truecalc-mcp \
+            | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); fns=json.loads(d['result']['content'][0]['text'])['functions']; json.dump(sorted(fns,key=lambda f:f['name']),sys.stdout)" \
+            > target/functions.json
           python3 .github/scripts/generate-pages-html.py \
             target/nextest/ci/junit.xml \
             target/conformance-report.json \
             "$run_url" "${hex}" "${passed}" "${total}" "${pct}" "${cov_pct}" \
+            target/functions.json \
             > /tmp/conformance.html
           cp -r target/coverage-html/html /tmp/coverage-html
           git config user.name  "github-actions[bot]"
