@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.11](https://github.com/truecalc/core/compare/truecalc-core-v0.4.9...truecalc-core-v0.4.11) - 2026-04-19
+
+### Other
+
+- release v0.4.10
+- add battle tests for PPMT, XIRR, IPMT, VLOOKUP approx, SUMPRODUCT
+
 ## [0.4.10](https://github.com/truecalc/core/compare/truecalc-core-v0.4.9...truecalc-core-v0.4.10) - 2026-04-19
 
 ### Other
