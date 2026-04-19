@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.12](https://github.com/truecalc/core/compare/truecalc-core-v0.4.11...truecalc-core-v0.4.12) - 2026-04-19
+
+### Added
+
+- register web functions and enable conformance tests
+
+### Other
+
+- add property-based tests for web functions
+
 ## [0.4.11](https://github.com/truecalc/core/compare/truecalc-core-v0.4.9...truecalc-core-v0.4.11) - 2026-04-19
 
 ### Other
