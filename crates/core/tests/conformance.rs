@@ -261,7 +261,7 @@ conformance_test!(m4_logical_conformance,              "m4", "Logical.xlsx");
 conformance_test!(m4_lookup_conformance,      "m4", "Lookup.xlsx");
 conformance_test!(m4_math_conformance,        "m4", "Math.xlsx");
 conformance_test!(m4_operator_conformance,    "m4", "Operator.xlsx");
-conformance_test!(pending, m4_web_conformance,         "m4", "Web.xlsx");
+conformance_test!(m4_web_conformance,                  "m4", "Web.xlsx");
 
 // ---------------------------------------------------------------------------
 // Conformance report generator — writes target/conformance-report.json

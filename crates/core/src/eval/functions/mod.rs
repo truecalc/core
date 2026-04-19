@@ -11,6 +11,7 @@ pub mod operator;
 pub mod parser;
 pub mod statistical;
 pub mod text;
+pub mod web;
 
 use std::collections::HashMap;
 use crate::eval::context::Context;
@@ -82,6 +83,7 @@ impl Registry {
         array::register_array(&mut r);
         database::register_database(&mut r);
         lookup::register_lookup(&mut r);
+        web::register_web(&mut r);
         r
     }
 
