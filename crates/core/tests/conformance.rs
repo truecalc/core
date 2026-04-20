@@ -1,34 +1,36 @@
 //! Oracle conformance tests against Google Sheets reference values.
 //!
-//! Each `.xlsx` file under `tests/fixtures/m1/` is a Google Sheets export.
-//! Each tab = one function name.  Each data row (skipping the header) has:
+//! Each `.tsv` file under `tests/fixtures/google_sheets/` is a 5-column
+//! tab-separated file with a header row:
 //!
-//!   col A  description string
-//!   col B  formula text stored as a plain string (e.g. "=ABS(-5)")
-//!   col C  oracle value — the result Google Sheets produced
-//!   col D  test category (basic / edge / coercion / error / nested)
+//!   description     human-readable test name
+//!   formula_text    formula string (may or may not have leading `=`)
+//!   expected_value  oracle value as a string
+//!   test_category   basic / edge / coercion / error / nested
+//!   expected_type   number / string / boolean / error / array
 //!
-//! The test evaluates the formula in col B with `truecalc_core::evaluate`, then
-//! compares against the oracle in col C.  Number comparisons allow a small
-//! floating-point tolerance.  Rows whose oracle cell is empty are skipped.
+//! The test evaluates the formula in `formula_text` with `truecalc_core::evaluate`,
+//! then compares against the oracle in `expected_value` using `expected_type` to
+//! guide the comparison.  Number comparisons allow 1e-4 relative tolerance.
 
-use calamine::{open_workbook, CellErrorType, Data, Reader, Xlsx};
 use truecalc_core::{evaluate, ErrorKind, Value};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 mod conformance_reporter;
-use conformance_reporter::{collect_fixture_results, ConformanceReport, KNOWN_DEVIATIONS};
+use conformance_reporter::{collect_tsv_fixture_results, ConformanceReport, KNOWN_DEVIATIONS};
 
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
 
-fn fixture(milestone: &str, name: &str) -> PathBuf {
+fn fixture_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures")
-        .join(milestone)
-        .join(name)
+        .join("tests/fixtures/google_sheets")
+}
+
+fn fixture(name: &str) -> PathBuf {
+    fixture_dir().join(name)
 }
 
 /// Parse an error string like "#DIV/0!" into an ErrorKind, or return None.
@@ -41,81 +43,106 @@ fn parse_error_string(s: &str) -> Option<ErrorKind> {
         "#NUM!"   => Some(ErrorKind::Num),
         "#N/A"    => Some(ErrorKind::NA),
         "#NULL!"  => Some(ErrorKind::Null),
-        // Google Sheets generic parse/syntax error — treat as #VALUE! in our engine.
         "#ERROR!" => Some(ErrorKind::Value),
         _         => None,
     }
 }
 
-fn oracle_to_value(cell: &Data) -> Option<Value> {
-    match cell {
-        Data::Float(f)  => Some(Value::Number(*f)),
-        Data::Int(i)    => Some(Value::Number(*i as f64)),
-        // Google Sheets exports error cells as plain strings in xlsx; check both.
-        Data::String(s) => {
-            if let Some(kind) = parse_error_string(s.trim()) {
-                Some(Value::Error(kind))
-            } else {
-                Some(Value::Text(s.clone()))
-            }
+/// Parse a `{1,2,3}` or `{1,2,3;4,5,6}` array literal into a flat Vec<Value>.
+/// Used for the `array` expected_type where the oracle value is ARRAYTOTEXT output.
+fn parse_array_literal(s: &str) -> Option<Vec<Value>> {
+    let s = s.trim();
+    if !s.starts_with('{') || !s.ends_with('}') {
+        return None;
+    }
+    let inner = &s[1..s.len() - 1];
+    // ARRAYTOTEXT with mode=1 uses comma separators and semicolons for row breaks.
+    // For our purposes (1D arrays), just split on commas and semicolons.
+    let items: Vec<&str> = inner.split(|c| c == ',' || c == ';').collect();
+    let mut result = Vec::new();
+    for item in items {
+        let item = item.trim().trim_matches('"');
+        if let Some(kind) = parse_error_string(item) {
+            result.push(Value::Error(kind));
+        } else if item.eq_ignore_ascii_case("true") {
+            result.push(Value::Bool(true));
+        } else if item.eq_ignore_ascii_case("false") {
+            result.push(Value::Bool(false));
+        } else if let Ok(f) = item.parse::<f64>() {
+            result.push(Value::Number(f));
+        } else {
+            result.push(Value::Text(item.to_string()));
         }
-        Data::Bool(b)   => Some(Value::Bool(*b)),
-        Data::Error(e)  => Some(Value::Error(match e {
-            CellErrorType::Div0  => ErrorKind::DivByZero,
-            CellErrorType::Value => ErrorKind::Value,
-            CellErrorType::Ref   => ErrorKind::Ref,
-            CellErrorType::Name  => ErrorKind::Name,
-            CellErrorType::Num   => ErrorKind::Num,
-            CellErrorType::NA    => ErrorKind::NA,
-            CellErrorType::Null  => ErrorKind::Null,
-            _                    => return None,
-        })),
-        Data::Empty | Data::DateTimeIso(_) | Data::DurationIso(_) | Data::DateTime(_) => None,
+    }
+    Some(result)
+}
+
+/// Parse expected_value string into a Value according to expected_type.
+pub fn parse_expected(value: &str, expected_type: &str) -> Option<Value> {
+    match expected_type {
+        "number" => {
+            value.parse::<f64>().ok().map(Value::Number)
+        }
+        "boolean" => match value.to_uppercase().as_str() {
+            "TRUE"  => Some(Value::Bool(true)),
+            "FALSE" => Some(Value::Bool(false)),
+            _       => None,
+        },
+        "error" => parse_error_string(value).map(Value::Error),
+        "string" => Some(Value::Text(value.to_string())),
+        "array"  => {
+            // Store the array literal string as-is; comparison handled in values_match
+            Some(Value::Text(value.to_string()))
+        }
+        _ => Some(Value::Text(value.to_string())),
     }
 }
 
-/// Decode xlsx `_xNNNN_` XML escape sequences (e.g. "_x0001_" → U+0001).
-fn decode_xlsx_escapes(s: &str) -> String {
-    let mut result = String::new();
-    let mut rest = s;
-    while let Some(start) = rest.find("_x") {
-        result.push_str(&rest[..start]);
-        let after = &rest[start + 2..];
-        if let Some(end) = after.find('_') {
-            let hex = &after[..end];
-            if hex.len() == 4 && hex.chars().all(|c| c.is_ascii_hexdigit()) {
-                if let Ok(n) = u32::from_str_radix(hex, 16) {
-                    if let Some(c) = char::from_u32(n) {
-                        result.push(c);
-                        rest = &after[end + 1..];
-                        continue;
-                    }
+/// Flatten a Value::Array into a Vec<Value> (1 level deep).
+fn flatten_array(v: &Value) -> Vec<Value> {
+    match v {
+        Value::Array(items) => {
+            let mut flat = Vec::new();
+            for item in items {
+                match item {
+                    Value::Array(inner) => flat.extend(inner.iter().cloned()),
+                    other => flat.push(other.clone()),
                 }
             }
+            flat
         }
-        result.push_str("_x");
-        rest = after;
+        other => vec![other.clone()],
     }
-    result.push_str(rest);
-    result
 }
 
-fn values_match(actual: &Value, expected: &Value) -> bool {
+pub fn values_match(actual: &Value, expected: &Value, expected_type: &str) -> bool {
+    if expected_type == "array" {
+        // expected is stored as Text(array_literal)
+        let literal = match expected {
+            Value::Text(s) => s.as_str(),
+            _ => return false,
+        };
+        let expected_items = match parse_array_literal(literal) {
+            Some(items) => items,
+            None => return false,
+        };
+        let actual_items = flatten_array(actual);
+        if actual_items.len() != expected_items.len() {
+            return false;
+        }
+        return actual_items.iter().zip(expected_items.iter()).all(|(a, e)| {
+            values_match(a, e, infer_type(e))
+        });
+    }
+
     match (actual, expected) {
         (Value::Number(a), Value::Number(b)) => {
-            // Oracle values are stored with limited precision (≥5 significant digits).
-            // Use 1e-4 relative tolerance to tolerate rounded oracle values while
-            // still catching order-of-magnitude errors.
             (a - b).abs() <= b.abs() * 1e-4 + 1e-10
         }
-        // Date values from our engine are typed as Value::Date, but the oracle
-        // stores them as plain numbers in xlsx.
         (Value::Date(a), Value::Number(b)) => {
             (a - b).abs() <= b.abs() * 1e-4 + 1e-10
         }
-        // Oracle artifact: xlsx stores numeric-looking text (e.g. "0", "123") as a float.
-        // Text functions like CHAR, LOWER, CONCATENATE correctly return Text; the oracle
-        // appears as Number due to calamine reading the cell as a float.
+        // Oracle artifact: xlsx/TSV stores numeric-looking text as a number.
         (Value::Text(s), Value::Number(b)) => {
             if let Ok(v) = s.trim().parse::<f64>() {
                 (v - b).abs() <= b.abs() * 1e-9 + 1e-10
@@ -123,75 +150,84 @@ fn values_match(actual: &Value, expected: &Value) -> bool {
                 false
             }
         }
-        // Oracle artifact: xlsx strips non-printable control characters (U+0001..U+001F),
-        // so CHAR(1) stored in the oracle cell appears as Text("").
+        // Control characters: oracle may strip them → empty string
         (Value::Text(s), Value::Text(e)) if e.is_empty() => {
             s.chars().all(|c| (c as u32) < 32)
         }
-        // Oracle artifact: some xlsx writers encode control chars as `_xNNNN_` XML escapes.
-        // UNICHAR(1) = U+0001 is stored as the literal string "_x0001_" by calamine.
-        (Value::Text(s), Value::Text(e)) => {
-            decode_xlsx_escapes(e) == *s
-        }
+        (Value::Text(s), Value::Text(e)) => s == e,
+        (Value::Error(a), Value::Error(b)) => a == b,
         _ => actual == expected,
     }
 }
 
-/// Returns true if a formula contains volatile functions whose results are
-/// non-deterministic and therefore cannot be verified against a fixed oracle.
+fn infer_type(v: &Value) -> &'static str {
+    match v {
+        Value::Number(_) | Value::Date(_) => "number",
+        Value::Text(_) => "string",
+        Value::Bool(_) => "boolean",
+        Value::Error(_) => "error",
+        Value::Array(_) => "array",
+        Value::Empty => "string",
+    }
+}
+
+/// Returns true if a formula contains volatile functions.
 fn is_volatile_formula(formula: &str) -> bool {
     let upper = formula.to_uppercase();
     upper.contains("RAND()") || upper.contains("RANDBETWEEN(") || upper.contains("RANDARRAY(")
 }
 
-fn run_fixture(path: &Path) {
+// ---------------------------------------------------------------------------
+// TSV runner
+// ---------------------------------------------------------------------------
+
+fn run_tsv_fixture(path: &Path) {
     assert!(path.exists(), "fixture not found: {:?}", path);
 
-    let mut workbook: Xlsx<_> = open_workbook(path)
-        .unwrap_or_else(|e| panic!("failed to open {:?}: {}", path, e));
-
-    let sheet_names: Vec<String> = workbook.sheet_names().to_vec();
     let vars: HashMap<String, Value> = HashMap::new();
     let mut failures: Vec<String> = Vec::new();
     let mut total = 0usize;
 
-    for sheet_name in &sheet_names {
-        let range = workbook
-            .worksheet_range(sheet_name)
-            .unwrap_or_else(|e| panic!("failed to read sheet {sheet_name}: {e}"));
+    let mut rdr = csv::ReaderBuilder::new()
+        .delimiter(b'\t')
+        .has_headers(true)
+        .from_path(path)
+        .unwrap_or_else(|e| panic!("failed to open {:?}: {}", path, e));
 
-        for (row_idx, row) in range.rows().enumerate().skip(1) {
-            if row.len() < 3 {
-                continue;
-            }
+    for (row_idx, result) in rdr.records().enumerate() {
+        let record = result.unwrap_or_else(|e| panic!("bad row {} in {:?}: {}", row_idx + 2, path, e));
 
-            let desc = match &row[0] {
-                Data::String(s) => s.as_str(),
-                _ => continue,
-            };
-            let formula = match &row[1] {
-                Data::String(s) => s.as_str(),
-                _ => continue,
-            };
-            let expected = match oracle_to_value(&row[2]) {
-                Some(v) => v,
-                None => continue,
-            };
+        if record.len() < 5 {
+            continue;
+        }
 
-            // Skip volatile functions whose oracle values are non-deterministic.
-            if is_volatile_formula(formula) {
-                continue;
-            }
+        let desc          = record[0].trim();
+        let formula       = record[1].trim();
+        let expected_str  = record[2].trim();
+        let _test_category = record[3].trim();
+        let expected_type = record[4].trim();
 
-            total += 1;
-            let actual = evaluate(formula, &vars);
+        if formula.is_empty() || expected_str.is_empty() {
+            continue;
+        }
 
-            if !values_match(&actual, &expected) {
-                failures.push(format!(
-                    "  FAIL  [{sheet_name}] row {}  {desc}\n        formula:  {formula}\n        expected: {expected:?}\n        actual:   {actual:?}",
-                    row_idx + 2,
-                ));
-            }
+        if is_volatile_formula(formula) {
+            continue;
+        }
+
+        let expected = match parse_expected(expected_str, expected_type) {
+            Some(v) => v,
+            None => continue,
+        };
+
+        total += 1;
+        let actual = evaluate(formula, &vars);
+
+        if !values_match(&actual, &expected, expected_type) {
+            failures.push(format!(
+                "  FAIL  row {}  {desc}\n        formula:  {formula}\n        expected: {expected:?}\n        actual:   {actual:?}",
+                row_idx + 2,
+            ));
         }
     }
 
@@ -207,61 +243,38 @@ fn run_fixture(path: &Path) {
 }
 
 // ---------------------------------------------------------------------------
-// one test per fixture file
+// one test per TSV fixture file
 // ---------------------------------------------------------------------------
 
-macro_rules! conformance_test {
-    ($fn_name:ident, $milestone:literal, $file:literal) => {
+macro_rules! conformance_tsv_test {
+    ($fn_name:ident, $file:literal) => {
         #[test]
         fn $fn_name() {
-            run_fixture(&fixture($milestone, $file));
-        }
-    };
-    // Pending variant: fixture exists and defines the target, but the functions
-    // are not yet implemented.  Run with `cargo test -- --include-ignored` to
-    // see the full failure list and use it to drive implementation.
-    (pending, $fn_name:ident, $milestone:literal, $file:literal) => {
-        #[test]
-        #[ignore = "pending implementation — run with --include-ignored to see failures"]
-        fn $fn_name() {
-            run_fixture(&fixture($milestone, $file));
+            run_tsv_fixture(&fixture($file));
         }
     };
 }
 
-conformance_test!(m1_math_conformance,        "m1", "Math.xlsx");
-conformance_test!(m1_logical_conformance,     "m1", "Logical.xlsx");
-conformance_test!(m1_info_conformance,        "m1", "Info.xlsx");
-conformance_test!(m1_statistical_conformance, "m1", "Statistical.xlsx");
-conformance_test!(m1_operator_conformance,    "m1", "Operator.xlsx");
-conformance_test!(m1_text_conformance,        "m1", "Text.xlsx");
+conformance_tsv_test!(math_conformance,        "math.tsv");
+conformance_tsv_test!(logical_conformance,     "logical.tsv");
+conformance_tsv_test!(info_conformance,        "info.tsv");
+conformance_tsv_test!(statistical_conformance, "statistical.tsv");
+conformance_tsv_test!(operator_conformance,    "operator.tsv");
+conformance_tsv_test!(text_conformance,        "text.tsv");
+conformance_tsv_test!(date_conformance,        "date.tsv");
+conformance_tsv_test!(engineering_conformance, "engineering.tsv");
+conformance_tsv_test!(lookup_conformance,      "lookup.tsv");
+conformance_tsv_test!(parser_conformance,      "parser.tsv");
+conformance_tsv_test!(database_conformance,    "database.tsv");
+conformance_tsv_test!(array_conformance,       "array.tsv");
+conformance_tsv_test!(filter_conformance,      "filter.tsv");
+conformance_tsv_test!(web_conformance,         "web.tsv");
 
-conformance_test!(m2_date_conformance,        "m2", "Date.xlsx");
-conformance_test!(m2_engineering_conformance, "m2", "Engineering.xlsx");
-conformance_test!(m2_info_conformance,        "m2", "Info.xlsx");
-conformance_test!(m2_logical_conformance,     "m2", "Logical.xlsx");
-conformance_test!(m2_lookup_conformance,               "m2", "Lookup.xlsx");
-conformance_test!(m2_math_conformance,                 "m2", "Math.xlsx");
-conformance_test!(m2_parser_conformance,               "m2", "Parser.xlsx");
-conformance_test!(m2_statistical_conformance,          "m2", "Statistical.xlsx");
-conformance_test!(m2_text_conformance,                 "m2", "Text.xlsx");
-
-conformance_test!(m3_database_conformance,    "m3", "Database.xlsx");
-conformance_test!(m3_engineering_conformance, "m3", "Engineering.xlsx");
-conformance_test!(pending, m3_financial_conformance,   "m3", "Financial.xlsx");
-conformance_test!(m3_info_conformance,        "m3", "Info.xlsx");
-conformance_test!(pending, m3_lookup_conformance,      "m3", "Lookup.xlsx");
-conformance_test!(m3_math_conformance,        "m3", "Math.xlsx");
-conformance_test!(m3_statistical_conformance, "m3", "Statistical.xlsx");
-
-conformance_test!(m4_array_conformance,       "m4", "Array.xlsx");
-conformance_test!(m4_filter_conformance,               "m4", "Filter.xlsx");
-conformance_test!(m4_info_conformance,                 "m4", "Info.xlsx");
-conformance_test!(m4_logical_conformance,              "m4", "Logical.xlsx");
-conformance_test!(m4_lookup_conformance,      "m4", "Lookup.xlsx");
-conformance_test!(m4_math_conformance,        "m4", "Math.xlsx");
-conformance_test!(m4_operator_conformance,    "m4", "Operator.xlsx");
-conformance_test!(m4_web_conformance,                  "m4", "Web.xlsx");
+#[test]
+#[ignore = "financial fixtures are pending implementation"]
+fn financial_conformance() {
+    run_tsv_fixture(&fixture("financial.tsv"));
+}
 
 // ---------------------------------------------------------------------------
 // Conformance report generator — writes target/conformance-report.json
@@ -270,47 +283,21 @@ conformance_test!(m4_web_conformance,                  "m4", "Web.xlsx");
 #[test]
 fn generate_conformance_report() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let gdir = fixture_dir();
 
     let mut report = ConformanceReport::default();
     report.known_deviations = KNOWN_DEVIATIONS.to_vec();
 
-    // m1 fixtures
-    collect_fixture_results(&fixture("m1", "Math.xlsx"),        "math",        &mut report);
-    collect_fixture_results(&fixture("m1", "Logical.xlsx"),     "logical",     &mut report);
-    collect_fixture_results(&fixture("m1", "Info.xlsx"),        "info",        &mut report);
-    collect_fixture_results(&fixture("m1", "Statistical.xlsx"), "statistical", &mut report);
-    collect_fixture_results(&fixture("m1", "Operator.xlsx"),    "operator",    &mut report);
-    collect_fixture_results(&fixture("m1", "Text.xlsx"),        "text",        &mut report);
+    let categories = [
+        "math", "logical", "info", "statistical", "operator", "text",
+        "date", "engineering", "lookup", "parser", "database",
+        "array", "filter", "web", "financial",
+    ];
 
-    // m2 fixtures
-    collect_fixture_results(&fixture("m2", "Date.xlsx"),        "date",        &mut report);
-    collect_fixture_results(&fixture("m2", "Engineering.xlsx"), "engineering", &mut report);
-    collect_fixture_results(&fixture("m2", "Info.xlsx"),        "info",        &mut report);
-    collect_fixture_results(&fixture("m2", "Logical.xlsx"),     "logical",     &mut report);
-    collect_fixture_results(&fixture("m2", "Lookup.xlsx"),      "lookup",      &mut report);
-    collect_fixture_results(&fixture("m2", "Math.xlsx"),        "math",        &mut report);
-    collect_fixture_results(&fixture("m2", "Parser.xlsx"),      "parser",      &mut report);
-    collect_fixture_results(&fixture("m2", "Statistical.xlsx"), "statistical", &mut report);
-    collect_fixture_results(&fixture("m2", "Text.xlsx"),        "text",        &mut report);
-
-    // m3 fixtures
-    collect_fixture_results(&fixture("m3", "Database.xlsx"),    "database",    &mut report);
-    collect_fixture_results(&fixture("m3", "Engineering.xlsx"), "engineering", &mut report);
-    collect_fixture_results(&fixture("m3", "Financial.xlsx"),   "financial",   &mut report);
-    collect_fixture_results(&fixture("m3", "Info.xlsx"),        "info",        &mut report);
-    collect_fixture_results(&fixture("m3", "Lookup.xlsx"),      "lookup",      &mut report);
-    collect_fixture_results(&fixture("m3", "Math.xlsx"),        "math",        &mut report);
-    collect_fixture_results(&fixture("m3", "Statistical.xlsx"), "statistical", &mut report);
-
-    // m4 fixtures
-    collect_fixture_results(&fixture("m4", "Array.xlsx"),       "array",       &mut report);
-    collect_fixture_results(&fixture("m4", "Filter.xlsx"),      "filter",      &mut report);
-    collect_fixture_results(&fixture("m4", "Info.xlsx"),        "info",        &mut report);
-    collect_fixture_results(&fixture("m4", "Logical.xlsx"),     "logical",     &mut report);
-    collect_fixture_results(&fixture("m4", "Lookup.xlsx"),      "lookup",      &mut report);
-    collect_fixture_results(&fixture("m4", "Math.xlsx"),        "math",        &mut report);
-    collect_fixture_results(&fixture("m4", "Operator.xlsx"),    "operator",    &mut report);
-    collect_fixture_results(&fixture("m4", "Web.xlsx"),         "web",         &mut report);
+    for cat in &categories {
+        let path = gdir.join(format!("{cat}.tsv"));
+        collect_tsv_fixture_results(&path, cat, &mut report);
+    }
 
     // Write JSON to target/
     let out_dir = manifest.join("../../target");
@@ -325,5 +312,104 @@ fn generate_conformance_report() {
         report.total_passed(),
         report.total_tests(),
         report.total_failed(),
+    );
+}
+
+// ---------------------------------------------------------------------------
+// T2.3 — per-function conformance coverage gate (initially ignored)
+// ---------------------------------------------------------------------------
+
+#[test]
+#[ignore = "enable after T3.9 lands systematic fixture TSVs"]
+fn every_registered_function_has_conformance_coverage() {
+    use truecalc_core::Registry;
+    let registry = Registry::new();
+    let all_names = registry.metadata_names();
+    let volatile: std::collections::HashSet<&str> = Registry::VOLATILE_FUNCTIONS
+        .iter()
+        .copied()
+        .collect();
+    let context_limited: std::collections::HashSet<&str> = [
+        "INDIRECT", "OFFSET", "FORMULATEXT", "GETPIVOTDATA", "ISFORMULA", "CELL",
+    ]
+    .iter()
+    .copied()
+    .collect();
+
+    // Collect all function names that appear in passing fixture rows.
+    let gdir = fixture_dir();
+    let mut covered = std::collections::HashSet::new();
+    let vars: HashMap<String, Value> = HashMap::new();
+
+    for entry in std::fs::read_dir(&gdir).expect("cannot read fixture dir") {
+        let entry = entry.unwrap();
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("tsv") {
+            continue;
+        }
+        let mut rdr = csv::ReaderBuilder::new()
+            .delimiter(b'\t')
+            .has_headers(true)
+            .from_path(&path)
+            .unwrap();
+
+        for result in rdr.records() {
+            let record = match result {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
+            if record.len() < 5 {
+                continue;
+            }
+            let formula = record[1].trim();
+            let expected_str = record[2].trim();
+            let expected_type = record[4].trim();
+
+            if formula.is_empty() || expected_str.is_empty() {
+                continue;
+            }
+            if is_volatile_formula(formula) {
+                continue;
+            }
+            let expected = match parse_expected(expected_str, expected_type) {
+                Some(v) => v,
+                None => continue,
+            };
+            let actual = evaluate(formula, &vars);
+            if values_match(&actual, &expected, expected_type) {
+                // Extract function names from formula (simple heuristic: UPPER word before '(')
+                let upper = formula.to_uppercase();
+                let mut rest = upper.as_str();
+                while let Some(idx) = rest.find('(') {
+                    let before = &rest[..idx];
+                    let name_start = before
+                        .rfind(|c: char| !c.is_alphanumeric() && c != '.' && c != '_')
+                        .map(|i| i + 1)
+                        .unwrap_or(0);
+                    let name = &before[name_start..];
+                    if !name.is_empty() {
+                        covered.insert(name.to_string());
+                    }
+                    rest = &rest[idx + 1..];
+                }
+            }
+        }
+    }
+
+    let mut missing = Vec::new();
+    for name in &all_names {
+        let upper = name.to_uppercase();
+        if volatile.contains(upper.as_str()) || context_limited.contains(upper.as_str()) {
+            continue;
+        }
+        if !covered.contains(&upper) {
+            missing.push(name.clone());
+        }
+    }
+    missing.sort();
+    assert!(
+        missing.is_empty(),
+        "Functions with no passing conformance row: {:?}",
+        missing
     );
 }

@@ -1,0 +1,142 @@
+description	formula_text	expected_value	test_category	expected_type
+row1 col1 default -> $A$1	=ADDRESS(1,1)	$A$1	basic	string
+row5 col3 -> $C$5	=ADDRESS(5,3)	$C$5	basic	string
+mode 4 relative -> A1	=ADDRESS(1,1,4)	A1	basic	string
+mode 2 col-abs -> A$1	=ADDRESS(1,1,2)	A$1	basic	string
+mode 3 row-abs -> $A1	=ADDRESS(1,1,3)	$A1	basic	string
+col 26 -> $Z$1	=ADDRESS(1,26)	$Z$1	basic	string
+col 27 -> $AA$1	=ADDRESS(1,27)	$AA$1	basic	string
+large row and col	=ADDRESS(100,100)	$CV$100	basic	string
+R1C1 notation FALSE	=ADDRESS(10,3,1,FALSE)	R10C3	edge	string
+R1C1 mode 4 relative	=ADDRESS(5,5,4,FALSE)	R[5]C[5]	edge	string
+error: no args -> #N/A	=ADDRESS()	#N/A	error	error
+nested: LEN of $A$1 -> 5	=LEN(ADDRESS(1,1))	4	nested	number
+index 1 of text list	=CHOOSE(1,"a","b","c")	a	basic	string
+index 2 of text list	=CHOOSE(2,"a","b","c")	b	basic	string
+index 3 of text list	=CHOOSE(3,"a","b","c")	c	basic	string
+index 1 of number list	=CHOOSE(1,10,20,30)	10	basic	number
+index 2 of boolean list	=CHOOSE(2,TRUE,FALSE)	FALSE	basic	boolean
+decimal index truncated to 1	=CHOOSE(1.9,"a","b")	a	coercion	string
+decimal index 2.7 truncated to 2	=CHOOSE(2.7,"x","y","z")	y	coercion	string
+error: index 0 -> #VALUE!	=CHOOSE(0,"a")	#NUM!	error	error
+error: index out of range -> #VALUE!	=CHOOSE(4,"a","b","c")	#NUM!	error	error
+error: no args -> #N/A	=CHOOSE()	#N/A	error	error
+nested: LEN(CHOOSE) -> 5	=LEN(CHOOSE(2,"hello","world","!"))	5	nested	number
+nested: CHOOSE inside SUM	=CHOOSE(1,10,20)+CHOOSE(2,10,20)	30	nested	number
+COLUMN(A1) -> 1	=COLUMN(A1)	1	basic	number
+COLUMN(B5) -> 2	=COLUMN(B5)	2	basic	number
+COLUMN(Z1) -> 26	=COLUMN(Z1)	26	basic	number
+COLUMN(AA1) -> 27	=COLUMN(AA1)	27	basic	number
+COLUMN(Z100) -> 26	=COLUMN(Z100)	26	basic	number
+COLUMN(D1) -> 4	=COLUMN(D1)	4	basic	number
+COLUMN(IV1) large col	=COLUMN(IV1)	256	edge	number
+error: COLUMN("text") -> #VALUE!	=COLUMN("text")	#N/A	error	error
+error: COLUMN(1) -> #VALUE!	=COLUMN(1)	#N/A	error	error
+nested: COLUMN(C1)-COLUMN(A1) -> 2	=COLUMN(C1)-COLUMN(A1)	2	nested	number
+row vector 3 cols	=COLUMNS({1,2,3})	3	basic	number
+col vector 1 col	=COLUMNS({1;2;3})	1	basic	number
+2x3 matrix -> 3 cols	=COLUMNS({1,2,3;4,5,6})	3	basic	number
+2x2 matrix -> 2 cols	=COLUMNS({1,2;3,4})	2	basic	number
+single element -> 1	=COLUMNS({1})	1	basic	number
+range A1:A10 -> 1	=COLUMNS(A1:A10)	1	basic	number
+3-col 3-row matrix	=COLUMNS({1,2,3;4,5,6;7,8,9})	3	edge	number
+error: no args -> #N/A	=COLUMNS()	#N/A	error	error
+nested: COLUMNS+COLUMNS -> 5	=COLUMNS({1,2,3})+COLUMNS({1,2})	5	nested	number
+ROW(A1) -> 1	=ROW(A1)	1	basic	number
+ROW(A5) -> 5	=ROW(A5)	5	basic	number
+ROW(B10) -> 10	=ROW(B10)	10	basic	number
+ROW(Z100) -> 100	=ROW(Z100)	100	basic	number
+ROW(A1000) -> 1000	=ROW(A1000)	1000	basic	number
+ROW(C3) -> 3	=ROW(C3)	3	basic	number
+ROW(A50) -> 50	=ROW(A50)	50	edge	number
+error: ROW("text") -> #VALUE!	=ROW("text")	#N/A	error	error
+error: ROW(1) -> #VALUE!	=ROW(1)	#N/A	error	error
+nested: ROW(A5)-ROW(A1) -> 4	=ROW(A5)-ROW(A1)	4	nested	number
+nested: ROW(B10)*2 -> 20	=ROW(B10)*2	20	nested	number
+col vector 3 rows	=ROWS({1;2;3})	3	basic	number
+row vector 1 row	=ROWS({1,2,3})	1	basic	number
+3x2 matrix -> 3 rows	=ROWS({1,2;3,4;5,6})	3	basic	number
+2x2 matrix -> 2 rows	=ROWS({1,2;3,4})	2	basic	number
+single element -> 1	=ROWS({1})	1	basic	number
+5-row col vector	=ROWS({1;2;3;4;5})	5	edge	number
+error: no args -> #N/A	=ROWS()	#N/A	error	error
+nested: ROWS+ROWS -> 5	=ROWS({1;2;3})+ROWS({1;2})	5	nested	number
+error: no args -> #N/A	=FORMULATEXT()	#N/A	error	error
+error: literal value has no formula -> #N/A	=FORMULATEXT(1)	#N/A	error	error
+error: text literal has no formula -> #N/A	=FORMULATEXT("hello")	#N/A	error	error
+error: no args -> #N/A	=GETPIVOTDATA()	#N/A	error	error
+find value 2 in row1 -> row2=20	=HLOOKUP(2,{1,2,3;10,20,30},2,FALSE)	20	basic	number
+find "b" -> row2=2	=HLOOKUP("b",{"a","b","c";1,2,3},2,FALSE)	2	basic	number
+find value 3 -> row2=30	=HLOOKUP(3,{1,2,3;10,20,30},2,FALSE)	30	basic	number
+find value 1 -> row2=10	=HLOOKUP(1,{1,2,3;10,20,30},2,FALSE)	10	basic	number
+find "a" -> row2=1	=HLOOKUP("a",{"a","b","c";1,2,3},2,FALSE)	1	basic	number
+sorted search: 2.5 finds 2 row	=HLOOKUP(2.5,{1,2,3;10,20,30},2,TRUE)	20	edge	number
+index 1 returns header row	=HLOOKUP(2,{1,2,3;10,20,30},1,FALSE)	2	basic	number
+error: not found -> #N/A	=HLOOKUP(4,{1,2,3;10,20,30},2,FALSE)	#N/A	error	error
+error: no args -> #N/A	=HLOOKUP()	#N/A	error	error
+nested: HLOOKUP inside IF	=IF(HLOOKUP(2,{1,2,3;10,20,30},2,FALSE)=20,"yes","no")	yes	nested	string
+row 1 col 2 of row vector	=INDEX({10,20,30},1,2)	20	basic	number
+row 1 col 3 of row vector	=INDEX({10,20,30},1,3)	30	basic	number
+row 2 col 1 of 2x2	=INDEX({10,20;30,40},2,1)	30	basic	number
+row 1 col 2 of 2x2	=INDEX({10,20;30,40},1,2)	20	basic	number
+row 1 col 1 of vector	=INDEX({1,2,3},1,1)	1	basic	number
+row 2 col 2 of 2x2	=INDEX({10,20;30,40},2,2)	40	basic	number
+row 1 col 1 of 2x2	=INDEX({10,20;30,40},1,1)	10	basic	number
+error: col out of range -> #REF!	=INDEX({1,2,3},1,5)	#REF!	error	error
+error: row out of range -> #REF!	=INDEX({1,2;3,4},5,1)	#REF!	error	error
+error: no args -> #N/A	=INDEX()	#N/A	error	error
+nested: INDEX inside SUM	=INDEX({10,20;30,40},1,1)+INDEX({10,20;30,40},2,2)	50	nested	number
+lookup 3 in {1..5} -> 30	=LOOKUP(3,{1,2,3,4,5},{10,20,30,40,50})	30	basic	number
+lookup 5 (last) -> 50	=LOOKUP(5,{1,2,3,4,5},{10,20,30,40,50})	50	basic	number
+lookup 2.5 finds 2 -> 20	=LOOKUP(2.5,{1,2,3,4,5},{10,20,30,40,50})	20	basic	number
+lookup 1 (first) -> 10	=LOOKUP(1,{1,2,3,4,5},{10,20,30,40,50})	10	basic	number
+lookup "b" in text -> 2	=LOOKUP("b",{"a","b","c"},{1,2,3})	2	basic	number
+lookup "c" -> 3	=LOOKUP("c",{"a","b","c"},{1,2,3})	3	basic	number
+lookup 4.9 finds 4 -> 40	=LOOKUP(4.9,{1,2,3,4,5},{10,20,30,40,50})	40	edge	number
+error: key < all -> #N/A	=LOOKUP(0,{1,2,3},{10,20,30})	#N/A	error	error
+error: no args -> #N/A	=LOOKUP()	#N/A	error	error
+nested: LOOKUP inside IF	=IF(LOOKUP(3,{1,2,3,4,5},{10,20,30,40,50})=30,"found","not found")	found	nested	string
+exact match 3 -> position 3	=MATCH(3,{1,2,3,4,5},0)	3	basic	number
+"b" exact match -> position 2	=MATCH("b",{"a","b","c"},0)	2	basic	number
+sorted asc: 3 -> 3	=MATCH(3,{1,2,3,4,5},1)	3	basic	number
+sorted desc: 3 -> position 3	=MATCH(3,{5,4,3,2,1},-1)	3	basic	number
+exact match first element -> 1	=MATCH(1,{1,2,3,4,5},0)	1	basic	number
+exact match last element -> 5	=MATCH(5,{1,2,3,4,5},0)	5	basic	number
+sorted asc: 2.5 finds 2 -> 2	=MATCH(2.5,{1,2,3,4,5},1)	2	edge	number
+"a" -> position 1	=MATCH("a",{"a","b","c"},0)	1	basic	number
+error: not found exact -> #N/A	=MATCH(6,{1,2,3,4,5},0)	#N/A	error	error
+error: no args -> #N/A	=MATCH()	#N/A	error	error
+nested: MATCH inside INDEX	=INDEX({10,20,30},1,MATCH(2,{1,2,3},0))	20	nested	number
+error: no args -> #N/A	=OFFSET()	#N/A	error	error
+SHEET() is numeric	=ISNUMBER(SHEET())	TRUE	basic	boolean
+SHEET() >= 1	=SHEET()>=1	TRUE	basic	boolean
+error: nonexistent sheet name -> #N/A	=SHEET("nonexistent_sheet_xyz")	#REF!	error	error
+find 2 in col1 -> col2=20	=VLOOKUP(2,{1,10;2,20;3,30},2,FALSE)	20	basic	number
+find "b" -> col2=2	=VLOOKUP("b",{"a",1;"b",2;"c",3},2,FALSE)	2	basic	number
+find 1 -> col2=10	=VLOOKUP(1,{1,10;2,20;3,30},2,FALSE)	10	basic	number
+find 3 -> col2=30	=VLOOKUP(3,{1,10;2,20;3,30},2,FALSE)	30	basic	number
+approximate: 2.5 finds 2 -> 20	=VLOOKUP(2.5,{1,10;2,20;3,30},2,TRUE)	20	edge	number
+find "a" -> col2=1	=VLOOKUP("a",{"a",1;"b",2;"c",3},2,FALSE)	1	basic	number
+col_index 1 returns key	=VLOOKUP(2,{1,10;2,20;3,30},1,FALSE)	2	basic	number
+error: not found -> #N/A	=VLOOKUP(4,{1,10;2,20;3,30},2,FALSE)	#N/A	error	error
+error: no args -> #N/A	=VLOOKUP()	#N/A	error	error
+nested: VLOOKUP with MATCH for col	=VLOOKUP(MATCH("b",{"a","b","c"},0),{1,10;2,20;3,30},2,FALSE)	20	nested	number
+find 2 -> 20	=XLOOKUP(2,{1,2,3},{10,20,30})	20	basic	number
+find "b" -> 2	=XLOOKUP("b",{"a","b","c"},{1,2,3})	2	basic	number
+not found with fallback -> "not found"	=XLOOKUP(99,{1,2,3},{10,20,30},"not found")	not found	basic	string
+find 3 -> 30	=XLOOKUP(3,{1,2,3},{10,20,30})	30	basic	number
+find 1 (first) -> 10	=XLOOKUP(1,{1,2,3},{10,20,30})	10	basic	number
+find "c" -> 3	=XLOOKUP("c",{"a","b","c"},{1,2,3})	3	basic	number
+not found empty fallback	=XLOOKUP(99,{1,2,3},{10,20,30},"")		edge	string
+error: not found no fallback -> #N/A	=XLOOKUP(99,{1,2,3},{10,20,30})	#N/A	error	error
+error: no args -> #N/A	=XLOOKUP()	#N/A	error	error
+nested: XLOOKUP inside IF	=IF(XLOOKUP(2,{1,2,3},{10,20,30})=20,"match","no")	match	nested	string
+A1 reference is a value	=ISNUMBER(INDIRECT("A1"))+ISTEXT(INDIRECT("A1"))+ISBLANK(INDIRECT("A1"))>=1	TRUE	basic	boolean
+A1 notation flag TRUE	=ISNUMBER(INDIRECT("A1",TRUE))+ISTEXT(INDIRECT("A1",TRUE))+ISBLANK(INDIRECT("A1",TRUE))>=1	TRUE	basic	boolean
+R1C1 notation: row1 col1	=ISNUMBER(INDIRECT("R1C1",FALSE))+ISTEXT(INDIRECT("R1C1",FALSE))+ISBLANK(INDIRECT("R1C1",FALSE))>=1	TRUE	basic	boolean
+INDIRECT returns non-error for valid ref	=ISERROR(INDIRECT("A1"))	FALSE	basic	boolean
+INDIRECT of row 2 any type	=ISNUMBER(INDIRECT("A2"))+ISTEXT(INDIRECT("A2"))+ISBLANK(INDIRECT("A2"))>=1	TRUE	basic	boolean
+INDIRECT B1 any type	=ISNUMBER(INDIRECT("B1"))+ISTEXT(INDIRECT("B1"))+ISBLANK(INDIRECT("B1"))>=1	TRUE	edge	boolean
+error: invalid ref string -> #REF!	=INDIRECT("InvalidRef!")	#REF!	error	error
+error: empty string -> #REF!	=INDIRECT("")	#REF!	error	error
+error: no args -> #N/A	=INDIRECT()	#N/A	error	error

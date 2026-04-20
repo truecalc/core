@@ -60,24 +60,6 @@ pub fn register_lookup(registry: &mut Registry) {
             description: "Returns the column number of a cell reference",
         },
     );
-    registry.register_lazy(
-        "ROWS",
-        row_col::rows_fn,
-        FunctionMeta {
-            category: "lookup",
-            signature: "ROWS(array_or_range)",
-            description: "Returns the number of rows in an array or range",
-        },
-    );
-    registry.register_lazy(
-        "COLUMNS",
-        row_col::columns_fn,
-        FunctionMeta {
-            category: "lookup",
-            signature: "COLUMNS(array_or_range)",
-            description: "Returns the number of columns in an array or range",
-        },
-    );
     registry.register_eager(
         "VLOOKUP",
         vlookup::vlookup_fn,

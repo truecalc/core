@@ -1,88 +1,121 @@
 // crates/core/tests/conformance_reporter.rs
 //
-// Collects pass/fail counts per fixture and writes target/conformance-report.json.
+// Collects pass/fail counts per TSV fixture and writes target/conformance-report.json.
 // Called by the generate_conformance_report test in conformance.rs.
 
-use calamine::{open_workbook, CellErrorType, Data, Reader, Xlsx};
-use truecalc_core::{evaluate, ErrorKind, Value};
+use truecalc_core::{evaluate, Value};
 use std::collections::HashMap;
 use std::path::Path;
 
 // ---------------------------------------------------------------------------
-// Oracle helpers (mirrors of the same functions in conformance.rs)
-// Duplicated here so that conformance_reporter.rs compiles as a standalone
-// integration test target (where super:: would be out of scope).
+// Oracle helpers — shared logic duplicated from conformance.rs because
+// conformance_reporter.rs compiles as a standalone integration-test module
 // ---------------------------------------------------------------------------
 
-fn parse_error_string(s: &str) -> Option<ErrorKind> {
+fn parse_expected(value: &str, expected_type: &str) -> Option<Value> {
+    use truecalc_core::ErrorKind;
+    match expected_type {
+        "number" => value.parse::<f64>().ok().map(Value::Number),
+        "boolean" => match value.to_uppercase().as_str() {
+            "TRUE"  => Some(Value::Bool(true)),
+            "FALSE" => Some(Value::Bool(false)),
+            _       => None,
+        },
+        "error" => parse_error_string(value).map(Value::Error),
+        "string" | "array" => Some(Value::Text(value.to_string())),
+        _ => Some(Value::Text(value.to_string())),
+    }
+}
+
+fn parse_error_string(s: &str) -> Option<truecalc_core::ErrorKind> {
+    use truecalc_core::ErrorKind;
     match s {
         "#DIV/0!" => Some(ErrorKind::DivByZero),
         "#VALUE!" => Some(ErrorKind::Value),
-        "#REF!" => Some(ErrorKind::Ref),
-        "#NAME?" => Some(ErrorKind::Name),
-        "#NUM!" => Some(ErrorKind::Num),
-        "#N/A" => Some(ErrorKind::NA),
-        "#NULL!" => Some(ErrorKind::Null),
+        "#REF!"   => Some(ErrorKind::Ref),
+        "#NAME?"  => Some(ErrorKind::Name),
+        "#NUM!"   => Some(ErrorKind::Num),
+        "#N/A"    => Some(ErrorKind::NA),
+        "#NULL!"  => Some(ErrorKind::Null),
         "#ERROR!" => Some(ErrorKind::Value),
-        _ => None,
+        _         => None,
     }
 }
 
-fn oracle_to_value(cell: &Data) -> Option<Value> {
-    match cell {
-        Data::Float(f) => Some(Value::Number(*f)),
-        Data::Int(i) => Some(Value::Number(*i as f64)),
-        Data::String(s) => {
-            if let Some(kind) = parse_error_string(s.trim()) {
-                Some(Value::Error(kind))
-            } else {
-                Some(Value::Text(s.clone()))
-            }
+fn parse_array_literal(s: &str) -> Option<Vec<Value>> {
+    let s = s.trim();
+    if !s.starts_with('{') || !s.ends_with('}') {
+        return None;
+    }
+    let inner = &s[1..s.len() - 1];
+    let items: Vec<&str> = inner.split(|c| c == ',' || c == ';').collect();
+    let mut result = Vec::new();
+    for item in items {
+        let item = item.trim().trim_matches('"');
+        if let Some(kind) = parse_error_string(item) {
+            result.push(Value::Error(kind));
+        } else if item.eq_ignore_ascii_case("true") {
+            result.push(Value::Bool(true));
+        } else if item.eq_ignore_ascii_case("false") {
+            result.push(Value::Bool(false));
+        } else if let Ok(f) = item.parse::<f64>() {
+            result.push(Value::Number(f));
+        } else {
+            result.push(Value::Text(item.to_string()));
         }
-        Data::Bool(b) => Some(Value::Bool(*b)),
-        Data::Error(e) => Some(Value::Error(match e {
-            CellErrorType::Div0 => ErrorKind::DivByZero,
-            CellErrorType::Value => ErrorKind::Value,
-            CellErrorType::Ref => ErrorKind::Ref,
-            CellErrorType::Name => ErrorKind::Name,
-            CellErrorType::Num => ErrorKind::Num,
-            CellErrorType::NA => ErrorKind::NA,
-            CellErrorType::Null => ErrorKind::Null,
-            _ => return None,
-        })),
-        Data::Empty | Data::DateTimeIso(_) | Data::DurationIso(_) | Data::DateTime(_) => None,
     }
+    Some(result)
 }
 
-fn decode_xlsx_escapes(s: &str) -> String {
-    let mut result = String::new();
-    let mut rest = s;
-    while let Some(start) = rest.find("_x") {
-        result.push_str(&rest[..start]);
-        let after = &rest[start + 2..];
-        if let Some(end) = after.find('_') {
-            let hex = &after[..end];
-            if hex.len() == 4 && hex.chars().all(|c| c.is_ascii_hexdigit()) {
-                if let Ok(n) = u32::from_str_radix(hex, 16) {
-                    if let Some(c) = char::from_u32(n) {
-                        result.push(c);
-                        rest = &after[end + 1..];
-                        continue;
-                    }
+fn flatten_array(v: &Value) -> Vec<Value> {
+    match v {
+        Value::Array(items) => {
+            let mut flat = Vec::new();
+            for item in items {
+                match item {
+                    Value::Array(inner) => flat.extend(inner.iter().cloned()),
+                    other => flat.push(other.clone()),
                 }
             }
+            flat
         }
-        result.push_str("_x");
-        rest = after;
+        other => vec![other.clone()],
     }
-    result.push_str(rest);
-    result
 }
 
-fn values_match(actual: &Value, expected: &Value) -> bool {
+fn infer_type(v: &Value) -> &'static str {
+    match v {
+        Value::Number(_) | Value::Date(_) => "number",
+        Value::Text(_) => "string",
+        Value::Bool(_) => "boolean",
+        Value::Error(_) => "error",
+        Value::Array(_) => "array",
+        Value::Empty => "string",
+    }
+}
+
+fn values_match(actual: &Value, expected: &Value, expected_type: &str) -> bool {
+    if expected_type == "array" {
+        let literal = match expected {
+            Value::Text(s) => s.as_str(),
+            _ => return false,
+        };
+        let expected_items = match parse_array_literal(literal) {
+            Some(items) => items,
+            None => return false,
+        };
+        let actual_items = flatten_array(actual);
+        if actual_items.len() != expected_items.len() {
+            return false;
+        }
+        return actual_items.iter().zip(expected_items.iter()).all(|(a, e)| {
+            values_match(a, e, infer_type(e))
+        });
+    }
+
     match (actual, expected) {
         (Value::Number(a), Value::Number(b)) => (a - b).abs() <= b.abs() * 1e-4 + 1e-10,
-        (Value::Date(a), Value::Number(b)) => (a - b).abs() <= b.abs() * 1e-4 + 1e-10,
+        (Value::Date(a), Value::Number(b))   => (a - b).abs() <= b.abs() * 1e-4 + 1e-10,
         (Value::Text(s), Value::Number(b)) => {
             if let Ok(v) = s.trim().parse::<f64>() {
                 (v - b).abs() <= b.abs() * 1e-9 + 1e-10
@@ -90,10 +123,9 @@ fn values_match(actual: &Value, expected: &Value) -> bool {
                 false
             }
         }
-        (Value::Text(s), Value::Text(e)) if e.is_empty() => {
-            s.chars().all(|c| (c as u32) < 32)
-        }
-        (Value::Text(s), Value::Text(e)) => decode_xlsx_escapes(e) == *s,
+        (Value::Text(s), Value::Text(e)) if e.is_empty() => s.chars().all(|c| (c as u32) < 32),
+        (Value::Text(s), Value::Text(e)) => s == e,
+        (Value::Error(a), Value::Error(b)) => a == b,
         _ => actual == expected,
     }
 }
@@ -156,11 +188,7 @@ impl ConformanceReport {
         s.push_str("  },\n");
         s.push_str("  \"known_deviations\": [\n");
         for (i, dev) in self.known_deviations.iter().enumerate() {
-            let comma = if i + 1 < self.known_deviations.len() {
-                ","
-            } else {
-                ""
-            };
+            let comma = if i + 1 < self.known_deviations.len() { "," } else { "" };
             s.push_str(&format!(
                 "    {{ \"formula\": \"{}\", \"reason\": \"{}\" }}{}\n",
                 dev.formula.replace('"', "\\\""),
@@ -175,69 +203,65 @@ impl ConformanceReport {
 }
 
 /// Known deviations: cases where truecalc intentionally differs from Google Sheets.
-/// These are excluded from failure counts but documented in the report.
-pub const KNOWN_DEVIATIONS: &[KnownDeviation] = &[
-    // Add entries here as they are discovered. Format:
-    // KnownDeviation { formula: "=RATE(4*12,-200,8000)", reason: "floating-point iteration limit differs" },
-];
+pub const KNOWN_DEVIATIONS: &[KnownDeviation] = &[];
 
-/// Collect pass/fail for a single fixture file. Returns results without panicking.
-/// `category` is the logical name used in the JSON (e.g. "math", "text").
-pub fn collect_fixture_results(path: &Path, category: &str, report: &mut ConformanceReport) {
+/// Collect pass/fail for a single TSV fixture file. Returns results without panicking.
+pub fn collect_tsv_fixture_results(path: &Path, category: &str, report: &mut ConformanceReport) {
     if !path.exists() {
         return;
     }
 
-    let mut workbook: Xlsx<_> = match open_workbook(path) {
-        Ok(w) => w,
+    let mut rdr = match csv::ReaderBuilder::new()
+        .delimiter(b'\t')
+        .has_headers(true)
+        .from_path(path)
+    {
+        Ok(r) => r,
         Err(_) => return,
     };
 
-    let sheet_names: Vec<String> = workbook.sheet_names().to_vec();
     let vars: HashMap<String, Value> = HashMap::new();
     let entry = report.by_category.entry(category.to_string()).or_default();
 
-    for sheet_name in &sheet_names {
-        let range = match workbook.worksheet_range(sheet_name) {
+    for (row_idx, result) in rdr.records().enumerate() {
+        let record = match result {
             Ok(r) => r,
             Err(_) => continue,
         };
+        if record.len() < 5 {
+            continue;
+        }
 
-        for (row_idx, row) in range.rows().enumerate().skip(1) {
-            if row.len() < 3 {
-                continue;
-            }
-            let formula = match &row[1] {
-                Data::String(s) => s.as_str(),
-                _ => continue,
-            };
-            let expected = match oracle_to_value(&row[2]) {
-                Some(v) => v,
-                None => continue,
-            };
-            if is_volatile_formula(formula) {
-                continue;
-            }
+        let desc          = record[0].trim().to_string();
+        let formula       = record[1].trim().to_string();
+        let expected_str  = record[2].trim().to_string();
+        let expected_type = record[4].trim().to_string();
 
-            entry.total += 1;
-            let actual = evaluate(formula, &vars);
-            if values_match(&actual, &expected) {
-                entry.passed += 1;
-            } else {
-                let desc = match &row[0] {
-                    Data::String(s) => s.clone(),
-                    _ => String::new(),
-                };
-                entry.failures.push(format!(
-                    "[{}] row {} {}: formula={} expected={:?} got={:?}",
-                    sheet_name,
-                    row_idx + 2,
-                    desc,
-                    formula,
-                    expected,
-                    actual
-                ));
-            }
+        if formula.is_empty() || expected_str.is_empty() {
+            continue;
+        }
+        if is_volatile_formula(&formula) {
+            continue;
+        }
+
+        let expected = match parse_expected(&expected_str, &expected_type) {
+            Some(v) => v,
+            None => continue,
+        };
+
+        entry.total += 1;
+        let actual = evaluate(&formula, &vars);
+        if values_match(&actual, &expected, &expected_type) {
+            entry.passed += 1;
+        } else {
+            entry.failures.push(format!(
+                "row {} {}: formula={} expected={:?} got={:?}",
+                row_idx + 2,
+                desc,
+                formula,
+                expected,
+                actual
+            ));
         }
     }
 }

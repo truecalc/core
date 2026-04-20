@@ -43,6 +43,7 @@ pub type EagerFn = fn(&[Value]) -> Value;
 /// Used for short-circuit operators like `IF`, `AND`, `OR`.
 pub type LazyFn  = fn(&[Expr], &mut EvalCtx<'_>) -> Value;
 
+#[derive(Clone)]
 pub enum FunctionKind {
     Eager(EagerFn),
     Lazy(LazyFn),
@@ -52,19 +53,25 @@ pub enum FunctionKind {
 
 /// Metadata for a user-facing spreadsheet function.
 /// Co-located with the registration call so it can never drift.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionMeta {
     pub category: &'static str,
     pub signature: &'static str,
     pub description: &'static str,
 }
 
+/// A metadata entry returned by `Registry::get_metadata()`.
+pub struct FunctionMetaEntry<'a> {
+    pub name: &'a str,
+    pub meta: &'a FunctionMeta,
+}
+
 // ── Registry ──────────────────────────────────────────────────────────────
 
 /// The runtime registry of built-in and user-registered spreadsheet functions.
 pub struct Registry {
-    functions: HashMap<String, FunctionKind>,
-    metadata: HashMap<String, FunctionMeta>,
+    pub functions: HashMap<String, FunctionKind>,
+    pub metadata: HashMap<String, FunctionMeta>,
 }
 
 impl Registry {
@@ -89,18 +96,56 @@ impl Registry {
 
     /// Register a user-facing eager function with metadata.
     /// Appears in `list_functions()`.
+    /// Panics if `name` is already registered (duplicate registration).
     pub fn register_eager(&mut self, name: &str, f: EagerFn, meta: FunctionMeta) {
         let key = name.to_uppercase();
+        assert!(
+            !self.functions.contains_key(&key),
+            "duplicate function registration: '{}'",
+            key
+        );
         self.functions.insert(key.clone(), FunctionKind::Eager(f));
         self.metadata.insert(key, meta);
     }
 
     /// Register a user-facing lazy function with metadata.
     /// Appears in `list_functions()`.
+    /// Panics if `name` is already registered (duplicate registration).
     pub fn register_lazy(&mut self, name: &str, f: LazyFn, meta: FunctionMeta) {
         let key = name.to_uppercase();
+        assert!(
+            !self.functions.contains_key(&key),
+            "duplicate function registration: '{}'",
+            key
+        );
         self.functions.insert(key.clone(), FunctionKind::Lazy(f));
         self.metadata.insert(key, meta);
+    }
+
+    /// Register `alias` as an alternate name for `canonical`.
+    /// The alias shares the same handler but does NOT appear in function metadata
+    /// (it will not show up in `list_functions()` or autocomplete).
+    /// Panics if `alias` is already registered or `canonical` is not yet registered.
+    pub fn register_alias(&mut self, alias: &str, canonical: &str) {
+        let alias_key = alias.to_uppercase();
+        let canonical_key = canonical.to_uppercase();
+        assert!(
+            !self.functions.contains_key(&alias_key),
+            "duplicate function registration: '{}'",
+            alias_key
+        );
+        let kind = self
+            .functions
+            .get(&canonical_key)
+            .unwrap_or_else(|| {
+                panic!(
+                    "register_alias: canonical '{}' must be registered before alias '{}'",
+                    canonical_key, alias_key
+                )
+            })
+            .clone();
+        self.functions.insert(alias_key, kind);
+        // Intentionally no metadata entry — aliases are not user-facing
     }
 
     /// Register an internal/compiler-only eager function without metadata.
@@ -124,6 +169,28 @@ impl Registry {
     pub fn list_functions(&self) -> impl Iterator<Item = (&str, &FunctionMeta)> {
         self.metadata.iter().map(|(k, v)| (k.as_str(), v))
     }
+
+    /// Return all function metadata entries as a Vec of named structs.
+    /// Used for inspection (e.g. counting functions, verifying aliases are absent).
+    pub fn get_metadata(&self) -> Vec<FunctionMetaEntry<'_>> {
+        self.metadata
+            .iter()
+            .map(|(k, v)| FunctionMetaEntry { name: k.as_str(), meta: v })
+            .collect()
+    }
+
+    /// Return all user-facing function names (from metadata, not aliases).
+    pub fn metadata_names(&self) -> Vec<String> {
+        self.metadata.keys().cloned().collect()
+    }
+}
+
+impl Registry {
+    /// Volatile functions — outputs change on every evaluation.
+    /// Excluded from oracle conformance fixtures; covered by property tests instead.
+    pub const VOLATILE_FUNCTIONS: &'static [&'static str] = &[
+        "RAND", "RANDARRAY", "NOW", "TODAY", "RANDBETWEEN",
+    ];
 }
 
 impl Default for Registry {

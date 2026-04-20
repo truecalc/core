@@ -211,14 +211,3 @@ fn column_with_cell_ref_returns_col_number() {
     assert_eq!(run("=COLUMN(D1)"), n(4.0));
 }
 
-#[test]
-fn rows_with_range_ref_returns_row_count() {
-    assert_eq!(run("=ROWS(A1:A5)"), n(5.0));
-    assert_eq!(run("=ROWS(B2:B10)"), n(9.0));
-}
-
-#[test]
-fn columns_with_range_ref_returns_col_count() {
-    assert_eq!(run("=COLUMNS(A1:D1)"), n(4.0));
-    assert_eq!(run("=COLUMNS(A1:C5)"), n(3.0));
-}
