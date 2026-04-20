@@ -1,11 +1,13 @@
 description	formula_text	expected_value	test_category	expected_type
 FILTER values greater than 2	=ARRAYTOTEXT(FILTER({1,2,3,4,5},{1,2,3,4,5}>2), 1)	#NAME?	filter	error
 FILTER all pass	=ARRAYTOTEXT(FILTER({10,20,30},{TRUE,TRUE,TRUE}), 1)	#NAME?	filter	error
+FILTER none pass returns if_empty	"=FILTER({1,2,3},{FALSE,FALSE,FALSE},""none"")"	none	filter	text
 FILTER first element only	=ARRAYTOTEXT(FILTER({10,20,30},{TRUE,FALSE,FALSE}), 1)	#NAME?	filter	error
 FILTER last element only	=ARRAYTOTEXT(FILTER({10,20,30},{FALSE,FALSE,TRUE}), 1)	#NAME?	filter	error
 FILTER alternating elements	=ARRAYTOTEXT(FILTER({1,2,3,4,5,6},{TRUE,FALSE,TRUE,FALSE,TRUE,FALSE}), 1)	#NAME?	filter	error
 FILTER 2D array rows	=ARRAYTOTEXT(FILTER({1,2;3,4;5,6},{TRUE,FALSE,TRUE}), 1)	#NAME?	filter	error
 FILTER with equality condition	=ARRAYTOTEXT(FILTER({1,2,3,2,1},{1,2,3,2,1}=2), 1)	#NAME?	filter	error
+FILTER with if_empty string	"=FILTER({1,2,3},{FALSE,FALSE,FALSE},""no results"")"	no results	filter	text
 SORT 1D ascending (filter cat)	=ARRAYTOTEXT(SORT({3,1,2},1,1), 1)	#NAME?	filter	error
 SORT 1D descending (BUG-09, filter cat)	=ARRAYTOTEXT(SORT({3,1,2},1,-1), 1)	#NAME?	filter	error
 SORT 2D by col 1 ascending	=ARRAYTOTEXT(SORT({3,30;1,10;2,20},1,1), 1)	#NAME?	filter	error
