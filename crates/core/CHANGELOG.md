@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.13](https://github.com/truecalc/core/compare/truecalc-core-v0.4.12...truecalc-core-v0.4.13) - 2026-04-19
+
+### Other
+
+- Merge pull request #439 from truecalc/fix/435-property-web-improvements
+- fix and expand property_web.rs after code review
+
 ## [0.4.12](https://github.com/truecalc/core/compare/truecalc-core-v0.4.11...truecalc-core-v0.4.12) - 2026-04-19
 
 ### Added
