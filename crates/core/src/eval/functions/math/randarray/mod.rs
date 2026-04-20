@@ -2,13 +2,27 @@ use crate::eval::coercion::to_number;
 use crate::eval::functions::check_arity;
 use crate::types::{ErrorKind, Value};
 
-fn random_number() -> f64 {
+/// LCG PRNG seeded from system time (Numerical Recipes constants).
+/// Returns successive values by stepping the state forward on each call.
+fn lcg_sequence(count: usize) -> Vec<f64> {
     let seed = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.subsec_nanos())
+        .map(|d| d.as_nanos() as u64)
         .unwrap_or(12345);
-    let val = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
-    (val as f64) / (u32::MAX as f64 + 1.0)
+    // Mix in a higher-entropy seed using the full nanosecond count
+    let mut state = seed
+        .wrapping_mul(6_364_136_223_846_793_005)
+        .wrapping_add(1_442_695_040_888_963_407);
+    let mut out = Vec::with_capacity(count);
+    for _ in 0..count {
+        state = state
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        // Use upper 32 bits for better quality
+        let val = (state >> 32) as u32;
+        out.push((val as f64) / (u32::MAX as f64 + 1.0));
+    }
+    out
 }
 
 /// `RANDARRAY([rows], [cols], [min], [max], [integer])`
@@ -19,7 +33,8 @@ fn random_number() -> f64 {
 pub fn randarray_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         // No args: return single random number
-        return Value::Number(random_number());
+        let vals = lcg_sequence(1);
+        return Value::Number(vals[0]);
     }
     if let Some(err) = check_arity(args, 1, 5) {
         return err;
@@ -46,10 +61,14 @@ pub fn randarray_fn(args: &[Value]) -> Value {
         1
     };
 
+    let total = rows * cols;
+    let nums = lcg_sequence(total);
     // Always return nested 2D array so ROWS/COLUMNS work correctly
     let outer: Vec<Value> = (0..rows)
-        .map(|_| {
-            let row: Vec<Value> = (0..cols).map(|_| Value::Number(random_number())).collect();
+        .map(|r| {
+            let row: Vec<Value> = (0..cols)
+                .map(|c| Value::Number(nums[r * cols + c]))
+                .collect();
             Value::Array(row)
         })
         .collect();
