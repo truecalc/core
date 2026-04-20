@@ -47,14 +47,20 @@ while IFS= read -r line; do
   fi
 done < "$REPORT"
 
-# Regression detection
+# Regression detection (rate-based: guards against deliberate fixture restructuring)
 regressions=0
 regression_section=""
 if [[ -n "$BASELINE" && -f "$BASELINE" ]]; then
   baseline_passed=$(grep '"passed"' "$BASELINE" | grep -o '[0-9]*' | head -1)
-  if [[ "$passed" -lt "$baseline_passed" ]]; then
+  baseline_total=$(grep '"total"'  "$BASELINE" | grep -o '[0-9]*' | head -1)
+  # Compare pass rates, not absolute counts, so fixture restructuring doesn't
+  # trigger false positives. Flag only when our rate drops below baseline rate.
+  our_rate=$(awk "BEGIN { printf \"%.4f\", $passed/$total }")
+  base_rate=$(awk "BEGIN { printf \"%.4f\", $baseline_passed/$baseline_total }")
+  rate_dropped=$(awk "BEGIN { print ($our_rate < $base_rate) ? 1 : 0 }")
+  if [[ "$rate_dropped" == "1" ]]; then
     regressions=$(($baseline_passed - $passed))
-    regression_section="⚠️ **${regressions} regression(s) detected** — this PR breaks previously passing tests vs main."
+    regression_section="⚠️ **Pass rate dropped** — baseline ${baseline_passed}/${baseline_total} (${base_rate}), now ${passed}/${total} (${our_rate}). This PR may break previously passing tests."
   fi
 fi
 

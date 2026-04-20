@@ -89,6 +89,13 @@ After opening or pushing to a PR:
 
 Do not report a task complete until CI passes.
 
+## 7. Browser Automation
+
+**Use `agent-browser --auto-connect` for all browser tasks.**
+
+- Never use MCP chrome-devtools tools directly — they don't work in this environment.
+- Launch browser automation via: `agent-browser --auto-connect`
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
