@@ -39,21 +39,35 @@ pub fn substitute_fn(args: &[Value]) -> Value {
             if target == 0 {
                 return Value::Error(ErrorKind::Value);
             }
-            let mut result = String::new();
-            let mut remaining = text.as_str();
+            // Count overlapping occurrences: advance one char at a time.
+            let chars: Vec<char> = text.chars().collect();
+            let old_chars: Vec<char> = old_text.chars().collect();
+            let new_chars: Vec<char> = new_text.chars().collect();
+            let old_len = old_chars.len();
+            let mut result: Vec<char> = Vec::new();
+            let mut i = 0usize;
             let mut count = 0usize;
-            while let Some(pos) = remaining.find(&old_text) {
-                count += 1;
-                result.push_str(&remaining[..pos]);
-                if count == target {
-                    result.push_str(&new_text);
+            while i <= chars.len().saturating_sub(old_len) {
+                if chars[i..i + old_len] == old_chars[..] {
+                    count += 1;
+                    if count == target {
+                        result.extend_from_slice(&new_chars);
+                        i += old_len;
+                        // Append the rest unchanged
+                        result.extend_from_slice(&chars[i..]);
+                        return Value::Text(result.into_iter().collect());
+                    } else {
+                        result.push(chars[i]);
+                        i += 1;
+                    }
                 } else {
-                    result.push_str(&old_text);
+                    result.push(chars[i]);
+                    i += 1;
                 }
-                remaining = &remaining[pos + old_text.len()..];
             }
-            result.push_str(remaining);
-            Value::Text(result)
+            // Target not reached — append remaining chars and return unchanged
+            result.extend_from_slice(&chars[i..]);
+            Value::Text(result.into_iter().collect())
         }
     }
 }

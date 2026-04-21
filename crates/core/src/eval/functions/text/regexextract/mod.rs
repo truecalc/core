@@ -4,7 +4,8 @@ use crate::types::{ErrorKind, Value};
 use regex_lite::Regex;
 
 /// `REGEXEXTRACT(text, pattern)` — returns the first match of pattern in text.
-/// Returns `#N/A` if no match. Returns `#REF!` if the pattern contains capture groups.
+/// If the pattern contains a capture group, returns the content of the first capture group.
+/// Returns `#N/A` if no match.
 pub fn regexextract_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 2, 2) {
         return err;
@@ -21,12 +22,12 @@ pub fn regexextract_fn(args: &[Value]) -> Value {
         Ok(r) => r,
         Err(_) => return Value::Error(ErrorKind::Value),
     };
-    // Capture groups (beyond the implicit group 0) → #REF!
-    if re.captures_len() > 1 {
-        return Value::Error(ErrorKind::Ref);
-    }
-    match re.find(&text) {
-        Some(m) => Value::Text(m.as_str().to_string()),
+    match re.captures(&text) {
+        Some(caps) => {
+            // If there is a capture group, return the first group; otherwise the full match.
+            let matched = caps.get(1).unwrap_or_else(|| caps.get(0).unwrap());
+            Value::Text(matched.as_str().to_string())
+        }
         None => Value::Error(ErrorKind::NA),
     }
 }

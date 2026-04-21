@@ -25,12 +25,13 @@ fn no_match_returns_na() {
 }
 
 #[test]
-fn capture_groups_return_ref_error() {
+fn capture_group_returns_first_group() {
+    // With capture groups, REGEXEXTRACT returns the first group's content.
     assert_eq!(
         regexextract_fn(&[
             Value::Text("2024-01-15".into()),
             Value::Text("([0-9]{4})-([0-9]{2})".into())
         ]),
-        Value::Error(ErrorKind::Ref)
+        Value::Text("2024".into())
     );
 }

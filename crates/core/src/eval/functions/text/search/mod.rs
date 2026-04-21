@@ -4,11 +4,26 @@ use crate::types::{ErrorKind, Value};
 
 /// Match `pattern` as a prefix of `text` (prefix match, not full match).
 /// `?` matches any single char; `*` matches any sequence of chars.
+/// `~?` matches literal `?`, `~*` matches literal `*`, `~~` matches literal `~`.
 /// When pattern is exhausted, remaining text is ignored (prefix semantics).
 fn wildcard_match(pattern: &[char], text: &[char]) -> bool {
     match pattern.first() {
         // Pattern exhausted — prefix matched successfully
         None => true,
+        Some('~') if pattern.len() >= 2 => {
+            // Tilde escape: next char is treated as a literal
+            match text.first() {
+                None => false,
+                Some(t) => {
+                    let escaped = &pattern[1];
+                    if escaped.to_lowercase().next() == t.to_lowercase().next() {
+                        wildcard_match(&pattern[2..], &text[1..])
+                    } else {
+                        false
+                    }
+                }
+            }
+        }
         Some('*') => {
             // '*' can consume 0, 1, 2, ... chars from text
             for i in 0..=text.len() {
