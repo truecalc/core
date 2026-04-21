@@ -96,6 +96,18 @@ Do not report a task complete until CI passes.
 - Never use MCP chrome-devtools tools directly — they don't work in this environment.
 - Launch browser automation via: `agent-browser --auto-connect`
 
+## 8. Conformance Fixture Files Are Immutable Oracle Records
+
+**Never modify fixture TSVs except by adding new rows or removing rows that have been fixed.**
+
+The files under `crates/core/tests/fixtures/google_sheets/` are the source of truth for Google Sheets conformance. They were produced by the oracle pipeline (GAS web app → evaluated expected values). Treat them like a database of ground truth:
+
+- **Do not change `expected_value` or `expected_type`** in any existing row — those values came from the oracle.
+- **Do not add rows to category TSVs** (math.tsv, statistical.tsv, etc.) with self-confirmed values (i.e., values truecalc computed itself). New rows must be oracle-verified.
+- **Do not remove rows from bugs.tsv** unless the underlying bug is confirmed fixed (the formula now passes in truecalc AND the entry is moved to the appropriate category TSV).
+- **Conflict resolution on fixture files**: always take the `--ours` side (current main) and manually re-apply only your intended additions. Never let a rebase silently restore deleted rows.
+- **bugs.tsv** is the only file where adding rows without oracle verification is acceptable — it acknowledges known failures, not correct values.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
