@@ -176,15 +176,17 @@ fn xmatch_exact_returns_1based_position() {
 }
 
 #[test]
-fn xmatch_mode_1_returns_position_of_lte() {
+fn xmatch_mode_1_returns_position_of_next_larger() {
+    // mode=1: exact or next larger — 2.5 not in [1,2,3], next larger is 3.0 at position 3
     let lookup = make_1d(vec![n(1.0), n(2.0), n(3.0)]);
-    assert_eq!(xmatch_fn(&[n(2.5), lookup, n(1.0)]), n(2.0));
+    assert_eq!(xmatch_fn(&[n(2.5), lookup, n(1.0)]), n(3.0));
 }
 
 #[test]
-fn xmatch_mode_neg1_returns_position_of_gte() {
+fn xmatch_mode_neg1_returns_position_of_next_smaller() {
+    // mode=-1: exact or next smaller — 2.5 not in [3,2,1], next smaller is 2.0 at position 2
     let lookup = make_1d(vec![n(3.0), n(2.0), n(1.0)]);
-    assert_eq!(xmatch_fn(&[n(2.5), lookup, n(-1.0)]), n(1.0));
+    assert_eq!(xmatch_fn(&[n(2.5), lookup, n(-1.0)]), n(2.0));
 }
 
 // ROW / COLUMN
