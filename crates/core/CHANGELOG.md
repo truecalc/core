@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.16](https://github.com/truecalc/core/compare/truecalc-core-v0.4.14...truecalc-core-v0.4.16) - 2026-04-21
+
+### Added
+
+- enable per-function conformance coverage gate (T3.12)
+- complete array+filter fixture generator (T3.4)
+- oracle-evaluate all 15 fixture categories via GAS web app
+- complete registry integrity — remove context-limited functions and add alias
+- panic on duplicate function registration at startup
+
+### Fixed
+
+- update XMATCH unit tests to reflect correct mode=1/-1 behavior
+- BUG-19 BETA.INV accepts 3 args with optional lo/hi defaults to 0/1
+- BUG-16/BUG-17 TEXT time formats and VALUE comma/percent/dollar parsing
+- BUG-12/BUG-13/BUG-14 wildcard matching in XLOOKUP, XMATCH, MATCH
+- BUG-11 SORTN now sorts and returns top N elements
+- BUG-09/BUG-10/BUG-04 SORT/SORTBY/UNIQUE 1D array handling
+- re-evaluate fixtures with corrected oracle and restore CI green
+- add missing TSV fixtures so all conformance tests pass on Track 1 branch
+
+### Other
+
+- release v0.4.15
+- Merge pull request #478 from truecalc/feat/453-array-filter-generator
+- resolve merge conflicts with main (Track 1 + generators merged)
+- remove duplicate function registrations before assertion lands
+
 ## [0.4.15](https://github.com/truecalc/core/compare/truecalc-core-v0.4.14...truecalc-core-v0.4.15) - 2026-04-21
 
 ### Added
