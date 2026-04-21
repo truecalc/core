@@ -15,11 +15,12 @@ fn two_args_returns_na() {
 }
 
 #[test]
-fn array_literal_as_max_range_returns_na() {
+fn array_literal_as_max_range_works() {
+    // Inline array ranges are now supported; max of elements where range > 1 → max([2.0]) = 2.0
     let arr = Value::Array(vec![Value::Number(1.0), Value::Number(2.0)]);
     let crit = Value::Text(">1".to_string());
     assert_eq!(
         maxifs_fn(&[arr.clone(), arr.clone(), crit]),
-        Value::Error(ErrorKind::NA)
+        Value::Number(2.0)
     );
 }

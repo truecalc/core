@@ -7,22 +7,12 @@ use super::criterion::{flatten_to_vec, matches_criterion, parse_criterion};
 /// `SUMIFS(sum_range, range1, criterion1, [range2, criterion2, ...])` — sum
 /// values in `sum_range` where all (range, criterion) pairs match.
 ///
-/// Returns `#N/A` when `sum_range` or any range argument is a literal array constant.
+/// Supports inline array literals as range arguments.
 /// Requires at least 3 arguments: sum_range + one (range, criterion) pair.
 pub fn sumifs_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     // Need at least 3 args, and (args.len() - 1) must be even → args.len() odd and >= 3
     if args.len() < 3 || args.len().is_multiple_of(2) {
         return Value::Error(ErrorKind::NA);
-    }
-
-    // Literal array constants are not valid range arguments in Google Sheets.
-    if matches!(args[0], Expr::Array(..)) {
-        return Value::Error(ErrorKind::NA);
-    }
-    for chunk in args[1..].chunks(2) {
-        if matches!(chunk[0], Expr::Array(..)) {
-            return Value::Error(ErrorKind::NA);
-        }
     }
 
     let sum_range_val = evaluate_expr(&args[0], ctx);

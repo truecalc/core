@@ -657,7 +657,13 @@ fn t_test_impl(args: &[Value]) -> Value {
             let mean_d = diffs.iter().sum::<f64>() / n;
             let var_d = diffs.iter().map(|d| (d - mean_d).powi(2)).sum::<f64>() / (n - 1.0);
             if var_d == 0.0 {
-                return Value::Error(ErrorKind::DivByZero);
+                // Zero variance: all differences are identical.
+                // If mean_d == 0 all pairs are equal → p = 1; else t = ±∞ → p = 0.
+                return if mean_d == 0.0 {
+                    Value::Number(1.0)
+                } else {
+                    Value::Number(0.0)
+                };
             }
             let t = mean_d / (var_d / n).sqrt();
             (t, n - 1.0)

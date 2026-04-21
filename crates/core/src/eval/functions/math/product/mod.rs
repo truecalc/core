@@ -8,7 +8,7 @@ pub fn product_fn(args: &[Value]) -> Value {
     }
     let mut product = 1.0_f64;
     for arg in args {
-        match to_number(arg.clone()) {
+        match product_value(arg) {
             Err(e) => return e,
             Ok(n) => product *= n,
         }
@@ -17,6 +17,20 @@ pub fn product_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::Num);
     }
     Value::Number(product)
+}
+
+/// Recursively multiply a value, flattening arrays.
+fn product_value(v: &Value) -> Result<f64, Value> {
+    match v {
+        Value::Array(elems) => {
+            let mut p = 1.0_f64;
+            for elem in elems {
+                p *= product_value(elem)?;
+            }
+            Ok(p)
+        }
+        other => to_number(other.clone()),
+    }
 }
 
 #[cfg(test)]

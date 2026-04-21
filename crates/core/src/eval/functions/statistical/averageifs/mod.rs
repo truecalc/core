@@ -4,19 +4,14 @@ use crate::types::{ErrorKind, Value};
 /// `AVERAGEIFS(average_range, criteria_range1, criteria1, ...)` — average values in
 /// `average_range` where all criteria match.
 ///
-/// Google Sheets returns `#N/A` when any range argument is an inline array literal.
-/// Returns `#DIV/0!` when no rows match (for cell-range inputs).
+/// Supports inline array literals as range arguments.
+/// Returns `#DIV/0!` when no rows match.
 /// Requires at least 3 args; total args must be odd (one average_range + pairs).
 pub fn averageifs_fn(args: &[Value]) -> Value {
     // Require at least 3 args and an odd count.
     if args.len() < 3 || args.len().is_multiple_of(2) {
         return Value::Error(ErrorKind::NA);
     }
-    // Google Sheets returns #N/A when any range is an inline array literal.
-    if args.iter().step_by(2).any(|a| matches!(a, Value::Array(_))) {
-        return Value::Error(ErrorKind::NA);
-    }
-
     let avg_range = flatten_to_vec(&args[0]);
     let num_criteria = (args.len() - 1) / 2;
 

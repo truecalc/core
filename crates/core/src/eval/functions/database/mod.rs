@@ -23,6 +23,40 @@ fn extract_rows(v: &Value) -> Option<Vec<&[Value]>> {
     }
 }
 
+/// Extract criteria rows from a Value, handling both 2D arrays and flat 1D arrays.
+///
+/// A flat 1D array like `["Sales", ">100"]` is treated as alternating
+/// (header, criterion) pairs: `[["Sales"], [">100"]]`.
+fn extract_criteria_rows(v: &Value) -> Option<Vec<Vec<&Value>>> {
+    // Try 2D array first (normal case).
+    if let Value::Array(outer) = v {
+        // Check if it's a 2D array (each element is also an array).
+        let is_2d = outer.iter().all(|row| matches!(row, Value::Array(_)));
+        if is_2d {
+            let rows: Vec<Vec<&Value>> = outer
+                .iter()
+                .map(|row| match row {
+                    Value::Array(r) => r.iter().collect(),
+                    _ => unreachable!(),
+                })
+                .collect();
+            return Some(rows);
+        }
+
+        // Flat 1D array: treat pairs of elements as (header_col, criteria_val).
+        // E.g. ["Sales", ">100"] → header_row = ["Sales"], criteria_row = [">100"].
+        let n = outer.len();
+        if n % 2 != 0 || n == 0 {
+            return None;
+        }
+        let ncols = n / 2;
+        let header_row: Vec<&Value> = outer[..ncols].iter().collect();
+        let crit_row: Vec<&Value> = outer[ncols..].iter().collect();
+        return Some(vec![header_row, crit_row]);
+    }
+    None
+}
+
 /// Resolve field argument to a 0-based column index.
 /// field can be a 1-based number or a column name string matching headers.
 fn resolve_field(field: &Value, headers: &[Value]) -> Option<usize> {
@@ -47,19 +81,19 @@ fn resolve_field(field: &Value, headers: &[Value]) -> Option<usize> {
 }
 
 /// Check whether a data row matches all criteria.
-/// criteria_rows: [header_row, criteria_row]
+/// criteria_rows: [header_row, criteria_row] where each row is Vec<&Value>
 /// data_headers: the database headers
 /// data_row: the data row to check
 fn row_matches_criteria(
-    criteria_rows: &[&[Value]],
+    criteria_rows: &[Vec<&Value>],
     data_headers: &[Value],
     data_row: &[Value],
 ) -> bool {
     if criteria_rows.len() < 2 {
         return false;
     }
-    let crit_headers = criteria_rows[0];
-    let crit_values = criteria_rows[1];
+    let crit_headers = &criteria_rows[0];
+    let crit_values = &criteria_rows[1];
 
     for (crit_col, crit_val) in crit_headers.iter().zip(crit_values.iter()) {
         // Skip empty criteria
@@ -112,7 +146,7 @@ fn collect_matching_values(args: &[Value]) -> Result<Vec<Value>, Value> {
     let field_idx = resolve_field(&args[1], headers)
         .ok_or(Value::Error(ErrorKind::Value))?;
 
-    let crit_rows = extract_rows(&args[2])
+    let crit_rows = extract_criteria_rows(&args[2])
         .ok_or(Value::Error(ErrorKind::Value))?;
 
     if crit_rows.len() < 2 {

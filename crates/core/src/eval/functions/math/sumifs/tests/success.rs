@@ -69,11 +69,11 @@ fn wildcard_criterion() {
 }
 
 #[test]
-fn array_literal_returns_na() {
-    // Inline array constants → #N/A (Google Sheets behavior)
+fn array_literal_inline() {
+    // Inline array constants are supported; {1,2,3} where criterion range > 2 → sum = 3
     let vars = HashMap::new();
     assert_eq!(
         run("=SUMIFS({1,2,3},{1,2,3},\">2\")", vars),
-        Value::Error(crate::types::ErrorKind::NA)
+        Value::Number(3.0)
     );
 }
