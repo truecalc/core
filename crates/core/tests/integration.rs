@@ -407,26 +407,26 @@ fn mdeterm_non_square_returns_value_error() {
 
 #[test]
 fn frequency_basic_bins() {
-    // data={1,2,3,4,5}, bins={2,4} -> counts: [[2],[2],[1]]; GS scalar context: 2
-    assert_eq!(helpers::eval("=FREQUENCY({1,2,3,4,5},{2,4})"), Value::Number(2.0));
+    // FREQUENCY returns an array; in scalar context Google Sheets returns #REF!
+    assert_eq!(helpers::eval("=FREQUENCY({1,2,3,4,5},{2,4})"), Value::Error(ErrorKind::Ref));
 }
 
 #[test]
 fn frequency_single_bin() {
-    // data={1,2,3}, bins={2} -> [[2],[1]]; GS scalar context: 2
-    assert_eq!(helpers::eval("=FREQUENCY({1,2,3},{2})"), Value::Number(2.0));
+    // FREQUENCY returns an array; in scalar context Google Sheets returns #REF!
+    assert_eq!(helpers::eval("=FREQUENCY({1,2,3},{2})"), Value::Error(ErrorKind::Ref));
 }
 
 #[test]
 fn frequency_all_below_bin() {
-    // data={1,2}, bins={5} -> [[2],[0]]; GS scalar context: 2
-    assert_eq!(helpers::eval("=FREQUENCY({1,2},{5})"), Value::Number(2.0));
+    // FREQUENCY returns an array; in scalar context Google Sheets returns #REF!
+    assert_eq!(helpers::eval("=FREQUENCY({1,2},{5})"), Value::Error(ErrorKind::Ref));
 }
 
 #[test]
 fn frequency_all_above_bin() {
-    // data={6,7,8}, bins={5} -> [[0],[3]]; GS scalar context: 0
-    assert_eq!(helpers::eval("=FREQUENCY({6,7,8},{5})"), Value::Number(0.0));
+    // FREQUENCY returns an array; in scalar context Google Sheets returns #REF!
+    assert_eq!(helpers::eval("=FREQUENCY({6,7,8},{5})"), Value::Error(ErrorKind::Ref));
 }
 
 // ── INDEX edge cases ──────────────────────────────────────────────────────────
