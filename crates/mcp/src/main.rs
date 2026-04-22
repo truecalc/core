@@ -3,10 +3,47 @@
 use std::collections::HashMap;
 use std::io::{self, BufRead, Write};
 
-use truecalc_core::{evaluate, parse, validate, Expr, Registry, Value};
+use truecalc_core::{parse, validate, Engine, Expr, Registry, Value};
 use serde_json::{json, Value as JsonValue};
 
+// ─── Conformance ─────────────────────────────────────────────────────────────
+
+struct Engines {
+    google_sheets: Engine,
+}
+
+impl Engines {
+    fn new() -> Self {
+        Self { google_sheets: Engine::google_sheets() }
+    }
+
+    fn select(&self, conformance: &str) -> Option<&Engine> {
+        match conformance {
+            "google-sheets" => Some(&self.google_sheets),
+            _ => None,
+        }
+    }
+}
+
+fn parse_conformance_arg(args: &[String]) -> String {
+    let mut iter = args.iter();
+    while let Some(arg) = iter.next() {
+        if arg == "--conformance" {
+            if let Some(val) = iter.next() {
+                return val.clone();
+            }
+        }
+    }
+    "google-sheets".to_string()
+}
+
+// ─── Entry point ─────────────────────────────────────────────────────────────
+
 fn main() {
+    let cli_args: Vec<String> = std::env::args().collect();
+    let default_conformance = parse_conformance_arg(&cli_args);
+    let engines = Engines::new();
+
     let stdin = io::stdin();
     let stdout = io::stdout();
     let mut out = stdout.lock();
@@ -14,7 +51,7 @@ fn main() {
     for line in stdin.lock().lines() {
         let line = match line {
             Ok(l) => l,
-            Err(_) => break, // EOF or broken pipe — exit cleanly
+            Err(_) => break,
         };
         if line.is_empty() {
             continue;
@@ -45,12 +82,11 @@ fn main() {
             continue;
         }
 
-        // Notifications have no "id"; respond only to requests.
         if request.get("id").is_none() {
             continue;
         }
 
-        let response = handle_request(&request);
+        let response = handle_request(&request, &default_conformance, &engines);
         let mut response_str = serde_json::to_string(&response).expect("serialisation error");
         response_str.push('\n');
         out.write_all(response_str.as_bytes()).expect("stdout write error");
@@ -58,7 +94,7 @@ fn main() {
     }
 }
 
-fn handle_request(req: &JsonValue) -> JsonValue {
+fn handle_request(req: &JsonValue, default_conformance: &str, engines: &Engines) -> JsonValue {
     let id = &req["id"];
     let method = req["method"].as_str().unwrap_or("");
     let params = &req["params"];
@@ -83,7 +119,7 @@ fn handle_request(req: &JsonValue) -> JsonValue {
         "tools/call" => {
             let name = params["name"].as_str().unwrap_or("");
             let args = &params["arguments"];
-            let result = dispatch_tool(name, args);
+            let result = dispatch_tool(name, args, default_conformance, engines);
             let is_error = result.get("error").is_some();
             let mut tool_result = json!({
                 "content": [{ "type": "text", "text": serde_json::to_string(&result).expect("result serialisation is infallible") }]
@@ -108,12 +144,12 @@ fn handle_request(req: &JsonValue) -> JsonValue {
 
 // ─── Tool dispatch ────────────────────────────────────────────────────────────
 
-fn dispatch_tool(name: &str, args: &JsonValue) -> JsonValue {
+fn dispatch_tool(name: &str, args: &JsonValue, default_conformance: &str, engines: &Engines) -> JsonValue {
     match name {
-        "evaluate" => tool_evaluate(args),
+        "evaluate" => tool_evaluate(args, default_conformance, engines),
         "validate" => tool_validate(args),
         "explain" => tool_explain(args),
-        "batch_evaluate" => tool_batch_evaluate(args),
+        "batch_evaluate" => tool_batch_evaluate(args, default_conformance, engines),
         "list_functions" => tool_list_functions(),
         "get_stats" => tool_get_stats(),
         _ => json!({ "error": format!("Unknown tool: {}", name) }),
@@ -122,13 +158,18 @@ fn dispatch_tool(name: &str, args: &JsonValue) -> JsonValue {
 
 // ─── Individual tools ─────────────────────────────────────────────────────────
 
-fn tool_evaluate(args: &JsonValue) -> JsonValue {
+fn tool_evaluate(args: &JsonValue, default_conformance: &str, engines: &Engines) -> JsonValue {
     let formula = match args["formula"].as_str() {
         Some(f) => f,
         None => return json!({ "error": "missing formula" }),
     };
+    let conformance = args["conformance"].as_str().unwrap_or(default_conformance);
+    let engine = match engines.select(conformance) {
+        Some(e) => e,
+        None => return json!({ "error": format!("Unknown conformance target: '{}'", conformance) }),
+    };
     let vars = parse_variables(&args["variables"]);
-    let value = evaluate(formula, &vars);
+    let value = engine.evaluate(formula, &vars);
     value_to_json(&value)
 }
 
@@ -168,17 +209,22 @@ fn tool_explain(args: &JsonValue) -> JsonValue {
     }
 }
 
-fn tool_batch_evaluate(args: &JsonValue) -> JsonValue {
+fn tool_batch_evaluate(args: &JsonValue, default_conformance: &str, engines: &Engines) -> JsonValue {
     let formulas = match args["formulas"].as_array() {
         Some(a) => a,
         None => return json!({ "error": "missing formulas array" }),
+    };
+    let conformance = args["conformance"].as_str().unwrap_or(default_conformance);
+    let engine = match engines.select(conformance) {
+        Some(e) => e,
+        None => return json!({ "error": format!("Unknown conformance target: '{}'", conformance) }),
     };
     let vars = parse_variables(&args["variables"]);
     let results: Vec<JsonValue> = formulas
         .iter()
         .map(|f| {
             let formula = f.as_str().unwrap_or("");
-            let value = evaluate(formula, &vars);
+            let value = engine.evaluate(formula, &vars);
             value_to_json(&value)
         })
         .collect();
@@ -285,7 +331,8 @@ fn tools_list() -> JsonValue {
                 "type": "object",
                 "properties": {
                     "formula": { "type": "string", "description": "Formula string, e.g. \"SUM(A,B)\"" },
-                    "variables": { "type": "object", "description": "Variable bindings (name → number/string/bool)" }
+                    "variables": { "type": "object", "description": "Variable bindings (name → number/string/bool)" },
+                    "conformance": { "type": "string", "description": "Conformance target (default: server default). Supported: \"google-sheets\"" }
                 },
                 "required": ["formula"]
             }
@@ -319,7 +366,8 @@ fn tools_list() -> JsonValue {
                 "type": "object",
                 "properties": {
                     "formulas": { "type": "array", "items": { "type": "string" } },
-                    "variables": { "type": "object" }
+                    "variables": { "type": "object" },
+                    "conformance": { "type": "string", "description": "Conformance target (default: server default). Supported: \"google-sheets\"" }
                 },
                 "required": ["formulas"]
             }
@@ -337,3 +385,57 @@ fn tools_list() -> JsonValue {
     ])
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_conformance_defaults_to_google_sheets() {
+        let args: Vec<String> = vec!["truecalc-mcp".to_string()];
+        assert_eq!(parse_conformance_arg(&args), "google-sheets");
+    }
+
+    #[test]
+    fn parse_conformance_reads_flag() {
+        let args: Vec<String> = vec![
+            "truecalc-mcp".to_string(),
+            "--conformance".to_string(),
+            "google-sheets".to_string(),
+        ];
+        assert_eq!(parse_conformance_arg(&args), "google-sheets");
+    }
+
+    #[test]
+    fn engines_select_google_sheets() {
+        let engines = Engines::new();
+        assert!(engines.select("google-sheets").is_some());
+    }
+
+    #[test]
+    fn engines_select_unknown_returns_none() {
+        let engines = Engines::new();
+        assert!(engines.select("excel").is_none());
+    }
+
+    #[test]
+    fn tool_evaluate_uses_conformance_override() {
+        let engines = Engines::new();
+        let args = serde_json::json!({
+            "formula": "=SUM(1,2)",
+            "conformance": "google-sheets"
+        });
+        let result = tool_evaluate(&args, "google-sheets", &engines);
+        assert_eq!(result["value"], serde_json::json!(3.0));
+    }
+
+    #[test]
+    fn tool_evaluate_unknown_conformance_returns_error() {
+        let engines = Engines::new();
+        let args = serde_json::json!({
+            "formula": "=SUM(1,2)",
+            "conformance": "excel"
+        });
+        let result = tool_evaluate(&args, "google-sheets", &engines);
+        assert!(result.get("error").is_some());
+    }
+}
