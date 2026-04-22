@@ -96,6 +96,14 @@ Do not report a task complete until CI passes.
 - Never use MCP chrome-devtools tools directly — they don't work in this environment.
 - Launch browser automation via: `agent-browser --auto-connect`
 
+## 9. Test Files Are Separate From Production Code
+
+**Never put `#[cfg(test)]` blocks inline in production source files.**
+
+- For library modules (e.g. `engine/mod.rs`): use `#[cfg(test)] mod tests;` and put tests in `engine/tests.rs`
+- For binary crates (e.g. `crates/mcp/src/main.rs`): put tests in `crates/mcp/tests/` as integration tests
+- WASM tests that panic outside WASM context (`JsValue`): omit them entirely
+
 ## 8. Conformance Fixture Files Are Immutable Oracle Records
 
 **Never modify fixture TSVs except by adding new rows or removing rows that have been fixed.**
