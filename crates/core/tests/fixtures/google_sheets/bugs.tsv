@@ -1564,3 +1564,9 @@ TRIM does not remove non-breaking space CHAR 160	=LEN(TRIM(CHAR(160)&"hello"&CHA
 VALUE of date string returns serial number	=VALUE("7/20/1969")	25404	official	number
 VALUE of time string returns fraction	=VALUE("12:00:00")	0.5	official	number
 GS and Excel agree on date serial from date string	=VALUE("1/1/2000")	36526	compatibility	number
+nested verify IMCOTH = 1/IMTANH	=IMCOTH("2+i")	0.984329226458191-0.0327977555337526i	nested	string
+tangent of 2-2i	=IMTAN("2-2i")	-0.0283929528682323-1.02383559457047i	official	string
+nested IMTAN of COMPLEX	=IMTAN(COMPLEX(2,2))	-0.0283929528682323+1.02383559457047i	nested	string
+tanh of large real approaches 1	=IMTANH("10")	0.999999995877693	edge	string
+nested compare with IMSINH/IMCOSH ratio	=IMTANH("2+i")	1.01479361614663+0.0338128260798967i	nested	string
+tanh of large real approaches 1	=IMTANH("10")	0.999999995877693	edge	string
