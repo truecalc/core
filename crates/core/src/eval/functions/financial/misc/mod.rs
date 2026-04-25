@@ -207,6 +207,9 @@ pub fn cumprinc_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::Num);
     }
 
+    // GS treats type as boolean: 0 = end-of-period, any nonzero = beginning-of-period
+    let typ = if typ == 0.0 { 0.0 } else { 1.0 };
+
     // GS rounds fractional start_period up (2.8 → 3) and end_period down (4.9 → 4)
     let start = start.ceil() as i64;
     let end = end.floor() as i64;

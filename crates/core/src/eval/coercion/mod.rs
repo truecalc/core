@@ -1,4 +1,5 @@
 use crate::display::display_number;
+use crate::eval::functions::date::serial::text_to_date_serial;
 use crate::types::{ErrorKind, Value};
 
 /// Coerce a [`Value`] to `f64` for arithmetic operations.
@@ -16,7 +17,11 @@ pub fn to_number(v: Value) -> Result<f64, Value> {
         Value::Empty     => Ok(0.0),
         Value::Text(s)   => {
             if s.is_empty() { Ok(0.0) }
-            else { s.parse::<f64>().map_err(|_| Value::Error(ErrorKind::Value)) }
+            else {
+                s.parse::<f64>()
+                    .or_else(|_| text_to_date_serial(&s).ok_or(Value::Error(ErrorKind::Value)))
+                    .map_err(|_| Value::Error(ErrorKind::Value))
+            }
         }
         Value::Error(_)  => Err(v),
         Value::Array(_)  => Err(Value::Error(ErrorKind::Value)),

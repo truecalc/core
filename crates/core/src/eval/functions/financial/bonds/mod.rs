@@ -159,23 +159,39 @@ pub fn coupon_period_days(pcd: NaiveDate, ncd: NaiveDate, frequency: u32, basis:
     }
 }
 
+fn last_day_of_month(year: i32, month: u32) -> NaiveDate {
+    let next_month_start = if month == 12 {
+        NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
+    } else {
+        NaiveDate::from_ymd_opt(year, month + 1, 1).unwrap()
+    };
+    next_month_start - Duration::days(1)
+}
+
+fn is_last_day_of_month(date: NaiveDate) -> bool {
+    date == last_day_of_month(date.year(), date.month())
+}
+
 /// Add months to a date, snapping to end-of-month if necessary.
+///
+/// End-of-month convention: if the input date is the last day of its month
+/// (e.g. Jun 30, Dec 31, Feb 28/29), the result is also the last day of the
+/// target month. This preserves coupon-date alignment for bonds with
+/// end-of-month maturity dates (e.g. Dec 31 maturity: coupon dates are
+/// Jun 30 and Dec 31, not Jun 30 and Dec 30).
 pub fn add_months(date: NaiveDate, months: i32) -> NaiveDate {
     let total_months = date.year() * 12 + date.month() as i32 - 1 + months;
     let year = total_months / 12;
     let month = (total_months % 12 + 1) as u32;
+
+    if is_last_day_of_month(date) {
+        // Preserve EOM: return last day of target month
+        return last_day_of_month(year, month);
+    }
+
     let day = date.day();
-    // Try the same day, fall back to end of month
     NaiveDate::from_ymd_opt(year, month, day)
-        .unwrap_or_else(|| {
-            // end of month
-            let next_month = if month == 12 {
-                NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
-            } else {
-                NaiveDate::from_ymd_opt(year, month + 1, 1).unwrap()
-            };
-            next_month - Duration::days(1)
-        })
+        .unwrap_or_else(|| last_day_of_month(year, month))
 }
 
 /// Months per coupon period.
@@ -432,6 +448,10 @@ pub fn coupdays_fn(args: &[Value]) -> Value {
 /// `COUPDAYSNC(settlement, maturity, frequency, [basis])`
 ///
 /// Days from settlement to the next coupon date.
+///
+/// For basis=0 (US 30/360) we use COUPDAYS − COUPDAYBS (complement formula)
+/// because US 30/360 is not additive across the D=31 end-of-month boundary.
+/// For all other bases, direct `days_between(settlement, ncd)` is correct.
 pub fn coupdaysnc_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 3, 4) {
         return err;
@@ -440,9 +460,17 @@ pub fn coupdaysnc_fn(args: &[Value]) -> Value {
         Ok(v) => v,
         Err(e) => return e,
     };
+    let pcd = prev_coupon_date(settlement, maturity, frequency);
     let ncd = next_coupon_date(settlement, maturity, frequency);
-    let days = days_between(settlement, ncd, basis);
-    Value::Number(days as f64)
+
+    let days = if basis == 0 {
+        let period_days = coupon_period_days(pcd, ncd, frequency, basis);
+        let elapsed = days_between(pcd, settlement, basis);
+        period_days - elapsed as f64
+    } else {
+        days_between(settlement, ncd, basis) as f64
+    };
+    Value::Number(days)
 }
 
 // ---------------------------------------------------------------------------
@@ -771,23 +799,29 @@ pub fn price_calc(
     };
 
     let yld_f = yld / freq;
-    let a = coupon / (1.0 + yld_f).powf(dsc_e);
+
+    // Accrued interest (dirty − clean adjustment): coupon * A/E
+    // A = days from prev coupon to settlement.
+    // For basis=0,1,4: A+DSC=E by construction so (1-dsc_e) = A/E.
+    // For basis=2,3 (actual/360, actual/365): actual days pcd→settlement +
+    // actual days settlement→ncd ≠ period_days, so compute A explicitly.
+    let days_pcd_to_settlement = days_between(pcd, settlement, basis) as f64;
+    let ai = coupon * days_pcd_to_settlement / period_days;
 
     if (1.0 + yld_f) == 1.0 {
-        // yld = 0 case
+        // yld = 0 case: dirty price is sum of all future cash flows, minus AI
         let coupon_sum = coupon * n;
-        return redemption + coupon_sum - coupon * (1.0 - dsc_e);
+        return redemption + coupon_sum - ai;
     }
 
-    // Price = redemption / (1+yld/f)^(n-1+dsc_e) + sum of coupons
-    let mut price = redemption / (1.0 + yld_f).powf(n - 1.0 + dsc_e);
-
-    // Sum coupon PVs
+    // Dirty price = redemption / (1+yld/f)^(n-1+dsc_e) + sum of coupon PVs
+    let mut dirty = redemption / (1.0 + yld_f).powf(n - 1.0 + dsc_e);
     for k in 1..=(n as i32) {
-        price += coupon / (1.0 + yld_f).powf(k as f64 - 1.0 + dsc_e);
+        dirty += coupon / (1.0 + yld_f).powf(k as f64 - 1.0 + dsc_e);
     }
-    let _ = a;
-    price
+
+    // Clean price = dirty price − accrued interest
+    dirty - ai
 }
 
 // ---------------------------------------------------------------------------
