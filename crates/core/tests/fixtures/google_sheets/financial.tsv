@@ -1028,3 +1028,7 @@ VDB with salvage greater than cost: error or zero handling	=VDB(100,500,10,0,1)	
 VDB fractional start and end period	=VDB(1000,100,10,0.5,1.5)	180	edge	number
 VDB factor 0: behavior may differ between GS and Excel	=VDB(1000,100,10,0,1,0)	#NUM!	compatibility	error
 VDB with negative cost	=VDB(-1000,100,10,0,1)	#NUM!	error	error
+factor=0: factor must be positive, returns #NUM!	=DDB(5000,500,8,1,0)	#NUM!	error	error
+period=life+1 boundary: one period beyond life end with different asset	=DB(2000,200,6,7)	#NUM!	compatibility	error
+negative cost: all args must be positive, returns #NUM!	=DDB(-5000,500,8,1)	#NUM!	error	error
+period greater than life: period exceeds life returns #NUM!	=DB(1000,100,5,6)	#NUM!	error	error

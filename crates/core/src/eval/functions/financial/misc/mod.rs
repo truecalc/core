@@ -330,7 +330,13 @@ pub fn ddb_fn(args: &[Value]) -> Value {
     let period  = match to_number(args[3].clone()) { Ok(n) => n, Err(e) => return e };
     let factor  = match opt_number(args, 4, 2.0) { Ok(n) => n, Err(e) => return e };
 
-    if period > life || life <= 0.0 {
+    if cost < 0.0 || salvage < 0.0 || salvage > cost {
+        return Value::Error(ErrorKind::Num);
+    }
+    if life <= 0.0 || factor <= 0.0 {
+        return Value::Error(ErrorKind::Num);
+    }
+    if period > life || period < 0.0 {
         return Value::Error(ErrorKind::Num);
     }
 
@@ -397,7 +403,7 @@ pub fn db_fn(args: &[Value]) -> Value {
         (r * 1000.0).round() / 1000.0
     };
 
-    if period_i > life_i + 1 {
+    if period_i > life_i {
         return Value::Error(ErrorKind::Num);
     }
 
