@@ -1102,23 +1102,70 @@ pub fn xirr_fn(args: &[Value]) -> Value {
             .sum()
     };
 
+    // Newton-Raphson
     let mut rate = guess;
     for _ in 0..100 {
         let f = xnpv_at(rate);
         let df = dxnpv_at(rate);
-        if !f.is_finite() || !df.is_finite() || df == 0.0 {
-            return Value::Error(ErrorKind::Num);
-        }
+        if !f.is_finite() || !df.is_finite() || df == 0.0 { break; }
         let new_rate = rate - f / df;
+        if new_rate <= -1.0 || !new_rate.is_finite() { break; }
         if (new_rate - rate).abs() < 1e-7 {
-            if !new_rate.is_finite() {
-                return Value::Error(ErrorKind::Num);
-            }
             return Value::Number(new_rate);
         }
         rate = new_rate;
     }
+
+    // Fallback: Brent's method — scan for sign change bracket
+    let candidates: &[f64] = &[
+        -0.999, -0.99, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2,
+        -0.15, -0.1, -0.05, 0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 1.0,
+        2.0, 5.0, 10.0, 50.0, 100.0,
+    ];
+    let mut prev_r = candidates[0];
+    let mut prev_f = xnpv_at(prev_r);
+    for &r in &candidates[1..] {
+        let f_r = xnpv_at(r);
+        // Use strict inequality to avoid triggering on identically-zero xnpv
+        if prev_f * f_r < 0.0 {
+            if let Some(result) = xirr_brent_root(&xnpv_at, prev_r, r, 1e-10) {
+                return Value::Number(result);
+            }
+        }
+        prev_r = r;
+        prev_f = f_r;
+    }
+
     Value::Error(ErrorKind::Num)
+}
+
+fn xirr_brent_root<F: Fn(f64) -> f64>(f: &F, mut a: f64, mut b: f64, tol: f64) -> Option<f64> {
+    let mut fa = f(a);
+    let mut fb = f(b);
+    if !fa.is_finite() || !fb.is_finite() { return None; }
+    if fa.abs() < fb.abs() { std::mem::swap(&mut a, &mut b); std::mem::swap(&mut fa, &mut fb); }
+    let mut c = a; let mut fc = fa; let mut mflag = true; let mut d = 0.0_f64;
+    for _ in 0..200 {
+        if fb.abs() < tol || (b - a).abs() < tol { return Some(b); }
+        let s = if fa != fc && fb != fc {
+            a * fb * fc / ((fa - fb) * (fa - fc))
+                + b * fa * fc / ((fb - fa) * (fb - fc))
+                + c * fa * fb / ((fc - fa) * (fc - fb))
+        } else { b - fb * (b - a) / (fb - fa) };
+        let mid = (a + b) / 2.0;
+        let use_bisect = !(((3.0 * a + b) / 4.0 < s && s < b) || (b < s && s < (3.0 * a + b) / 4.0))
+            || (mflag && (s - b).abs() >= (b - c).abs() / 2.0)
+            || (!mflag && (s - b).abs() >= (c - d).abs() / 2.0)
+            || (mflag && (b - c).abs() < tol)
+            || (!mflag && (c - d).abs() < tol);
+        let s = if use_bisect { mid } else { s };
+        mflag = use_bisect;
+        let fs = f(s);
+        d = c; c = b; fc = fb;
+        if fa * fs < 0.0 { b = s; fb = fs; } else { a = s; fa = fs; }
+        if fa.abs() < fb.abs() { std::mem::swap(&mut a, &mut b); std::mem::swap(&mut fa, &mut fb); }
+    }
+    Some(b)
 }
 
 #[cfg(test)]

@@ -1050,3 +1050,5 @@ TBILLPRICE with boolean TRUE coerced to discount	=TBILLPRICE(DATE(2020,1,1),DATE
 negative yield returns error	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),0.08,-0.01,2,0)	#NUM!	error	error
 TBILLYIELD maturity more than one year after settlement	=TBILLYIELD(DATE(2020,1,1),DATE(2021,6,1),98.45)	#NUM!	error	error
 TBILLPRICE discount rate of 1 (100%): extreme rate	=TBILLPRICE(DATE(2020,1,1),DATE(2020,4,1),1.0)	#NUM!	compatibility	error
+XIRR with irregular cash flows using explicit dates and rate guess	=XIRR({-4000,200,250,300},{DATE(2012,1,1),DATE(2012,6,23),DATE(2013,5,12),DATE(2014,2,9)},0.09)	-0.6440855342116852	official	number
+XIRR: extremely high rate guess beyond convergence limit	=XIRR({-1000,500,800},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)},100)	0.38877770866447886	compatibility	number
