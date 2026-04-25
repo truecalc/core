@@ -9,8 +9,9 @@
 //! implementation gaps and produce a non-blocking progress report.
 //!
 //! `tests/fixtures/lab/` — staging area for test cases discovered during
-//! development, not yet submitted to the GS fixtures pipeline.  Lab tests
-//! produce a report but do not block CI.  See `lab/README.md`.
+//! development, not yet submitted to the GS fixtures pipeline.  Cases are
+//! organised by source under `lab/google_sheets/`, `lab/excel/`, etc.  Lab
+//! tests produce a report but do not block CI.  See `lab/README.md`.
 //!
 //! # TSV format (5 columns, tab-separated, with header row)
 //!
@@ -409,22 +410,31 @@ fn bugs_conformance() {
     run_tsv_fixture_report(&fixture("bugs.tsv"));
 }
 
+/// Recursively collect all `.tsv` files under `dir`.
+fn collect_tsv_files(dir: &Path) -> Vec<PathBuf> {
+    let mut result = Vec::new();
+    let Ok(entries) = std::fs::read_dir(dir) else { return result };
+    for entry in entries.filter_map(|e| e.ok()) {
+        let path = entry.path();
+        if path.is_dir() {
+            result.extend(collect_tsv_files(&path));
+        } else if path.extension().and_then(|s| s.to_str()) == Some("tsv") {
+            result.push(path);
+        }
+    }
+    result
+}
+
 /// Lab conformance report — non-blocking.
 ///
-/// Runs every `.tsv` file in `tests/fixtures/lab/`.  These are test cases
-/// discovered during development that have not yet been submitted to the GS
-/// fixtures pipeline.  Failures do NOT block CI; they mean a known case is
-/// still open.  See `tests/fixtures/lab/README.md` for the full intent and
-/// graduation process.
+/// Runs every `.tsv` file found recursively under `tests/fixtures/lab/`.
+/// Cases are organised by source subdirectory (`lab/google_sheets/`, etc.).
+/// Failures do NOT block CI; they mean a known case is still open.
+/// See `tests/fixtures/lab/README.md` for the full intent and graduation process.
 #[test]
 fn lab_conformance() {
     let dir = lab_dir();
-    let mut entries: Vec<_> = std::fs::read_dir(&dir)
-        .unwrap_or_else(|_| panic!("lab dir not found: {:?}", dir))
-        .filter_map(|e| e.ok())
-        .map(|e| e.path())
-        .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("tsv"))
-        .collect();
+    let mut entries = collect_tsv_files(&dir);
     entries.sort();
 
     if entries.is_empty() {
