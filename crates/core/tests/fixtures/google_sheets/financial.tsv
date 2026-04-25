@@ -1007,3 +1007,11 @@ IFERROR wrapping negative rate returns fallback	"=IFERROR(CUMIPMT(-0.1,10,1000,1
 discount rate of zero returns redemption value	=PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),0,100,0)	#NUM!	error	error
 boolean FALSE as present_value: pv=0 causes #NUM!	=CUMPRINC(0.05,12,FALSE,1,6,0)	#NUM!	coercion	error
 negative coupon rate returns #NUM error	=PRICEMAT(DATE(2010,1,2),DATE(2020,1,1),DATE(2010,1,1),-0.03,0.05,0)	#NUM!	error	error
+MIRR with only negative cash flows (no positive income)	=MIRR({-1000,-200,-300},0.08,0.1)	#DIV/0!	error	error
+MIRR: logical TRUE in cash flow array — GS vs Excel differ on inclusion	=MIRR({-1000,TRUE,800,500},0.08,0.1)	0.1747340124470731	compatibility	number
+NPV: text representation of number in array — Excel ignores, GS may coerce	"=NPV(0.1,{""1000"",2000,3000})"	4297.520661157025	compatibility	number
+NPV: empty string in array — GS vs Excel handling differs	"=NPV(0.1,{"""",2000,3000})"	4297.520661157025	compatibility	number
+MIRR: text values in cash flow — GS returns error, Excel ignores them	"=MIRR({-1000,""abc"",800},0.08,0.1)"	-0.19999999999999996	compatibility	number
+NPV: logical values in array — Excel ignores booleans, GS may include them	=NPV(0.1,{TRUE,FALSE,1000,2000})	2561.98347107438	compatibility	number
+MIRR coercion: text numbers in cash flow array ignored by Excel but not GS	"=MIRR({-1000,""500"",800},0.08,0.1)"	-0.19999999999999996	coercion	number
+NPV with mixed types in array cash flow	"=NPV(0.1,{1000,""two"",TRUE,4000})"	4214.876033057851	coercion	number

@@ -1448,10 +1448,6 @@ text settlement date passed as string	"=COUPPCD(""2011-01-25"",DATE(2011,11,15),
 text maturity date passed as string	"=COUPPCD(DATE(2011,1,25),""2011-11-15"",2,1)"	2010-11-15T08:00:00.000Z	coercion	string
 negative yield returns NUM error	=DURATION(DATE(2020,1,1),DATE(2030,1,1),0.05,-0.06,2)	#NUM!	error	error
 negative coupon returns error	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),-0.08,0.09,2,0)	#NUM!	error	error
-MIRR with only negative cash flows (no positive income)	=MIRR({-1000,-200,-300},0.08,0.1)	#DIV/0!	error	error
-MIRR: logical TRUE in cash flow array — GS vs Excel differ on inclusion	=MIRR({-1000,TRUE,800,500},0.08,0.1)	0.1747340124470731	compatibility	number
-NPV: text representation of number in array — Excel ignores, GS may coerce	"=NPV(0.1,{""1000"",2000,3000})"	4297.520661157025	compatibility	number
-NPV: empty string in array — GS vs Excel handling differs	"=NPV(0.1,{"""",2000,3000})"	4297.520661157025	compatibility	number
 bond price with actual/actual day count convention	=PRICE(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,100,2,1)	2.496442712917719	official	number
 European 30/360 basis (basis=4)	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,4)	94.63436162132213	edge	number
 non-integer frequency truncated to integer (2.7 → 2)	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2.7,0)	94.63436162132213	coercion	number
@@ -1488,8 +1484,6 @@ VDB fractional start and end period	=VDB(1000,100,10,0.5,1.5)	180	edge	number
 Purchase date after first_period_end returns error	=AMORLINC(1000,DATE(2010,12,31),DATE(2010,1,1),100,1,0.15)	#NUM!	error	error
 text settlement date passed as string	"=COUPNUM(""2010-02-01"",DATE(2019,12,31),4)"	40	coercion	number
 rate passed as percentage string instead of decimal	"=CUMIPMT(""10%"",10,1000,1,5,0)"	-430.66006411533647	coercion	number
-MIRR: text values in cash flow — GS returns error, Excel ignores them	"=MIRR({-1000,""abc"",800},0.08,0.1)"	-0.19999999999999996	compatibility	number
-NPV: logical values in array — Excel ignores booleans, GS may include them	=NPV(0.1,{TRUE,FALSE,1000,2000})	2561.98347107438	compatibility	number
 VDB factor 0: behavior may differ between GS and Excel	=VDB(1000,100,10,0,1,0)	#NUM!	compatibility	error
 period=life+1 boundary: one period beyond life end with different asset	=DB(2000,200,6,7)	#NUM!	compatibility	error
 negative yield returns error	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),0.08,-0.01,2,0)	#NUM!	error	error
@@ -1499,7 +1493,6 @@ VDB with negative cost	=VDB(-1000,100,10,0,1)	#NUM!	error	error
 RECEIVED end-of-month date: Feb 28 to Aug 31 with 30/360	=RECEIVED(DATE(2010,2,28),DATE(2010,8,31),1000,0.05,0)	1025.6410256410256	compatibility	number
 YIELDMAT: issue date after settlement date — GS may accept, Excel returns #NUM!	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2021,1,1),0.05,95)	#NUM!	compatibility	error
 Sixth period depreciation with 30/360 basis (default)	=AMORLINC(1000,DATE(1969,7,20),DATE(1969,8,20),100,6,0.15)	137.5	official	number
-MIRR coercion: text numbers in cash flow array ignored by Excel but not GS	"=MIRR({-1000,""500"",800},0.08,0.1)"	-0.19999999999999996	coercion	number
 nested in ROUND to 2 decimal places	=ROUND(PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,0),2)	94.63	nested	number
 YIELDDISC with redemption as FALSE (coerced to 0)	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),95,FALSE)	#NUM!	coercion	error
 compatibility: basis 4 European 30/360 end-of-month date adjustment	=DURATION(DATE(2020,1,31),DATE(2030,3,31),0.05,0.06,2,4)	7.854034812612617	compatibility	number
@@ -1514,7 +1507,6 @@ XNPV: empty string in cash flow array — numeric coercion differs by platform	"
 YIELDMAT with negative coupon rate	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),-0.05,95)	#NUM!	error	error
 modified duration with explicit basis=1 (actual/actual)	=MDURATION(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,2,1)	0.8298802950543064	official	number
 bond price with 3% coupon 120% yield semiannual 30-year horizon	=PRICE(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,100,2,0)	2.4964231392093046	official	number
-NPV with mixed types in array cash flow	"=NPV(0.1,{1000,""two"",TRUE,4000})"	4214.876033057851	coercion	number
 Issue date equal to maturity returns #NUM!	=ACCRINTM(DATE(2010,6,30),DATE(2010,6,30),0.05,100)	0	error	number
 text settlement date passed as string instead of DATE value	"=COUPDAYSNC(""2011-01-25"",DATE(2011,11,15),2,1)"	110	coercion	number
 redemption as zero returns error	=INTRATE(DATE(2010,1,1),DATE(2020,1,1),1000,0,0)	#NUM!	error	error

@@ -912,6 +912,29 @@ fn flatten_array(v: Value) -> Result<Vec<f64>, Value> {
     }
 }
 
+/// Like flatten_array but skips boolean and text values in array literals.
+/// Used by MIRR/NPV where GS ignores non-numeric types (same as IRR).
+fn flatten_cashflows(v: Value) -> Result<Vec<f64>, Value> {
+    match v {
+        Value::Array(items) => {
+            let mut out = Vec::new();
+            for item in items {
+                match item {
+                    Value::Array(inner) => {
+                        for sub in flatten_cashflows(Value::Array(inner))? {
+                            out.push(sub);
+                        }
+                    }
+                    Value::Bool(_) | Value::Text(_) => {} // ignored per GS semantics
+                    other => out.push(to_number(other)?),
+                }
+            }
+            Ok(out)
+        }
+        other => Ok(vec![to_number(other)?]),
+    }
+}
+
 fn flatten_array_dates(v: Value) -> Result<Vec<f64>, Value> {
     // Same as flatten_array but for date serials (Value::Date is also f64)
     match v {
@@ -970,7 +993,7 @@ pub fn mirr_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 3, 3) {
         return err;
     }
-    let cfs = match flatten_array(args[0].clone()) { Ok(v) => v, Err(e) => return e };
+    let cfs = match flatten_cashflows(args[0].clone()) { Ok(v) => v, Err(e) => return e };
     let finance_rate = match to_number(args[1].clone()) { Ok(n) => n, Err(e) => return e };
     let reinvest_rate = match to_number(args[2].clone()) { Ok(n) => n, Err(e) => return e };
 
@@ -999,7 +1022,7 @@ pub fn mirr_fn(args: &[Value]) -> Value {
         }
     }
     if fv_pos == 0.0 {
-        return Value::Error(ErrorKind::Num);
+        return Value::Error(ErrorKind::DivByZero);
     }
 
     let result = (-fv_pos / npv_neg).powf(1.0 / (n as f64 - 1.0)) - 1.0;

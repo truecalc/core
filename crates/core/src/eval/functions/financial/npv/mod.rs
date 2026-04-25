@@ -46,6 +46,8 @@ fn flatten_values(items: Vec<Value>) -> Result<Vec<f64>, Value> {
                 let sub = flatten_values(inner)?;
                 out.extend(sub);
             }
+            // GS ignores booleans and text in NPV array literals (same as IRR)
+            Value::Bool(_) | Value::Text(_) => {}
             other => out.push(to_number(other)?),
         }
     }
