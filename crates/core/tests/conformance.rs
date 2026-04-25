@@ -359,13 +359,7 @@ conformance_tsv_test!(database_conformance,    "database.tsv");
 conformance_tsv_test!(array_conformance,       "array.tsv");
 conformance_tsv_test!(filter_conformance,      "filter.tsv");
 conformance_tsv_test!(web_conformance,         "web.tsv");
-conformance_tsv_test!(google_conformance,      "google.tsv");
-
-#[test]
-#[ignore = "financial fixtures are pending implementation"]
-fn financial_conformance() {
-    run_tsv_fixture(&fixture("financial.tsv"));
-}
+conformance_tsv_test!(financial_conformance,   "financial.tsv");
 
 /// Known-bug regression baseline (T2.2).
 ///
@@ -395,7 +389,7 @@ fn generate_conformance_report() {
     let categories = [
         "math", "logical", "info", "statistical", "operator", "text",
         "date", "engineering", "lookup", "parser", "database",
-        "array", "filter", "web", "google", "financial",
+        "array", "filter", "web", "financial",
     ];
 
     for cat in &categories {

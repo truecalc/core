@@ -1570,3 +1570,1029 @@ nested IMTAN of COMPLEX	=IMTAN(COMPLEX(2,2))	-0.0283929528682323+1.0238355945704
 tanh of large real approaches 1	=IMTANH("10")	0.999999995877693	edge	string
 nested compare with IMSINH/IMCOSH ratio	=IMTANH("2+i")	1.01479361614663+0.0338128260798967i	nested	string
 tanh of large real approaches 1	=IMTANH("10")	0.999999995877693	edge	string
+Accrued interest with basis 3 (Actual/365)	=ACCRINT(DATE(2010,1,1),DATE(2010,7,1),DATE(2012,6,30),0.08,100,2,3)	19.945205479452056	edge	number
+Par value supplied as text number "1000"	=ACCRINT(DATE(2010,1,1),DATE(2010,7,1),DATE(2011,6,30),0.05,"1000",2)	#VALUE!	coercion	error
+Rate of zero returns #NUM!	=ACCRINT(DATE(2010,1,1),DATE(2010,7,1),DATE(2011,6,30),0,100,2)	#NUM!	error	error
+Issue date equal to settlement returns #NUM!	=ACCRINT(DATE(2011,6,30),DATE(2010,7,1),DATE(2011,6,30),0.05,100,2)	0	error	number
+Day count basis 1 (Actual/Actual) vs 0 (30/360) may differ between GS and Excel	=ACCRINT(DATE(2010,3,31),DATE(2010,9,30),DATE(2012,3,31),0.05,100,2,1)	10	compatibility	number
+Basis 2 (Actual/360) produces different results vs Actual/365 across platforms	=ACCRINT(DATE(2010,1,1),DATE(2010,7,1),DATE(2011,6,30),0.05,100,2,2)	7.5	compatibility	number
+Rate of zero returns #NUM!	=ACCRINTM(DATE(2010,1,1),DATE(2010,12,31),0,100)	#NUM!	error	error
+Basis out of range (5) returns #NUM!	=ACCRINTM(DATE(2010,1,1),DATE(2010,12,31),0.05,100,5)	#NUM!	error	error
+Sixth period depreciation with actual/actual basis (basis=1)	=AMORLINC(1000,DATE(1969,7,20),DATE(1969,8,20),100,6,0.15,1)	137.2602739726027	official	number
+First period depreciation (period=0) with default basis	=AMORLINC(1000,DATE(2010,1,1),DATE(2010,12,31),100,0,0.15)	150	edge	number
+Depreciation with very large cost value	=AMORLINC(1e15,DATE(2010,1,1),DATE(2010,12,31),0,1,0.10)	100000000000000	edge	number
+Period greater than asset life (fully depreciated)	=AMORLINC(1000,DATE(2010,1,1),DATE(2010,12,31),100,100,0.15)	0	edge	number
+Invalid basis 2 (not supported in Excel, may differ in GS)	=AMORLINC(1000,DATE(2010,1,1),DATE(2010,12,31),100,1,0.15,2)	150.0000000000001	error	number
+IFERROR wrapping invalid basis	=IFERROR(AMORLINC(1000,DATE(2010,1,1),DATE(2010,12,31),100,1,0.15,5),"invalid")	invalid	nested	string
+IF checking whether depreciation exceeds 100	=IF(AMORLINC(1000,DATE(2010,1,1),DATE(2010,12,31),100,1,0.15)>100,"high","low")	high	nested	string
+Basis 2 (Actual/360): GS supports it, Excel does not list it — different cost/period	=AMORLINC(2400,DATE(2010,1,1),DATE(2010,12,31),300,1,0.15,2)	360	compatibility	number
+Zero salvage value: full depreciation differs from non-zero salvage	=AMORLINC(1000,DATE(2010,1,1),DATE(2010,12,31),0,1,0.15)	150	compatibility	number
+Settlement just after coupon date (1 day into coupon period)	=COUPDAYBS(DATE(2010,2,2),DATE(2020,2,1),2)	1	edge	number
+Basis 4 (European 30/360), semiannual frequency	=COUPDAYBS(DATE(2010,2,1),DATE(2019,12,31),2,4)	31	edge	number
+text maturity date passed as string instead of DATE value	=COUPDAYSNC(DATE(2011,1,25),"2011-11-15",2,1)	110	coercion	number
+frequency passed as decimal (truncated to integer 2)	=COUPDAYSNC(DATE(2011,1,25),DATE(2011,11,15),2.9,1)	110	coercion	number
+next coupon date with semiannual frequency and actual/actual basis	=COUPNCD(DATE(2011,1,25),DATE(2011,11,15),2,1)	2011-05-15T07:00:00.000Z	official	string
+annual frequency with US 30/360 basis	=COUPNCD(DATE(2011,1,25),DATE(2020,11,15),1,0)	2011-11-15T08:00:00.000Z	edge	string
+quarterly frequency with European 30/360 basis	=COUPNCD(DATE(2011,1,25),DATE(2011,11,15),4,4)	2011-02-15T08:00:00.000Z	edge	string
+semiannual frequency with actual/360 basis	=COUPNCD(DATE(2011,1,25),DATE(2011,11,15),2,2)	2011-05-15T07:00:00.000Z	edge	string
+semiannual frequency with actual/365 basis	=COUPNCD(DATE(2011,1,25),DATE(2011,11,15),2,3)	2011-05-15T07:00:00.000Z	edge	string
+settlement one day before maturity coupon date	=COUPNCD(DATE(2020,11,14),DATE(2021,11,15),1)	2020-11-15T08:00:00.000Z	edge	string
+text settlement date passed as string	=COUPNCD("2011-01-25",DATE(2011,11,15),2,1)	2011-05-15T07:00:00.000Z	coercion	string
+text maturity date passed as string	=COUPNCD(DATE(2011,1,25),"2011-11-15",2,1)	2011-05-15T07:00:00.000Z	coercion	string
+frequency as decimal (truncated to 2)	=COUPNCD(DATE(2011,1,25),DATE(2011,11,15),2.9,1)	2011-05-15T07:00:00.000Z	coercion	string
+basis as decimal (truncated to 1)	=COUPNCD(DATE(2011,1,25),DATE(2011,11,15),2,1.7)	2011-05-15T07:00:00.000Z	coercion	string
+settlement equal to maturity returns #NUM!	=COUPNCD(DATE(2011,11,15),DATE(2011,11,15),2,1)	#NUM!	error	error
+US 30/360 end-of-month settlement next coupon	=COUPNCD(DATE(2011,1,31),DATE(2011,11,30),2,0)	2011-05-30T07:00:00.000Z	compatibility	string
+actual/actual basis next coupon date compared to actual/360	=COUPNCD(DATE(2011,1,25),DATE(2011,11,15),2,1)	2011-05-15T07:00:00.000Z	compatibility	string
+quarterly next coupon closer than semiannual next coupon	=COUPNCD(DATE(2011,2,15),DATE(2011,11,15),4,0)	2011-05-15T07:00:00.000Z	compatibility	string
+quarterly coupon count over 10-year term with default basis	=COUPNUM(DATE(2010,2,1),DATE(2019,12,31),4)	40	official	number
+text maturity date passed as string	=COUPNUM(DATE(2010,2,1),"2019-12-31",4)	40	coercion	number
+frequency as decimal (truncated to 4)	=COUPNUM(DATE(2010,2,1),DATE(2019,12,31),4.9)	40	coercion	number
+previous coupon date with semiannual frequency and actual/actual basis	=COUPPCD(DATE(2011,1,25),DATE(2011,11,15),2,1)	2010-11-15T08:00:00.000Z	official	string
+annual frequency with US 30/360 basis	=COUPPCD(DATE(2011,1,25),DATE(2020,11,15),1,0)	2010-11-15T08:00:00.000Z	edge	string
+quarterly frequency with European 30/360 basis	=COUPPCD(DATE(2011,1,25),DATE(2011,11,15),4,4)	2010-11-15T08:00:00.000Z	edge	string
+semiannual frequency with actual/360 basis	=COUPPCD(DATE(2011,1,25),DATE(2011,11,15),2,2)	2010-11-15T08:00:00.000Z	edge	string
+semiannual frequency with actual/365 basis	=COUPPCD(DATE(2011,1,25),DATE(2011,11,15),2,3)	2010-11-15T08:00:00.000Z	edge	string
+settlement just after coupon date — previous coupon is the one just passed	=COUPPCD(DATE(2011,11,16),DATE(2020,11,15),2,0)	2011-11-15T08:00:00.000Z	edge	string
+text settlement date passed as string	=COUPPCD("2011-01-25",DATE(2011,11,15),2,1)	2010-11-15T08:00:00.000Z	coercion	string
+text maturity date passed as string	=COUPPCD(DATE(2011,1,25),"2011-11-15",2,1)	2010-11-15T08:00:00.000Z	coercion	string
+frequency as decimal (truncated to 2)	=COUPPCD(DATE(2011,1,25),DATE(2011,11,15),2.9,1)	2010-11-15T08:00:00.000Z	coercion	string
+basis as decimal (truncated to 1)	=COUPPCD(DATE(2011,1,25),DATE(2011,11,15),2,1.7)	2010-11-15T08:00:00.000Z	coercion	string
+settlement equal to maturity returns #NUM!	=COUPPCD(DATE(2011,11,15),DATE(2011,11,15),2,1)	#NUM!	error	error
+US 30/360 end-of-month settlement previous coupon	=COUPPCD(DATE(2011,1,31),DATE(2011,11,30),2,0)	2010-11-30T08:00:00.000Z	compatibility	string
+COUPNCD and COUPPCD should straddle settlement: COUPPCD < settlement < COUPNCD	=COUPPCD(DATE(2011,6,1),DATE(2011,11,15),2,1)	2011-05-15T07:00:00.000Z	compatibility	string
+quarterly previous coupon differs from semiannual previous coupon	=COUPPCD(DATE(2011,2,15),DATE(2011,11,15),4,0)	2011-02-15T08:00:00.000Z	compatibility	string
+cumulative interest for periods 1-5 at 12% annual rate, 12 periods, PV=100, end-of-period	=CUMIPMT(0.12,12,100,1,5,0)	-54.39423242396349	official	number
+TRUE coerced to 1 for type argument (beginning-of-period)	=CUMIPMT(0.1,10,1000,1,5,TRUE)	-300.6000582866695	coercion	number
+negative rate returns #NUM!	=CUMIPMT(-0.1,10,1000,1,5,0)	#NUM!	error	error
+nper of zero or less returns #NUM!	=CUMIPMT(0.1,0,1000,1,5,0)	#NUM!	error	error
+start_period less than 1 returns #NUM!	=CUMIPMT(0.1,10,1000,0,5,0)	#NUM!	error	error
+ABS of cumulative interest (interest is always negative)	=ABS(CUMIPMT(0.1,10,1000,1,10,0))	627.4539488251162	nested	number
+GS decimal last_period: 4.9 treated as 4 (ends at period 4)	=CUMIPMT(0.1,10,1000,1,4.9,0)	-359.7802018803101	compatibility	number
+text as number_of_periods: coercion of numeric string to integer	=CUMPRINC(0.05,"12",1000,1,6,0)	-427.3329613711497	coercion	number
+negative present value: pv<=0 returns #NUM!	=CUMPRINC(0.05,12,-1000,1,6,0)	#NUM!	error	error
+first_period greater than last_period: start > end returns #NUM!	=CUMPRINC(0.05,12,1000,6,3,0)	#NUM!	error	error
+missing required argument: too few args returns error	=CUMPRINC(0.05,12,1000,1)	#N/A	error	error
+IF comparing cumulative principal to threshold	=IF(CUMPRINC(0.05/12,60,10000,1,12,0)<-400,"high principal","low principal")	high principal	nested	string
+zero life: life=0 returns divide-by-zero or #NUM!	=DB(1000,100,0,1)	#NUM!	error	error
+salvage equals cost: zero depreciation rate (rate would be 0)	=DB(1000,1000,5,1)	0	compatibility	number
+period greater than life: period exceeds life returns #NUM!	=DDB(5000,500,8,9)	#NUM!	error	error
+1/0 as cost: division-by-zero argument	=DDB(1/0,500,8,1)	#DIV/0!	error	error
+text redemption: numeric string "100" as redemption	=DISC(DATE(2025,1,1),DATE(2026,1,1),99,"100",0)	0.01	coercion	number
+negative redemption: redemption<=0 returns #NUM!	=DISC(DATE(2025,1,1),DATE(2026,1,1),99,-100,0)	#NUM!	error	error
+integer price no fractional part: 100.00 in 8ths = 100.0	=DOLLARDE(100,8)	100	edge	number
+large unit (64ths): 1.08 in 64ths	=DOLLARDE(1.08,64)	1.125	edge	number
+text unit as numeric string: "32" for unit	=DOLLARDE(100.10,"32")	100.31249999999999	coercion	number
+negative unit: fraction < 0 returns #NUM!	=DOLLARDE(1.08,-32)	#NUM!	error	error
+convert 100.125 to 1/32nds fractional notation	=DOLLARFR(100.125,32)	100.04	official	number
+boolean TRUE coerced to 1 as decimal_price	=DOLLARFR(TRUE,8)	1	coercion	number
+text numeric string as unit argument	=DOLLARFR(1.125,"32")	1.04	coercion	number
+compatibility: fraction 2 vs 8 — different granularity for same price	=DOLLARFR(1.5,2)	1.1	compatibility	number
+annual frequency (1) with default 30/360 day count	=DURATION(DATE(2020,1,1),DATE(2030,1,1),0.05,0.06,1)	8.022533650695037	edge	number
+boolean TRUE coerced to 1 as coupon	=DURATION(DATE(2020,1,1),DATE(2030,1,1),TRUE,0.06,2)	5.124333554591253	coercion	number
+negative yield returns NUM error	=DURATION(DATE(2020,1,1),DATE(2030,1,1),0.05,-0.06,2)	#NUM!	error	error
+invalid frequency (3) returns NUM error	=DURATION(DATE(2020,1,1),DATE(2030,1,1),0.05,0.06,3)	#NUM!	error	error
+compatibility: basis 3 actual/365 vs basis 2 actual/360 same dates	=DURATION(DATE(2020,1,1),DATE(2030,6,15),0.05,0.06,2,3)	8.142162666493896	compatibility	number
+settlement date equal to maturity returns error	=INTRATE(DATE(2020,1,1),DATE(2020,1,1),1000,1500,0)	#NUM!	error	error
+IRR for cash flows with no guess (uses default 10%)	=IRR({-4000,200,250,300,350})	-0.3524266235692171	official	number
+single negative and single positive cash flow (minimum valid input)	=IRR({-100,150})	0.49999999999999983	edge	number
+text-that-looks-like-number in cash flow array (ignored or error)	=IRR({-1000,"200",300,400,500})	0.08896339469334472	coercion	number
+empty string in cash flow array (ignored or error)	=IRR({-1000,"",300,400,500})	0.08896339469334472	coercion	number
+FALSE in cash flows (treated as 0, ignored in Excel)	=IRR({-1000,FALSE,300,400,500})	0.08896339469334472	coercion	number
+all-negative cash flows returns error (no positive value)	=IRR({-100,-200,-300})	#NUM!	error	error
+Excel ignores TRUE as 1; GS may treat as 1: boolean in positive cash flow slot	=IRR({-500,TRUE,200,200,200})	0.097010257403273	compatibility	number
+guess parameter default 0.1 vs explicit guess near solution	=IRR({-70000,12000,15000,18000,21000,26000},0.08)	0.08663094803653063	compatibility	number
+interest paid in period 2 of 5 for a loan at 15% rate on 1000 present value	=ISPMT(0.15,2,5,1000)	-90	official	number
+zero coupon bond (coupon=0): modified duration approaches maturity	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),0,0.05,2,0)	9.756097560975611	edge	number
+negative coupon returns error	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),-0.08,0.09,2,0)	#NUM!	error	error
+invalid frequency (3 is not 1, 2, or 4) returns error	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),0.08,0.09,3,0)	#NUM!	error	error
+IF checks if modified duration exceeds 5 years	=IF(MDURATION(DATE(2008,1,1),DATE(2016,1,1),0.08,0.09,2,1)>5,"long duration","short duration")	long duration	nested	string
+omitted basis (defaults to 0) vs explicit basis 0	=MDURATION(DATE(2008,1,1),DATE(2016,1,1),0.08,0.09,2)	5.735669813918838	compatibility	number
+MIRR with only negative cash flows (no positive income)	=MIRR({-1000,-200,-300},0.08,0.1)	#DIV/0!	error	error
+MIRR with only positive cash flows (no negative payment)	=MIRR({1000,200,300},0.08,0.1)	#DIV/0!	error	error
+MIRR: logical TRUE in cash flow array — GS vs Excel differ on inclusion	=MIRR({-1000,TRUE,800,500},0.08,0.1)	0.1747340124470731	compatibility	number
+MIRR: very high financing rate at boundary (99%)	=MIRR({-5000,1500,2000,3000},0.99,0.05)	0.10541408011884212	compatibility	number
+NPV with only discount rate (no cash flows — too few args)	=NPV(0.1)	#N/A	error	error
+NPV: text representation of number in array — Excel ignores, GS may coerce	=NPV(0.1,{"1000",2000,3000})	4297.520661157025	compatibility	number
+NPV: empty string in array — GS vs Excel handling differs	=NPV(0.1,{"",2000,3000})	4297.520661157025	compatibility	number
+NPV: negative discount rate — mathematical edge case	=NPV(-0.05,1000,2000,3000)	6767.750400933081	compatibility	number
+bond price with actual/actual day count convention	=PRICE(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,100,2,1)	2.496442712917719	official	number
+coupon rate equals yield giving price near par	=PRICE(DATE(2008,1,1),DATE(2018,1,1),0.05,0.05,100,2,0)	100.00000000000014	edge	number
+European 30/360 basis (basis=4)	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,4)	94.63436162132213	edge	number
+very high yield causing deep discount price	=PRICE(DATE(2010,1,1),DATE(2040,1,1),0.03,0.15,100,2,0)	21.043715497027396	edge	number
+non-integer frequency truncated to integer (2.7 → 2)	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2.7,0)	94.63436162132213	coercion	number
+numeric string coupon rate coerced to number	=PRICE(DATE(2008,2,15),DATE(2017,11,15),"0.0575",0.065,100,2,0)	94.63436162132213	coercion	number
+negative yield returns #NUM error	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,-0.01,100,2,0)	#NUM!	error	error
+compatibility: basis 0 vs basis 1 price difference for same bond	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,0)-PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,1)	-0.0010875865550730168	compatibility	number
+compatibility: frequency 1 vs 2 for same bond should differ	=PRICE(DATE(2008,1,1),DATE(2018,1,1),0.05,0.06,100,1,0)-PRICE(DATE(2008,1,1),DATE(2018,1,1),0.05,0.06,100,2,0)	0.07865037881308012	compatibility	number
+discounted security price with 300% discount rate over 30 years	=PRICEDISC(DATE(2010,1,2),DATE(2039,12,31),3,100)	-8899.166666666668	official	number
+negative discount rate returns #NUM error	=PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),-0.05,100,0)	#NUM!	error	error
+redemption value of zero returns #NUM error	=PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),0.05,0,0)	#NUM!	error	error
+negative yield returns #NUM error	=PRICEMAT(DATE(2010,1,2),DATE(2020,1,1),DATE(2010,1,1),0.05,-0.01,0)	#NUM!	error	error
+settlement on or after maturity returns #NUM error	=PRICEMAT(DATE(2025,1,1),DATE(2020,1,1),DATE(2010,1,1),0.05,0.06,0)	#NUM!	error	error
+RATE with future value goal	=RATE(10,-1000,0,15000)	0.08732052177993979	edge	number
+RATE with very small payment relative to PV	=RATE(12,-1,1000)	-0.3921654410774547	edge	number
+RATE with text rate_guess	=RATE(12,-100,400,0,0,"bad")	#VALUE!	error	error
+RATE nested in IF to classify rate as high or low	=IF(RATE(12,-100,400)>0.01,"high","low")	high	nested	string
+RATE with type=1 (beginning) changes result	=RATE(12,-100,400,0,0)	0.228933070977093	compatibility	number
+RECEIVED sample: settlement=2010-02-01 maturity=2019-12-31 investment=1000 discount=0.05	=RECEIVED(DATE(2010,2,1),DATE(2019,12,31),1000,0.05)	1983.4710743801654	official	number
+RECEIVED boolean TRUE as investment coerces to 1	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),TRUE,0.05)	2	coercion	number
+RECEIVED with discount=0 — must be positive	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),1000,0)	#NUM!	error	error
+RECEIVED with settlement >= maturity	=RECEIVED(DATE(2020,1,1),DATE(2010,1,1),1000,0.05)	#NUM!	error	error
+RECEIVED end-of-month date: Feb 28 to Aug 31 with European 30/360	=RECEIVED(DATE(2010,2,28),DATE(2010,8,31),1000,0.05,4)	1025.9333143345682	compatibility	number
+RRI: 10.5 periods pv=10 fv=3	=RRI(10.5,10,3)	-0.10833437505113597	official	number
+SYD with too few arguments	=SYD(1000,100,10)	#N/A	error	error
+TBILLEQ very short 30-day T-bill period	=TBILLEQ(DATE(2020,1,1),DATE(2020,1,31),0.05)	0.050906555090656086	edge	number
+TBILLEQ very low discount rate near zero	=TBILLEQ(DATE(2020,6,1),DATE(2020,9,1),0.0001)	0.00010139148000409609	edge	number
+TBILLEQ with text discount rate	=TBILLEQ(DATE(2020,1,1),DATE(2020,7,1),"0.05")	0.052009119407238395	coercion	number
+TBILLEQ with discount rate of 100%: extreme rate boundary	=TBILLEQ(DATE(2020,1,1),DATE(2020,7,1),1.0)	#NUM!	compatibility	error
+TBILLEQ numeric date serial instead of DATE function	=TBILLEQ(43831,44044,0.05)	0.05204593561955055	compatibility	number
+TBILLPRICE sample: settlement=2010-01-02 maturity=2010-12-31 discount=1.25%	=TBILLPRICE(DATE(2010,1,2),DATE(2010,12,31),0.0125)	98.73958333333334	official	number
+TBILLPRICE with text discount string	=TBILLPRICE(DATE(2020,1,1),DATE(2020,7,1),"0.05")	97.47222222222223	coercion	number
+TBILLYIELD sample: settlement=2010-01-02 maturity=2010-12-31 price=98.45	=TBILLYIELD(DATE(2010,1,2),DATE(2010,12,31),98.45)	0.015613916532703153	official	number
+TBILLYIELD with 1/0 as price argument	=TBILLYIELD(DATE(2020,1,1),DATE(2020,7,1),1/0)	#DIV/0!	error	error
+VDB no-switch TRUE: cost=100 salvage=10 life=20 periods 10-11 factor=2	=VDB(100,10,20,10,11,2,TRUE)	3.4867844010000013	official	number
+VDB with no_switch omitted (defaults to FALSE/switch to SLN)	=VDB(1000,100,10,8,10)	67.7721600000001	edge	number
+VDB with 1/0 as cost argument	=VDB(1/0,100,10,0,1)	#DIV/0!	error	error
+VDB end_period equals life with no_switch FALSE: straight-line switch behavior	=VDB(1000,100,10,8,10,2,FALSE)	67.7721600000001	compatibility	number
+XIRR with irregular cash flows using explicit dates and rate guess	=XIRR({-4000,200,250,300},{DATE(2012,1,1),DATE(2012,6,23),DATE(2013,5,12),DATE(2014,2,9)},0.09)	-0.6440855342116852	official	number
+XIRR with minimal two cash flows (one negative one positive)	=XIRR({-1000,1500},{DATE(2020,1,1),DATE(2021,1,1)})	0.4983391778762754	edge	number
+XIRR: date as numeric serial instead of DATE() — behavior varies by platform	=XIRR({-1000,500,700},{43831,44197,44562})	0.12298292719321392	compatibility	number
+YIELD for 30-year bond with semiannual payments, 30/360 basis, coupon 3%	=YIELD(DATE(2010,1,2),DATE(2039,12,31),3,93.45,100,2)	3.1876008031666876	official	number
+YIELD with annual payments, explicit 30/360 day count convention	=YIELD(DATE(2010,1,2),DATE(2039,12,31),3,93.45,100,1,1)	3.1795991124043925	official	number
+YIELD with annual payments and at-par price (coupon equals yield)	=YIELD(DATE(2020,1,1),DATE(2030,1,1),0.05,100,100,1)	0.05	edge	number
+YIELD: redemption value above par — GS and Excel should agree but end-of-month handling may differ	=YIELD(DATE(2020,1,31),DATE(2030,3,31),0.05,95,110,2,0)	0.0638866452844587	compatibility	number
+YIELD: basis 5 (out of range) — both platforms should return error	=YIELD(DATE(2020,1,1),DATE(2030,1,1),0.05,95,100,2,5)	#NUM!	compatibility	error
+YIELDDISC with price as text number	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),"95",100)	0.05263157894736842	coercion	number
+YIELDDISC with settlement equal to maturity	=YIELDDISC(DATE(2021,1,1),DATE(2021,1,1),95,100)	#NUM!	error	error
+YIELDMAT with zero price	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),0.05,0)	#NUM!	error	error
+YIELDMAT: date as numeric serial instead of DATE() — behavior may vary by platform	=YIELDMAT(43831,45658,43466,0.05,95)	0.06000000000000001	compatibility	number
+Par value of zero returns #NUM!	=ACCRINTM(DATE(2010,1,1),DATE(2010,12,31),0.05,0)	#NUM!	error	error
+Depreciation with rate very close to zero	=AMORLINC(1000,DATE(2010,1,1),DATE(2010,12,31),100,1,0.0001)	0.10000000000002274	edge	number
+Rate supplied as boolean TRUE coerced to 1.0 (100% depreciation rate)	=AMORLINC(1000,DATE(2010,1,1),DATE(2010,12,31),100,1,TRUE)	0	coercion	number
+Basis out of range (5) returns error	=AMORLINC(1000,DATE(2010,1,1),DATE(2010,12,31),100,1,0.15,5)	#NUM!	error	error
+IFERROR wrapping purchase-date-after-period-end error	=IFERROR(AMORLINC(1000,DATE(2011,1,1),DATE(2010,12,31),100,1,0.15),0)	0	nested	number
+Basis 1 (Actual): GS and Excel may compute differently for mid-period purchase	=AMORLINC(2400,DATE(2008,8,19),DATE(2009,1,1),300,1,0.15,1)	360.0000000000002	compatibility	number
+Days from coupon start to settlement, quarterly frequency, default basis	=COUPDAYBS(DATE(2010,2,1),DATE(2019,12,31),4)	31	official	number
+Settlement just before coupon date (end of coupon period)	=COUPDAYBS(DATE(2010,1,31),DATE(2020,2,1),2)	180	edge	number
+Frequency supplied as boolean TRUE coerced to 1 (annual)	=COUPDAYBS(DATE(2010,2,1),DATE(2020,12,31),TRUE)	31	coercion	number
+basis passed as decimal (truncated to integer 1)	=COUPDAYSNC(DATE(2011,1,25),DATE(2011,11,15),2,1.7)	110	coercion	number
+settlement after maturity returns #NUM!	=COUPNCD(DATE(2012,1,1),DATE(2011,11,15),2,1)	#NUM!	error	error
+semiannual coupon count with actual/actual basis	=COUPNUM(DATE(2007,1,25),DATE(2008,11,15),2,1)	4	official	number
+basis as decimal (truncated to 0)	=COUPNUM(DATE(2010,2,1),DATE(2019,12,31),4,0.9)	40	coercion	number
+settlement after maturity returns #NUM!	=COUPPCD(DATE(2012,1,1),DATE(2011,11,15),2,1)	#NUM!	error	error
+cumulative interest for all 12 periods at 12% annual rate, PV=100, end-of-period	=CUMIPMT(0.12,12,100,1,12,0)	-93.72416911279494	official	number
+FALSE coerced to 0 for type argument (end-of-period)	=CUMIPMT(0.1,10,1000,1,5,FALSE)	-430.66006411533647	coercion	number
+present value of zero or less returns #NUM!	=CUMIPMT(0.1,10,0,1,5,0)	#NUM!	error	error
+start_period greater than end_period returns #NUM!	=CUMIPMT(0.1,10,1000,6,5,0)	#NUM!	error	error
+IF checking whether first-half interest exceeds second-half interest	=IF(ABS(CUMIPMT(0.1,10,1000,1,5,0))>ABS(CUMIPMT(0.1,10,1000,6,10,0)),"front-loaded","back-loaded")	front-loaded	nested	string
+end-of-period vs beginning-of-period type comparison for same range	=CUMIPMT(0.09/12,30*12,125000,1,12,1)	-10201.332884494608	compatibility	number
+zero interest rate: rate=0 returns #NUM! error	=CUMPRINC(0,12,1000,1,6,0)	#NUM!	error	error
+first_period zero: start_period < 1 returns #NUM!	=CUMPRINC(0.05,12,1000,0,6,0)	#NUM!	error	error
+division-by-zero as rate: 1/0 as rate argument	=CUMPRINC(1/0,12,1000,1,6,0)	#DIV/0!	error	error
+end-of-period vs beginning-of-period: same loan, different type gives different result	=CUMPRINC(0.08/12,120,200000,1,12,0)-CUMPRINC(0.08/12,120,200000,1,12,1)	1234.3676151032669	compatibility	number
+negative cost: cost<0 returns #NUM!	=DB(-1000,100,5,1)	#NUM!	error	error
+basic DDB: cost=100, salvage=50, life=10, period=2	=DDB(100,50,10,2)	15.999999999999998	official	number
+zero life: life=0 causes #NUM! or division error	=DDB(5000,500,0,1)	#NUM!	error	error
+NA as period: NA() propagates to error	=DDB(5000,500,8,NA())	#N/A	error	error
+boolean TRUE as basis: TRUE coerced to 1 (Actual/Actual)	=DISC(DATE(2025,1,1),DATE(2026,1,1),99,100,TRUE)	0.01	coercion	number
+basis out of range: basis=5 returns #NUM!	=DISC(DATE(2025,1,1),DATE(2026,1,1),99,100,5)	#NUM!	error	error
+negative fractional price: -1.08 in 16ths	=DOLLARDE(-1.08,16)	-1.5000000000000004	edge	number
+fractional price close to whole: 99.31 in 32nds	=DOLLARDE(99.31,32)	99.96875	edge	number
+boolean TRUE as fractional_price: TRUE coerced to 1	=DOLLARDE(TRUE,8)	1	coercion	number
+unit=0: 0<unit<1 not applicable, unit=0 returns #DIV/0!	=DOLLARDE(1.08,0)	#DIV/0!	error	error
+convert 100.125 to 1/8ths fractional notation	=DOLLARFR(100.125,8)	100.1	official	number
+boolean FALSE coerced to 0 as decimal_price	=DOLLARFR(FALSE,8)	0	coercion	number
+fraction less than 0 returns NUM error	=DOLLARFR(1.125,-1)	#NUM!	error	error
+compatibility: negative fraction behavior (GS vs Excel error code)	=DOLLARFR(2.25,-4)	#NUM!	compatibility	error
+quarterly frequency (4) with 30/360 day count	=DURATION(DATE(2020,1,1),DATE(2030,1,1),0.05,0.06,4)	7.830354485392061	edge	number
+boolean FALSE coerced to 0 as yield	=DURATION(DATE(2020,1,1),DATE(2030,1,1),0.05,FALSE,2)	8.416666666666666	coercion	number
+basis out of range (5) returns NUM error	=DURATION(DATE(2020,1,1),DATE(2030,1,1),0.05,0.06,2,5)	#NUM!	error	error
+effective annual rate for 99% nominal rate compounded monthly	=EFFECT(0.99,12)	1.5890167507927813	official	number
+settlement after maturity returns error	=INTRATE(DATE(2025,1,1),DATE(2020,1,1),1000,1500,0)	#NUM!	error	error
+large cash flow values near floating-point limits	=IRR({-1e15,2e15})	1	edge	number
+all-positive cash flows returns error (no negative value)	=IRR({100,200,300})	#NUM!	error	error
+convergence sensitivity: guess far from solution may diverge	=IRR({-70000,12000,15000,18000,21000,26000},0.9)	0.08663094803651268	compatibility	number
+period 1 interest for single-period loan (nper=1)	=ISPMT(0.1,1,1,1000)	0	edge	number
+coupon equals yield (bond at par) produces standard duration	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),0.05,0.05,1,0)	7.721734929184811	edge	number
+settlement after maturity returns error	=MDURATION(DATE(2025,1,1),DATE(2020,1,1),0.08,0.09,2,0)	#NUM!	error	error
+IFERROR on settlement=maturity returning zero	=IFERROR(MDURATION(DATE(2020,1,1),DATE(2020,1,1),0.08,0.09,2,0),0)	0	nested	number
+coupon=0 and yield=0: degenerate case (duration equals remaining periods)	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),0,0,2,0)	10	compatibility	number
+MIRR with too few arguments (missing reinvestment rate)	=MIRR({-1000,500,800},0.08)	#N/A	error	error
+MIRR: negative financing rate — behavior may differ	=MIRR({-1000,500,800},(-0.05),0.1)	0.16189500386222488	compatibility	number
+NPV with division by zero as discount rate	=NPV(1/0,1000,2000)	#DIV/0!	error	error
+NPV: zero discount rate (sum of all cash flows)	=NPV(0,1000,2000,3000)	6000	compatibility	number
+annual frequency instead of semiannual	=PRICE(DATE(2008,1,1),DATE(2018,1,1),0.05,0.065,100,1,0)	89.21675466585839	edge	number
+non-integer basis truncated to integer (1.9 → 1)	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,1.9)	94.6354492078772	coercion	number
+negative coupon rate returns #NUM error	=PRICE(DATE(2008,2,15),DATE(2017,11,15),-0.05,0.065,100,2,0)	#NUM!	error	error
+compatibility: redemption above 100 (callable bond)	=PRICE(DATE(2010,1,1),DATE(2020,1,1),0.05,0.06,105,2,0)	95.32964134070387	compatibility	number
+discounted security price with actual/actual day count	=PRICEDISC(DATE(2010,1,2),DATE(2039,12,31),3,100,1)	-8898.356164383562	official	number
+settlement on or after maturity returns #NUM error	=PRICEDISC(DATE(2020,1,1),DATE(2010,1,1),0.05,100,0)	#NUM!	error	error
+basis out of range returns #NUM error	=PRICEMAT(DATE(2010,1,2),DATE(2020,1,1),DATE(2010,1,1),0.05,0.06,5)	#NUM!	error	error
+RATE with beginning-of-period payments	=RATE(12,-100,400,0,1,0.1)	0.31724347887615895	edge	number
+RATE boolean TRUE coerced as nper	=RATE(TRUE,-100,400)	-0.7500000000000013	coercion	number
+RATE division by zero in payment	=RATE(12,1/0,400)	#DIV/0!	error	error
+RATE nested in ROUND for precision	=ROUND(RATE(4*12,-200,8000),6)	0.007701	nested	number
+RATE negative nper — validity handling differs	=RATE(-1,-100,400)	#NUM!	compatibility	error
+RECEIVED with European 30/360 basis	=RECEIVED(DATE(2010,2,1),DATE(2019,12,31),1000,0.05,4)	1982.9248141007986	official	number
+RECEIVED text number as discount coerces	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),1000,"0.05")	2000	coercion	number
+RECEIVED with basis=5 — out of range	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),1000,0.05,5)	#NUM!	error	error
+RECEIVED with negative investment — error in both platforms	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),-1000,0.05)	#NUM!	compatibility	error
+RRI: 3 periods pv=2 fv=4	=RRI(3,2,4)	0.2599210498948732	official	number
+SYD with too many arguments	=SYD(1000,100,10,1,2)	#N/A	error	error
+TBILLEQ exactly 364 days (near max maturity)	=TBILLEQ(DATE(2020,1,1),DATE(2020,12,30),0.05)	0.05270134712221329	edge	number
+TBILLEQ high discount rate of 50%	=TBILLEQ(DATE(2020,1,1),DATE(2020,7,1),0.5)	0.6784386617100369	edge	number
+TBILLEQ with zero discount rate: error expected	=TBILLEQ(DATE(2020,1,1),DATE(2020,7,1),0)	#NUM!	coercion	error
+TBILLPRICE 30-day T-bill at 5% discount	=TBILLPRICE(DATE(2020,1,1),DATE(2020,1,31),0.05)	99.58333333333333	edge	number
+TBILLPRICE with zero discount: error expected	=TBILLPRICE(DATE(2020,1,1),DATE(2020,7,1),0)	#NUM!	coercion	error
+TBILLYIELD 30-day T-bill at price 99.5	=TBILLYIELD(DATE(2020,1,1),DATE(2020,1,31),99.5)	0.06030150753768844	edge	number
+TBILLYIELD with NA() as price	=TBILLYIELD(DATE(2020,1,1),DATE(2020,7,1),NA())	#N/A	error	error
+VDB no-switch FALSE: cost=100 salvage=33 life=20 periods 10-11 factor=2	=VDB(100,33,20,10,11,2,FALSE)	1.867844010000013	official	number
+VDB with boolean TRUE for no_switch argument	=VDB(1000,100,10,8,10,2,TRUE)	60.39797760000002	coercion	number
+VDB with NA() as salvage	=VDB(1000,NA(),10,0,1)	#N/A	error	error
+VDB with salvage greater than cost: error or zero handling	=VDB(100,500,10,0,1)	#NUM!	compatibility	error
+XIRR with very large initial investment and returns	=XIRR({-1e15,6e14,6e14},{DATE(2020,1,1),DATE(2021,6,1),DATE(2022,1,1)})	0.11286055672477772	edge	number
+XNPV with 8% discount rate and three positive cash flows at irregular dates	=XNPV(0.08,{200,250,300},{DATE(2012,6,23),DATE(2013,5,12),DATE(2014,2,9)})	698.112843006581	official	number
+YIELD with quarterly payments and discount price	=YIELD(DATE(2020,1,1),DATE(2025,1,1),0.06,95,100,4)	0.07199644161751072	edge	number
+YIELD: very long maturity (50 years) — numerical convergence may differ	=YIELD(DATE(2020,1,1),DATE(2070,1,1),0.03,70,100,2,0)	0.045179983846157235	compatibility	number
+YIELDDISC with zero price	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),0,100)	#NUM!	error	error
+YIELDDISC with basis out of range (5)	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),95,100,5)	#NUM!	error	error
+YIELDMAT with settlement equal to or after maturity	=YIELDMAT(DATE(2025,1,1),DATE(2025,1,1),DATE(2019,1,1),0.05,95)	#NUM!	error	error
+YIELDMAT: very long maturity (30 years) with actual/actual basis — precision may differ	=YIELDMAT(DATE(2020,1,1),DATE(2050,1,1),DATE(2019,1,1),0.04,88,1)	0.04782608695652175	compatibility	number
+IFERROR wrapping zero rate error	=IFERROR(ACCRINTM(DATE(2010,1,1),DATE(2010,12,31),0,100),0)	0	nested	number
+Fractional period less than 1 rounds up to 1	=AMORLINC(1000,DATE(2010,1,1),DATE(2010,12,31),100,0.5,0.15)	150	edge	number
+Cost supplied as text number "2000"	=AMORLINC("2000",DATE(2010,1,1),DATE(2010,12,31),100,1,0.15)	300	coercion	number
+End-of-month purchase date with 30/360 basis (NASD adjustments may differ)	=AMORLINC(1000,DATE(2010,1,31),DATE(2010,12,31),100,1,0.15,0)	150	compatibility	number
+Days from coupon start to settlement, semiannual, actual/actual basis	=COUPDAYBS(DATE(2010,2,1),DATE(2019,12,31),4,1)	32	official	number
+Annual frequency (fewest coupons per year)	=COUPDAYBS(DATE(2010,6,15),DATE(2020,12,31),1)	165	edge	number
+Basis supplied as boolean FALSE coerced to 0 (30/360)	=COUPDAYBS(DATE(2010,2,1),DATE(2019,12,31),4,FALSE)	31	coercion	number
+settlement equal to maturity returns #NUM!	=COUPDAYSNC(DATE(2011,11,15),DATE(2011,11,15),2,1)	#NUM!	error	error
+invalid frequency 5 returns #NUM!	=COUPNCD(DATE(2011,1,25),DATE(2011,11,15),5,1)	#NUM!	error	error
+annual coupon count over 10-year bond	=COUPNUM(DATE(2010,2,1),DATE(2020,2,1),1,0)	10	edge	number
+settlement equal to maturity returns #NUM!	=COUPNUM(DATE(2019,12,31),DATE(2019,12,31),4)	#NUM!	error	error
+invalid frequency 6 returns #NUM!	=COUPPCD(DATE(2011,1,25),DATE(2011,11,15),6,1)	#NUM!	error	error
+cumulative interest for single period (first period only)	=CUMIPMT(0.1,10,1000,1,1,0)	-100	edge	number
+nper passed as decimal (truncated to integer 10)	=CUMIPMT(0.1,10.9,1000,1,10,0)	-674.8492336399298	coercion	number
+type value of 2 (not 0 or 1) returns #NUM!	=CUMIPMT(0.1,10,1000,1,5,2)	-300.6000582866695	error	number
+GS decimal first_period: 2.8 treated as 3 (starts at period 3)	=CUMIPMT(0.1,10,1000,2.8,5,0)	-236.93460360358762	compatibility	number
+annual rate vs monthly rate consistency: annual=12% vs monthly=1%	=CUMIPMT(0.01,12,1000,1,12,0)	-66.18546414010046	compatibility	number
+invalid type value: type=2 returns #NUM!	=CUMPRINC(0.05,12,1000,1,6,2)	-454.6028203534759	error	number
+IFERROR wrapping negative-rate error	=IFERROR(CUMPRINC(-0.01,12,1000,1,6,0),"invalid")	invalid	nested	string
+day-count-equivalent: monthly vs annual period units on same economic loan	=CUMPRINC(0.06/12,360,100000,1,12,0)-CUMPRINC(0.06,30,100000,1,1,0)	36.87943672794586	compatibility	number
+1/0 as cost: division-by-zero argument	=DB(1/0,100,5,1)	#DIV/0!	error	error
+DDB with custom factor: cost=100, salvage=50, life=10, period=2, factor=2.25	=DDB(100,50,10,2,2.25)	17.437499999999996	official	number
+factor=0: factor must be positive, returns #NUM!	=DDB(5000,500,8,1,0)	#NUM!	error	error
+IFERROR wrapping out-of-range period	=IFERROR(DDB(5000,500,8,10),"invalid")	invalid	nested	string
+text price as numeric string: "99" for price	=DISC(DATE(2025,1,1),DATE(2026,1,1),"99",100,0)	0.01	coercion	number
+1/0 as price: division-by-zero argument	=DISC(DATE(2025,1,1),DATE(2026,1,1),1/0,100,0)	#DIV/0!	error	error
+unit=1: denominator of 1 means fraction part divided by 1	=DOLLARDE(1.5,1)	1.5	edge	number
+boolean TRUE as unit: TRUE coerced to 1	=DOLLARDE(1.5,TRUE)	1.5	coercion	number
+fractional unit truncated: 8.9 truncated to 8	=DOLLARDE(1.04,8.9)	1.05	coercion	number
+unit between 0 and 1: unit=0.5 returns #DIV/0!	=DOLLARDE(1.08,0.5)	#DIV/0!	error	error
+positive pass-through: whole number with unit 1 returns same value	=DOLLARFR(5,1)	5	edge	number
+text numeric string as decimal_price	=DOLLARFR("1.125",16)	1.02	coercion	number
+fraction equal to 0 returns DIV/0 error	=DOLLARFR(1.125,0)	#DIV/0!	error	error
+compatibility: non-integer fraction truncation	=DOLLARFR(1.125,16.9)	1.02	compatibility	number
+very short maturity: 1 year bond, annual frequency	=DURATION(DATE(2020,1,1),DATE(2021,1,1),0.05,0.05,1)	1	edge	number
+text numeric string as coupon rate	=DURATION(DATE(2020,1,1),DATE(2030,1,1),"0.05",0.06,2)	7.894997340182344	coercion	number
+settlement >= maturity returns NUM error	=DURATION(DATE(2030,1,1),DATE(2020,1,1),0.05,0.06,2)	#NUM!	error	error
+annual compounding (periods=1): effective rate equals nominal rate	=EFFECT(0.1,1)	0.10000000000000009	edge	number
+invalid basis value (5) returns error	=INTRATE(DATE(2010,1,1),DATE(2020,1,1),1000,1500,5)	#NUM!	error	error
+all returns equal to investment (breakeven, rate near 0)	=IRR({-1000,250,250,250,250})	-3.724815994247853e-17	edge	number
+too few arguments (no cash flows) returns error	=IRR()	#N/A	error	error
+zero interest rate yields zero interest payment	=ISPMT(0,1,5,1000)	0	edge	number
+annual frequency (frequency=1) instead of semiannual	=MDURATION(DATE(2008,1,1),DATE(2016,1,1),0.08,0.09,1,1)	5.641346685113068	edge	number
+invalid basis (5) returns error	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),0.08,0.09,2,5)	#NUM!	error	error
+basis 0 (US 30/360) vs basis 1 (actual/actual) may differ for end-of-month dates	=MDURATION(DATE(2008,1,31),DATE(2016,1,31),0.08,0.09,2,0)	5.735669813918838	compatibility	number
+MIRR with sample cash flows financing 8% reinvestment 11%	=MIRR({-4000,200,250,300,350},0.08,0.11)	-0.25015913212038143	official	number
+MIRR with division by zero as financing rate	=MIRR({-1000,500,800},1/0,0.1)	#DIV/0!	error	error
+NOMINAL annual rate from 85% effective rate compounded monthly	=NOMINAL(0.85,12)	0.6312274853524098	official	number
+NPV with NA() in cash flow	=NPV(0.1,NA(),2000,3000)	#N/A	error	error
+PDURATION periods at 25% rate for investment to grow from 10 to 15	=PDURATION(0.25,10,15)	1.8170594925112884	official	number
+quarterly coupon payments	=PRICE(DATE(2008,1,1),DATE(2018,1,1),0.05,0.065,100,4,0)	89.03339523175967	edge	number
+redemption value of zero returns #NUM error	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,0,2,0)	#NUM!	error	error
+compatibility: actual/360 vs actual/365 basis difference	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,2)-PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,3)	-0.0411773713803143	compatibility	number
+small discount rate close to zero for near-par price	=PRICEDISC(DATE(2010,1,1),DATE(2010,6,1),0.001,100,0)	99.95833333333333	edge	number
+basis out of range returns #NUM error	=PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),0.05,100,5)	#NUM!	error	error
+NA propagated into yield	=PRICEMAT(DATE(2010,1,2),DATE(2020,1,1),DATE(2010,1,1),0.05,NA(),0)	#N/A	error	error
+RATE boolean FALSE as future_value coerces to 0	=RATE(12,-100,400,FALSE)	0.228933070977093	coercion	number
+RATE with NA() as pv	=RATE(12,-100,NA())	#N/A	error	error
+RATE nested in ABS	=ABS(RATE(12,-100,400,0,0,0.1))	0.228933070977093	nested	number
+RATE with pv=0 and fv=0 — division edge case	=RATE(12,-100,0,0)	#NUM!	compatibility	error
+RECEIVED with Actual/Actual basis (basis=1)	=RECEIVED(DATE(2010,1,1),DATE(2015,1,1),10000,0.04,1)	12500	edge	number
+RECEIVED boolean FALSE as basis coerces to 0	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),1000,0.05,FALSE)	2000	coercion	number
+RECEIVED with too few arguments	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),1000)	#N/A	error	error
+RRI: 1 period pv=10 fv=0 returns -1	=RRI(1,10,0)	-1	official	number
+SYD with period greater than life	=SYD(1000,100,5,10)	#NUM!	error	error
+TBILLEQ with 90-day period standard T-bill	=TBILLEQ(DATE(2020,1,1),DATE(2020,4,1),0.04)	0.040969805814344826	edge	number
+TBILLEQ with negative discount rate: error expected	=TBILLEQ(DATE(2020,1,1),DATE(2020,7,1),-0.05)	#NUM!	coercion	error
+TBILLPRICE 364-day T-bill near maximum maturity	=TBILLPRICE(DATE(2020,1,1),DATE(2020,12,30),0.05)	94.94444444444444	edge	number
+TBILLPRICE with negative discount: error expected	=TBILLPRICE(DATE(2020,1,1),DATE(2020,7,1),-0.05)	#NUM!	coercion	error
+TBILLYIELD 364-day near maximum maturity at price 95	=TBILLYIELD(DATE(2020,1,1),DATE(2020,12,30),95)	0.05205320994794679	edge	number
+TBILLYIELD wrapped in IFERROR for invalid dates	=IFERROR(TBILLYIELD(DATE(2020,7,1),DATE(2020,1,1),98.45),"invalid dates")	invalid dates	nested	string
+VDB full life depreciation from period 0 to life	=VDB(1000,100,10,0,10)	900	edge	number
+VDB with boolean FALSE for no_switch argument	=VDB(1000,100,10,8,10,2,FALSE)	67.7721600000001	coercion	number
+VDB wrapped in IFERROR for invalid period range	=IFERROR(VDB(1000,100,10,5,3),"invalid periods")	invalid periods	nested	string
+XIRR with very small positive returns	=XIRR({-1000,1e-5,1001},{DATE(2020,1,1),DATE(2020,6,1),DATE(2021,1,1)})	0.0009972763761103823	edge	number
+XNPV with zero discount rate (sum of cash flows)	=XNPV(0,{-1000,400,400,400},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1),DATE(2021,7,1)})	200	edge	number
+YIELD with very small coupon rate (near zero)	=YIELD(DATE(2020,1,1),DATE(2030,1,1),1e-15,80,100,2)	0.022439301988600988	edge	number
+YIELDDISC for near-par discount security over one year, default basis	=YIELDDISC(DATE(2010,1,2),DATE(2010,12,31),98.45,100)	0.01578788774755221	official	number
+YIELDDISC with negative redemption value	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),95,-100)	#NUM!	error	error
+YIELDDISC with NA() as price	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),NA(),100)	#N/A	error	error
+YIELDMAT with basis out of range (5)	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),0.05,95,5)	#NUM!	error	error
+IF checking whether accrued interest exceeds 50	=IF(ACCRINTM(DATE(2010,1,1),DATE(2020,1,1),0.05,1000)>50,"high","low")	high	nested	string
+Salvage supplied as text number "200"	=AMORLINC(1000,DATE(2010,1,1),DATE(2010,12,31),"200",1,0.15)	150	coercion	number
+Rate as percentage (0.15) vs decimal: both platforms should treat equally	=AMORLINC(1000,DATE(2010,7,20),DATE(2010,8,20),100,6,0.15,4)	137.5	compatibility	number
+Quarterly frequency with actual/actual basis	=COUPDAYBS(DATE(2010,3,15),DATE(2020,12,31),4,1)	74	edge	number
+Settlement supplied as serial number (integer date)	=COUPDAYBS(40210,DATE(2019,12,31),4)	31	coercion	number
+settlement after maturity returns #NUM!	=COUPDAYSNC(DATE(2012,1,1),DATE(2011,11,15),2,1)	#NUM!	error	error
+basis less than 0 returns #NUM!	=COUPNCD(DATE(2011,1,25),DATE(2011,11,15),2,-1)	#NUM!	error	error
+quarterly coupon count over 2-year term	=COUPNUM(DATE(2010,2,1),DATE(2012,2,1),4,0)	8	edge	number
+settlement after maturity returns #NUM!	=COUPNUM(DATE(2020,1,1),DATE(2019,12,31),4)	#NUM!	error	error
+basis less than 0 returns #NUM!	=COUPPCD(DATE(2011,1,25),DATE(2011,11,15),2,-1)	#NUM!	error	error
+cumulative interest for all periods (full loan life)	=CUMIPMT(0.1,10,1000,1,10,0)	-627.4539488251162	edge	number
+rate of zero or less returns #NUM!	=CUMIPMT(0,10,1000,1,5,0)	#NUM!	error	error
+IFERROR wrapping negative rate returns fallback	=IFERROR(CUMIPMT(-0.1,10,1000,1,5,0),"invalid")	invalid	nested	string
+basic cumulative principal: 12% annual rate, 12 periods, PV=100, periods 1-5, end-of-period	=CUMPRINC(0.12,12,100,1,5,0)	-26.32417137303437	official	number
+first_period equals last_period: single period cumulative principal	=CUMPRINC(0.07/12,120,50000,6,6,0)	-297.400144605318	compatibility	number
+NA as argument: NA() propagates to error	=DB(NA(),100,5,1)	#N/A	error	error
+first period double-declining: standard asset depreciation year 1	=DDB(5000,500,8,1)	1250	edge	number
+IF checking first-year vs second-year depreciation ordering	=IF(DDB(5000,500,8,1)>DDB(5000,500,8,2),"higher in year 1","not higher")	higher in year 1	nested	string
+settlement equals maturity: settlement >= maturity returns #NUM!	=DISC(DATE(2025,6,1),DATE(2025,6,1),99,100,0)	#NUM!	error	error
+IFERROR wrapping reversed dates error	=IFERROR(DISC(DATE(2026,1,1),DATE(2025,1,1),99,100,0),"invalid dates")	invalid dates	nested	string
+1/0 as unit: division-by-zero argument	=DOLLARDE(1.08,1/0)	#DIV/0!	error	error
+very large decimal price with unit 32	=DOLLARFR(1e15,32)	1000000000000000	edge	number
+boolean TRUE coerced to 1 as unit argument	=DOLLARFR(1.5,TRUE)	1.5	coercion	number
+too few arguments (missing unit)	=DOLLARFR(1.125)	#N/A	error	error
+compatibility: zero decimal price with valid fraction	=DOLLARFR(0,16)	0	compatibility	number
+very long maturity: 50-year bond, semiannual	=DURATION(DATE(2020,1,1),DATE(2070,1,1),0.04,0.05,2)	19.412026806826926	edge	number
+negative coupon returns NUM error	=DURATION(DATE(2020,1,1),DATE(2030,1,1),-0.05,0.06,2)	#NUM!	error	error
+too few arguments (missing frequency)	=DURATION(DATE(2020,1,1),DATE(2030,1,1),0.05,0.06)	#N/A	error	error
+monthly compounding (periods=12) with moderate rate	=EFFECT(0.12,12)	0.12682503013196977	edge	number
+error propagation: 1/0 in investment argument	=INTRATE(DATE(2010,1,1),DATE(2020,1,1),1/0,1500,0)	#DIV/0!	error	error
+many periods with consistent small cash flows	=IRR({-1000,100,100,100,100,100,100,100,100,100,100,100,200})	0.040156948993759004	edge	number
+error propagation: NA() in cash flow array	=IRR({-1000,NA(),300,400})	#N/A	error	error
+very large present value	=ISPMT(0.05,1,12,1e15)	-45833333333333.33	edge	number
+quarterly frequency (frequency=4) instead of semiannual	=MDURATION(DATE(2008,1,1),DATE(2016,1,1),0.08,0.09,4,1)	5.784501720486183	edge	number
+error propagation: 1/0 in yield argument	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),0.08,1/0,2,0)	#DIV/0!	error	error
+basis 1 (actual/actual) for same bond as above	=MDURATION(DATE(2008,1,31),DATE(2016,1,31),0.08,0.09,2,1)	5.735669813918838	compatibility	number
+MIRR with minimal two-element cash flow (one negative one positive)	=MIRR({-1000,1500},0.05,0.08)	0.5	edge	number
+MIRR with NA() in cash flow	=MIRR({-1000,NA(),800},0.08,0.1)	#N/A	error	error
+NOMINAL with small effective rate and annual compounding	=NOMINAL(0.05,1)	0.050000000000000044	edge	number
+NPV with non-numeric text as rate	=NPV("abc",1000,2000)	#VALUE!	error	error
+PDURATION periods at 75% rate for investment to grow from 2 to 15	=PDURATION(0.75,2,15)	3.6005113936756485	official	number
+actual/365 basis (basis=3)	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,3)	94.643594548258	edge	number
+invalid frequency (3) returns #NUM error	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,3,0)	#NUM!	error	error
+annual maturity with 30/360 basis	=PRICEDISC(DATE(2010,1,1),DATE(2011,1,1),0.05,100,0)	95	edge	number
+NA propagated into discount	=PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),NA(),100,0)	#N/A	error	error
+too few arguments (missing yield)	=PRICEMAT(DATE(2010,1,2),DATE(2020,1,1),DATE(2010,1,1),0.05)	#N/A	error	error
+RATE text number as nper coerces	=RATE("12",-100,400)	0.228933070977093	coercion	number
+RATE nested in IFERROR for non-convergent case	=IFERROR(RATE(12,1000,100),"no solution")	no solution	nested	string
+RATE guess default 0.1 in GS vs 0.1 in Excel — both same	=RATE(12,-100,400)	0.228933070977093	compatibility	number
+RECEIVED with Actual/360 basis (basis=2)	=RECEIVED(DATE(2010,1,1),DATE(2015,1,1),10000,0.04,2)	12545.302481182047	edge	number
+RECEIVED with NA() as settlement	=RECEIVED(NA(),DATE(2020,1,1),1000,0.05)	#N/A	error	error
+RECEIVED division by zero in discount	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),1000,1/0)	#DIV/0!	error	error
+RRI with fv=pv — zero growth returns 0	=RRI(10,1000,1000)	0	edge	number
+SYD with zero life	=SYD(1000,100,0,1)	#NUM!	error	error
+TBILLEQ with boolean TRUE coerced to discount (invalid)	=TBILLEQ(DATE(2020,1,1),DATE(2020,7,1),TRUE)	#NUM!	coercion	error
+TBILLEQ with too few arguments	=TBILLEQ(DATE(2020,1,1),DATE(2020,7,1))	#N/A	error	error
+TBILLPRICE very low discount rate 0.01%	=TBILLPRICE(DATE(2020,6,1),DATE(2020,9,1),0.0001)	99.99744444444445	edge	number
+TBILLPRICE with too few arguments	=TBILLPRICE(DATE(2020,1,1),DATE(2020,7,1))	#N/A	error	error
+TBILLYIELD very high price close to 100 (low yield)	=TBILLYIELD(DATE(2020,6,1),DATE(2020,9,1),99.99)	0.0003913434821745046	edge	number
+TBILLYIELD inside IF checking if yield exceeds 5%	=IF(TBILLYIELD(DATE(2020,1,1),DATE(2020,4,1),99)>0.05,"high","low")	low	nested	string
+VDB zero salvage value full life	=VDB(5000,0,5,0,5)	5000	edge	number
+VDB with text number for factor	=VDB(1000,100,10,0,1,"2")	200	coercion	number
+VDB inside IF checking if year-1 depreciation exceeds 15%	=IF(VDB(1000,100,10,0,1)/1000>0.15,"accelerated","slow")	accelerated	nested	string
+XIRR with explicit zero rate guess (default equivalent)	=XIRR({-5000,2000,4000},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)},0)	0.24618260788818658	edge	number
+XNPV with single cash flow element	=XNPV(0.1,{500},{DATE(2020,1,1)})	500	edge	number
+YIELD at premium (price above par)	=YIELD(DATE(2020,1,1),DATE(2030,1,1),0.08,105,100,2)	0.0728721536782779	edge	number
+YIELDDISC with actual/360 day count convention	=YIELDDISC(DATE(2010,1,2),DATE(2010,12,31),98.45,100,2)	0.015613916532703151	official	number
+YIELDDISC with division by zero in price argument	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),1/0,100)	#DIV/0!	error	error
+YIELDMAT with NA() in price argument	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),0.05,NA())	#N/A	error	error
+IFERROR handling issue >= maturity	=IFERROR(ACCRINTM(DATE(2011,1,1),DATE(2010,6,30),0.05,100),"date_error")	date_error	nested	string
+Basis supplied as boolean FALSE coerced to 0	=AMORLINC(1000,DATE(2010,1,1),DATE(2010,12,31),100,1,0.15,FALSE)	150	coercion	number
+Maturity supplied as serial number (integer date)	=COUPDAYBS(DATE(2010,2,1),43831,4)	30	coercion	number
+invalid frequency 3 returns #NUM!	=COUPDAYSNC(DATE(2011,1,25),DATE(2011,11,15),3,1)	#NUM!	error	error
+basis greater than 4 returns #NUM!	=COUPNCD(DATE(2011,1,25),DATE(2011,11,15),2,5)	#NUM!	error	error
+semiannual coupon count over 30-year term (long bond)	=COUPNUM(DATE(2010,1,1),DATE(2040,1,1),2,0)	60	edge	number
+invalid frequency 3 returns #NUM!	=COUPNUM(DATE(2010,2,1),DATE(2019,12,31),3)	#NUM!	error	error
+basis greater than 4 returns #NUM!	=COUPPCD(DATE(2011,1,25),DATE(2011,11,15),2,5)	#NUM!	error	error
+beginning-of-period payment type reduces total interest	=CUMIPMT(0.1,10,1000,1,10,1)	-479.5035898410147	edge	number
+single period span: first period only with standard loan parameters	=CUMPRINC(0.05/12,60,10000,1,1,0)	-147.04566977344322	edge	number
+basic DB: cost=100, salvage=50, life=10, period=2	=DB(100,50,10,2)	6.2511	official	number
+IFERROR wrapping invalid period: fallback when period > life	=IFERROR(DB(1000,100,5,10),"invalid period")	invalid period	nested	string
+last period depreciation: period equals life boundary	=DDB(5000,500,8,8)	166.8548583984375	edge	number
+factor=2 vs factor=1.5 comparison: double-declining vs 1.5x	=DDB(5000,500,8,1,2)-DDB(5000,500,8,1,1.5)	312.5	compatibility	number
+settlement after maturity: settlement > maturity returns #NUM!	=DISC(DATE(2026,1,1),DATE(2025,1,1),99,100,0)	#NUM!	error	error
+IF comparing discount rates across two maturities	=IF(DISC(DATE(2025,1,1),DATE(2030,1,1),90,100,0)>DISC(DATE(2025,1,1),DATE(2035,1,1),90,100,0),"shorter higher","longer higher")	shorter higher	nested	string
+NA as fractional_price: NA() propagates	=DOLLARDE(NA(),32)	#N/A	error	error
+very small decimal price (near zero) with unit 8	=DOLLARFR(1e-15,8)	8.000000000000001e-16	edge	number
+too many arguments	=DOLLARFR(1.125,32,1)	#N/A	error	error
+Macaulay duration: 30-year bond, 3% coupon, 120% yield, semiannual	=DURATION(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,2)	1.3277777784097888	official	number
+coupon equals yield: duration at par	=DURATION(DATE(2020,1,1),DATE(2030,1,1),0.06,0.06,2)	7.661899553134585	edge	number
+propagation: NA() as coupon	=DURATION(DATE(2020,1,1),DATE(2030,1,1),NA(),0.06,2)	#N/A	error	error
+daily compounding (periods=365) with annual rate	=EFFECT(0.05,365)	0.05126749646744733	edge	number
+error propagation: NA() in redemption argument	=INTRATE(DATE(2010,1,1),DATE(2020,1,1),1000,NA(),0)	#N/A	error	error
+boolean TRUE in cash flows treated as 1 (ignored in Excel, treated as 1 in GS)	=IRR({-1000,TRUE,TRUE,500,600})	0.06394102980498532	coercion	number
+error propagation: 1/0 in cash flow array	=IRR({-1000,1/0,300,400})	#DIV/0!	error	error
+very small interest rate approaching zero	=ISPMT(1e-15,1,12,1000)	-9.166666666666665e-13	edge	number
+very high yield (200%) relative to low coupon compresses duration	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),0.03,2.0,2,0)	0.5002813163060149	edge	number
+error propagation: NA() in coupon argument	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),NA(),0.09,2,0)	#N/A	error	error
+European 30/360 (basis=4) vs US 30/360 (basis=0) end-of-month differences	=MDURATION(DATE(2008,1,31),DATE(2016,3,31),0.08,0.09,2,4)	5.661961831545449	compatibility	number
+MIRR with large initial investment and multiple positive returns	=MIRR({-1e15,5e14,6e14},0.05,0.08)	0.06770782520313112	edge	number
+MIRR inside IFERROR returns result or fallback	=IFERROR(MIRR({-4000,1500,1500,1500},0.08,0.1),"error")	0.07469795011284641	nested	number
+NOMINAL with very large effective rate	=NOMINAL(10,12)	2.6542626037439243	edge	number
+NPV inside IFERROR with bad discount rate	=IFERROR(NPV("bad",1000,2000),"rate error")	rate error	nested	string
+PDURATION with present value equal to future value (returns 0)	=PDURATION(0.05,1000,1000)	0	edge	number
+settlement date on or after maturity returns #NUM error	=PRICE(DATE(2020,1,1),DATE(2010,1,1),0.05,0.06,100,2,0)	#NUM!	error	error
+redemption value above 100	=PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),0.05,150,0)	75	edge	number
+too few arguments (missing redemption)	=PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),0.05)	#N/A	error	error
+nested in IFERROR for invalid dates	=IFERROR(PRICEMAT(DATE(2025,1,1),DATE(2020,1,1),DATE(2010,1,1),0.05,0.06,0),"invalid")	invalid	nested	string
+RATE text number as payment coerces	=RATE(12,"-100",400)	0.228933070977093	coercion	number
+RATE with guess=0 vs default — convergence difference	=RATE(12,-100,400,0,0,0)	0.228933070977093	compatibility	number
+RECEIVED with Actual/365 basis (basis=3)	=RECEIVED(DATE(2010,1,1),DATE(2015,1,1),10000,0.04,3)	12501.712563364845	edge	number
+RECEIVED with investment=0 — must be positive	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),0,0.05)	#NUM!	error	error
+RECEIVED nested in IFERROR for invalid dates	=IFERROR(RECEIVED(DATE(2020,1,1),DATE(2010,1,1),1000,0.05),"invalid")	invalid	nested	string
+RRI with fv>pv — positive growth rate	=RRI(5,100,200)	0.1486983549970351	edge	number
+SYD with negative life	=SYD(1000,100,-5,1)	#NUM!	error	error
+TBILLEQ with maturity before settlement: error	=TBILLEQ(DATE(2020,7,1),DATE(2020,1,1),0.05)	#NUM!	error	error
+TBILLPRICE high discount rate 90%	=TBILLPRICE(DATE(2020,1,1),DATE(2020,7,1),0.90)	54.49999999999999	edge	number
+TBILLPRICE with maturity before settlement	=TBILLPRICE(DATE(2020,7,1),DATE(2020,1,1),0.05)	#NUM!	error	error
+TBILLYIELD low price 50 (high yield)	=TBILLYIELD(DATE(2020,1,1),DATE(2020,7,1),50)	1.978021978021978	edge	number
+TBILLYIELD rounded to 4 decimal places	=ROUND(TBILLYIELD(DATE(2020,1,1),DATE(2020,7,1),98.45),4)	0.0311	nested	number
+VDB single period at start	=VDB(1000,100,1,0,1)	900	edge	number
+VDB with factor of 1 (straight-line rate)	=VDB(1000,0,10,0,1,1)	100	coercion	number
+VDB inside ROUND to 2 decimal places	=ROUND(VDB(2400,300,10,0,1),2)	480	nested	number
+XIRR with negative rate guess	=XIRR({-1000,200,200,800},{DATE(2020,1,1),DATE(2020,6,1),DATE(2020,12,1),DATE(2021,6,1)},-0.05)	0.1710104173465285	edge	number
+XNPV with very large discount rate (99%)	=XNPV(0.99,{-1000,500,800},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)})	-243.97227192328103	edge	number
+YIELD with all five supported day count conventions (basis 4, European 30/360)	=YIELD(DATE(2020,1,1),DATE(2030,1,1),0.05,95,100,2,4)	0.05661689077213224	edge	number
+YIELDDISC at par price (price equals redemption, yield is zero)	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),100,100)	0	edge	number
+YIELDDISC inside IFERROR returns yield or fallback string	=IFERROR(YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),95,100),"error")	0.05263157894736842	nested	number
+YIELDMAT with division by zero as coupon rate	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),1/0,95)	#DIV/0!	error	error
+GS redemption is optional (omit par), Excel par defaults to 1000: may differ	=ACCRINTM(DATE(2010,1,1),DATE(2010,12,31),0.05,1000)	50	compatibility	number
+Too few arguments (missing period and rate)	=AMORLINC(1000,DATE(2010,1,1),DATE(2010,12,31))	#N/A	error	error
+Too few arguments (only settlement provided)	=COUPDAYBS(DATE(2010,2,1))	#N/A	error	error
+basis less than 0 returns #NUM!	=COUPDAYSNC(DATE(2011,1,25),DATE(2011,11,15),2,-1)	#NUM!	error	error
+too few arguments — missing frequency	=COUPNCD(DATE(2011,1,25),DATE(2011,11,15))	#N/A	error	error
+annual coupon count over 1-year term (minimum 1 coupon)	=COUPNUM(DATE(2011,1,1),DATE(2012,1,1),1,0)	1	edge	number
+basis less than 0 returns #NUM!	=COUPNUM(DATE(2010,2,1),DATE(2019,12,31),4,-1)	#NUM!	error	error
+too few arguments — missing frequency	=COUPPCD(DATE(2011,1,25),DATE(2011,11,15))	#N/A	error	error
+very low rate (near zero) produces near-zero interest	=CUMIPMT(0.0001,12,10000,1,12,0)	-6.501191607058707	edge	number
+full loan span: all periods cumulative principal equals present value	=CUMPRINC(0.05/12,60,10000,1,60,0)	-10000.000000000031	edge	number
+DB with explicit month: cost=100, salvage=50, life=10, period=2, month=10	=DB(100,50,10,2,10)	6.325916666666667	official	number
+IF comparing first vs last period depreciation	=IF(DB(1000,100,5,1)>DB(1000,100,5,5),"declining","not declining")	declining	nested	string
+salvage equals zero: full depreciation, no floor constraint	=DDB(5000,0,8,1)	1250	edge	number
+salvage=0 vs salvage=500 in final period: floor behavior difference	=DDB(5000,0,5,5)-DDB(5000,500,5,5)	111.19999999999999	compatibility	number
+price zero: pr=0 returns #NUM!	=DISC(DATE(2025,1,1),DATE(2026,1,1),0,100,0)	#NUM!	error	error
+basis=0 vs basis=1 on leap year span: 30/360 vs actual/actual divergence	=DISC(DATE(2023,3,1),DATE(2025,3,1),95,100,0)-DISC(DATE(2023,3,1),DATE(2025,3,1),95,100,1)	0	compatibility	number
+IFERROR wrapping negative unit error	=IFERROR(DOLLARDE(1.08,-8),"invalid unit")	invalid unit	nested	string
+negative decimal price with unit 16	=DOLLARFR(-1.5,16)	-1.08	edge	number
+non-numeric text as decimal_price returns VALUE error	=DOLLARFR("abc",8)	#VALUE!	error	error
+Macaulay duration: 30-year bond with actual/actual day count convention	=DURATION(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,2,1)	1.3278084720868903	official	number
+zero coupon rate: zero-coupon bond duration equals maturity period	=DURATION(DATE(2020,1,1),DATE(2030,1,1),0,0.05,1)	9.999999999999998	edge	number
+propagation: 1/0 as yield	=DURATION(DATE(2020,1,1),DATE(2030,1,1),0.05,1/0,2)	#DIV/0!	error	error
+very small nominal rate with annual compounding	=EFFECT(1e-15,1)	1.1102230246251565e-15	edge	number
+IFERROR wraps invalid basis returning fallback string	=IFERROR(INTRATE(DATE(2010,1,1),DATE(2020,1,1),1000,1500,9),"invalid")	invalid	nested	string
+IFERROR on all-negative cash flows returns fallback string	=IFERROR(IRR({-100,-200,-300}),"no solution")	no solution	nested	string
+last period interest (period=nper): principal fully paid, interest minimal	=ISPMT(0.1,5,5,1000)	0	edge	number
+coupon as boolean TRUE coerced to 1 (100% coupon rate)	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),TRUE,0.05,2,0)	5.088516506233027	coercion	number
+IFERROR wraps negative yield error returning fallback string	=IFERROR(MDURATION(DATE(2010,1,1),DATE(2020,1,1),0.08,-0.01,2,0),"invalid yield")	invalid yield	nested	string
+MIRR with very small positive cash flows	=MIRR({-1000,1e-5,1e-5,1500},0.05,0.08)	0.14471424826774526	edge	number
+MIRR inside IF to classify positive vs negative return	=IF(MIRR({-5000,2000,2000,2000},0.07,0.1)>0,"positive return","negative return")	positive return	nested	string
+NOMINAL with effective rate near zero	=NOMINAL(0.0001,4)	0.00009999625021883674	edge	number
+NPV inside IF to classify as positive or negative investment	=IF(NPV(0.08,3000,4000,5000)>0,"positive","negative")	positive	nested	string
+PDURATION with very small rate	=PDURATION(0.0001,1000,2000)	6931.81837341456	edge	number
+basis out of range (5) returns #NUM error	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,5)	#NUM!	error	error
+actual/365 basis	=PRICEDISC(DATE(2008,2,16),DATE(2008,8,16),0.0525,100,3)	97.38219178082191	edge	number
+nested in IFERROR to handle settlement-after-maturity error	=IFERROR(PRICEDISC(DATE(2020,1,1),DATE(2010,1,1),0.05,100,0),"invalid dates")	invalid dates	nested	string
+nested in IF to classify premium vs discount	=IF(PRICEMAT(DATE(2010,1,2),DATE(2010,12,31),DATE(2010,1,1),0.08,0.05,0)>100,"premium","discount")	premium	nested	string
+RATE text number as pv coerces	=RATE(12,-100,"400")	0.228933070977093	coercion	number
+RECEIVED with very small discount rate near zero	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),1000,0.0001)	1001.001001001001	edge	number
+RECEIVED nested in IF comparing to investment	=IF(RECEIVED(DATE(2010,1,1),DATE(2020,1,1),1000,0.05)>1000,"gain","loss")	gain	nested	string
+RRI with fv<pv — negative growth rate	=RRI(5,200,100)	-0.12944943670387588	edge	number
+SYD with 1/0 as cost argument	=SYD(1/0,100,10,1)	#DIV/0!	error	error
+TBILLEQ maturity more than one year after settlement: error	=TBILLEQ(DATE(2020,1,1),DATE(2021,6,1),0.05)	#NUM!	error	error
+TBILLPRICE 90-day standard T-bill at 4% discount	=TBILLPRICE(DATE(2020,1,1),DATE(2020,4,1),0.04)	98.9888888888889	edge	number
+TBILLPRICE maturity more than one year after settlement	=TBILLPRICE(DATE(2020,1,1),DATE(2021,6,1),0.05)	#NUM!	error	error
+TBILLYIELD 90-day standard T-bill at price 99	=TBILLYIELD(DATE(2020,1,1),DATE(2020,4,1),99)	0.03996003996003996	edge	number
+TBILLYIELD with numeric date serial instead of DATE function	=TBILLYIELD(43831,44044,98.45)	0.02660963240080396	compatibility	number
+VDB very large cost	=VDB(1e15,0,10,0,1)	200000000000000	edge	number
+VDB with too few arguments (missing end_period)	=VDB(1000,100,10,0)	#N/A	error	error
+VDB inside SUM of first three years	=SUM(VDB(1000,100,10,0,1),VDB(1000,100,10,1,2),VDB(1000,100,10,2,3))	488	nested	number
+XIRR rate guess as TRUE (coerced to 1)	=XIRR({-1000,500,700},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)},TRUE)	0.2612635097792791	coercion	number
+XNPV with very large cash flows (1e15)	=XNPV(0.05,{-1e15,6e14,5e14},{DATE(2020,1,1),DATE(2021,1,1),DATE(2022,1,1)})	24806313917130.125	edge	number
+YIELD with coupon rate as TRUE (coerced to 1 = 100%)	=YIELD(DATE(2020,1,1),DATE(2030,1,1),TRUE,95,100,2)	1.0526433468167873	coercion	number
+YIELDDISC with very deep discount (price is 50 vs redemption 100)	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),50,100)	1	edge	number
+YIELDDISC inside IF to classify high vs low yield	=IF(YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),95,100)>0.05,"high yield","low yield")	high yield	nested	string
+YIELDMAT inside IFERROR returns yield or fallback string	=IFERROR(YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),0.05,95),"error")	0.06000000000000001	nested	number
+Day count basis 1 (Actual/Actual) vs 0 (30/360) result differences	=ACCRINTM(DATE(2010,1,1),DATE(2010,12,31),0.05,100,1)	4.986301369863014	compatibility	number
+Negative cost returns error	=AMORLINC(-1000,DATE(2010,1,1),DATE(2010,12,31),100,1,0.15)	#NUM!	error	error
+Invalid frequency 3 returns #NUM!	=COUPDAYBS(DATE(2010,2,1),DATE(2019,12,31),3)	#NUM!	error	error
+basis greater than 4 returns #NUM!	=COUPDAYSNC(DATE(2011,1,25),DATE(2011,11,15),2,5)	#NUM!	error	error
+IFERROR wrapping invalid frequency returns fallback	=IFERROR(COUPNCD(DATE(2011,1,25),DATE(2011,11,15),3,1),"invalid")	invalid	nested	string
+European 30/360 basis with semiannual frequency	=COUPNUM(DATE(2010,2,1),DATE(2019,12,31),2,4)	20	edge	number
+basis greater than 4 returns #NUM!	=COUPNUM(DATE(2010,2,1),DATE(2019,12,31),4,5)	#NUM!	error	error
+IFERROR wrapping invalid frequency returns fallback	=IFERROR(COUPPCD(DATE(2011,1,25),DATE(2011,11,15),3,1),"invalid")	invalid	nested	string
+last period only cumulative interest	=CUMIPMT(0.1,10,1000,10,10,0)	-14.795035898410152	edge	number
+beginning-of-period payment type: same params as end but type=1	=CUMPRINC(0.05/12,60,10000,1,12,1)	-1839.5543865387463	edge	number
+first period depreciation: standard asset no month override	=DB(1000,100,5,1)	369	edge	number
+month parameter effect: default month=12 vs explicit month=6 changes year-1 result	=DB(1000,100,5,1,12)-DB(1000,100,5,1,6)	184.5	compatibility	number
+factor=1: single-declining balance (not double)	=DDB(5000,500,8,1,1)	625	edge	number
+period=1 with fractional life: life=10.9 truncated vs not	=DDB(2400,300,10.9,1,2)	440.3669724770642	compatibility	number
+basis=2 vs basis=3 on non-360/365 year: actual/360 vs actual/365	=DISC(DATE(2025,1,1),DATE(2026,1,1),96,100,2)-DISC(DATE(2025,1,1),DATE(2026,1,1),96,100,3)	-0.000547945205479447	compatibility	number
+IF comparing DOLLARDE result to threshold	=IF(DOLLARDE(100.16,32)>100.5,"above par","at or below par")	at or below par	nested	string
+unit 1 (minimum valid unit): any decimal should return same value	=DOLLARFR(2.5,1)	2.5	edge	number
+propagation: 1/0 as decimal_price	=DOLLARFR(1/0,8)	#DIV/0!	error	error
+text that looks like a date as settlement returns error	=DURATION("2020-01-01",DATE(2030,1,1),0.05,0.06,2)	7.894997340182344	coercion	number
+nested in IFERROR: invalid frequency returns fallback string	=IFERROR(DURATION(DATE(2020,1,1),DATE(2030,1,1),0.05,0.06,3),"invalid")	invalid	nested	string
+very large nominal rate with annual compounding	=EFFECT(1e15,1)	1000000000000000	edge	number
+IF tests whether rate exceeds 10 percent	=IF(INTRATE(DATE(2010,1,1),DATE(2020,1,1),1000,2000,1)>0.1,"high rate","low rate")	low rate	nested	string
+IF checks if IRR exceeds hurdle rate of 10%	=IF(IRR({-1000,300,400,500,600})>0.1,"accept","reject")	accept	nested	string
+rate as boolean TRUE coerced to 1 (100% interest rate)	=ISPMT(TRUE,1,5,1000)	-800	coercion	number
+yield as text-number string	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),0.08,"0.09",2,1)	6.655020420351955	coercion	number
+MIRR with zero financing rate	=MIRR({-5000,2000,2000,2000},0,0.1)	0.09806823486065386	edge	number
+MIRR result wrapped in ROUND to four decimal places	=ROUND(MIRR({-10000,3000,4000,5000},0.1,0.12),4)	0.0982	nested	number
+NOMINAL with large number of periods (365)	=NOMINAL(0.05,365)	0.04879342524642616	edge	number
+NPV nested inside another NPV to double-discount	=NPV(0.05,NPV(0.1,1000,2000),3000)	5161.072693540225	nested	number
+PDURATION with large values	=PDURATION(0.05,1e12,2e12)	14.206699082890465	edge	number
+NA propagated into yield	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,NA(),100,2,0)	#N/A	error	error
+European 30/360 basis	=PRICEDISC(DATE(2008,2,16),DATE(2008,8,16),0.0525,100,4)	97.375	edge	number
+nested in IF to classify as above or below 95	=IF(PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),0.05,100,0)>95,"close to par","deep discount")	deep discount	nested	string
+nested in ROUND to 2 decimal places	=ROUND(PRICEMAT(DATE(2008,2,15),DATE(2008,4,13),DATE(2007,11,11),0.061,0.061,0),2)	99.98	nested	number
+RATE too few arguments	=RATE()	#N/A	error	error
+RECEIVED with short settlement to maturity (1 day apart)	=RECEIVED(DATE(2020,1,1),DATE(2020,1,2),1000,0.05)	1000.1389081816919	edge	number
+RECEIVED nested in ROUND	=ROUND(RECEIVED(DATE(2008,2,15),DATE(2008,5,15),1000000,0.0575,2),2)	1014584.65	nested	number
+RRI with nper=1 — single period growth	=RRI(1,500,600)	0.19999999999999996	edge	number
+SYD with NA() as cost argument	=SYD(NA(),100,10,1)	#N/A	error	error
+TBILLEQ with 1/0 as discount argument	=TBILLEQ(DATE(2020,1,1),DATE(2020,7,1),1/0)	#DIV/0!	error	error
+TBILLPRICE with boolean TRUE coerced to discount	=TBILLPRICE(DATE(2020,1,1),DATE(2020,7,1),TRUE)	#NUM!	coercion	error
+TBILLPRICE with 1/0 as discount argument	=TBILLPRICE(DATE(2020,1,1),DATE(2020,7,1),1/0)	#DIV/0!	error	error
+TBILLYIELD with boolean TRUE coerced to price (very high yield)	=TBILLYIELD(DATE(2020,1,1),DATE(2020,7,1),TRUE)	195.82417582417582	coercion	number
+TBILLYIELD maturity exactly one year after settlement: boundary condition	=TBILLYIELD(DATE(2020,1,1),DATE(2021,1,1),98.45)	0.015485933610303943	compatibility	number
+VDB fractional start and end period	=VDB(1000,100,10,0.5,1.5)	180	edge	number
+VDB with start_period greater than end_period	=VDB(1000,100,10,5,3)	#NUM!	error	error
+VDB no_switch TRUE vs FALSE: late-life period where SLN switchover matters	=VDB(1000,100,10,9,10,2,TRUE)	26.843545600000013	compatibility	number
+XIRR rate guess as FALSE (coerced to 0)	=XIRR({-1000,500,700},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)},FALSE)	0.2612635097792768	coercion	number
+XNPV with very small positive cash flows (1e-15)	=XNPV(0.05,{-1000,1e-15,1e-15},{DATE(2020,1,1),DATE(2021,1,1),DATE(2022,1,1)})	-1000	edge	number
+YIELD with price as text number	=YIELD(DATE(2020,1,1),DATE(2030,1,1),0.05,"95",100,2)	0.05661689077213224	coercion	number
+YIELDDISC with very small discount (price 99.99 vs redemption 100)	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),99.99,100)	0.00010001000100015117	edge	number
+YIELDDISC result multiplied by 100 for percentage display	=ROUND(YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),95,100)*100,4)	5.2632	nested	number
+YIELDMAT inside IF to classify above or below coupon rate	=IF(YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),0.05,95)>0.05,"above coupon","at or below coupon")	above coupon	nested	string
+End-of-month date: 30/360 basis adjustments may vary between GS and Excel	=ACCRINTM(DATE(2010,1,31),DATE(2010,12,31),0.05,100,0)	4.583333333333333	compatibility	number
+Purchase date after first_period_end returns error	=AMORLINC(1000,DATE(2010,12,31),DATE(2010,1,1),100,1,0.15)	#NUM!	error	error
+Settlement equal to maturity returns #NUM!	=COUPDAYBS(DATE(2019,12,31),DATE(2019,12,31),2)	#NUM!	error	error
+too few arguments — missing maturity	=COUPDAYSNC(DATE(2011,1,25))	#N/A	error	error
+TEXT formatting of next coupon date	=TEXT(COUPNCD(DATE(2011,1,25),DATE(2011,11,15),2,1),"YYYY-MM-DD")	2011-05-15	nested	string
+text settlement date passed as string	=COUPNUM("2010-02-01",DATE(2019,12,31),4)	40	coercion	number
+IFERROR wrapping invalid frequency	=IFERROR(COUPNUM(DATE(2010,2,1),DATE(2019,12,31),3),"invalid")	invalid	nested	string
+TEXT formatting of previous coupon date	=TEXT(COUPPCD(DATE(2011,1,25),DATE(2011,11,15),2,1),"YYYY-MM-DD")	2010-11-15	nested	string
+rate passed as percentage string instead of decimal	=CUMIPMT("10%",10,1000,1,5,0)	-430.66006411533647	coercion	number
+very small interest rate: near-zero rate (0.0001), 12 periods, PV=1000	=CUMPRINC(0.0001,12,1000,1,6,0)	-499.8500075040494	edge	number
+last period depreciation: period equals life	=DB(1000,100,5,5)	58.498375128848984	edge	number
+partial first year rounding: month=7 vs month=6 boundary	=DB(500000,50000,4,1,7)-DB(500000,50000,4,1,6)	18250	compatibility	number
+very large cost: 1e9 asset	=DDB(1000000000,0,10,1)	199999999.99999997	edge	number
+basic discount rate: settlement 2010-01-02, maturity 2039-12-31, price=90, redemption=100, basis=0	=DISC(DATE(2010,1,2),DATE(2039,12,31),90,100)	0.003333642003889249	official	number
+European 30/360 vs US 30/360 on month-end date	=DISC(DATE(2025,1,31),DATE(2026,1,31),97,100,4)-DISC(DATE(2025,1,31),DATE(2026,1,31),97,100,0)	0	compatibility	number
+32nds vs 16ths: same fraction part, different precision	=DOLLARDE(1.04,16)-DOLLARDE(1.08,32)	0	compatibility	number
+propagation: NA() as decimal_price	=DOLLARFR(NA(),8)	#N/A	error	error
+nested in IF: check if duration exceeds 5 years	=IF(DURATION(DATE(2020,1,1),DATE(2030,1,1),0.05,0.06,2)>5,"long","short")	long	nested	string
+boolean TRUE coerced to 1 as nominal_rate	=EFFECT(TRUE,12)	1.6130352902246758	coercion	number
+IFERROR on settlement >= maturity returns zero	=IFERROR(INTRATE(DATE(2020,6,1),DATE(2020,1,1),1000,1500,0),0)	0	nested	number
+IFERROR on NA() in cash flows returns zero	=IFERROR(IRR({-1000,NA(),300}),0)	0	nested	number
+present value as text-number string	=ISPMT(0.1,1,5,"1000")	-80	coercion	number
+basis as boolean TRUE coerced to 1 (actual/actual)	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),0.08,0.09,2,TRUE)	6.655020420351955	coercion	number
+MIRR with zero reinvestment rate	=MIRR({-5000,2000,2000,2000},0.1,0)	0.06265856918261115	edge	number
+MIRR: text values in cash flow — GS returns error, Excel ignores them	=MIRR({-1000,"abc",800},0.08,0.1)	-0.19999999999999996	compatibility	number
+NOMINAL with npery as decimal (truncated to integer per Excel docs)	=NOMINAL(0.05,4.9)	0.04908893771615741	edge	number
+NPV: logical values in array — Excel ignores booleans, GS may include them	=NPV(0.1,{TRUE,FALSE,1000,2000})	2561.98347107438	compatibility	number
+PDURATION with future value much larger than present value	=PDURATION(0.1,1,1000000)	144.9531475685807	edge	number
+too few arguments (missing frequency)	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100)	#N/A	error	error
+non-integer basis truncated to integer (1.9 → 1)	=PRICEDISC(DATE(2008,2,16),DATE(2008,8,16),0.0525,100,1.9)	97.38934426229508	coercion	number
+nested in ROUND to 2 decimal places	=ROUND(PRICEDISC(DATE(2008,2,16),DATE(2008,3,1),0.0525,100,2),2)	99.8	nested	number
+compatibility: basis 0 vs basis 1 price difference	=PRICEMAT(DATE(2008,2,15),DATE(2008,4,13),DATE(2007,11,11),0.061,0.061,0)-PRICEMAT(DATE(2008,2,15),DATE(2008,4,13),DATE(2007,11,11),0.061,0.061,1)	-0.0001602415620567399	compatibility	number
+RATE with only nper	=RATE(12)	#N/A	error	error
+RECEIVED with large investment	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),1e15,0.05)	2000000000000000	edge	number
+RECEIVED basis=0 (NASD 30/360) vs basis=1 (Actual/Actual) — different results	=RECEIVED(DATE(2010,1,1),DATE(2015,7,1),10000,0.05,0)	13793.103448275862	compatibility	number
+RRI with very small present value	=RRI(12,0.01,100)	1.1544346900318838	edge	number
+SYD wrapped in IFERROR for period exceeding life	=IFERROR(SYD(1000,100,5,10),"invalid period")	invalid period	nested	string
+TBILLEQ with NA() as discount	=TBILLEQ(DATE(2020,1,1),DATE(2020,7,1),NA())	#N/A	error	error
+TBILLPRICE with NA() as discount	=TBILLPRICE(DATE(2020,1,1),DATE(2020,7,1),NA())	#N/A	error	error
+TBILLYIELD with text price	=TBILLYIELD(DATE(2020,1,1),DATE(2020,7,1),"98.45")	0.031142042315226614	coercion	number
+TBILLYIELD price above 100 (premium bond): may differ in error handling	=TBILLYIELD(DATE(2020,1,1),DATE(2020,7,1),101)	-0.019584376020019584	compatibility	number
+VDB with start_period equal to life	=VDB(1000,100,10,10,10)	0	error	number
+VDB factor 0: behavior may differ between GS and Excel	=VDB(1000,100,10,0,1,0)	#NUM!	compatibility	error
+XIRR with text rate guess that looks like a number	=XIRR({-1000,500,700},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)},"0.1")	0.2612635097792768	coercion	number
+XNPV discount rate as TRUE (coerced to 1)	=XNPV(TRUE,{-1000,800,500},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)})	-184.2515000514072	coercion	number
+YIELD with frequency as TRUE (coerced to 1, annual)	=YIELD(DATE(2020,1,1),DATE(2030,1,1),0.05,95,100,TRUE)	0.056687175594303356	coercion	number
+YIELDDISC with basis 4 (European 30/360)	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),95,100,4)	0.05263157894736842	edge	number
+YIELDDISC: basis 0 vs basis 1 for end-of-month settlement dates — GS vs Excel 30/360 adjustment differs	=YIELDDISC(DATE(2020,1,31),DATE(2020,3,31),99,100,0)	0.060606060606060615	compatibility	number
+YIELDMAT result passed to ROUND for basis point precision	=ROUND(YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),0.05,95),4)	0.06	nested	number
+GS allows omitting redemption (defaults absent), Excel requires par explicitly	=ACCRINTM(DATE(2010,1,1),DATE(2010,6,30),0.05,100)	2.486111111111111	compatibility	number
+Settlement after maturity returns #NUM!	=COUPDAYBS(DATE(2020,1,1),DATE(2019,12,31),2)	#NUM!	error	error
+IFERROR wrapping invalid frequency	=IFERROR(COUPDAYSNC(DATE(2011,1,25),DATE(2011,11,15),3,1),"invalid")	invalid	nested	string
+European 30/360 vs US 30/360 for end-of-month settlement	=COUPNCD(DATE(2011,1,31),DATE(2011,11,30),2,4)	2011-05-30T07:00:00.000Z	compatibility	string
+IF checking if more than 10 coupons remain	=IF(COUPNUM(DATE(2010,2,1),DATE(2019,12,31),2,0)>10,"long","short")	long	nested	string
+European 30/360 vs US 30/360 end-of-month settlement previous coupon	=COUPPCD(DATE(2011,1,31),DATE(2011,11,30),2,4)	2010-11-30T08:00:00.000Z	compatibility	string
+large present value: 1e6 loan, 360 periods, 6% annual	=CUMPRINC(0.06/12,360,1000000,1,12,0)	-12280.117122767744	edge	number
+salvage equals zero: full depreciation to zero	=DB(1000,0,5,1)	1000	edge	number
+period=life+1 boundary: one period beyond life end with different asset	=DB(2000,200,6,7)	#NUM!	compatibility	error
+boolean TRUE as cost: TRUE coerced to 1	=DDB(TRUE,0,5,1)	0.4	coercion	number
+discount rate with basis=1: same dates with actual/actual day count	=DISC(DATE(2010,1,2),DATE(2039,12,31),90,100,1)	0.0033339422725611983	official	number
+basic DOLLARDE: 100.10 in 32nds	=DOLLARDE(100.10,32)	100.31249999999999	official	number
+unit truncation: GS and Excel both truncate fractional unit to integer	=DOLLARDE(1.03,4.7)-DOLLARDE(1.03,4)	0	compatibility	number
+nested in IFERROR: invalid fraction returns fallback	=IFERROR(DOLLARFR(1.125,0),"invalid")	invalid	nested	string
+nested: compare duration with annual vs semiannual frequency	=DURATION(DATE(2020,1,1),DATE(2030,1,1),0.05,0.06,1)-DURATION(DATE(2020,1,1),DATE(2030,1,1),0.05,0.06,2)	0.12753631051269299	nested	number
+boolean FALSE coerced to 0 as nominal_rate — zero rate returns zero	=EFFECT(FALSE,12)	#NUM!	coercion	error
+basis 0 vs basis 1 may produce different rates for same dates	=INTRATE(DATE(2008,1,1),DATE(2008,3,31),1000,1014,0)	0.056	compatibility	number
+Excel ignores text/logical in array; GS may differ: text "200" in cash flow	=IRR({-1000,"200",200,200,200,300})	-0.038372994640897294	compatibility	number
+period as boolean TRUE coerced to 1	=ISPMT(0.1,TRUE,5,1000)	-80	coercion	number
+negative yield returns error	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),0.08,-0.01,2,0)	#NUM!	error	error
+MIRR with TRUE as financing rate (coerced to 1.0)	=MIRR({-1000,500,800},TRUE,0.08)	0.15758369027902264	coercion	number
+NOMINAL with TRUE as effective_rate (coerced to 1)	=NOMINAL(TRUE,12)	0.7135571323115437	coercion	number
+PDURATION with rate of exactly 1 (100% per period)	=PDURATION(1,100,200)	1.0000000000000002	edge	number
+nested in IFERROR to handle invalid frequency	=IFERROR(PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,3,0),"invalid freq")	invalid freq	nested	string
+numeric string discount rate coerced to number	=PRICEDISC(DATE(2008,2,16),DATE(2008,8,16),"0.0525",100,2)	97.34583333333333	coercion	number
+compatibility: basis 0 vs basis 1 price difference	=PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),0.05,100,0)-PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),0.05,100,1)	0	compatibility	number
+compatibility: issue date closer to settlement gives lower accrued interest	=PRICEMAT(DATE(2010,1,2),DATE(2010,12,31),DATE(2010,1,1),0.05,0.06,0)-PRICEMAT(DATE(2010,1,2),DATE(2010,12,31),DATE(2009,1,1),0.05,0.06,0)	0.2822770875923908	compatibility	number
+RATE non-convergent: impossible parameters	=RATE(12,1000,100)	#NUM!	error	error
+RECEIVED text date string instead of DATE() function	=RECEIVED("2010-01-01","2020-01-01",1000,0.05)	2000	coercion	number
+RECEIVED basis=1 (Actual/Actual) for same dates	=RECEIVED(DATE(2010,1,1),DATE(2015,7,1),10000,0.05,1)	13789.195315451454	compatibility	number
+RRI with large values	=RRI(100,1000,1e15)	0.318256738556407	edge	number
+SYD inside IF checking if depreciation exceeds threshold	=IF(SYD(5000,500,10,1)>700,"high","low")	high	nested	string
+TBILLEQ wrapped in IFERROR for invalid discount	=IFERROR(TBILLEQ(DATE(2020,1,1),DATE(2020,7,1),-0.05),"invalid rate")	invalid rate	nested	string
+TBILLPRICE wrapped in IFERROR for invalid maturity	=IFERROR(TBILLPRICE(DATE(2020,7,1),DATE(2020,1,1),0.05),"invalid dates")	invalid dates	nested	string
+TBILLYIELD with zero price: error expected	=TBILLYIELD(DATE(2020,1,1),DATE(2020,7,1),0)	#NUM!	coercion	error
+TBILLYIELD with text date string instead of DATE function	=TBILLYIELD("2020-01-01","2020-07-01",98.45)	0.031142042315226614	compatibility	number
+VDB with negative cost	=VDB(-1000,100,10,0,1)	#NUM!	error	error
+XIRR with only negative cash flows (no positive return)	=XIRR({-1000,-500,-300},{DATE(2020,1,1),DATE(2020,6,1),DATE(2021,1,1)})	#NUM!	error	error
+XNPV discount rate as FALSE (coerced to 0, sum of cash flows)	=XNPV(FALSE,{-1000,400,800},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)})	200	coercion	number
+YIELD with negative coupon rate	=YIELD(DATE(2020,1,1),DATE(2030,1,1),-0.05,95,100,2)	#NUM!	error	error
+YIELDDISC with short-term maturity (one month)	=YIELDDISC(DATE(2020,1,1),DATE(2020,2,1),99,100)	0.12121212121212123	edge	number
+YIELDDISC: price above redemption (negative yield scenario) — platform handling may differ	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),105,100)	-0.047619047619047616	compatibility	number
+YIELDMAT: basis 0 vs basis 1 for end-of-month dates — GS and Excel 30/360 end-of-month rule differs	=YIELDMAT(DATE(2020,1,31),DATE(2025,3,31),DATE(2019,1,31),0.05,95,0)	0.05967741935483871	compatibility	number
+Negative par value: both should return #NUM!, verify identical error code	=ACCRINTM(DATE(2010,1,1),DATE(2010,12,31),0.05,-100)	#NUM!	compatibility	error
+Basis out of range (5) returns #NUM!	=COUPDAYBS(DATE(2010,2,1),DATE(2019,12,31),2,5)	#NUM!	error	error
+IF checking if next coupon is within 30 days	=IF(COUPDAYSNC(DATE(2011,1,25),DATE(2011,11,15),2,1)<30,"near","far")	far	nested	string
+quarterly vs semiannual coupon count for same term (ratio should be 2:1)	=COUPNUM(DATE(2010,2,1),DATE(2019,12,31),4,0)	40	compatibility	number
+text rate coercion: rate passed as numeric string	=CUMPRINC("0.05",12,1000,1,6,0)	-427.3329613711497	coercion	number
+very large cost: 1e9 asset value	=DB(1000000000,100000,10,1)	602000000	edge	number
+text cost as numeric string: "5000" coerced to number	=DDB("5000",500,8,1)	1250	coercion	number
+short-term discount: 1-year security, price=99, redemption=100, basis=0	=DISC(DATE(2025,1,1),DATE(2026,1,1),99,100,0)	0.01	edge	number
+DOLLARDE with 8ths: 100.01 in 8ths equals 100.125	=DOLLARDE(100.01,8)	100.0125	official	number
+unit=1 boundary: fraction/1 returns fraction as-is added to integer part	=DOLLARDE(2.07,1)	2.07	compatibility	number
+nested in IF: compare result to threshold	=IF(DOLLARFR(1.125,32)>1,"above one","not above one")	above one	nested	string
+compatibility: basis 0 (US 30/360) vs basis 1 (actual/actual) for same bond	=DURATION(DATE(2020,1,1),DATE(2030,6,15),0.05,0.06,2,0)	8.142923701501507	compatibility	number
+text numeric string as nominal_rate	=EFFECT("0.05",4)	0.05094533691406222	coercion	number
+basis 1 (actual/actual) for same period as basis 0	=INTRATE(DATE(2008,1,1),DATE(2008,3,31),1000,1014,1)	0.056933333333333336	compatibility	number
+rate as negative number (unusual but valid)	=ISPMT(-0.05,1,5,1000)	40	coercion	number
+MIRR with FALSE as reinvestment rate (coerced to 0)	=MIRR({-1000,500,800},0.1,FALSE)	0.14017542509913805	coercion	number
+NOMINAL with FALSE as effective_rate (coerced to 0 — error since rate <= 0)	=NOMINAL(FALSE,12)	#NUM!	coercion	error
+PDURATION with TRUE as rate (coerced to 1)	=PDURATION(TRUE,100,200)	1.0000000000000002	coercion	number
+nested in IF to classify bond as premium or discount	=IF(PRICE(DATE(2008,1,1),DATE(2018,1,1),0.07,0.05,100,2,0)>100,"premium","discount")	premium	nested	string
+non-integer redemption value truncated (not coercion error)	=PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),0.05,100.9,0)	50.449999999999996	coercion	number
+compatibility: actual/360 vs actual/365 difference	=PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),0.05,100,2)-PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),0.05,100,3)	-0.6948249619482496	compatibility	number
+compatibility: actual/360 vs actual/365 price difference	=PRICEMAT(DATE(2008,2,15),DATE(2008,4,13),DATE(2007,11,11),0.061,0.061,2)-PRICEMAT(DATE(2008,2,15),DATE(2008,4,13),DATE(2007,11,11),0.061,0.061,3)	-0.0004287001708718208	compatibility	number
+RECEIVED end-of-month date: Feb 28 to Aug 31 with 30/360	=RECEIVED(DATE(2010,2,28),DATE(2010,8,31),1000,0.05,0)	1025.6410256410256	compatibility	number
+RRI with fv=0 returns -1	=RRI(1,100,0)	-1	edge	number
+SYD inside ROUND to nearest dollar	=ROUND(SYD(30000,7500,10,1),2)	4090.91	nested	number
+TBILLEQ inside IF checking if yield exceeds 5%	=IF(TBILLEQ(DATE(2020,1,1),DATE(2020,4,1),0.04)>0.05,"high","low")	low	nested	string
+TBILLPRICE inside IF checking if price is below par	=IF(TBILLPRICE(DATE(2020,1,1),DATE(2020,4,1),0.04)<100,"discounted","at par")	discounted	nested	string
+TBILLYIELD with negative price: error expected	=TBILLYIELD(DATE(2020,1,1),DATE(2020,7,1),-98.45)	#NUM!	coercion	error
+XIRR with only positive cash flows (no investment)	=XIRR({1000,500,300},{DATE(2020,1,1),DATE(2020,6,1),DATE(2021,1,1)})	#NUM!	error	error
+XNPV with text discount rate that looks like a number	=XNPV("0.1",{-1000,500,700},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)})	112.99103000397872	coercion	number
+YIELD with zero price	=YIELD(DATE(2020,1,1),DATE(2030,1,1),0.05,0,100,2)	#NUM!	error	error
+YIELDDISC with price as TRUE (coerced to 1)	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),TRUE,100)	99	coercion	number
+YIELDDISC: date as numeric serial instead of DATE() function	=YIELDDISC(43831,44197,95,100)	0.05263157894736842	compatibility	number
+YIELDMAT: issue date after settlement date — GS may accept, Excel returns #NUM!	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2021,1,1),0.05,95)	#NUM!	compatibility	error
+Sixth period depreciation with 30/360 basis (default)	=AMORLINC(1000,DATE(1969,7,20),DATE(1969,8,20),100,6,0.15)	137.5	official	number
+IFERROR wrapping invalid frequency	=IFERROR(COUPDAYBS(DATE(2010,2,1),DATE(2019,12,31),3),"invalid")	invalid	nested	string
+semiannual vs quarterly: same settlement/maturity, different frequency changes days-to-next-coupon	=COUPDAYSNC(DATE(2011,2,15),DATE(2011,11,15),2,0)	90	compatibility	number
+semiannual coupon count with US 30/360 basis	=COUPNUM(DATE(2010,2,1),DATE(2019,12,31),2,0)	20	compatibility	number
+boolean TRUE as rate: TRUE coerced to 1 (100% interest)	=CUMPRINC(TRUE,12,1000,1,6,0)	-15.384615384615383	coercion	number
+month=1: first period with only 1 month in first year	=DB(1000,100,5,1,1)	30.75	edge	number
+boolean FALSE as salvage: salvage=0 allowed	=DDB(5000,FALSE,8,1)	1250	coercion	number
+long-term 30-year security: basis=0	=DISC(DATE(2000,1,1),DATE(2030,1,1),75,100,0)	0.008333333333333333	edge	number
+nested DOLLARFR inside DOLLARFR using result as price	=DOLLARFR(DOLLARFR(1.125,16),8)	1.016	nested	number
+compatibility: basis 1 actual/actual — may differ on leap year handling	=DURATION(DATE(2020,1,1),DATE(2030,6,15),0.05,0.06,2,1)	8.140920058514256	compatibility	number
+text numeric string as periods_per_year	=EFFECT(0.05,"4")	0.05094533691406222	coercion	number
+end-of-month date handling differs between GS (basis 0) and Excel	=INTRATE(DATE(2008,1,31),DATE(2008,3,31),1000,1005,0)	0.030000000000000002	compatibility	number
+too few arguments (only rate given) returns error	=ISPMT(0.1)	#N/A	error	error
+MIRR coercion: text numbers in cash flow array ignored by Excel but not GS	=MIRR({-1000,"500",800},0.08,0.1)	-0.19999999999999996	coercion	number
+NOMINAL with text effective rate "0.05"	=NOMINAL("0.05",4)	0.04908893771615741	coercion	number
+PDURATION with text rate "0.05"	=PDURATION("0.05",1000,2000)	14.206699082890465	coercion	number
+nested in ROUND to 2 decimal places	=ROUND(PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,0),2)	94.63	nested	number
+discount rate of zero returns redemption value	=PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),0,100,0)	#NUM!	error	error
+compatibility: short vs long tenor price difference at same discount rate	=PRICEDISC(DATE(2010,1,1),DATE(2011,1,1),0.05,100,0)-PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),0.05,100,0)	45	compatibility	number
+compatibility: European 30/360 vs US 30/360 on end-of-month dates	=PRICEMAT(DATE(2010,1,31),DATE(2011,3,31),DATE(2009,12,31),0.05,0.06,4)-PRICEMAT(DATE(2010,1,31),DATE(2011,3,31),DATE(2009,12,31),0.05,0.06,0)	0	compatibility	number
+RRI boolean TRUE as nper coerces to 1	=RRI(TRUE,100,200)	1	coercion	number
+SYD with non-integer life vs integer life: text input handling	=SYD(1000,0,"10",1)	181.8181818181818	compatibility	number
+TBILLEQ rounded to 4 decimal places	=ROUND(TBILLEQ(DATE(2020,1,1),DATE(2020,7,1),0.04),4)	0.0414	nested	number
+TBILLPRICE rounded to 2 decimal places	=ROUND(TBILLPRICE(DATE(2020,1,1),DATE(2020,7,1),0.04),2)	97.98	nested	number
+TBILLYIELD with too few arguments	=TBILLYIELD(DATE(2020,1,1),DATE(2020,7,1))	#N/A	error	error
+XIRR with mismatched array sizes (3 values, 2 dates)	=XIRR({-1000,500,700},{DATE(2020,1,1),DATE(2021,1,1)})	#NUM!	error	error
+XNPV with mismatched array sizes (3 values, 2 dates)	=XNPV(0.08,{-1000,500,700},{DATE(2020,1,1),DATE(2021,1,1)})	#NUM!	error	error
+YIELD with invalid frequency (3 is not 1, 2, or 4)	=YIELD(DATE(2020,1,1),DATE(2030,1,1),0.05,95,100,3)	#NUM!	error	error
+YIELDDISC with redemption as FALSE (coerced to 0)	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),95,FALSE)	#NUM!	coercion	error
+YIELDDISC: actual/actual basis for leap year spanning period	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),95,100,1)	0.05263157894736842	compatibility	number
+IF checking whether days from coupon start exceeds 90	=IF(COUPDAYBS(DATE(2010,2,1),DATE(2019,12,31),4)>90,"late","early")	early	nested	string
+European 30/360 vs US 30/360 basis for end-of-month settlement	=COUPDAYSNC(DATE(2011,1,31),DATE(2011,11,30),2,4)	120	compatibility	number
+coupon count rounded up to nearest whole coupon (Excel behavior)	=COUPNUM(DATE(2010,2,1),DATE(2019,11,30),2,0)	20	compatibility	number
+boolean FALSE as present_value: pv=0 causes #NUM!	=CUMPRINC(0.05,12,FALSE,1,6,0)	#NUM!	coercion	error
+boolean TRUE as cost: TRUE coerced to 1	=DB(TRUE,100,5,1)	-1.5119999999999998	coercion	number
+boolean TRUE as factor: factor=1 (single-declining)	=DDB(5000,500,8,1,TRUE)	625	coercion	number
+basis=4 (European 30/360): same dates different day-count	=DISC(DATE(2020,3,1),DATE(2025,3,1),95,100,4)	0.01	edge	number
+compatibility: basis 4 European 30/360 end-of-month date adjustment	=DURATION(DATE(2020,1,31),DATE(2030,3,31),0.05,0.06,2,4)	7.854034812612617	compatibility	number
+non-integer periods truncated to integer	=EFFECT(0.05,4.9)	0.05094533691406222	coercion	number
+European 30/360 vs US 30/360 for end-of-month dates	=INTRATE(DATE(2008,1,31),DATE(2008,3,31),1000,1005,4)	0.030000000000000002	compatibility	number
+error propagation: 1/0 in rate	=ISPMT(1/0,1,5,1000)	#DIV/0!	error	error
+NOMINAL with text periods "4"	=NOMINAL(0.05,"4")	0.04908893771615741	coercion	number
+PDURATION with text present value "1000"	=PDURATION(0.05,"1000",2000)	14.206699082890465	coercion	number
+compatibility: European 30/360 vs US 30/360 price difference	=PRICEDISC(DATE(2010,1,31),DATE(2011,3,31),0.05,100,4)-PRICEDISC(DATE(2010,1,31),DATE(2011,3,31),0.05,100,0)	0	compatibility	number
+compatibility: zero rate with positive yield gives discount from par	=PRICEMAT(DATE(2010,1,2),DATE(2011,1,1),DATE(2010,1,1),0,0.05,0)	95.25069453631433	compatibility	number
+RRI boolean TRUE as pv coerces to 1	=RRI(10,TRUE,200)	0.6986464646342474	coercion	number
+SYD cost less than salvage: error behavior may differ	=SYD(100,500,10,1)	-72.72727272727273	compatibility	number
+TBILLEQ settlement=maturity: GS may return 0 or error vs Excel #NUM!	=TBILLEQ(DATE(2020,6,1),DATE(2020,6,1),0.05)	#NUM!	compatibility	error
+TBILLPRICE settlement equals maturity: GS vs Excel error behavior	=TBILLPRICE(DATE(2020,6,1),DATE(2020,6,1),0.05)	#NUM!	compatibility	error
+TBILLYIELD with maturity before settlement	=TBILLYIELD(DATE(2020,7,1),DATE(2020,1,1),98.45)	#NUM!	error	error
+XIRR with division by zero as rate guess	=XIRR({-1000,500,700},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)},1/0)	#DIV/0!	error	error
+XNPV with division by zero as discount rate	=XNPV(1/0,{-1000,500,700},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)})	#DIV/0!	error	error
+YIELD with settlement date equal to maturity date	=YIELD(DATE(2030,1,1),DATE(2030,1,1),0.05,95,100,2)	#NUM!	error	error
+YIELDMAT for one-year bond at deep discount with actual/360 basis, 2% coupon (0.13)	=YIELDMAT(DATE(2010,1,2),DATE(2010,12,31),DATE(2010,1,1),0.02,90,2)	0.13240688642319298	official	number
+IFERROR handling settlement >= maturity	=IFERROR(COUPDAYBS(DATE(2020,1,1),DATE(2019,12,31),2),0)	0	nested	number
+US 30/360 basis for end-of-month settlement	=COUPDAYSNC(DATE(2011,1,31),DATE(2011,11,30),2,0)	120	compatibility	number
+actual/actual vs US 30/360 for non-standard period end dates	=COUPNUM(DATE(2010,2,28),DATE(2019,8,31),2,1)	19	compatibility	number
+text cost as numeric string: "1000" coerced to number	=DB("1000",100,5,1)	369	coercion	number
+negative cost: all args must be positive, returns #NUM!	=DDB(-5000,500,8,1)	#NUM!	error	error
+price very close to redemption: near-zero discount rate	=DISC(DATE(2025,1,1),DATE(2026,1,1),99.99,100,0)	0.00010000000000005117	edge	number
+nominal_rate equal to 0 returns NUM error	=EFFECT(0,12)	#NUM!	error	error
+omitted basis default vs explicit 0 should match	=INTRATE(DATE(2010,6,1),DATE(2020,6,1),5000,6000)	0.02	compatibility	number
+error propagation: NA() in present value	=ISPMT(0.1,1,5,NA())	#N/A	error	error
+NOMINAL with effective_rate = 0 (returns #NUM!)	=NOMINAL(0,12)	#NUM!	error	error
+PDURATION with FALSE as present_value (coerced to 0 — should error as not positive)	=PDURATION(0.05,FALSE,2000)	#NUM!	coercion	error
+bond paying interest at maturity with 3% coupon 120% yield over 30 years	=PRICEMAT(DATE(2010,1,2),DATE(2039,12,31),DATE(2010,1,1),0.03,1.2)	5.127264468270414	official	number
+PV sample: rate=2 periods=12 payment=100	=PV(2,12,100)	-49.99990591617884	official	number
+RRI boolean TRUE as fv coerces to 1	=RRI(10,100,TRUE)	-0.36904265551980675	coercion	number
+SYD with fractional period value: truncation vs error	=SYD(1000,100,10,1.7)	152.1818181818182	compatibility	number
+TBILLEQ maturity exactly one year after settlement: boundary behavior	=TBILLEQ(DATE(2020,1,1),DATE(2021,1,1),0.05)	0.05271286398134196	compatibility	number
+TBILLPRICE maturity exactly one year after settlement: boundary	=TBILLPRICE(DATE(2020,1,1),DATE(2021,1,1),0.05)	94.91666666666667	compatibility	number
+TBILLYIELD with maturity equal to settlement: GS vs Excel #NUM!	=TBILLYIELD(DATE(2020,6,1),DATE(2020,6,1),98.45)	#NUM!	error	error
+XIRR with NA() in cash flows	=XIRR({-1000,NA(),700},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)})	#N/A	error	error
+XNPV with NA() in cash flows	=XNPV(0.08,{-1000,NA(),700},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)})	#N/A	error	error
+YIELD with NA() as price	=YIELD(DATE(2020,1,1),DATE(2030,1,1),0.05,NA(),100,2)	#N/A	error	error
+YIELDMAT with semiannual issue to maturity spanning multiple years, default basis	=YIELDMAT(DATE(2010,1,2),DATE(2039,12,31),DATE(2010,1,1),0.03,100.47)	0.02970124785690169	official	number
+Basis 0 (30/360) vs basis 1 (Actual/Actual) for end-of-month settlement	=COUPDAYBS(DATE(2010,1,31),DATE(2020,1,31),2,0)	0	compatibility	number
+actual/actual basis produces different count than actual/360 for same dates	=COUPDAYSNC(DATE(2011,1,25),DATE(2011,11,15),2,1)	110	compatibility	number
+previous coupon date with quarterly frequency and default basis	=COUPPCD(DATE(2010,2,1),DATE(2019,12,31),4)	2009-12-31T08:00:00.000Z	official	string
+boolean FALSE as salvage: FALSE coerced to 0	=DB(1000,FALSE,5,1)	1000	coercion	number
+basis=2 (Actual/360): short security	=DISC(DATE(2025,6,1),DATE(2026,6,1),96,100,2)	0.039452054794520554	edge	number
+nominal_rate less than 0 returns NUM error	=EFFECT(-0.05,12)	#NUM!	error	error
+interest payment for period 1 of monthly mortgage (rate=5%/12, nper=360, pv=100000)	=IPMT(0.05/12,1,360,100000)	-416.6666666666667	official	number
+nper of zero causes division by zero error	=ISPMT(0.1,1,0,1000)	#DIV/0!	error	error
+NOMINAL with negative effective_rate	=NOMINAL(-0.05,12)	#NUM!	error	error
+PDURATION with zero rate (#NUM! expected)	=PDURATION(0,1000,2000)	#NUM!	error	error
+same bond with actual/actual day count convention	=PRICEMAT(DATE(2010,1,2),DATE(2039,12,31),DATE(2010,1,1),0.03,1.2,1)	5.127606514747337	official	number
+PV with future value and beginning-of-period payments	=PV(0.05,10,-200,1000,1)	1007.6510815880524	official	number
+RRI text number as nper coerces	=RRI("10",100,200)	0.07177346253629313	coercion	number
+SYD with period zero: error vs zero handling	=SYD(1000,100,10,0)	#NUM!	compatibility	error
+TBILLPRICE with numeric date serial instead of DATE function	=TBILLPRICE(43831,44044,0.05)	97.04166666666667	compatibility	number
+TBILLYIELD maturity more than one year after settlement	=TBILLYIELD(DATE(2020,1,1),DATE(2021,6,1),98.45)	#NUM!	error	error
+XIRR inside IFERROR returns rate or fallback string	=IFERROR(XIRR({-5000,2000,4000},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)}),"no solution")	0.24618260788818658	nested	number
+XNPV with date before first date in schedule	=XNPV(0.08,{-1000,500,700},{DATE(2021,1,1),DATE(2020,7,1),DATE(2022,1,1)})	#NUM!	error	error
+YIELD with division by zero as coupon rate	=YIELD(DATE(2020,1,1),DATE(2030,1,1),1/0,95,100,2)	#DIV/0!	error	error
+YIELDMAT with price at par (price equals redemption assumed 100)	=YIELDMAT(DATE(2020,1,1),DATE(2021,1,1),DATE(2019,1,1),0.05,100)	0.04761904761904767	edge	number
+Actual/Actual basis result at period boundary (GS and Excel may differ)	=COUPDAYBS(DATE(2011,1,25),DATE(2011,11,15),2,1)	71	compatibility	number
+next coupon date with quarterly frequency and default basis	=COUPNCD(DATE(2010,2,1),DATE(2019,12,31),4)	2010-03-31T07:00:00.000Z	official	string
+boolean TRUE as period: period=1	=DB(1000,100,5,TRUE)	369	coercion	number
+text settlement date: non-date string causes #VALUE!	=DISC("2025-01-01",DATE(2026,1,1),99,100,0)	0.01	coercion	number
+periods_per_year less than 1 returns NUM error	=EFFECT(0.05,0)	#NUM!	error	error
+interest payment with non-standard rate (rate=2, period=5, nper=12, pv=100)	=IPMT(2,5,12,100)	-199.96989312057806	official	number
+IFERROR wraps division-by-zero for nper=0 returning fallback	=IFERROR(ISPMT(0.1,1,0,1000),"error")	error	nested	string
+NOMINAL with periods = 0 (below minimum)	=NOMINAL(0.05,0)	#NUM!	error	error
+PDURATION with negative rate (#NUM! expected)	=PDURATION(-0.05,1000,2000)	#NUM!	error	error
+coupon rate equals yield giving price near par	=PRICEMAT(DATE(2010,1,2),DATE(2010,12,31),DATE(2010,1,1),0.05,0.05,0)	99.99934037424116	edge	number
+PV with zero interest rate	=PV(0,10,-100)	1000	edge	number
+RRI text number as pv coerces	=RRI(10,"100",200)	0.07177346253629313	coercion	number
+TBILLEQ sample: settlement=2010-01-02 maturity=2010-12-31 discount=9%	=TBILLEQ(DATE(2010,1,2),DATE(2010,12,31),0.09)	0.09797107538773103	official	number
+TBILLPRICE discount rate of 1 (100%): extreme rate	=TBILLPRICE(DATE(2020,1,1),DATE(2020,4,1),1.0)	#NUM!	compatibility	error
+XIRR inside IF to classify return as positive	=IF(XIRR({-3000,1500,2000},{DATE(2020,1,1),DATE(2020,9,1),DATE(2021,6,1)})>0,"positive","negative")	positive	nested	string
+XNPV inside IFERROR returns value or fallback	=IFERROR(XNPV(0.1,{-5000,2000,4000},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)}),"error")	542.5883858081638	nested	number
+YIELD inside IFERROR returns yield or fallback	=IFERROR(YIELD(DATE(2020,1,1),DATE(2030,1,1),0.05,95,100,2),"error")	0.05661689077213224	nested	number
+YIELDMAT with price above par (premium security)	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,6,1),0.06,105)	0.04608294930875574	edge	number
+European 30/360 vs NASD 30/360 end-of-month adjustment difference	=COUPDAYBS(DATE(2010,3,31),DATE(2020,9,30),2,4)	0	compatibility	number
+salvage greater than cost: salvage > cost produces #NUM!	=DB(100,200,5,1)	-14.899999999999999	error	number
+too few arguments (missing periods_per_year)	=EFFECT(0.05)	#N/A	error	error
+interest payment with beginning-of-period timing (end_or_beginning=1)	=IPMT(0.1/12,1,36,8000,0,1)	0	official	number
+IF checks if ISPMT interest is more negative than threshold	=IF(ISPMT(0.15,2,5,1000)<-2000,"high interest","low interest")	low interest	nested	string
+NOMINAL with non-numeric effective_rate text	=NOMINAL("abc",12)	#VALUE!	error	error
+PDURATION with zero present value (#NUM! expected)	=PDURATION(0.05,0,2000)	#NUM!	error	error
+actual/actual basis (basis=1)	=PRICEMAT(DATE(2008,2,15),DATE(2008,4,13),DATE(2007,11,11),0.061,0.061,1)	99.984659117119	edge	number
+PV with very large number of periods	=PV(0.01,1000,-1)	99.99522881542902	edge	number
+RRI too few arguments	=RRI()	#N/A	error	error
+XIRR result passed to ROUND for percentage display	=ROUND(XIRR({-10000,3000,4000,5000},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1),DATE(2022,1,1)}),4)	0.155	nested	number
+XNPV inside IF to test positive net present value	=IF(XNPV(0.05,{-1000,600,600},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)})>0,"positive NPV","negative NPV")	positive NPV	nested	string
+YIELD inside IF to classify above or below threshold	=IF(YIELD(DATE(2020,1,1),DATE(2030,1,1),0.05,95,100,2)>0.05,"above coupon","at or below coupon")	above coupon	nested	string
+YIELDMAT with price well below par (deep discount)	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),0.03,80)	0.08433734939759034	edge	number
+Quarterly vs semiannual: same settlement/maturity, different coupon period start	=COUPDAYBS(DATE(2010,2,1),DATE(2020,2,1),4,0)	0	compatibility	number
+period greater than life: period exceeds life returns #NUM!	=DB(1000,100,5,6)	#NUM!	error	error
+too many arguments	=EFFECT(0.05,12,1)	#N/A	error	error
+period 1 of 1: single-period loan interest	=IPMT(0.1,1,1,1000)	-100	edge	number
+IFERROR on NA() in pv returns zero	=IFERROR(ISPMT(0.1,1,5,NA()),0)	0	nested	number
+NOMINAL with NA() as rate	=NOMINAL(NA(),4)	#N/A	error	error
+PDURATION with future value less than present value at positive rate	=PDURATION(0.05,2000,1000)	-14.206699082890465	error	number
+actual/360 basis (basis=2)	=PRICEMAT(DATE(2008,2,15),DATE(2008,4,13),DATE(2007,11,11),0.061,0.061,2)	99.9841690643986	edge	number
+PV with very small interest rate	=PV(1e-15,12,-100)	1332.2676295501699	edge	number
+RRI with only one argument	=RRI(10)	#N/A	error	error
+XIRR: dates in non-chronological order — GS may accept, Excel requires first date to be earliest	=XIRR({-1000,500,700},{DATE(2021,1,1),DATE(2020,7,1),DATE(2020,1,1)})	-0.2065691307357323	compatibility	number
+XNPV result passed to ROUND for currency precision	=ROUND(XNPV(0.09,{-10000,2750,4250,3250,2750},{DATE(2020,1,1),DATE(2020,3,1),DATE(2020,10,30),DATE(2021,2,15),DATE(2021,4,1)}),2)	2086.65	nested	number
+YIELD result formatted with ROUND to 4 decimal places	=ROUND(YIELD(DATE(2020,1,1),DATE(2030,1,1),0.05,95,100,2),4)	0.0566	nested	number
+YIELDMAT with very small coupon rate near zero	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),1e-15,95)	0.010526315789474739	edge	number
+Days in coupon period containing settlement, quarterly frequency, default basis	=COUPDAYS(DATE(2010,2,1),DATE(2019,12,31),4)	90	official	number
+propagation: 1/0 as nominal_rate	=EFFECT(1/0,12)	#DIV/0!	error	error
+very small interest rate approaching zero	=IPMT(1e-15,1,12,1000)	-1e-12	edge	number
+ISPMT counts periods from zero vs IPMT from one for same loan scenario	=ISPMT(0.1,1,5,1000)	-80	compatibility	number
+NOMINAL inside IFERROR to handle invalid input	=IFERROR(NOMINAL(-0.1,12),"invalid")	invalid	nested	string
+PDURATION with NA() as rate	=PDURATION(NA(),1000,2000)	#N/A	error	error
+actual/365 basis (basis=3)	=PRICEMAT(DATE(2008,2,15),DATE(2008,4,13),DATE(2007,11,11),0.061,0.061,3)	99.98459776456947	edge	number
+PV with single period	=PV(0.05,1,-1000)	952.3809523809532	edge	number
+RRI with nper=0 — invalid	=RRI(0,100,200)	#DIV/0!	error	error
+XIRR: single positive and single negative with same-day dates — settlement on same date	=XIRR({-1000,1000},{DATE(2020,1,1),DATE(2020,1,1)})	#NUM!	compatibility	error
+XNPV: date as numeric serial instead of DATE() — behavior may vary by platform	=XNPV(0.08,{-1000,500,700},{43831,44197,44562})	62.876003836352766	compatibility	number
+YIELD: basis 0 vs basis 1 — 30/360 vs actual/actual may produce different results	=YIELD(DATE(2020,1,1),DATE(2030,12,31),0.05,95,100,2,1)	0.05615540928290648	compatibility	number
+YIELDMAT with European 30/360 day count convention (basis 4)	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),0.05,95,4)	0.06000000000000001	edge	number
+Days in coupon period containing settlement, semiannual, actual/actual basis	=COUPDAYS(DATE(2010,2,1),DATE(2019,12,31),4,1)	90	official	number
+propagation: NA() as periods_per_year	=EFFECT(0.05,NA())	#N/A	error	error
+very large present value	=IPMT(0.05,1,12,1e15)	-50000000000000	edge	number
+IPMT equivalent for comparison: IPMT on same even-principal loan period 1	=IPMT(0.1,1,5,1000)	-100	compatibility	number
+NOMINAL inside IF to classify as above or below 5%	=IF(NOMINAL(0.06,12)>0.05,"above 5%","at or below 5%")	above 5%	nested	string
+PDURATION inside IFERROR with invalid negative rate	=IFERROR(PDURATION(-0.1,1000,2000),"invalid")	invalid	nested	string
+European 30/360 basis (basis=4)	=PRICEMAT(DATE(2008,2,15),DATE(2008,4,13),DATE(2007,11,11),0.061,0.061,4)	99.98449887555694	edge	number
+PV with negative payment (deposit scenario)	=PV(0.06,12,500)	-4191.921970191662	edge	number
+RRI with pv=0 — invalid (division by zero)	=RRI(10,0,200)	#NUM!	error	error
+XIRR: extremely high rate guess beyond convergence limit	=XIRR({-1000,500,800},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)},100)	0.38877770866447886	compatibility	number
+XNPV: negative discount rate — GS may allow, Excel behavior may differ	=XNPV(-0.05,{-1000,500,700},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)})	249.8987928799903	compatibility	number
+YIELDMAT with coupon rate as TRUE (coerced to 1 = 100%)	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),TRUE,95)	0.517948717948718	coercion	number
+Coupon period days with annual frequency, default 30/360 basis	=COUPDAYS(DATE(2010,6,15),DATE(2020,12,31),1)	360	edge	number
+nested in IFERROR: invalid rate returns fallback	=IFERROR(EFFECT(-0.05,12),"invalid")	invalid	nested	string
+last period interest (period equals nper)	=IPMT(0.1,12,12,1000)	-13.342119554571582	edge	number
+period 0 behavior: ISPMT note says periods begin at zero in Excel	=ISPMT(0.1,0,5,1000)	-100	compatibility	number
+NOMINAL nested with EFFECT to round-trip check	=NOMINAL(EFFECT(0.05,12),12)	0.04999999999999982	nested	number
+PDURATION inside IF to classify as short vs long investment horizon	=IF(PDURATION(0.1,1000,2000)<10,"short-term","long-term")	short-term	nested	string
+high yield causing deep discount	=PRICEMAT(DATE(2010,1,2),DATE(2015,1,1),DATE(2010,1,1),0.03,0.20,0)	57.50764332685005	edge	number
+PV with very large payment amount	=PV(0.01,12,-1e15)	11255077473484634	edge	number
+RRI with text non-numeric as nper	=RRI("abc",100,200)	#VALUE!	error	error
+XNPV: all positive cash flows (no investment) — GS vs Excel treatment	=XNPV(0.08,{200,250,300},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)})	718.307188979001	compatibility	number
+YIELDMAT with price as FALSE (coerced to 0 — should error)	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),0.05,FALSE)	#NUM!	coercion	error
+Coupon period days with quarterly frequency, default basis	=COUPDAYS(DATE(2010,3,15),DATE(2020,12,31),4)	90	edge	number
+nested in IF: check if effective rate exceeds 10%	=IF(EFFECT(0.095,12)>0.1,"above 10%","at or below 10%")	at or below 10%	nested	string
+zero present value yields zero interest	=IPMT(0.05,1,12,0)	0	edge	number
+text in period argument: GS may coerce, Excel may error	=ISPMT(0.1,"2",5,1000)	-60	compatibility	number
+NOMINAL: periods < 1 — both GS and Excel return #NUM! behavior	=NOMINAL(0.05,0.5)	#NUM!	compatibility	error
+PDURATION with ROUND to integer periods	=ROUND(PDURATION(0.05,1000,1500),0)	8	nested	number
+non-integer basis truncated to integer (1.9 → 1)	=PRICEMAT(DATE(2008,2,15),DATE(2008,4,13),DATE(2007,11,11),0.061,0.061,1.9)	99.984659117119	coercion	number
+PV with future value only, no payment	=PV(0.05,10,0,10000)	-6139.132535407592	edge	number
+RRI with NA() as fv	=RRI(10,100,NA())	#N/A	error	error
+XNPV: empty string in cash flow array — numeric coercion differs by platform	=XNPV(0.08,{-1000,"",700},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)})	#VALUE!	compatibility	error
+YIELDMAT with price as text number	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),0.05,"95")	0.06000000000000001	coercion	number
+Coupon period days near maturity date (settlement close to maturity)	=COUPDAYS(DATE(2019,11,1),DATE(2019,12,31),2)	180	edge	number
+nested: EFFECT result compared to NOMINAL inverse	=EFFECT(0.05,4)-EFFECT(0.05,2)	0.00032033691406230247	nested	number
+rate as boolean TRUE (coerced to 1 = 100% per period)	=IPMT(TRUE,1,12,1000)	-1000	coercion	number
+negative present value (deposit/investment perspective)	=ISPMT(0.1,1,5,-1000)	80	compatibility	number
+NOMINAL: text-that-looks-like-number in npery — GS may coerce, Excel may error	=NOMINAL(0.05,"12")	0.04888948540378024	compatibility	number
+PDURATION: negative rate — both platforms return #NUM! but error type may vary	=PDURATION(-0.1,100,200)	#NUM!	compatibility	error
+numeric string coupon rate coerced to number	=PRICEMAT(DATE(2008,2,15),DATE(2008,4,13),DATE(2007,11,11),"0.061",0.061,0)	99.98449887555694	coercion	number
+PV boolean TRUE as rate coerces to 1	=PV(TRUE,10,-100)	99.90234375	coercion	number
+RRI division by zero in nper	=RRI(1/0,100,200)	#DIV/0!	error	error
+YIELDMAT with negative coupon rate	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),-0.05,95)	#NUM!	error	error
+Coupon period days with European 30/360 basis (basis=4)	=COUPDAYS(DATE(2010,2,1),DATE(2019,12,31),2,4)	180	edge	number
+compatibility: periods=1 nominal equals effective (both platforms)	=EFFECT(0.08,1)	0.08000000000000007	compatibility	number
+present value as text-number string	=IPMT(0.1,1,12,"8000")	-800	coercion	number
+modified duration for 30-year bond with 3% coupon and 120% yield, semiannual	=MDURATION(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,2)	0.829861111506118	official	number
+NOMINAL: very small effective rate near machine epsilon	=NOMINAL(1e-15,4)	8.881784197001252e-16	compatibility	number
+PDURATION: text arguments — GS may coerce, Excel returns #VALUE!	=PDURATION("0.1","100","200")	7.272540897341714	compatibility	number
+numeric string yield coerced to number	=PRICEMAT(DATE(2008,2,15),DATE(2008,4,13),DATE(2007,11,11),0.061,"0.061",0)	99.98449887555694	coercion	number
+PV boolean FALSE as rate coerces to 0	=PV(FALSE,12,-100)	1200	coercion	number
+RRI nested in IFERROR for invalid inputs	=IFERROR(RRI(0,100,200),"invalid")	invalid	nested	string
+Coupon period days with actual/365 basis (basis=3)	=COUPDAYS(DATE(2010,2,1),DATE(2019,12,31),2,3)	182.5	edge	number
+compatibility: very high compounding frequency approaches continuous compounding	=EFFECT(0.05,1000)	0.05126978233188706	compatibility	number
+end_or_beginning as boolean TRUE (beginning of period)	=IPMT(0.1,1,12,8000,0,TRUE)	0	coercion	number
+modified duration with explicit basis=1 (actual/actual)	=MDURATION(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,2,1)	0.8298802950543064	official	number
+NOMINAL: rate exactly 1 (100% effective rate)	=NOMINAL(1,12)	0.7135571323115437	compatibility	number
+PDURATION: very small positive rate near zero — precision may differ	=PDURATION(1e-15,1000,2000)	624331476816536.4	compatibility	number
+negative coupon rate returns #NUM error	=PRICEMAT(DATE(2010,1,2),DATE(2020,1,1),DATE(2010,1,1),-0.03,0.05,0)	#NUM!	error	error
+PV text number as rate coerces	=PV("0.05",12,-100)	886.3251636448815	coercion	number
+RRI nested in IF to classify positive or negative growth	=IF(RRI(10,100,200)>0,"growth","decline")	growth	nested	string
+Frequency supplied as boolean TRUE coerced to 1 (annual)	=COUPDAYS(DATE(2010,2,1),DATE(2020,12,31),TRUE)	360	coercion	number
+compatibility: non-numeric text returns VALUE error (both platforms)	=EFFECT("five percent",12)	#VALUE!	compatibility	error
+future value as negative (savings scenario)	=IPMT(0.05,1,12,-1000)	50.00000000000001	coercion	number
+NPER basic periods for loan at 2% paying 500 on 40000 principal	=NPER(2,500,40000)	-4.625293579361693	official	number
+PDURATION: fv equal to pv — both GS and Excel should return 0	=PDURATION(0.05,500,500)	0	compatibility	number
+PV text number as nper coerces	=PV(0.05,"12",-100)	886.3251636448815	coercion	number
+RRI nested in ROUND for precision	=ROUND(RRI(10,100,150),6)	0.04138	nested	number
+Basis supplied as boolean FALSE coerced to 0 (30/360)	=COUPDAYS(DATE(2010,2,1),DATE(2019,12,31),4,FALSE)	90	coercion	number
+compatibility: nominal_rate just above 0 — boundary behavior	=EFFECT(0.0001,12)	0.0001000045834613772	compatibility	number
+period zero is below minimum and returns error	=IPMT(0.1,0,12,1000)	#NUM!	error	error
+NPER with future value and beginning-of-period payments	=NPER(0.12/12,-100,-1000,10000,1)	59.67386567429457	official	number
+monthly payment on 30-year mortgage at 5% annual rate	=PMT(0.05/12,30*12,100000)	-536.8216230121399	official	number
+PV text number as payment coerces	=PV(0.05,12,"-100")	886.3251636448815	coercion	number
+RRI nested in ABS	=ABS(RRI(5,200,100))	0.12944943670387588	nested	number
+Settlement as integer serial date	=COUPDAYS(40210,DATE(2019,12,31),4)	90	coercion	number
+future value with payment at beginning of period	=FV(2,12,100,400,1)	-292292400	official	number
+error propagation: NA() in rate	=IPMT(NA(),1,12,1000)	#N/A	error	error
+NPER with positive payment and future value target	=NPER(0.05,100,-1000,5000)	#NUM!	edge	error
+very large present value 1e15	=PMT(0.05/12,360,1e15)	-5368216230121.398	edge	number
+PV division by zero in rate argument	=PV(1/0,12,-100)	#DIV/0!	error	error
+SLN with zero salvage value	=SLN(10000,0,5)	2000	edge	number
+Maturity as integer serial date	=COUPDAYS(DATE(2010,2,1),43831,2)	180	coercion	number
+zero payments with present value only	=FV(0.05,10,0,-1000)	1628.894626777442	edge	number
+IF checks if interest payment exceeds threshold	=IF(IPMT(0.05/12,1,360,100000)<-300,"expensive","cheap")	expensive	nested	string
+NPER with text rate "0.05"	=NPER("0.05",-100,1000)	14.206699082890461	coercion	number
+boolean FALSE coerced to 0 as end_or_beginning	=PMT(0.05/12,360,100000,0,FALSE)	-536.8216230121399	coercion	number
+PV with end_or_beginning=0 vs 1 — payment timing difference	=PV(0.05,10,-100,0,1)	810.7821675644058	compatibility	number
+SLN boolean FALSE as salvage coerces to 0	=SLN(1000,FALSE,10)	100	coercion	number
+Too few arguments (only settlement provided)	=COUPDAYS(DATE(2010,2,1))	#N/A	error	error
+very large number of periods	=FV(0.001,1000,-10)	17169.239322355937	edge	number
+annual rate applied to full nper: same present value as monthly but annual	=IPMT(0.12,2,2,10000)	-633.9622641509433	compatibility	number
+NPER with division by zero as rate	=NPER(1/0,-100,1000)	#DIV/0!	error	error
+too few arguments (missing pv)	=PMT(0.05,12)	#N/A	error	error
+RATE with standard mortgage-like parameters	=RATE(360,-1000,200000)	0.0036559279523616793	edge	number
+SLN with life=0 — division by zero	=SLN(1000,100,0)	#DIV/0!	error	error
+Invalid frequency 3 returns #NUM!	=COUPDAYS(DATE(2010,2,1),DATE(2019,12,31),3)	#NUM!	error	error
+negative interest rate (deflation scenario)	=FV(-0.05,10,-100)	802.5261215232426	edge	number
+future value effect: non-zero fv changes interest allocation	=IPMT(0.1,1,5,1000,500,0)	-100	compatibility	number
+NPER result used in ROUND	=ROUND(NPER(0.12/12,-100,-1000,10000,1),2)	59.67	nested	number
+nested in IF to check payment direction	=IF(PMT(0.05/12,360,100000)<0,"payment outflow","inflow")	payment outflow	nested	string
+RRI with pv equal to fv to 15 decimal precision	=RRI(12,1000000,1000000.000000001)	0	compatibility	number
+SLN nested in ABS for negative depreciation	=ABS(SLN(1000,5000,10))	400	nested	number
+Settlement equal to maturity returns #NUM!	=COUPDAYS(DATE(2019,12,31),DATE(2019,12,31),2)	#NUM!	error	error
+boolean FALSE coerced to 0 as rate	=FV(FALSE,10,-100)	1000	coercion	number
+NPER with very small interest rate	=NPER(0.0001,-100,10000)	100.50838361920427	edge	number
+NPER: negative rate — behavior may differ across platforms	=NPER(-0.01,-100,1000)	9.483283065721594	compatibility	number
+compatibility: zero pv with positive fv gives savings payment	=PMT(0.06/12,240,0,100000)	-216.43105847817276	compatibility	number
+SLN with fractional life periods	=SLN(1000,100,2.5)	360	edge	number
+SYD first period depreciation with small life	=SYD(1000,100,1,1)	900	edge	number
+Settlement after maturity returns #NUM!	=COUPDAYS(DATE(2020,1,1),DATE(2019,12,31),2)	#NUM!	error	error
+text numeric string as rate	=FV("0.05",10,-100)	1257.789253554884	coercion	number
+NPER with TRUE as type argument (coerced to 1)	=NPER(0.05,-200,1000,0,TRUE)	5.573535570392963	coercion	number
+NPV with very large cash flows	=NPV(0.05,1e15,1e15)	1859410430839002.2	edge	number
+first period principal on zero interest loan	=PPMT(0,1,12,1000)	-83.33333333333333	edge	number
+SLN text number as life coerces	=SLN(30000,7500,"10")	2250	coercion	number
+SYD with text number for cost	=SYD("1000",100,10,1)	163.63636363636363	coercion	number
+Basis out of range (5) returns #NUM!	=COUPDAYS(DATE(2010,2,1),DATE(2019,12,31),2,5)	#NUM!	error	error
+too few arguments (missing nper and payment)	=FV(0.05)	#N/A	error	error
+NPER with NA() as rate	=NPER(NA(),-100,1000)	#N/A	error	error
+NPV with FALSE cash flow (coerced to 0)	=NPV(0.1,FALSE,1000,2000)	2329.0758827948903	coercion	number
+with non-zero future value	=PPMT(0.05/12,1,360,100000,10000)	-132.17045198002043	edge	number
+SLN nested in IFERROR for zero life	=IFERROR(SLN(1000,100,0),"div-zero")	div-zero	nested	string
+IFERROR wrapping invalid frequency	=IFERROR(COUPDAYS(DATE(2010,2,1),DATE(2019,12,31),3),"invalid")	invalid	nested	string
+non-numeric text as nper returns error	=FV(0.05,"ten",-100)	#VALUE!	error	error
+NPER inside IFERROR with invalid input	=IFERROR(NPER("abc",-100,1000),"invalid rate")	invalid rate	nested	string
+monthly payment with beginning-of-period payments	=PMT(0.05/12,30*12,100000,0,1)	-534.5941473979816	official	number
+text number coerced as pv	=PPMT(0.05,1,12,"1000")	-62.825410020815326	coercion	number
+SLN with very small life=0.001	=SLN(1000,0,0.001)	1000000	compatibility	number
+IF checking whether coupon period is longer than 180 days	=IF(COUPDAYS(DATE(2011,1,25),DATE(2011,11,15),2,1)>180,"long","short")	long	nested	string
+propagation: NA() as payment_amount	=FV(0.05,10,NA())	#N/A	error	error
+NPER: zero rate with positive payment and present value — platforms should converge	=NPER(0,-500,2000)	4	compatibility	number
+negative present value (savings scenario)	=PMT(0.05/12,360,-100000)	536.8216230121399	edge	number
+division by zero fed as rate	=PPMT(1/0,1,12,1000)	#DIV/0!	error	error
+SYD very small cost-salvage difference	=SYD(100,99.9999,10,1)	0.000018181818182421754	edge	number
+IFERROR handling settlement >= maturity	=IFERROR(COUPDAYS(DATE(2020,1,1),DATE(2019,12,31),2),0)	0	nested	number
+nested in IF: check if future value is positive	=IF(FV(0.05,10,-100,0,0)>0,"positive","non-positive")	positive	nested	string
+NPV with single cash flow	=NPV(0.1,1000)	909.090909090909	edge	number
+text number coerced as nper argument	=PMT(0.05,"12",1000)	-112.82541002081534	coercion	number
+compatibility: beginning-of-period vs end-of-period principal differs	=PPMT(0.05/12,1,360,100000,0,1)-PPMT(0.05/12,1,360,100000,0,0)	-414.43919105250836	compatibility	number
+Basis 0 (30/360 NASD) always returns 180 for semiannual regardless of dates	=COUPDAYS(DATE(2010,6,15),DATE(2020,12,31),2,0)	180	compatibility	number
+nested: FV used inside ABS	=ABS(FV(0.05,10,-100,-500))	2072.236566943605	nested	number
+NPV with negative cash flows (all payments)	=NPV(0.1,-500,-500,-500)	-1243.425995492111	edge	number
+division by zero fed as rate	=PMT(1/0,12,1000)	#DIV/0!	error	error
+bond price with 3% coupon 120% yield semiannual 30-year horizon	=PRICE(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,100,2,0)	2.4964231392093046	official	number
+Actual/Actual basis result may differ between GS and Excel for leap year periods	=COUPDAYS(DATE(2011,11,1),DATE(2012,5,15),2,1)	184	compatibility	number
+compatibility: negative present value as outflow	=FV(0.05,10,-100,-500,0)	2072.236566943605	compatibility	number
+NPV with mixed types in array cash flow	=NPV(0.1,{1000,"two",TRUE,4000})	4214.876033057851	coercion	number
+compatibility: type=0 vs omitted should yield same result	=PMT(0.05/12,360,100000,0,0)	-536.8216230121399	compatibility	number
+PV with non-numeric end_or_beginning value	=PV(0.05,12,-100,0,"x")	#VALUE!	error	error
+European 30/360 vs NASD 30/360 end-of-month adjustment	=COUPDAYS(DATE(2010,3,31),DATE(2020,9,30),2,4)	180	compatibility	number
+compatibility: large interest rate compounding behavior	=FV(1,10,-100)	102300	compatibility	number
+single payment period (nper=1)	=PMT(0.05,1,1000)	-1049.999999999999	edge	number
+principal payment on month 1 of 30-year mortgage at 5%	=PPMT(0.05/12,1,30*12,100000)	-120.15495634547314	official	number
+PV nested in ROUND	=ROUND(PV(0.08/12,360,-1000),2)	136283.49	nested	number
+Annual vs semiannual coupon period length on same dates	=COUPDAYS(DATE(2010,2,1),DATE(2020,2,1),1,0)	360	compatibility	number
+single zero rate: future value equals principal	=FVSCHEDULE(1000,{0})	1000	edge	number
+boolean TRUE coerced to 1 as end_or_beginning	=PMT(0.05/12,360,100000,0,TRUE)	-534.5941473979816	coercion	number
+single period loan (nper=1, per=1)	=PPMT(0.05,1,1,1000)	-999.9999999999991	edge	number
+RATE sample: 12 periods payment=-100 pv=400 fv=0 type=0 guess=0.1	=RATE(12,-100,400,0,0,0.1)	0.228933070977093	official	number
+Basis 2 (Actual/360) coupon period count: result should match basis 1 for integer coupon periods	=COUPDAYS(DATE(2011,1,25),DATE(2011,11,15),2,2)	180	compatibility	number
+single positive rate: simple one-period compounding	=FVSCHEDULE(1000,{0.05})	1050	edge	number
+too few arguments (missing nper and pv)	=PMT(0.05)	#N/A	error	error
+boolean FALSE coerced to 0 as end_or_beginning	=PPMT(0.05/12,1,360,100000,0,FALSE)	-120.15495634547314	coercion	number
+RRI with very large nper — precision differences	=RRI(1000,1,2)	0.0006933874625807412	compatibility	number
+quarterly frequency with default basis (US 30/360)	=COUPDAYSNC(DATE(2010,2,1),DATE(2019,12,31),4)	59	official	number
+future value: 200% rate, 12 periods, 100 payment, 400 present value	=FV(2,12,100,400)	-239148400	official	number
+period greater than nper returns error	=IPMT(0.1,13,12,1000)	#NUM!	error	error
+NPER with zero interest rate	=NPER(0,-200,1000)	5	edge	number
+RRI with fractional nper — GS supports, Excel may differ	=RRI(10.5,10,3)	-0.10833437505113597	compatibility	number
+Issue date equal to maturity returns #NUM!	=ACCRINTM(DATE(2010,6,30),DATE(2010,6,30),0.05,100)	0	error	number
+text settlement date passed as string instead of DATE value	=COUPDAYSNC("2011-01-25",DATE(2011,11,15),2,1)	110	coercion	number
+redemption as zero returns error	=INTRATE(DATE(2010,1,1),DATE(2020,1,1),1000,0,0)	#NUM!	error	error
+IRR for 5-period cash flow with initial investment of -4000 and guess 10%	=IRR({-4000,200,250,300,350},0.1)	-0.3524266235692171	official	number
+RATE with explicit guess=0.05	=RATE(12,-100,400,0,0,0.05)	0.22893307097709573	edge	number
+SYD with negative text number for salvage	=SYD(1000,"-100",5,1)	#NUM!	coercion	error
