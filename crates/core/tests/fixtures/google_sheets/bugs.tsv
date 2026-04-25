@@ -1457,7 +1457,6 @@ YIELD with annual payments, explicit 30/360 day count convention	=YIELD(DATE(201
 YIELD: redemption value above par — GS and Excel should agree but end-of-month handling may differ	=YIELD(DATE(2020,1,31),DATE(2030,3,31),0.05,95,110,2,0)	0.0638866452844587	compatibility	number
 non-integer basis truncated to integer (1.9 → 1)	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,1.9)	94.6354492078772	coercion	number
 RECEIVED with negative investment — error in both platforms	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),-1000,0.05)	#NUM!	compatibility	error
-VDB with salvage greater than cost: error or zero handling	=VDB(100,500,10,0,1)	#NUM!	compatibility	error
 Days from coupon start to settlement, semiannual, actual/actual basis	=COUPDAYBS(DATE(2010,2,1),DATE(2019,12,31),4,1)	32	official	number
 invalid type value: type=2 returns #NUM!	=CUMPRINC(0.05,12,1000,1,6,2)	-454.6028203534759	error	number
 factor=0: factor must be positive, returns #NUM!	=DDB(5000,500,8,1,0)	#NUM!	error	error
@@ -1473,15 +1472,12 @@ Macaulay duration: 30-year bond with actual/actual day count convention	=DURATIO
 IFERROR wraps negative yield error returning fallback string	"=IFERROR(MDURATION(DATE(2010,1,1),DATE(2020,1,1),0.08,-0.01,2,0),""invalid yield"")"	invalid yield	nested	string
 text that looks like a date as settlement returns error	"=DURATION(""2020-01-01"",DATE(2030,1,1),0.05,0.06,2)"	7.894997340182344	coercion	number
 TBILLPRICE with boolean TRUE coerced to discount	=TBILLPRICE(DATE(2020,1,1),DATE(2020,7,1),TRUE)	#NUM!	coercion	error
-VDB fractional start and end period	=VDB(1000,100,10,0.5,1.5)	180	edge	number
 text settlement date passed as string	"=COUPNUM(""2010-02-01"",DATE(2019,12,31),4)"	40	coercion	number
 rate passed as percentage string instead of decimal	"=CUMIPMT(""10%"",10,1000,1,5,0)"	-430.66006411533647	coercion	number
-VDB factor 0: behavior may differ between GS and Excel	=VDB(1000,100,10,0,1,0)	#NUM!	compatibility	error
 period=life+1 boundary: one period beyond life end with different asset	=DB(2000,200,6,7)	#NUM!	compatibility	error
 negative yield returns error	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),0.08,-0.01,2,0)	#NUM!	error	error
 RECEIVED text date string instead of DATE() function	"=RECEIVED(""2010-01-01"",""2020-01-01"",1000,0.05)"	2000	coercion	number
 TBILLYIELD with text date string instead of DATE function	"=TBILLYIELD(""2020-01-01"",""2020-07-01"",98.45)"	0.031142042315226614	compatibility	number
-VDB with negative cost	=VDB(-1000,100,10,0,1)	#NUM!	error	error
 RECEIVED end-of-month date: Feb 28 to Aug 31 with 30/360	=RECEIVED(DATE(2010,2,28),DATE(2010,8,31),1000,0.05,0)	1025.6410256410256	compatibility	number
 YIELDMAT: issue date after settlement date — GS may accept, Excel returns #NUM!	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2021,1,1),0.05,95)	#NUM!	compatibility	error
 nested in ROUND to 2 decimal places	=ROUND(PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,0),2)	94.63	nested	number

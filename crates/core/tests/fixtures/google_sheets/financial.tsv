@@ -1024,3 +1024,7 @@ Fractional period less than 1 rounds up to 1	=AMORLINC(1000,DATE(2010,1,1),DATE(
 Rate as percentage (0.15) vs decimal: both platforms should treat equally	=AMORLINC(1000,DATE(2010,7,20),DATE(2010,8,20),100,6,0.15,4)	137.5	compatibility	number
 Purchase date after first_period_end returns error	=AMORLINC(1000,DATE(2010,12,31),DATE(2010,1,1),100,1,0.15)	#NUM!	error	error
 Sixth period depreciation with 30/360 basis (default)	=AMORLINC(1000,DATE(1969,7,20),DATE(1969,8,20),100,6,0.15)	137.5	official	number
+VDB with salvage greater than cost: error or zero handling	=VDB(100,500,10,0,1)	#NUM!	compatibility	error
+VDB fractional start and end period	=VDB(1000,100,10,0.5,1.5)	180	edge	number
+VDB factor 0: behavior may differ between GS and Excel	=VDB(1000,100,10,0,1,0)	#NUM!	compatibility	error
+VDB with negative cost	=VDB(-1000,100,10,0,1)	#NUM!	error	error

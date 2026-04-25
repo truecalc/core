@@ -429,8 +429,8 @@ pub fn db_fn(args: &[Value]) -> Value {
 // ---------------------------------------------------------------------------
 /// `VDB(cost, salvage, life, start_period, end_period, [factor], [no_switch])`
 ///
-/// Variable-rate declining balance depreciation.
-/// Switches to straight-line when SL > DDB (unless no_switch=TRUE).
+/// Variable-rate declining balance depreciation with optional SL switch.
+/// Fractional periods use integer-period book values scaled by overlap fraction.
 pub fn vdb_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 5, 7) {
         return err;
@@ -441,7 +441,6 @@ pub fn vdb_fn(args: &[Value]) -> Value {
     let start_period = match to_number(args[3].clone()) { Ok(n) => n, Err(e) => return e };
     let end_period   = match to_number(args[4].clone()) { Ok(n) => n, Err(e) => return e };
     let factor       = match opt_number(args, 5, 2.0) { Ok(n) => n, Err(e) => return e };
-    // no_switch: for booleans we need special handling
     let no_switch = if args.len() > 6 {
         match &args[6] {
             Value::Bool(b) => *b,
@@ -454,89 +453,61 @@ pub fn vdb_fn(args: &[Value]) -> Value {
         false
     };
 
-    if start_period > end_period {
+    if cost < 0.0 || salvage < 0.0 || salvage > cost {
         return Value::Error(ErrorKind::Num);
     }
-    if life <= 0.0 {
+    if life <= 0.0 || factor <= 0.0 {
+        return Value::Error(ErrorKind::Num);
+    }
+    if start_period < 0.0 || end_period < 0.0 || start_period > end_period {
         return Value::Error(ErrorKind::Num);
     }
 
-    // Compute depreciation for fractional periods using the declining balance method
-    let vdb_period = |start: f64, end: f64, cost: f64, salvage: f64| -> f64 {
-        if start >= end {
-            return 0.0;
-        }
-        let rate = factor / life;
-        // We need to compute depreciation from period start to end.
-        // For integer period: dep_at_period(p) with book value after p periods
-        // First compute book value at start
-        let book_at = |p: f64| -> f64 {
-            if p <= 0.0 {
-                return cost;
-            }
-            // Book value = cost * (1 - rate)^p but capped at salvage
-            let bv = cost * (1.0 - rate).powf(p);
-            if bv < salvage { salvage } else { bv }
-        };
+    // Cap end_period at life
+    let start_period = start_period.min(life);
+    let end_period   = end_period.min(life);
 
-        // For fractional periods, compute integral of depreciation over [start, end]
-        // This is book(start) - book(end) but with possible switch to SL
-        if no_switch {
-            // No SL switch: pure declining balance
-            let bv_start = book_at(start);
-            let bv_end = book_at(end);
-            let dep = bv_start - bv_end;
-            if dep < 0.0 { 0.0 } else { dep }
+    if start_period >= end_period {
+        return Value::Number(0.0);
+    }
+
+    let rate = factor / life;
+    let mut book = cost;
+    let mut switched = false;
+    let mut total = 0.0_f64;
+
+    // Iterate over integer periods [0,1), [1,2), ... up to ceil(end_period).
+    // For each period, compute full-period depreciation using integer bookkeeping,
+    // then scale by the overlap of [start_period, end_period] with that period.
+    let n_periods = end_period.ceil() as i64;
+    for p in 0..n_periods {
+        let period_s = p as f64;
+        let period_e = (p + 1) as f64;
+
+        let ddb = book * rate;
+        let remaining_life = life - period_s;
+        let sl = if remaining_life > 0.0 { (book - salvage) / remaining_life } else { 0.0 };
+        let full_dep = if no_switch {
+            ddb
+        } else if switched || sl >= ddb {
+            switched = true;
+            sl
         } else {
-            // With SL switch: iterate over integer periods in [start, end]
-            // and switch to SL when SL >= DDB
-            let s = start.floor() as i64;
-            let e = end.floor() as i64;
-            let mut total = 0.0;
-            let mut book = book_at(start);
-            let mut switched = false;
+            ddb
+        };
+        let full_dep = full_dep.min(book - salvage).max(0.0);
 
-            // Handle fractional first period [start, ceil(start)]
-            let first_end = (s + 1) as f64;
-            let first_end = first_end.min(end);
-            let first_frac = first_end - start;
+        let overlap = (period_e.min(end_period) - period_s.max(start_period)).max(0.0);
+        total += full_dep * overlap;
 
-            if first_frac > 0.0 {
-                let ddb = book * rate * first_frac;
-                let remaining_life = life - start;
-                let sl = if remaining_life > 0.0 { (book - salvage) / remaining_life * first_frac } else { 0.0 };
-                let dep = if !no_switch && sl >= ddb { switched = true; sl } else { ddb };
-                let dep = dep.min(book - salvage);
-                let dep = dep.max(0.0);
-                total += dep;
-                book -= dep;
-            }
+        book -= full_dep;
+        if book < salvage { book = salvage; }
+    }
 
-            // Handle full integer periods
-            for p in (s + 1)..=e {
-                let period_end = ((p + 1) as f64).min(end);
-                let frac = period_end - p as f64;
-                if frac <= 0.0 { break; }
-
-                let ddb = book * rate * frac;
-                let remaining_life = life - p as f64;
-                let sl = if remaining_life > 0.0 { (book - salvage) / remaining_life * frac } else { 0.0 };
-                let dep = if switched || sl >= ddb { switched = true; sl } else { ddb };
-                let dep = dep.min(book - salvage);
-                let dep = dep.max(0.0);
-                total += dep;
-                book -= dep;
-            }
-
-            total
-        }
-    };
-
-    let result = vdb_period(start_period, end_period, cost, salvage);
-    if !result.is_finite() {
+    if !total.is_finite() {
         return Value::Error(ErrorKind::Num);
     }
-    Value::Number(result)
+    Value::Number(total)
 }
 
 // ---------------------------------------------------------------------------
