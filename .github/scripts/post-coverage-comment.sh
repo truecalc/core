@@ -131,6 +131,17 @@ footer = (
     f'| **{prop_total_cell}** | **~{total_grand:,}** |'
 )
 
+# All property test functions (including SKIP suites — they run in nextest but aren't
+# shown in the table; we need them to account for the full nextest total)
+prop_fn_all = sum(
+    int(s.get('tests', 0))
+    for s in root.findall('testsuite')
+    if s.get('name', '').startswith('truecalc-core::property_')
+)
+# Total Rust test functions reported by nextest (shown in GitHub Checks)
+nextest_total = sum(int(s.get('tests', 0)) for s in root.findall('testsuite'))
+other_fns = nextest_total - total_unit - prop_fn_all
+
 table = '\n'.join(rows)
 
 print(f'''## Test Coverage by Category
@@ -140,7 +151,7 @@ print(f'''## Test Coverage by Category
 {table}
 {footer}
 
-<sub>Oracle: Google Sheets · ✓ = 100% passing · ⚠ = known deviation</sub>''')
+<sub>✓ = 100% passing · ⚠ = known deviation · The ~{total_grand:,} total counts formula evaluations (each conformance row and each property case = 1). GitHub Checks reports {nextest_total:,} Rust test functions: {total_unit:,} unit + {prop_fn_all} property functions (shown as cases above) + {other_fns} conformance/integration.</sub>''')
 PYEOF
 )
 

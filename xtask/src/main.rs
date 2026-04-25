@@ -8,7 +8,7 @@ mod gen_parser_web;
 mod gen_statistical;
 mod gen_text_date_eng_fin;
 mod generate;
-mod oracle_sheets;
+mod sheets_eval;
 mod types;
 
 use std::path::PathBuf;
@@ -36,7 +36,7 @@ impl PlatformArg {
 #[derive(Debug, Parser)]
 #[command(
     name = "xtask",
-    about = "Fixture generation and oracle evaluation tasks"
+    about = "Fixture generation and evaluation tasks"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -45,7 +45,7 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    /// Generate pre-oracle fixture TSV files
+    /// Generate pre-evaluation fixture TSV files
     GenerateFixtures {
         #[arg(long)]
         platform: PlatformArg,
@@ -56,8 +56,8 @@ enum Commands {
         #[arg(long)]
         all: bool,
     },
-    /// Evaluate fixtures against the oracle (stub — see T3.8)
-    OracleEvaluate {
+    /// Evaluate fixtures against Google Sheets (stub — see T3.8)
+    GsEvaluate {
         #[arg(long)]
         platform: PlatformArg,
         /// Evaluate all categories
@@ -83,7 +83,7 @@ fn main() -> Result<()> {
             }
             run_generate_fixtures(platform.to_platform(), category.as_deref(), all)?;
         }
-        Commands::OracleEvaluate {
+        Commands::GsEvaluate {
             platform,
             all,
             category,
@@ -91,9 +91,9 @@ fn main() -> Result<()> {
             if !all && category.is_none() {
                 bail!("Specify --all or --category <name>");
             }
-            let web_app_url = std::env::var("GAS_ORACLE_URL")
-                .context("GAS_ORACLE_URL env var not set (set it to the Apps Script web app URL)")?;
-            run_oracle_evaluate(platform.to_platform(), category.as_deref(), all, &web_app_url)?;
+            let web_app_url = std::env::var("GAS_URL")
+                .context("GAS_URL env var not set (set it to the Apps Script web app URL)")?;
+            run_gs_evaluate(platform.to_platform(), category.as_deref(), all, &web_app_url)?;
         }
     }
 
@@ -126,7 +126,7 @@ fn read_tsv(path: &std::path::Path) -> Result<Vec<types::TestCase>> {
     Ok(cases)
 }
 
-fn run_oracle_evaluate(
+fn run_gs_evaluate(
     platform: Platform,
     category: Option<&str>,
     all: bool,
@@ -136,7 +136,7 @@ fn run_oracle_evaluate(
     let output_dir = PathBuf::from("crates/core/tests/fixtures").join(platform.dir_name());
     std::fs::create_dir_all(&output_dir)?;
 
-    let oracle = oracle_sheets::SheetsOracle::new(web_app_url.to_owned());
+    let evaluator = sheets_eval::SheetsEvaluator::new(web_app_url.to_owned());
 
     let categories: &[&str] = &[
         "math",
@@ -169,7 +169,7 @@ fn run_oracle_evaluate(
 
         println!("evaluating {} …", cat);
         let cases = read_tsv(&input_path)?;
-        let evaluated = oracle.evaluate(&cases)?;
+        let evaluated = evaluator.evaluate(&cases)?;
 
         // write_tsv writes "={formula}" — but our TestCase.formula field already
         // has the "=" prefix from the input TSV, so strip it before passing in.

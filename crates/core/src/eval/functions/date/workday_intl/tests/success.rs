@@ -1,7 +1,7 @@
 use super::super::workday_intl_fn;
 use crate::types::Value;
 
-// Oracle: WORKDAY.INTL(DATE(2024,1,1),5,1)=45299
+// gs: WORKDAY.INTL(DATE(2024,1,1),5,1)=45299
 //         WORKDAY.INTL(DATE(2024,1,1),1,7)=45293
 //         WORKDAY.INTL(DATE(2024,1,1),5,"0000011")=45299
 //         WORKDAY.INTL(DATE(2024,1,1),0,1)=45292

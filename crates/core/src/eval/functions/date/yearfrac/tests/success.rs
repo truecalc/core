@@ -1,7 +1,7 @@
 use super::super::yearfrac_fn;
 use crate::types::Value;
 
-// Oracle: Google Sheets, Date.xlsx, YEARFRAC sheet
+// gs: Google Sheets, Date.xlsx, YEARFRAC sheet
 // DATE(2024,1,1)=45292, DATE(2025,1,1)=45658
 
 fn approx(a: Value, b: f64, tol: f64) -> bool {

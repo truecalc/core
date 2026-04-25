@@ -9,13 +9,13 @@ fn serial_zero_is_day_30() {
 
 #[test]
 fn serial_1_is_day_31() {
-    // oracle: DAY(1) = 31 (Dec 31 1899)
+    // gs: DAY(1) = 31 (Dec 31 1899)
     assert_eq!(day_fn(&[Value::Number(1.0)]), Value::Number(31.0));
 }
 
 #[test]
 fn serial_60_excel_bug() {
-    // oracle: DAY(60) = 28 (Feb 28 1900, phantom Feb 29)
+    // gs: DAY(60) = 28 (Feb 28 1900, phantom Feb 29)
     assert_eq!(day_fn(&[Value::Number(60.0)]), Value::Number(28.0));
 }
 

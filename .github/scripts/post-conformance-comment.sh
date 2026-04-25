@@ -74,7 +74,6 @@ truecalc calculations match Google Sheets — ${passed}/${total} tests passing (
 ${category_section}
 **Total: ${passed}/${total} (${pct}%)**
 
-**Property tests:** 65 properties × 500 cases = 32,500 generated inputs — all passed
 "
 
 if [[ -n "$regression_section" ]]; then
@@ -83,7 +82,7 @@ ${regression_section}"
 fi
 
 comment+="
-<sub>Oracle: Google Sheets · Verified on every PR</sub>"
+<sub>Google Sheets conformance · Verified on every PR</sub>"
 
 # Post comment (only on actual PRs, not pushes to main)
 if [[ -n "$PR_NUMBER" && "$PR_NUMBER" != "0" ]]; then

@@ -1,7 +1,7 @@
 use super::super::weeknum_fn;
 use crate::types::Value;
 
-// Oracle: Google Sheets, Date.xlsx, WEEKNUM sheet
+// gs: Google Sheets, Date.xlsx, WEEKNUM sheet
 // DATE(2024,1,1)=45292 (Mon), DATE(2024,1,7)=45298 (Sun), DATE(2024,1,8)=45299 (Mon)
 
 #[test]

@@ -1,6 +1,6 @@
 use crate::types::{Platform, TestCase};
 
-/// Helper: produce a TestCase with empty expected_value (oracle fills it).
+/// Helper: produce a TestCase with empty expected_value (evaluator fills it).
 fn tc(description: &str, formula: &str, test_category: &str, expected_type: &str) -> TestCase {
     TestCase::new(description, formula, "", test_category, expected_type)
 }

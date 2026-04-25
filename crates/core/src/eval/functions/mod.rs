@@ -187,7 +187,7 @@ impl Registry {
 
 impl Registry {
     /// Volatile functions — outputs change on every evaluation.
-    /// Excluded from oracle conformance fixtures; covered by property tests instead.
+    /// Excluded from conformance fixtures; covered by property tests instead.
     pub const VOLATILE_FUNCTIONS: &'static [&'static str] = &[
         "RAND", "RANDARRAY", "NOW", "TODAY", "RANDBETWEEN",
     ];

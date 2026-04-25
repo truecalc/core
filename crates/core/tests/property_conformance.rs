@@ -1,7 +1,7 @@
 // crates/core/tests/property_conformance.rs
 //
 // Conformance-driven property tests: for each function confirmed by Google Sheets
-// oracle fixtures, verify that the mathematical property holds across generated inputs.
+// reference fixtures, verify that the mathematical property holds across generated inputs.
 //
 // These tests complement the fixed-row conformance tests in conformance.rs.
 // They catch regressions for inputs that don't appear in the fixture files.
