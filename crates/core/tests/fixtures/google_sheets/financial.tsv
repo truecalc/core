@@ -1042,3 +1042,11 @@ YIELDMAT: issue date after settlement date — GS may accept, Excel returns #NUM
 YIELDDISC with redemption as FALSE (coerced to 0)	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),95,FALSE)	#NUM!	coercion	error
 YIELDMAT with negative coupon rate	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),-0.05,95)	#NUM!	error	error
 redemption as zero returns error	=INTRATE(DATE(2010,1,1),DATE(2020,1,1),1000,0,0)	#NUM!	error	error
+negative yield returns NUM error	=DURATION(DATE(2020,1,1),DATE(2030,1,1),0.05,-0.06,2)	#NUM!	error	error
+negative coupon returns error	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),-0.08,0.09,2,0)	#NUM!	error	error
+negative coupon returns NUM error	=DURATION(DATE(2020,1,1),DATE(2030,1,1),-0.05,0.06,2)	#NUM!	error	error
+IFERROR wraps negative yield error returning fallback string	"=IFERROR(MDURATION(DATE(2010,1,1),DATE(2020,1,1),0.08,-0.01,2,0),""invalid yield"")"	invalid yield	nested	string
+TBILLPRICE with boolean TRUE coerced to discount	=TBILLPRICE(DATE(2020,1,1),DATE(2020,7,1),TRUE)	#NUM!	coercion	error
+negative yield returns error	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),0.08,-0.01,2,0)	#NUM!	error	error
+TBILLYIELD maturity more than one year after settlement	=TBILLYIELD(DATE(2020,1,1),DATE(2021,6,1),98.45)	#NUM!	error	error
+TBILLPRICE discount rate of 1 (100%): extreme rate	=TBILLPRICE(DATE(2020,1,1),DATE(2020,4,1),1.0)	#NUM!	compatibility	error

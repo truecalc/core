@@ -1039,7 +1039,7 @@ pub fn tbillprice_fn(args: &[Value]) -> Value {
     if settlement >= maturity {
         return Value::Error(ErrorKind::Num);
     }
-    if discount <= 0.0 {
+    if discount <= 0.0 || discount >= 1.0 {
         return Value::Error(ErrorKind::Num);
     }
 
@@ -1094,6 +1094,9 @@ pub fn tbillyield_fn(args: &[Value]) -> Value {
     }
 
     let dsm = tbill_dsm(settlement, maturity);
+    if dsm > 366.0 {
+        return Value::Error(ErrorKind::Num);
+    }
     let result = (100.0 - pr) / pr * 360.0 / dsm;
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);

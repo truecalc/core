@@ -825,6 +825,9 @@ fn duration_calc(args: &[Value], _modified: bool) -> Result<f64, Value> {
     if settlement >= maturity {
         return Err(Value::Error(ErrorKind::Num));
     }
+    if coupon < 0.0 || yld < 0.0 {
+        return Err(Value::Error(ErrorKind::Num));
+    }
 
     let freq = frequency as f64;
     let coupon_per_period = coupon / freq;
