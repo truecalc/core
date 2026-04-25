@@ -1,31 +1,60 @@
 description	formula_text	expected_value	test_category	expected_type
-ENCODEURL space -> %20	"=ENCODEURL(""hello world"")"	hello%20world	basic	string
-ENCODEURL special chars encoded	"=ENCODEURL(""a+b=c&d"")"	a%2Bb%3Dc%26d	basic	string
-ENCODEURL no special chars -> unchanged	"=ENCODEURL(""hello"")"	hello	basic	string
-ENCODEURL empty string -> empty	"=ENCODEURL("""")"		basic	string
-ENCODEURL percent sign -> %25	"=ENCODEURL(""100%"")"	100%25	basic	string
-ENCODEURL slash encoded	"=ENCODEURL(""a/b"")"	a%2Fb	edge	string
-ENCODEURL LEN of encoded space = 13	"=LEN(ENCODEURL(""hello world""))"	13	nested	number
-ENCODEURL no args -> #N/A	=ENCODEURL()	#N/A	error	error
-ENCODEURL number arg coercion	=ENCODEURL(42)	42	coercion	string
-ENCODEURL unicode chars	"=ENCODEURL(""caf\u00e9"")"	caf%5Cu00e9	edge	string
-HYPERLINK with label -> returns label	"=HYPERLINK(""https://example.com"",""Click here"")"	Click here	basic	string
-HYPERLINK no label -> returns url	"=HYPERLINK(""https://example.com"")"	https://example.com	basic	string
-HYPERLINK LEN of label = 5	"=LEN(HYPERLINK(""https://example.com"",""Click""))"	5	nested	number
-HYPERLINK empty label -> empty string	"=HYPERLINK(""https://example.com"","""")"		basic	string
-HYPERLINK numeric label coerced to text	"=HYPERLINK(""https://example.com"",42)"	42	coercion	number
-HYPERLINK label with spaces -> returns label	"=HYPERLINK(""https://example.com"",""Go here now"")"	Go here now	basic	string
-HYPERLINK no args -> #N/A	=HYPERLINK()	#N/A	error	error
-HYPERLINK ISTEXT of label result	"=ISTEXT(HYPERLINK(""https://example.com"",""label""))"	true	nested	boolean
-HYPERLINK http url	"=HYPERLINK(""http://example.com"",""link"")"	link	basic	string
-HYPERLINK label is boolean	"=HYPERLINK(""https://example.com"",TRUE)"	true	coercion	boolean
-ISURL https url -> TRUE	"=ISURL(""https://example.com"")"	true	basic	boolean
-ISURL http url -> TRUE	"=ISURL(""http://example.com"")"	true	basic	boolean
-ISURL ftp url -> TRUE	"=ISURL(""ftp://example.com"")"	true	basic	boolean
-ISURL plain text -> FALSE	"=ISURL(""not a url"")"	false	basic	boolean
-ISURL empty string -> FALSE	"=ISURL("""")"	false	basic	boolean
-ISURL number -> FALSE	=ISURL(42)	false	coercion	boolean
-ISURL no args -> #N/A	=ISURL()	#N/A	error	error
-ISURL domain only	"=ISURL(""example.com"")"	true	basic	boolean
-IF(ISURL url, 1, 0)	"=IF(ISURL(""https://example.com""),1,0)"	1	nested	number
-AND(ISURL https, ISURL http)	"=AND(ISURL(""https://a.com""),ISURL(""http://b.com""))"	true	nested	boolean
+ENCODEURL hello comma world encodes comma and space	=ENCODEURL("hello, world!")	hello%2C%20world%21	official	string
+ENCODEURL simple space becomes %20	=ENCODEURL("hello world")	hello%20world	official	string
+ENCODEURL URL with slashes and colon	=ENCODEURL("http://example.com")	http%3A%2F%2Fexample.com	official	string
+ENCODEURL query string with equals and ampersand	=ENCODEURL("a=1&b=2")	a%3D1%26b%3D2	official	string
+ENCODEURL empty string returns empty string	=ENCODEURL("")		official	string
+ENCODEURL already encoded percent sign re-encodes %	=ENCODEURL("50%")	50%25	edge	string
+ENCODEURL string with forward slash	=ENCODEURL("path/to/resource")	path%2Fto%2Fresource	edge	string
+ENCODEURL string with hash symbol	=ENCODEURL("tag#anchor")	tag%23anchor	edge	string
+ENCODEURL numeric-looking string	=ENCODEURL("123")	123	edge	string
+ENCODEURL question mark and equals	=ENCODEURL("?q=test")	%3Fq%3Dtest	edge	string
+ENCODEURL preserves alphanumeric characters unchanged	=ENCODEURL("ABCabc123")	ABCabc123	coercion	string
+ENCODEURL hyphen and underscore not encoded	=ENCODEURL("hello-world_test")	hello-world_test	coercion	string
+ENCODEURL no arguments returns error	=ENCODEURL()	#N/A	error	error
+ENCODEURL too many arguments returns error	=ENCODEURL("a","b")	#N/A	error	error
+ENCODEURL result concatenated into URL	="https://example.com/search?q="&ENCODEURL("hello world")	https://example.com/search?q=hello%20world	nested	string
+ENCODEURL nested inside HYPERLINK	=HYPERLINK("https://example.com?q="&ENCODEURL("test value"),"Search")	Search	nested	string
+ENCODEURL not available in Excel for Web or Mac	=ENCODEURL("hello world")	hello%20world	compatibility	string
+ENCODEURL both platforms encode space as %20	=ENCODEURL("hello world")	hello%20world	compatibility	string
+ENCODEURL both platforms encode ampersand as %26	=ENCODEURL("a&b")	a%26b	compatibility	string
+HYPERLINK with URL and link label	=HYPERLINK("https://www.google.com","Google")	Google	official	string
+HYPERLINK with https URL only omitted label shows URL	=HYPERLINK("https://example.com")	https://example.com	official	string
+HYPERLINK with mailto protocol	=HYPERLINK("mailto:test@example.com","Email us")	Email us	official	string
+HYPERLINK with ftp URL	=HYPERLINK("ftp://files.example.com","FTP Files")	FTP Files	official	string
+HYPERLINK empty label string makes cell appear empty	=HYPERLINK("https://example.com","")		official	string
+HYPERLINK with http prefix (assumed if missing)	=HYPERLINK("http://example.com","HTTP link")	HTTP link	edge	string
+HYPERLINK with numeric friendly_name	=HYPERLINK("https://example.com",2024)	2024	edge	number
+HYPERLINK empty URL string	=HYPERLINK("")		edge	string
+HYPERLINK protocol-less URL GS prepends http://	=HYPERLINK("example.com","No protocol")	No protocol	coercion	string
+HYPERLINK label is URL when label omitted	=HYPERLINK("https://example.com")	https://example.com	coercion	string
+HYPERLINK no arguments returns error	=HYPERLINK()	#N/A	error	error
+HYPERLINK non-string URL returns error	=HYPERLINK(123)	123	error	number
+HYPERLINK invalid protocol may return error in GS	=HYPERLINK("javascript:alert(1)","JS")	JS	error	string
+HYPERLINK nested with ENCODEURL for query param	=HYPERLINK("https://example.com?q="&ENCODEURL("hello world"),"Search")	Search	nested	string
+HYPERLINK inside IF returns correct link	=IF(TRUE,HYPERLINK("https://example.com","Link"),"none")	Link	nested	string
+HYPERLINK GS allows aim: protocol Excel does not	=HYPERLINK("https://example.com","safe link")	safe link	compatibility	string
+HYPERLINK Excel supports UNC paths GS does not	=HYPERLINK("https://example.com","portable")	portable	compatibility	string
+HYPERLINK returns link label in both platforms when label given	=HYPERLINK("https://example.com","My Link")	My Link	compatibility	string
+ISURL valid https URL returns TRUE	=ISURL("https://www.google.com")	TRUE	official	boolean
+ISURL valid http URL returns TRUE	=ISURL("http://example.com")	TRUE	official	boolean
+ISURL URL without protocol returns TRUE (GS infers)	=ISURL("www.google.com")	TRUE	official	boolean
+ISURL domain-only URL returns TRUE	=ISURL("google.com")	TRUE	official	boolean
+ISURL not a URL returns FALSE	=ISURL("not a url")	FALSE	official	boolean
+ISURL empty string returns FALSE	=ISURL("")	FALSE	official	boolean
+ISURL ftp URL returns TRUE	=ISURL("ftp://files.example.com")	TRUE	official	boolean
+ISURL mailto URL returns TRUE	=ISURL("mailto:test@example.com")	TRUE	official	boolean
+ISURL URL with path returns TRUE	=ISURL("https://example.com/path/to/page")	TRUE	edge	boolean
+ISURL URL with query string returns TRUE	=ISURL("https://example.com?q=hello")	TRUE	edge	boolean
+ISURL plain number returns FALSE	=ISURL(42)	FALSE	edge	boolean
+ISURL URL with port number returns TRUE	=ISURL("https://example.com:8080")	TRUE	edge	boolean
+ISURL new TLD that GS may not recognize returns FALSE	=ISURL("example.xyz")	TRUE	edge	boolean
+ISURL boolean TRUE is not a URL returns FALSE	=ISURL(TRUE)	FALSE	coercion	boolean
+ISURL numeric text string is not URL returns FALSE	=ISURL("12345")	FALSE	coercion	boolean
+ISURL no arguments returns error	=ISURL()	#N/A	error	error
+ISURL too many arguments returns error	=ISURL("https://example.com","extra")	#N/A	error	error
+ISURL inside IF to show link or text	=IF(ISURL("https://example.com"),HYPERLINK("https://example.com","Visit"),"invalid")	Visit	nested	string
+ISURL wrapped in NOT	=NOT(ISURL("not a url"))	TRUE	nested	boolean
+ISURL in AND with another condition	=AND(ISURL("https://example.com"),LEN("https://example.com")>5)	TRUE	nested	boolean
+ISURL is GS-only function Excel has no equivalent	=ISURL("https://example.com")	TRUE	compatibility	boolean
+ISURL GS may reject unknown TLDs	=ISURL("http://example.com")	TRUE	compatibility	boolean

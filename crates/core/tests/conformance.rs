@@ -359,12 +359,7 @@ conformance_tsv_test!(database_conformance,    "database.tsv");
 conformance_tsv_test!(array_conformance,       "array.tsv");
 conformance_tsv_test!(filter_conformance,      "filter.tsv");
 conformance_tsv_test!(web_conformance,         "web.tsv");
-
-#[test]
-#[ignore = "financial fixtures are pending implementation"]
-fn financial_conformance() {
-    run_tsv_fixture(&fixture("financial.tsv"));
-}
+conformance_tsv_test!(financial_conformance,   "financial.tsv");
 
 /// Known-bug regression baseline (T2.2).
 ///

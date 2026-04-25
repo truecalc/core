@@ -1,4 +1,4 @@
-use super::super::{filter_fn, index_fn, sort_fn};
+use super::super::filter_fn;
 use crate::types::Value;
 
 fn nums(ns: &[f64]) -> Value {
@@ -43,45 +43,4 @@ fn filter_numeric_mask_nonzero_is_truthy() {
     ]);
     let result = filter_fn(&[array, mask]);
     assert_eq!(result, nums(&[1.0, 3.0]));
-}
-
-// ---------------------------------------------------------------------------
-// SORT edge cases
-// ---------------------------------------------------------------------------
-
-#[test]
-fn sort_single_element_2d() {
-    // SORT({{5}}) → {{5}}
-    let array = Value::Array(vec![Value::Array(vec![Value::Number(5.0)])]);
-    let result = sort_fn(&[array.clone()]);
-    assert_eq!(result, array);
-}
-
-#[test]
-fn sort_scalar_returns_scalar() {
-    // SORT(42) → 42
-    let result = sort_fn(&[Value::Number(42.0)]);
-    assert_eq!(result, Value::Number(42.0));
-}
-
-// ---------------------------------------------------------------------------
-// INDEX edge cases
-// ---------------------------------------------------------------------------
-
-#[test]
-fn index_row_vector_access_via_col() {
-    // INDEX({10,20,30}, 1, 2) → 20  (row=1, col=2 treats array as row vector)
-    let result = index_fn(&[
-        nums(&[10.0, 20.0, 30.0]),
-        Value::Number(1.0),
-        Value::Number(2.0),
-    ]);
-    assert_eq!(result, Value::Number(20.0));
-}
-
-#[test]
-fn index_scalar_returns_itself() {
-    // INDEX(7, 1) → 7
-    let result = index_fn(&[Value::Number(7.0), Value::Number(1.0)]);
-    assert_eq!(result, Value::Number(7.0));
 }

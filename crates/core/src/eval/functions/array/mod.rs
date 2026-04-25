@@ -459,7 +459,8 @@ pub(crate) fn sort_fn(args: &[Value]) -> Value {
     let mut grid = to_2d(&args[0]);
     let sort_col = if args.len() >= 2 {
         match to_f64(&args[1]) {
-            Some(n) => n as usize - 1,
+            Some(n) if n >= 1.0 => n as usize - 1,
+            Some(_) => return Value::Error(ErrorKind::Value),
             None => 0,
         }
     } else {

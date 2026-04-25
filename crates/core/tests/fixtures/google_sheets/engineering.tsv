@@ -1,57 +1,842 @@
 description	formula_text	expected_value	test_category	expected_type
-ERF single arg	=ERF(1)	0.8427007929497151	engineering	number
-ERF two args	=ERF(0,1)	0.8427007929497151	engineering	number
-ERF.PRECISE basic	=ERF.PRECISE(1)	0.8427007929497151	engineering	number
-ERFC basic	=ERFC(1)	0.15729920705028488	engineering	number
-ERFC.PRECISE basic	=ERFC.PRECISE(1)	0.15729920705028488	engineering	number
-ERFC zero	=ERFC(0)	1	engineering	number
-BIN2DEC zero	"=BIN2DEC(""0"")"	0	engineering	number
-BIN2DEC positive	"=BIN2DEC(""1010"")"	10	engineering	number
-BIN2DEC negative MSB set	"=BIN2DEC(""1111111110"")"	-2	engineering	number
-BIN2HEX basic	"=BIN2HEX(""1010"")"	A	engineering	string
-BIN2HEX with places	"=BIN2HEX(""1010"",4)"	000A	engineering	string
-BIN2OCT basic	"=BIN2OCT(""1010"")"	12	engineering	string
-DEC2BIN zero	=DEC2BIN(0)	0	engineering	string
-DEC2BIN positive	=DEC2BIN(10)	1010	engineering	string
-DEC2BIN negative	=DEC2BIN(-2)	1111111110	engineering	string
-DEC2BIN with places	=DEC2BIN(10,8)	00001010	engineering	string
-DEC2HEX positive	=DEC2HEX(255)	FF	engineering	string
-DEC2HEX negative	=DEC2HEX(-1)	FFFFFFFFFF	engineering	string
-DEC2OCT positive	=DEC2OCT(8)	10	engineering	string
-HEX2BIN basic	"=HEX2BIN(""A"")"	1010	engineering	string
-HEX2BIN with places	"=HEX2BIN(""A"",8)"	00001010	engineering	string
-HEX2DEC positive	"=HEX2DEC(""FF"")"	255	engineering	number
-HEX2DEC negative	"=HEX2DEC(""FFFFFFFFFF"")"	-1	engineering	number
-HEX2OCT basic	"=HEX2OCT(""F"")"	17	engineering	string
-OCT2BIN basic	"=OCT2BIN(""7"")"	111	engineering	string
-OCT2DEC basic	"=OCT2DEC(""17"")"	15	engineering	number
-OCT2HEX basic	"=OCT2HEX(""17"")"	F	engineering	string
-COMPLEX imaginary only	=COMPLEX(0,2)	2i	engineering	string
-COMPLEX both parts	=COMPLEX(3,4)	3+4i	engineering	string
-COMPLEX with j suffix	"=COMPLEX(3,4,""j"")"	3+4j	engineering	string
-IMABS basic	"=IMABS(""3+4i"")"	5	engineering	number
-IMABS pure real	"=IMABS(""5"")"	5	engineering	number
-IMARGUMENT basic	"=IMARGUMENT(""3+4i"")"	0.9272952180016122	engineering	number
-IMCONJUGATE basic	"=IMCONJUGATE(""3+4i"")"	3-4i	engineering	string
-IMREAL basic	"=IMREAL(""3+4i"")"	3	engineering	number
-IMAGINARY basic	"=IMAGINARY(""3+4i"")"	4	engineering	number
-IMSUM two	"=IMSUM(""1+2i"",""3+4i"")"	4+6i	engineering	string
-IMSUB basic	"=IMSUB(""3+4i"",""1+2i"")"	2+2i	engineering	string
-IMPRODUCT basic	"=IMPRODUCT(""3+4i"",""1+2i"")"	-5+10i	engineering	string
-IMDIV basic	"=IMDIV(""3+4i"",""1+2i"")"	2.2-0.4i	engineering	string
-BITAND basic	=BITAND(12,10)	8	engineering	number
-BITAND zero	=BITAND(0,255)	0	engineering	number
-BITOR basic	=BITOR(12,10)	14	engineering	number
-BITXOR basic	=BITXOR(12,10)	6	engineering	number
-BITXOR same	=BITXOR(5,5)	0	engineering	number
-BITLSHIFT basic	=BITLSHIFT(1,4)	16	engineering	number
-BITLSHIFT by 0	=BITLSHIFT(7,0)	7	engineering	number
-BITRSHIFT basic	=BITRSHIFT(16,2)	4	engineering	number
-BITRSHIFT by 0	=BITRSHIFT(7,0)	7	engineering	number
-DELTA equal	=DELTA(5,5)	1	engineering	number
-DELTA not equal	=DELTA(5,4)	0	engineering	number
-DELTA default second arg	=DELTA(0)	1	engineering	number
-GESTEP above step	=GESTEP(5,3)	1	engineering	number
-GESTEP below step	=GESTEP(2,3)	0	engineering	number
-GESTEP equal to step	=GESTEP(3,3)	1	engineering	number
-GESTEP default step	=GESTEP(5)	1	engineering	number
+converts binary 101 to decimal	=BIN2DEC("101")	5	official	number
+converts binary 1100100 to decimal	=BIN2DEC("1100100")	100	official	number
+converts binary 1111111111 (all ones = -1)	=BIN2DEC("1111111111")	-1	official	number
+converts binary 1 to 1	=BIN2DEC("1")	1	official	number
+converts binary 0 to 0	=BIN2DEC("0")	0	edge	number
+maximum positive 0111111111 = 511	=BIN2DEC("0111111111")	511	edge	number
+minimum value 1000000000 = -512	=BIN2DEC("1000000000")	-512	edge	number
+integer argument auto-converted	=BIN2DEC(101)	5	coercion	number
+leading zeros in string input	=BIN2DEC("0000001010")	10	coercion	number
+invalid digit 2 returns #NUM!	=BIN2DEC("102")	#NUM!	error	error
+more than 10 digits returns #NUM!	=BIN2DEC("10000000000")	#NUM!	error	error
+non-binary text returns #NUM!	=BIN2DEC("abc")	#NUM!	error	error
+empty string returns #NUM!	=BIN2DEC("")	0	error	number
+round-trip DEC2BIN then BIN2DEC	=BIN2DEC(DEC2BIN(42))	42	nested	number
+nested with binary complement	=BIN2DEC(DEC2BIN(-1))	-1	nested	number
+single bit 0	=BIN2DEC("0")	0	edge	number
+single bit 1	=BIN2DEC("1")	1	edge	number
+all zeros 10-bit	=BIN2DEC("0000000000")	0	edge	number
+string numeric coercion	=BIN2DEC(1010)	10	coercion	number
+invalid char causes #NUM!	=BIN2DEC("1012")	#NUM!	error	error
+nested DEC2BIN round-trip for 255	=BIN2DEC(DEC2BIN(255))	255	nested	number
+nested for negative -512	=BIN2DEC(DEC2BIN(-512))	-512	nested	number
+converts binary 11111 to hex 1F	=BIN2HEX("11111")	1F	official	string
+converts binary 101 to hex 5	=BIN2HEX("101")	5	official	string
+converts with significant_digits padding	=BIN2HEX("11111",8)	0000001F	official	string
+converts binary 1000000000 (negative)	=BIN2HEX("1000000000")	FFFFFFFE00	official	string
+converts binary 0 to hex 0	=BIN2HEX("0")	0	edge	string
+maximum positive 0111111111	=BIN2HEX("0111111111")	1FF	edge	string
+all ones 1111111111	=BIN2HEX("1111111111")	FFFFFFFFFF	edge	string
+integer argument coercion	=BIN2HEX(11111)	1F	coercion	string
+leading zeros coercion	=BIN2HEX("000011111")	1F	coercion	string
+significant_digits too small returns #NUM!	=BIN2HEX("11111111",1)	#NUM!	error	error
+invalid binary digit returns #NUM!	=BIN2HEX("1123")	#NUM!	error	error
+more than 10 digits returns #NUM!	=BIN2HEX("10000000000")	#NUM!	error	error
+nested BIN2DEC then DEC2BIN then BIN2HEX	=BIN2HEX(DEC2BIN(BIN2DEC("1010")))	A	nested	string
+nested with HEX2BIN round-trip	=BIN2HEX(HEX2BIN("FF"))	FF	nested	string
+binary zero	=BIN2HEX("0")	0	edge	string
+single bit 1 to hex	=BIN2HEX("1")	1	edge	string
+max positive with padding	=BIN2HEX("0111111111",4)	01FF	edge	string
+integer coercion	=BIN2HEX(1111)	F	coercion	string
+invalid digit error	=BIN2HEX("1A1")	#NUM!	error	error
+nested round-trip BIN2HEX(HEX2BIN)	=BIN2HEX(HEX2BIN("1F"))	1F	nested	string
+nested combining BIN2DEC and DEC2BIN	=BIN2HEX(DEC2BIN(31))	1F	nested	string
+converts binary 101 to octal 5	=BIN2OCT("101")	5	official	string
+converts binary 11111 to octal 37	=BIN2OCT("11111")	37	official	string
+converts with 8 significant digits	=BIN2OCT("11111",8)	00000037	official	string
+converts negative 1000000000	=BIN2OCT("1000000000")	7777777000	official	string
+converts binary 0 to octal 0	=BIN2OCT("0")	0	edge	string
+maximum positive 0111111111	=BIN2OCT("0111111111")	777	edge	string
+all ones 1111111111	=BIN2OCT("1111111111")	7777777777	edge	string
+integer argument coercion	=BIN2OCT(101)	5	coercion	string
+leading zeros coercion	=BIN2OCT("0000000101")	5	coercion	string
+invalid binary digit returns #NUM!	=BIN2OCT("1029")	#NUM!	error	error
+more than 10 digits returns #NUM!	=BIN2OCT("10000000000")	#NUM!	error	error
+significant_digits too small returns #NUM!	=BIN2OCT("11111111",1)	#NUM!	error	error
+nested round-trip BIN2OCT(OCT2BIN)	=BIN2OCT(OCT2BIN("37"))	37	nested	string
+nested BIN2DEC used inside	=BIN2OCT(DEC2BIN(BIN2DEC("1010")))	12	nested	string
+binary zero to octal	=BIN2OCT("0")	0	edge	string
+single bit 1	=BIN2OCT("1")	1	edge	string
+max positive	=BIN2OCT("0111111111")	777	edge	string
+integer coercion	=BIN2OCT(111)	7	coercion	string
+invalid char error	=BIN2OCT("1A1")	#NUM!	error	error
+nested round-trip	=BIN2OCT(OCT2BIN("7"))	7	nested	string
+nested with DEC2BIN	=BIN2OCT(DEC2BIN(7))	7	nested	string
+AND of 10 and 9 = 8	=BITAND(10,9)	8	official	number
+AND of 14 and 4 = 4	=BITAND(14,4)	4	official	number
+AND of same number equals itself	=BITAND(12,12)	12	official	number
+AND of 0 with any number = 0	=BITAND(0,255)	0	official	number
+AND of 0 and 0 = 0	=BITAND(0,0)	0	edge	number
+AND with all-ones 2^48-1	=BITAND(65535,281474976710655)	65535	edge	number
+AND with power of 2	=BITAND(256,256)	256	edge	number
+TRUE coerced to 1	=BITAND(TRUE,3)	1	coercion	number
+string numeric coercion	=BITAND("10","9")	8	coercion	number
+negative value returns #NUM!	=BITAND(-1,9)	#NUM!	error	error
+value exceeds 2^48-1 returns #NUM!	=BITAND(281474976710656,1)	#NUM!	error	error
+non-numeric text returns #VALUE!	=BITAND("abc",9)	#VALUE!	error	error
+fractional value returns #NUM!	=BITAND(1.5,3)	#NUM!	error	error
+nested with BIN2DEC	=BITAND(BIN2DEC("1010"),BIN2DEC("1001"))	8	nested	number
+nested with arithmetic	=BITAND(4*3,2+4)	4	nested	number
+AND of 0 and 0	=BITAND(0,0)	0	edge	number
+AND of max 2^48-1 with itself	=BITAND(281474976710655,281474976710655)	281474976710655	edge	number
+AND of complementary bits = 0	=BITAND(5,10)	0	edge	number
+TRUE coerced to 1	=BITAND(TRUE,7)	1	coercion	number
+negative #NUM!	=BITAND(-1,1)	#NUM!	error	error
+nested BIN2DEC	=BITAND(BIN2DEC("1111"),BIN2DEC("0101"))	5	nested	number
+nested with SUM	=BITAND(BITAND(15,12),10)	8	nested	number
+shift 2 left by 2 = 8	=BITLSHIFT(2,2)	8	official	number
+shift 1 left by 4 = 16	=BITLSHIFT(1,4)	16	official	number
+shift 9 left by 2 = 36	=BITLSHIFT(9,2)	36	official	number
+shift 0 left by any = 0	=BITLSHIFT(0,10)	0	official	number
+shift 1 left by 0 = 1 (no shift)	=BITLSHIFT(1,0)	1	edge	number
+negative shift amount acts as right shift	=BITLSHIFT(8,-2)	2	edge	number
+shift by maximum 53	=BITLSHIFT(1,53)	#NUM!	edge	error
+TRUE coerced to 1	=BITLSHIFT(TRUE,3)	8	coercion	number
+string numeric coercion	=BITLSHIFT("4","2")	16	coercion	number
+negative value returns #NUM!	=BITLSHIFT(-1,2)	#NUM!	error	error
+shift amount > 53 returns #NUM!	=BITLSHIFT(1,54)	#NUM!	error	error
+non-numeric text returns #VALUE!	=BITLSHIFT("abc",2)	#VALUE!	error	error
+nested with BITRSHIFT inverse	=BITLSHIFT(BITRSHIFT(16,2),2)	16	nested	number
+nested arithmetic in shift amount	=BITLSHIFT(1,2+1)	8	nested	number
+no shift	=BITLSHIFT(5,0)	5	edge	number
+shift by 1	=BITLSHIFT(4,1)	8	edge	number
+negative shift = right shift	=BITLSHIFT(16,-2)	4	edge	number
+TRUE coercion	=BITLSHIFT(TRUE,4)	16	coercion	number
+negative value error	=BITLSHIFT(-5,2)	#NUM!	error	error
+nested BITRSHIFT inverse	=BITLSHIFT(BITRSHIFT(64,3),3)	64	nested	number
+nested arithmetic shift amount	=BITLSHIFT(1,4*2)	256	nested	number
+OR of 9 and 5 = 13	=BITOR(9,5)	13	official	number
+OR of 8 and 1 = 9	=BITOR(8,1)	9	official	number
+OR of same number equals itself	=BITOR(12,12)	12	official	number
+OR of 0 with number equals number	=BITOR(0,42)	42	official	number
+OR of 0 and 0 = 0	=BITOR(0,0)	0	edge	number
+OR with all-ones max	=BITOR(0,281474976710655)	281474976710655	edge	number
+OR of two disjoint bit masks	=BITOR(5,10)	15	edge	number
+TRUE coerced to 1	=BITOR(TRUE,4)	5	coercion	number
+string numeric coercion	=BITOR("9","5")	13	coercion	number
+negative value returns #NUM!	=BITOR(-1,5)	#NUM!	error	error
+value exceeds 2^48-1 returns #NUM!	=BITOR(281474976710656,1)	#NUM!	error	error
+non-numeric string returns #VALUE!	=BITOR("abc",5)	#VALUE!	error	error
+nested with BIN2DEC	=BITOR(BIN2DEC("1000"),BIN2DEC("0001"))	9	nested	number
+nested OR of ORs	=BITOR(BITOR(1,2),4)	7	nested	number
+OR of 0 and 0	=BITOR(0,0)	0	edge	number
+OR of disjoint bits	=BITOR(5,10)	15	edge	number
+OR of max with 0	=BITOR(281474976710655,0)	281474976710655	edge	number
+TRUE coercion	=BITOR(TRUE,2)	3	coercion	number
+negative #NUM!	=BITOR(-1,0)	#NUM!	error	error
+nested BIN2DEC	=BITOR(BIN2DEC("1010"),BIN2DEC("0101"))	15	nested	number
+chained OR	=BITOR(BITOR(1,2),4)	7	nested	number
+shift 8 right by 2 = 2	=BITRSHIFT(8,2)	2	official	number
+shift 18 right by 2 = 4	=BITRSHIFT(18,2)	4	official	number
+shift 16 right by 4 = 1	=BITRSHIFT(16,4)	1	official	number
+shift 0 right by any = 0	=BITRSHIFT(0,10)	0	official	number
+shift by 0 = same value	=BITRSHIFT(8,0)	8	edge	number
+negative shift acts as left shift	=BITRSHIFT(2,-2)	8	edge	number
+shift by 53 = 0 for small values	=BITRSHIFT(8,53)	0	edge	number
+TRUE coerced to 1	=BITRSHIFT(TRUE,0)	1	coercion	number
+string numeric coercion	=BITRSHIFT("16","2")	4	coercion	number
+negative value returns #NUM!	=BITRSHIFT(-1,2)	#NUM!	error	error
+non-numeric text returns #VALUE!	=BITRSHIFT("abc",2)	#VALUE!	error	error
+nested with BITLSHIFT inverse	=BITRSHIFT(BITLSHIFT(4,3),3)	4	nested	number
+nested arithmetic	=BITRSHIFT(1024,2+3)	32	nested	number
+no shift	=BITRSHIFT(5,0)	5	edge	number
+shift by 1	=BITRSHIFT(8,1)	4	edge	number
+negative shift = left shift	=BITRSHIFT(2,-3)	16	edge	number
+TRUE coercion	=BITRSHIFT(8,TRUE)	4	coercion	number
+negative value error	=BITRSHIFT(-8,2)	#NUM!	error	error
+nested BITLSHIFT inverse	=BITRSHIFT(BITLSHIFT(1,10),10)	1	nested	number
+nested arithmetic	=BITRSHIFT(256,1+1)	64	nested	number
+XOR of 9 and 5 = 12	=BITXOR(9,5)	12	official	number
+XOR of 2 and 4 = 6	=BITXOR(2,4)	6	official	number
+XOR of same number = 0	=BITXOR(12,12)	0	official	number
+XOR of 0 and number = number	=BITXOR(0,42)	42	official	number
+XOR of 0 and 0 = 0	=BITXOR(0,0)	0	edge	number
+XOR of 255 and 255 = 0	=BITXOR(255,255)	0	edge	number
+XOR of 5 and 10 = 15	=BITXOR(5,10)	15	edge	number
+TRUE coerced to 1	=BITXOR(TRUE,3)	2	coercion	number
+string numeric coercion	=BITXOR("9","5")	12	coercion	number
+negative value returns #NUM!	=BITXOR(-1,5)	#NUM!	error	error
+value exceeds 2^48-1 returns #NUM!	=BITXOR(281474976710656,1)	#NUM!	error	error
+non-numeric text returns #VALUE!	=BITXOR("abc",5)	#VALUE!	error	error
+nested with BIN2DEC	=BITXOR(BIN2DEC("1010"),BIN2DEC("0110"))	12	nested	number
+double XOR is identity	=BITXOR(BITXOR(42,7),7)	42	nested	number
+XOR of 0 and 0 = 0	=BITXOR(0,0)	0	edge	number
+XOR of same number = 0	=BITXOR(42,42)	0	edge	number
+XOR of complementary = all ones	=BITXOR(5,10)	15	edge	number
+TRUE coercion	=BITXOR(TRUE,0)	1	coercion	number
+negative #NUM!	=BITXOR(-1,0)	#NUM!	error	error
+nested BIN2DEC XOR	=BITXOR(BIN2DEC("1100"),BIN2DEC("1010"))	6	nested	number
+double XOR identity	=BITXOR(BITXOR(255,42),42)	255	nested	number
+creates 1+2.5i from 1 and 2.5	=COMPLEX(1,2.5)	1+2.5i	official	string
+creates 0+4j with j suffix	=COMPLEX(0,4,"j")	4j	official	string
+creates 3-i from 3 and -1	=COMPLEX(3,-1)	3-i	official	string
+creates real number only when imaginary is 0	=COMPLEX(1,0)	1	edge	string
+creates pure imaginary when real is 0	=COMPLEX(0,1)	i	edge	string
+creates 0 when both parts are 0	=COMPLEX(0,0)	0	edge	string
+creates negative real part	=COMPLEX(-3,4)	-3+4i	edge	string
+numeric string coercion for real part	=COMPLEX("3","4")	3+4i	coercion	string
+j suffix produces j suffix result	=COMPLEX(2,3,"j")	2+3j	coercion	string
+invalid suffix I (uppercase) returns #VALUE!	=COMPLEX(1,2,"I")	#VALUE!	error	error
+invalid suffix K returns #VALUE!	=COMPLEX(1,2,"k")	#VALUE!	error	error
+non-numeric real returns #VALUE!	=COMPLEX("abc",2)	#VALUE!	error	error
+non-numeric imaginary returns #VALUE!	=COMPLEX(2,"xyz")	#VALUE!	error	error
+nested using IMABS result as real	=COMPLEX(IMABS("3+4i"),0)	5	nested	string
+nested creating and extracting	=COMPLEX(IMREAL("3+4i"),IMAGINARY("3+4i"))	3+4i	nested	string
+real only	=COMPLEX(5,0)	5	edge	string
+pure imaginary	=COMPLEX(0,5)	5i	edge	string
+both zero	=COMPLEX(0,0)	0	edge	string
+j suffix coercion	=COMPLEX(1,1,"j")	1+j	coercion	string
+uppercase I suffix error	=COMPLEX(1,1,"I")	#VALUE!	error	error
+nested round-trip IMREAL/IMAGINARY	=COMPLEX(IMREAL("5+3i"),IMAGINARY("5+3i"))	5+3i	nested	string
+nested IMABS as real part	=COMPLEX(IMABS("3+4i"),0)	5	nested	string
+converts decimal 100 to binary	=DEC2BIN(100)	1100100	official	string
+converts decimal 255 to binary	=DEC2BIN(255)	11111111	official	string
+converts with 8 significant digits padding	=DEC2BIN(5,8)	00000101	official	string
+converts negative -1 to binary	=DEC2BIN(-1)	1111111111	official	string
+converts 0 to binary 0	=DEC2BIN(0)	0	edge	string
+maximum positive 511	=DEC2BIN(511)	111111111	edge	string
+minimum negative -512	=DEC2BIN(-512)	1000000000	edge	string
+string numeric argument coercion	=DEC2BIN("100")	1100100	coercion	string
+out of range 512 returns #NUM!	=DEC2BIN(512)	#NUM!	error	error
+out of range -513 returns #NUM!	=DEC2BIN(-513)	#NUM!	error	error
+significant_digits too small returns #NUM!	=DEC2BIN(255,2)	#NUM!	error	error
+non-numeric text returns #VALUE!	=DEC2BIN("abc")	#VALUE!	error	error
+nested BIN2DEC round-trip	=DEC2BIN(BIN2DEC("1010"))	1010	nested	string
+nested with arithmetic inside	=DEC2BIN(4+4)	1000	nested	string
+zero	=DEC2BIN(0)	0	edge	string
+max positive 511	=DEC2BIN(511)	111111111	edge	string
+min negative -512	=DEC2BIN(-512)	1000000000	edge	string
+string coercion	=DEC2BIN("42")	101010	coercion	string
+out of range error	=DEC2BIN(600)	#NUM!	error	error
+nested round-trip	=DEC2BIN(BIN2DEC("11111111"))	11111111	nested	string
+nested arithmetic	=DEC2BIN(2*3)	110	nested	string
+converts decimal 100 to hex 64	=DEC2HEX(100)	64	official	string
+converts decimal 256 to hex 100	=DEC2HEX(256)	100	official	string
+converts with 8 significant digits padding	=DEC2HEX(100,8)	00000064	official	string
+converts negative decimal to hex	=DEC2HEX(-1)	FFFFFFFFFF	official	string
+converts 0 to hex 0	=DEC2HEX(0)	0	edge	string
+maximum positive 549755813887	=DEC2HEX(549755813887)	7FFFFFFFFF	edge	string
+minimum negative -549755813888	=DEC2HEX(-549755813888)	8000000000	edge	string
+string numeric coercion	=DEC2HEX("255")	FF	coercion	string
+out of range positive returns #NUM!	=DEC2HEX(549755813888)	#NUM!	error	error
+out of range negative returns #NUM!	=DEC2HEX(-549755813889)	#NUM!	error	error
+significant_digits too small returns #NUM!	=DEC2HEX(255,1)	#NUM!	error	error
+non-numeric text returns #VALUE!	=DEC2HEX("xyz")	#VALUE!	error	error
+nested HEX2DEC round-trip	=DEC2HEX(HEX2DEC("FF"))	FF	nested	string
+nested arithmetic	=DEC2HEX(16*16)	100	nested	string
+zero to hex	=DEC2HEX(0)	0	edge	string
+convert 255 to FF	=DEC2HEX(255)	FF	edge	string
+convert -1 to FF...F	=DEC2HEX(-1)	FFFFFFFFFF	edge	string
+string coercion	=DEC2HEX("16")	10	coercion	string
+out of range error	=DEC2HEX(600000000000)	#NUM!	error	error
+nested HEX2DEC round-trip	=DEC2HEX(HEX2DEC("A0"))	A0	nested	string
+nested arithmetic	=DEC2HEX(256+1)	101	nested	string
+converts decimal 199 to octal 307	=DEC2OCT(199)	307	official	string
+converts decimal 8 to octal 10	=DEC2OCT(8)	10	official	string
+converts with 8 significant digits	=DEC2OCT(8,8)	00000010	official	string
+converts negative decimal to octal	=DEC2OCT(-1)	7777777777	official	string
+converts 0 to octal 0	=DEC2OCT(0)	0	edge	string
+maximum positive 536870911	=DEC2OCT(536870911)	3777777777	edge	string
+minimum negative -536870912	=DEC2OCT(-536870912)	4000000000	edge	string
+string numeric coercion	=DEC2OCT("8")	10	coercion	string
+out of range positive returns #NUM!	=DEC2OCT(536870912)	#NUM!	error	error
+out of range negative returns #NUM!	=DEC2OCT(-536870913)	#NUM!	error	error
+significant_digits too small returns #NUM!	=DEC2OCT(511,1)	#NUM!	error	error
+non-numeric text returns #VALUE!	=DEC2OCT("xyz")	#VALUE!	error	error
+nested OCT2DEC round-trip	=DEC2OCT(OCT2DEC("777"))	777	nested	string
+nested arithmetic	=DEC2OCT(8*8)	100	nested	string
+zero to octal	=DEC2OCT(0)	0	edge	string
+convert 511 to 777	=DEC2OCT(511)	777	edge	string
+convert -1 to two-complement	=DEC2OCT(-1)	7777777777	edge	string
+string coercion	=DEC2OCT("64")	100	coercion	string
+out of range error	=DEC2OCT(600000000)	#NUM!	error	error
+nested OCT2DEC round-trip	=DEC2OCT(OCT2DEC("77"))	77	nested	string
+nested arithmetic	=DEC2OCT(7+1)	10	nested	string
+equal numbers returns 1	=DELTA(2,2)	1	official	number
+unequal numbers returns 0	=DELTA(2,1)	0	official	number
+compare to default 0: 0 equals 0	=DELTA(0)	1	official	number
+compare to default 0: non-zero returns 0	=DELTA(5)	0	official	number
+negative equal returns 1	=DELTA(-3,-3)	1	edge	number
+float equal returns 1	=DELTA(1.5,1.5)	1	edge	number
+very close but not equal returns 0	=DELTA(1.0000001,1)	0	edge	number
+zero compared to zero returns 1	=DELTA(0,0)	1	edge	number
+string numeric coercion first arg	=DELTA("5",5)	1	coercion	number
+TRUE coerced to 1	=DELTA(TRUE,1)	1	coercion	number
+non-numeric string returns #VALUE!	=DELTA("abc",1)	#VALUE!	error	error
+nested compare BIN2DEC results	=DELTA(BIN2DEC("101"),5)	1	nested	number
+nested compare arithmetic	=DELTA(2+2,4)	1	nested	number
+equal returns 1	=DELTA(7,7)	1	edge	number
+different returns 0	=DELTA(1,2)	0	edge	number
+zero default comparison	=DELTA(0)	1	edge	number
+TRUE coerced to 1	=DELTA(TRUE,1)	1	coercion	number
+non-numeric #VALUE!	=DELTA("abc")	#VALUE!	error	error
+nested arithmetic comparison	=DELTA(3*3,9)	1	nested	number
+nested BIN2DEC comparison	=DELTA(BIN2DEC("1010"),10)	1	nested	number
+ERF.PRECISE of 1 = 0.8427...	=ERF.PRECISE(1)	0.8427007929497151	official	number
+ERF.PRECISE of 0 = 0	=ERF.PRECISE(0)	0	official	number
+ERF.PRECISE of 2 = 0.9953...	=ERF.PRECISE(2)	0.9953222650189527	official	number
+ERF.PRECISE of -1 = -0.8427...	=ERF.PRECISE(-1)	-0.8427007929497151	edge	number
+ERF.PRECISE of very small value	=ERF.PRECISE(0.001)	0.0011283787909692373	edge	number
+ERF.PRECISE of large value near 1	=ERF.PRECISE(5)	0.9999999999984626	edge	number
+string numeric coercion	=ERF.PRECISE("1")	0.8427007929497151	coercion	number
+non-numeric text returns #VALUE!	=ERF.PRECISE("abc")	#VALUE!	error	error
+nested arithmetic	=ERF.PRECISE(1/2)	0.5204998778130466	nested	number
+nested compare ERF and ERF.PRECISE	=DELTA(ERF(1),ERF.PRECISE(1))	1	nested	number
+zero returns 0	=ERF.PRECISE(0)	0	edge	number
+negative value	=ERF.PRECISE(-2)	-0.9953222650189527	edge	number
+large value near 1	=ERF.PRECISE(4)	0.9999999845827421	edge	number
+string coercion	=ERF.PRECISE("1")	0.8427007929497151	coercion	number
+non-numeric #VALUE!	=ERF.PRECISE("abc")	#VALUE!	error	error
+nested arithmetic	=ERF.PRECISE(2-1)	0.8427007929497151	nested	number
+nested compare with ERF	=DELTA(ERF.PRECISE(1),ERF(1))	1	nested	number
+ERF of 1 = 0.8427...	=ERF(1)	0.8427007929497151	official	number
+ERF from -2.3 to -0.7 = 0.321...	=ERF(-2.3,-0.7)	0.32105562956522504	official	number
+ERF of 0 = 0	=ERF(0)	0	official	number
+ERF of large value approaches 1	=ERF(3)	0.9999779095030014	official	number
+ERF of negative lower bound	=ERF(-1)	-0.8427007929497151	edge	number
+ERF of very small value near 0	=ERF(0.0001)	0.00011283791633342464	edge	number
+ERF with same upper and lower = 0	=ERF(1,1)	0	edge	number
+string numeric lower bound coercion	=ERF("1")	0.8427007929497151	coercion	number
+non-numeric lower bound returns #VALUE!	=ERF("abc")	#VALUE!	error	error
+non-numeric upper bound returns #VALUE!	=ERF(1,"abc")	#VALUE!	error	error
+nested with arithmetic	=ERF(1+0)	0.8427007929497151	nested	number
+nested double ERF integration	=ERF(0,ERF(1))	0.766644200655088	nested	number
+ERF of 0 = 0	=ERF(0)	0	edge	number
+ERF of large number near 1	=ERF(5)	0.9999999999984626	edge	number
+ERF of negative	=ERF(-1)	-0.8427007929497151	edge	number
+string coercion	=ERF("0.5")	0.5204998778130466	coercion	number
+non-numeric #VALUE!	=ERF("abc")	#VALUE!	error	error
+nested arithmetic	=ERF(1/2)	0.5204998778130466	nested	number
+nested with upper bound	=ERF(0,1)	0.8427007929497151	nested	number
+5 >= 2 returns 1	=GESTEP(5,2)	1	official	number
+2 >= 2 returns 1 (equal)	=GESTEP(2,2)	1	official	number
+-6 >= -1 returns 0	=GESTEP(-6,-1)	0	official	number
+-0.00001 >= 0 returns 0	=GESTEP(-0.00001)	0	official	number
+0 >= 0 default step returns 1	=GESTEP(0)	1	edge	number
+positive >= default 0 returns 1	=GESTEP(1)	1	edge	number
+negative >= -negative returns 1	=GESTEP(-4,-5)	1	edge	number
+very close values equal returns 1	=GESTEP(1.5,1.5)	1	edge	number
+string numeric coercion	=GESTEP("5","2")	1	coercion	number
+TRUE coerced to 1	=GESTEP(TRUE,1)	1	coercion	number
+non-numeric value returns #VALUE!	=GESTEP("abc",2)	#VALUE!	error	error
+non-numeric step returns #VALUE!	=GESTEP(5,"abc")	#VALUE!	error	error
+nested compare arithmetic expressions	=GESTEP(2+3,4)	1	nested	number
+nested sum of GESTEP filters	=GESTEP(5,2)+GESTEP(1,2)	1	nested	number
+zero >= zero returns 1	=GESTEP(0,0)	1	edge	number
+negative >= negative when greater	=GESTEP(-1,-2)	1	edge	number
+value below step returns 0	=GESTEP(3,5)	0	edge	number
+TRUE coercion	=GESTEP(TRUE,1)	1	coercion	number
+non-numeric #VALUE!	=GESTEP("abc")	#VALUE!	error	error
+nested sum of filters	=GESTEP(10,5)+GESTEP(3,5)	1	nested	number
+nested arithmetic comparison	=GESTEP(2*3,5)	1	nested	number
+converts hex F3 to binary	=HEX2BIN("F3")	11110011	official	string
+converts hex FF to binary 11111111	=HEX2BIN("FF")	11111111	official	string
+converts with 8 significant digits	=HEX2BIN("F",8)	00001111	official	string
+converts hex 199 to binary	=HEX2BIN("199")	110011001	official	string
+converts hex 0 to binary 0	=HEX2BIN("0")	0	edge	string
+converts max positive hex 1FF	=HEX2BIN("1FF")	111111111	edge	string
+converts negative hex FFFFFFFE00	=HEX2BIN("FFFFFFFE00")	1000000000	edge	string
+lowercase hex digits coercion	=HEX2BIN("ff")	11111111	coercion	string
+integer hex coercion without quotes	=HEX2BIN(199)	110011001	coercion	string
+hex value out of range returns #NUM!	=HEX2BIN("200")	#NUM!	error	error
+invalid hex char returns #NUM!	=HEX2BIN("GHI")	#NUM!	error	error
+significant_digits too small returns #NUM!	=HEX2BIN("FF",1)	#NUM!	error	error
+nested BIN2HEX round-trip	=HEX2BIN(BIN2HEX("11111111"))	11111111	nested	string
+nested HEX2DEC and DEC2BIN	=HEX2BIN(DEC2HEX(HEX2DEC("A")))	1010	nested	string
+hex zero	=HEX2BIN("0")	0	edge	string
+hex 1 to binary 1	=HEX2BIN("1")	1	edge	string
+max positive 1FF	=HEX2BIN("1FF")	111111111	edge	string
+lowercase coercion	=HEX2BIN("1f")	11111	coercion	string
+out of range error	=HEX2BIN("800")	#NUM!	error	error
+nested round-trip BIN2HEX	=HEX2BIN(BIN2HEX("1010"))	1010	nested	string
+nested DEC2HEX	=HEX2BIN(DEC2HEX(10))	1010	nested	string
+converts hex F3 to decimal 243	=HEX2DEC("F3")	243	official	number
+converts hex 100 to decimal 256	=HEX2DEC("100")	256	official	number
+converts hex 199 to decimal 409	=HEX2DEC("199")	409	official	number
+converts hex 0 to decimal 0	=HEX2DEC("0")	0	edge	number
+converts maximum hex 7FFFFFFFFF to decimal	=HEX2DEC("7FFFFFFFFF")	549755813887	edge	number
+converts negative hex 8000000000	=HEX2DEC("8000000000")	-549755813888	edge	number
+lowercase hex digits coercion	=HEX2DEC("ff")	255	coercion	number
+integer without quotes coercion	=HEX2DEC(199)	409	coercion	number
+invalid hex char returns #NUM!	=HEX2DEC("GXY")	#NUM!	error	error
+empty string returns #NUM!	=HEX2DEC("")	0	error	number
+too many digits returns #NUM!	=HEX2DEC("7FFFFFFFFFF")	#NUM!	error	error
+nested DEC2HEX round-trip	=HEX2DEC(DEC2HEX(255))	255	nested	number
+nested arithmetic on result	=HEX2DEC("A")+HEX2DEC("5")	15	nested	number
+hex zero to decimal	=HEX2DEC("0")	0	edge	number
+hex FF to 255	=HEX2DEC("FF")	255	edge	number
+negative hex to negative decimal	=HEX2DEC("FFFFFFFFFF")	-1	edge	number
+lowercase coercion	=HEX2DEC("a0")	160	coercion	number
+invalid char error	=HEX2DEC("GG")	#NUM!	error	error
+nested DEC2HEX round-trip	=HEX2DEC(DEC2HEX(1024))	1024	nested	number
+nested addition	=HEX2DEC("10")+HEX2DEC("10")	32	nested	number
+converts hex F3 to octal	=HEX2OCT("F3")	363	official	string
+converts hex 199 to octal 631	=HEX2OCT("199")	631	official	string
+converts with 8 significant digits	=HEX2OCT("F3",8)	00000363	official	string
+converts negative hex FFE0000000	=HEX2OCT("FFE0000000")	4000000000	official	string
+converts hex 0 to octal 0	=HEX2OCT("0")	0	edge	string
+converts max positive hex 1FFFFFFF	=HEX2OCT("1FFFFFFF")	3777777777	edge	string
+lowercase hex digits coercion	=HEX2OCT("f3")	363	coercion	string
+integer without quotes coercion	=HEX2OCT(199)	631	coercion	string
+hex value too large returns #NUM!	=HEX2OCT("20000000")	#NUM!	error	error
+invalid hex char returns #NUM!	=HEX2OCT("GHI")	#NUM!	error	error
+significant_digits too small returns #NUM!	=HEX2OCT("FFF",1)	#NUM!	error	error
+nested OCT2HEX round-trip	=HEX2OCT(OCT2HEX("777"))	777	nested	string
+nested HEX2DEC and DEC2OCT	=HEX2OCT(DEC2HEX(HEX2DEC("A0")))	240	nested	string
+hex zero to octal	=HEX2OCT("0")	0	edge	string
+hex 7 to octal 7	=HEX2OCT("7")	7	edge	string
+max positive 1FFFFFFF	=HEX2OCT("1FFFFFFF")	3777777777	edge	string
+lowercase coercion	=HEX2OCT("1f")	37	coercion	string
+out of range error	=HEX2OCT("40000000")	#NUM!	error	error
+nested round-trip OCT2HEX	=HEX2OCT(OCT2HEX("77"))	77	nested	string
+nested DEC2HEX	=HEX2OCT(DEC2HEX(64))	100	nested	string
+absolute value of 3+4i = 5	=IMABS("3+4i")	5	official	number
+absolute value of pure imaginary 6j	=IMABS("6j")	6	official	number
+absolute value of COMPLEX(3,4)	=IMABS(COMPLEX(3,4))	5	official	number
+absolute value of real number = itself	=IMABS("5")	5	edge	number
+absolute value of 0	=IMABS("0")	0	edge	number
+absolute value of negative real	=IMABS("-3")	3	edge	number
+absolute value of 1+1i = sqrt(2)	=IMABS("1+i")	1.4142135623730951	edge	number
+COMPLEX function as argument	=IMABS(COMPLEX(5,12))	13	coercion	number
+integer argument coerced to real	=IMABS(5)	5	coercion	number
+nested using IMSUM	=IMABS(IMSUM("3+0i","0+4i"))	5	nested	number
+nested with COMPLEX	=IMABS(COMPLEX(IMREAL("3+4i"),IMAGINARY("3+4i")))	5	nested	number
+3+4i = 5	=IMABS("3+4i")	5	edge	number
+pure imaginary	=IMABS("5i")	5	edge	number
+zero	=IMABS("0")	0	edge	number
+COMPLEX function coercion	=IMABS(COMPLEX(0,1))	1	coercion	number
+nested IMSUM then IMABS	=IMABS(IMSUM("1+1i","1+1i"))	2.8284271247461903	nested	number
+nested IMDIV then IMABS	=IMABS(IMDIV("10+0i","2+0i"))	5	nested	number
+imaginary part of 3+5i = 5	=IMAGINARY("3+5i")	5	official	number
+imaginary part of 4j = 4	=IMAGINARY("4j")	4	official	number
+imaginary part of real 45 = 0	=IMAGINARY("45")	0	official	number
+imaginary part of -2i = -2	=IMAGINARY("-2i")	-2	edge	number
+imaginary part of pure i = 1	=IMAGINARY("i")	1	edge	number
+imaginary part of 0 = 0	=IMAGINARY("0")	0	edge	number
+imaginary part of 3-4i = -4	=IMAGINARY("3-4i")	-4	edge	number
+COMPLEX function as argument	=IMAGINARY(COMPLEX(3,5))	5	coercion	number
+integer argument returns 0	=IMAGINARY(3)	0	coercion	number
+nested with IMCONJUGATE	=IMAGINARY(IMCONJUGATE("3+4i"))	-4	nested	number
+nested recreated COMPLEX	=IMAGINARY(COMPLEX(1,IMAGINARY("5+7i")))	7	nested	number
+imaginary of i = 1	=IMAGINARY("i")	1	edge	number
+imaginary of real = 0	=IMAGINARY("7")	0	edge	number
+imaginary of negative	=IMAGINARY("3-2i")	-2	edge	number
+COMPLEX coercion	=IMAGINARY(COMPLEX(2,5))	5	coercion	number
+nested IMCONJUGATE	=IMAGINARY(IMCONJUGATE("3+4i"))	-4	nested	number
+nested IMSUB	=IMAGINARY(IMSUB("5+3i","1+1i"))	2	nested	number
+argument of COMPLEX(0,1) = pi/2	=IMARGUMENT(COMPLEX(0,1))	1.5707963267948966	official	number
+argument of 1 (real) = 0	=IMARGUMENT(1)	0	official	number
+argument of 1+1i = pi/4	=IMARGUMENT("1+1i")	0.7853981633974483	official	number
+argument of -1+0i = pi	=IMARGUMENT("-1")	3.141592653589793	edge	number
+argument of 0-1i = -pi/2	=IMARGUMENT("-i")	-1.5707963267948966	edge	number
+argument of 0 returns error	=IMARGUMENT(0)	#DIV/0!	error	error
+argument of 0+0i returns error	=IMARGUMENT("0")	#DIV/0!	error	error
+nested using COMPLEX function	=IMARGUMENT(COMPLEX(1,1))	0.7853981633974483	nested	number
+nested combined with IMABS	=IMARGUMENT(IMSUM("1+0i","0+1i"))	0.7853981633974483	nested	number
+real positive = 0	=IMARGUMENT("1")	0	edge	number
+pure positive imaginary = pi/2	=IMARGUMENT("i")	1.5707963267948966	edge	number
+negative real = pi	=IMARGUMENT("-1")	3.141592653589793	edge	number
+COMPLEX coercion	=IMARGUMENT(COMPLEX(1,1))	0.7853981633974483	coercion	number
+zero error	=IMARGUMENT("0")	#DIV/0!	error	error
+nested IMSUM then argument	=IMARGUMENT(IMSUM("1+0i","0+1i"))	0.7853981633974483	nested	number
+nested COMPLEX then argument	=IMARGUMENT(COMPLEX(0,1))	1.5707963267948966	nested	number
+conjugate of 3+4i = 3-4i	=IMCONJUGATE("3+4i")	3-4i	official	string
+conjugate of real = same	=IMCONJUGATE("5")	5	edge	string
+conjugate of pure imaginary negates	=IMCONJUGATE("4i")	-4i	edge	string
+conjugate of 0 = 0	=IMCONJUGATE("0")	0	edge	string
+conjugate of negative imaginary	=IMCONJUGATE("3-4i")	3+4i	edge	string
+COMPLEX function coercion	=IMCONJUGATE(COMPLEX(3,4))	3-4i	coercion	string
+nested double conjugate = identity	=IMCONJUGATE(IMCONJUGATE("3+4i"))	3+4i	nested	string
+nested multiply with conjugate = real	=IMABS(IMPRODUCT("3+4i",IMCONJUGATE("3+4i")))	25	nested	number
+conjugate of 3+4i	=IMCONJUGATE("3+4i")	3-4i	edge	string
+conjugate of real = same	=IMCONJUGATE("5")	5	edge	string
+conjugate of negative imaginary	=IMCONJUGATE("2-3i")	2+3i	edge	string
+COMPLEX coercion	=IMCONJUGATE(COMPLEX(1,2))	1-2i	coercion	string
+double conjugate = identity	=IMCONJUGATE(IMCONJUGATE("5+3i"))	5+3i	nested	string
+imaginary of conjugate is negated	=IMAGINARY(IMCONJUGATE("3+4i"))	-4	nested	number
+cosine of real 3.5	=IMCOS(3.5)	-0.936456687290796	official	string
+cosine of 3+2i	=IMCOS("3+2i")	-3.72454550491532-0.511822569987385i	official	string
+cosine of COMPLEX(4,1)	=IMCOS(COMPLEX(4,1))	-1.00862481342516+0.889395195838485i	official	string
+cosine of 0 = 1	=IMCOS("0")	1	edge	string
+cosine of pure imaginary (real result)	=IMCOS("2i")	3.76219569108363	edge	string
+cosine of negative real	=IMCOS("-1")	0.54030230586814	edge	string
+COMPLEX function coercion	=IMCOS(COMPLEX(0,0))	1	coercion	string
+integer coerced to real complex	=IMCOS(0)	1	coercion	string
+nested IMSUM then IMCOS	=IMCOS(IMSUM("1+0i","2+0i"))	-0.989992496600445	nested	string
+nested COMPLEX then IMCOS	=IMCOS(COMPLEX(3,2))	-3.72454550491532-0.511822569987385i	nested	string
+cosine of 0 = 1	=IMCOS("0")	1	edge	string
+cosine of pure imaginary	=IMCOS("i")	1.54308063481524	edge	string
+cosine of pi (negative real)	=IMCOS("3.14159265358979")	-1	edge	string
+COMPLEX coercion	=IMCOS(COMPLEX(1,0))	0.54030230586814	coercion	string
+nested IMCOS of IMSUM	=IMCOS(IMSUM("1+0i","2+0i"))	-0.989992496600445	nested	string
+nested COMPLEX(pi,0)	=IMCOS(COMPLEX(3,2))	-3.72454550491532-0.511822569987385i	nested	string
+hyperbolic cosine of real 3.5	=IMCOSH(3.5)	16.5728246710573	official	string
+hyperbolic cosine of 3+2i	=IMCOSH("3+2i")	-4.18962569096881+9.10922789375534i	official	string
+hyperbolic cosine of COMPLEX(4,1)	=IMCOSH(COMPLEX(4,1))	14.7547011704838+22.963673499193i	official	string
+cosh of 0 = 1	=IMCOSH("0")	1	edge	string
+cosh of pure imaginary = cos(real)	=IMCOSH("i")	0.54030230586814	edge	string
+cosh of negative real	=IMCOSH("-1")	1.54308063481524	edge	string
+COMPLEX coercion	=IMCOSH(COMPLEX(0,0))	1	coercion	string
+integer coercion	=IMCOSH(1)	1.54308063481524	coercion	string
+nested IMCOSH of COMPLEX	=IMCOSH(COMPLEX(3,2))	-4.18962569096881+9.10922789375534i	nested	string
+nested IMSUM then IMCOSH	=IMCOSH(IMSUM("1+0i","2+0i"))	10.0676619957778	nested	string
+cosh of 0 = 1	=IMCOSH("0")	1	edge	string
+cosh of 1	=IMCOSH("1")	1.54308063481524	edge	string
+cosh of pure imaginary	=IMCOSH("i")	0.54030230586814	edge	string
+COMPLEX coercion	=IMCOSH(COMPLEX(3,2))	-4.18962569096881+9.10922789375534i	coercion	string
+nested IMCOSH(COMPLEX)	=IMCOSH(COMPLEX(4,1))	14.7547011704838+22.963673499193i	nested	string
+nested IMSUM then cosh	=IMCOSH(IMSUM("1+0i","2+0i"))	10.0676619957778	nested	string
+cotangent of real 3.5	=IMCOT(3.5)	2.66961648496887	official	string
+cotangent of 3+2i	=IMCOT("3+2i")	-0.0106047834703371-1.035746637765i	official	string
+cotangent of COMPLEX(4,1)	=IMCOT(COMPLEX(4,1))	0.253182007063936-0.928132757303418i	official	string
+cotangent of pure imaginary	=IMCOT("2i")	-1.03731472072755i	edge	string
+cotangent of negative real	=IMCOT("-1")	-0.642092615934331	edge	string
+COMPLEX coercion	=IMCOT(COMPLEX(3,2))	-0.0106047834703371-1.035746637765i	coercion	string
+integer coercion	=IMCOT(1)	0.642092615934331	coercion	string
+zero returns error (cot undefined at 0)	=IMCOT("0")	#DIV/0!	error	error
+nested COMPLEX then IMCOT	=IMCOT(COMPLEX(4,1))	0.253182007063936-0.928132757303418i	nested	string
+cotangent of 1	=IMCOT("1")	0.642092615934331	edge	string
+cotangent of pure imaginary	=IMCOT("i")	-1.31303528549933i	edge	string
+cotangent of negative	=IMCOT("-1")	-0.642092615934331	edge	string
+COMPLEX coercion	=IMCOT(COMPLEX(4,1))	0.253182007063936-0.928132757303418i	coercion	string
+zero error	=IMCOT("0")	#DIV/0!	error	error
+nested IMCOT of COMPLEX	=IMCOT(COMPLEX(3,2))	-0.0106047834703371-1.035746637765i	nested	string
+nested IMSUM first	=IMCOT(IMSUM("1+0i","1+0i"))	-0.457657554360286	nested	string
+coth of pure imaginary = -icot(y)	=IMCOTH("2i")	0.457657554360286i	edge	string
+zero returns error (coth undefined at 0)	=IMCOTH("0")	#DIV/0!	error	error
+coth of pure imaginary	=IMCOTH("2i")	0.457657554360286i	edge	string
+zero input returns error (undefined)	=IMCOTH("0")	#DIV/0!	error	error
+too many arguments	=IMCOTH("1+2i","extra")	#N/A	error	error
+cosecant of 0.213	=IMCSC(0.213)	4.73052448711521	official	string
+cosecant of 2-2i	=IMCSC("2-2i")	0.244687073586957-0.107954592221385i	official	string
+cosecant of COMPLEX(4,3)	=IMCSC(COMPLEX(4,3))	-0.0754898329158637+0.0648774713706355i	official	string
+cosecant of pi/2 = 1	=IMCSC("1.5707963267949")	1	edge	string
+cosecant of negative real	=IMCSC("-1")	-1.18839510577812	edge	string
+cosecant of pure imaginary	=IMCSC("2i")	-0.275720564771783i	edge	string
+COMPLEX coercion	=IMCSC(COMPLEX(4,3))	-0.0754898329158637+0.0648774713706355i	coercion	string
+integer coercion	=IMCSC(1)	1.18839510577812	coercion	string
+zero returns error (csc undefined at 0)	=IMCSC("0")	#NUM!	error	error
+nested IMCSC of COMPLEX	=IMCSC(COMPLEX(4,3))	-0.0754898329158637+0.0648774713706355i	nested	string
+nested IMSUM then IMCSC	=IMCSC(IMSUM("1+0i","1+0i"))	1.09975017029462	nested	string
+cosecant of 1	=IMCSC("1")	1.18839510577812	edge	string
+cosecant of pure imaginary	=IMCSC("i")	-0.850918128239322i	edge	string
+cosecant of negative	=IMCSC("-1")	-1.18839510577812	edge	string
+COMPLEX coercion	=IMCSC(COMPLEX(0.5,0))	2.08582964293349	coercion	string
+zero error	=IMCSC("0")	#NUM!	error	error
+nested COMPLEX then IMCSC	=IMCSC(COMPLEX(4,3))	-0.0754898329158637+0.0648774713706355i	nested	string
+nested IMSUM then IMCSC	=IMCSC(IMSUM("1+0i","1+0i"))	1.09975017029462	nested	string
+hyperbolic cosecant of 3.5	=IMCSCH(3.5)	0.0604498900091561	official	string
+hyperbolic cosecant of 3+2i	=IMCSCH("3+2i")	-0.0412009862885741-0.0904732097532074i	official	string
+hyperbolic cosecant of COMPLEX(4,1)	=IMCSCH(COMPLEX(4,1))	0.0197797995721927-0.0308258875766998i	official	string
+csch of 1	=IMCSCH("1")	0.850918128239322	edge	string
+csch of pure imaginary = -icsc(y)	=IMCSCH("i")	-1.18839510577812i	edge	string
+csch of negative real	=IMCSCH("-1")	-0.850918128239322	edge	string
+COMPLEX coercion	=IMCSCH(COMPLEX(4,1))	0.0197797995721927-0.0308258875766998i	coercion	string
+integer coercion	=IMCSCH(1)	0.850918128239322	coercion	string
+zero returns error	=IMCSCH("0")	#DIV/0!	error	error
+nested IMCSCH of COMPLEX	=IMCSCH(COMPLEX(3,2))	-0.0412009862885741-0.0904732097532074i	nested	string
+nested IMSUM then IMCSCH	=IMCSCH(IMSUM("1+0i","2+0i"))	0.0998215696688227	nested	string
+csch of 1	=IMCSCH("1")	0.850918128239322	edge	string
+csch of pure imaginary	=IMCSCH("i")	-1.18839510577812i	edge	string
+csch of negative real	=IMCSCH("-2")	-0.275720564771783	edge	string
+COMPLEX coercion	=IMCSCH(COMPLEX(4,1))	0.0197797995721927-0.0308258875766998i	coercion	string
+zero error	=IMCSCH("0")	#DIV/0!	error	error
+nested COMPLEX then IMCSCH	=IMCSCH(COMPLEX(3,2))	-0.0412009862885741-0.0904732097532074i	nested	string
+nested IMSUM then IMCSCH	=IMCSCH(IMSUM("1+0i","2+0i"))	0.0998215696688227	nested	string
+divide 11+16i by 3+2i = 5+2i	=IMDIV("11+16i","3+2i")	5+2i	official	string
+divide using COMPLEX function	=IMDIV(COMPLEX(11,16),COMPLEX(3,2))	5+2i	official	string
+divide real by real = real	=IMDIV("10","2")	5	edge	string
+divide pure imaginary by real	=IMDIV("6i","2")	3i	edge	string
+divide by 1 = identity	=IMDIV("3+4i","1")	3+4i	edge	string
+divide conjugate pairs produces real	=IMDIV("5+3i","5+3i")	1	edge	string
+COMPLEX coercion	=IMDIV(COMPLEX(4,2),COMPLEX(2,0))	2+i	coercion	string
+divide by zero returns #DIV/0!	=IMDIV("3+4i","0")	#DIV/0!	error	error
+nested with IMPRODUCT inverse	=IMDIV(IMPRODUCT("3+4i","2+i"),"2+i")	3+4i	nested	string
+nested IMDIV then IMABS	=IMABS(IMDIV("3+4i","1+0i"))	5	nested	number
+divide real by real	=IMDIV("10","2")	5	edge	string
+divide by 1 = identity	=IMDIV("3+4i","1")	3+4i	edge	string
+divide same = 1	=IMDIV("3+4i","3+4i")	1	edge	string
+COMPLEX coercion	=IMDIV(COMPLEX(6,0),COMPLEX(3,0))	2	coercion	string
+divide by zero error	=IMDIV("5","0")	#DIV/0!	error	error
+nested IMPRODUCT then IMDIV	=IMDIV(IMPRODUCT("2+i","3+0i"),"3+0i")	2+i	nested	string
+nested IMABS of IMDIV	=IMABS(IMDIV("10+0i","2+0i"))	5	nested	number
+e^(1+i)	=IMEXP("1+i")	1.46869393991589+2.28735528717884i	official	string
+e^(COMPLEX(2,3))	=IMEXP(COMPLEX(2,3))	-7.3151100949011+1.0427436562359i	official	string
+e^0 = 1	=IMEXP("0")	1	edge	string
+e^1 = e	=IMEXP("1")	2.71828182845905	edge	string
+e^(pure imaginary) on unit circle	=IMEXP("i")	0.54030230586814+0.841470984807897i	edge	string
+e^(-1+0i) = 1/e	=IMEXP("-1")	0.367879441171442	edge	string
+COMPLEX coercion	=IMEXP(COMPLEX(1,1))	1.46869393991589+2.28735528717884i	coercion	string
+integer coercion to real	=IMEXP(0)	1	coercion	string
+nested IMLN inverse	=IMABS(IMSUB(IMEXP("1+2i"),IMEXP(IMLN("1+2i"))))	2.1827867917927732	nested	number
+nested COMPLEX then IMEXP	=IMEXP(COMPLEX(0,1))	0.54030230586814+0.841470984807897i	nested	string
+e^0 = 1	=IMEXP("0")	1	edge	string
+e^1 = e	=IMEXP("1")	2.71828182845905	edge	string
+e^(pi*i) = -1 (Euler)	=IMEXP(COMPLEX(0,3.14159265358979))	-1+3.23108914886517E-15i	edge	string
+COMPLEX coercion	=IMEXP(COMPLEX(1,1))	1.46869393991589+2.28735528717884i	coercion	string
+nested IMLN then IMEXP identity	=IMABS(IMSUB(IMEXP(IMLN("3+4i")),"3+4i"))	0	nested	number
+nested COMPLEX then IMEXP	=IMEXP(COMPLEX(0,1))	0.54030230586814+0.841470984807897i	nested	string
+log base 3.5 of 1+i	=IMLOG("1+i",3.5)	0.276647377832556+0.626932774314643i	official	string
+log base 2.3 of COMPLEX(25,34)	=IMLOG(COMPLEX(25,34),2.3)	4.49324546771284+1.12470086031758i	official	string
+log base 10 of 100 = 2	=IMLOG(100,10)	2	official	string
+log base 10 equals IMLOG10	=IMLOG("1+i",10)	0.150514997831991+0.34109408846046i	official	string
+log base 2 equals IMLOG2	=IMLOG("1+i",2)	0.5+1.1330900354568i	edge	string
+log of 1 = 0 for any base	=IMLOG("1",10)	0	edge	string
+log of pure imaginary	=IMLOG("i",10)	0.682188176920921i	edge	string
+log of negative real	=IMLOG("-1",10)	1.36437635384184i	edge	string
+COMPLEX coercion for value	=IMLOG(COMPLEX(10,0),10)	1	coercion	string
+integer value coercion	=IMLOG(100,10)	2	coercion	string
+log of 0 returns error	=IMLOG("0",10)	#DIV/0!	error	error
+base 0 returns error	=IMLOG("10",0)	#NUM!	error	error
+negative base returns error	=IMLOG("10",-2)	#NUM!	error	error
+nested IMLOG then compare with IMLOG10	=IMLOG(IMPRODUCT("2+0i","5+0i"),10)	1	nested	string
+log base 2 equals IMLOG2 result	=IMLOG("1+i",2)	0.5+1.1330900354568i	edge	string
+log base 10 equals IMLOG10 result	=IMLOG("1+i",10)	0.150514997831991+0.34109408846046i	edge	string
+log of 1 = 0 for any base	=IMLOG("1",10)	0	edge	string
+log of pure imaginary	=IMLOG("i",10)	0.682188176920921i	edge	string
+COMPLEX coercion for value	=IMLOG(COMPLEX(10,0),10)	1	coercion	string
+integer value coercion	=IMLOG(100,10)	2	coercion	string
+log of 0 returns error	=IMLOG("0",10)	#DIV/0!	error	error
+base 0 returns error	=IMLOG("10",0)	#NUM!	error	error
+negative base returns error	=IMLOG("10",-2)	#NUM!	error	error
+nested IMLOG of product	=IMLOG(IMPRODUCT("2+0i","5+0i"),10)	1	nested	string
+nested IFERROR wraps error	=IFERROR(IMLOG("0",10),"undefined")	undefined	nested	string
+GS-only function not in Excel	=IMLOG("3+4i",10)	0.698970004336019+0.402719196273373i	compatibility	string
+IMLOG base e equivalent to IMLN	=IMLOG("1+i",EXP(1))	0.346573590279973+0.785398163397448i	compatibility	string
+log10 of 1+i	=IMLOG10("1+i")	0.150514997831991+0.34109408846046i	official	string
+log10 of COMPLEX(25,34)	=IMLOG10(COMPLEX(25,34))	1.62533195973162+0.406835608369804i	official	string
+log10 of real 100 = 2	=IMLOG10(100)	2	official	string
+log10 of 1 = 0	=IMLOG10("1")	0	edge	string
+log10 of pure imaginary 10i	=IMLOG10("10i")	1+0.682188176920921i	edge	string
+log10 of negative real	=IMLOG10("-1")	1.36437635384184i	edge	string
+COMPLEX coercion	=IMLOG10(COMPLEX(100,0))	2	coercion	string
+integer coercion	=IMLOG10(100)	2	coercion	string
+zero returns error	=IMLOG10("0")	#DIV/0!	error	error
+nested IMEXP inverse	=IMLOG10(COMPLEX(10,0))	1	nested	string
+nested IMLOG10 of IMPRODUCT	=IMLOG10(IMPRODUCT("10+0i","10+0i"))	2	nested	string
+log10 of 1 = 0	=IMLOG10("1")	0	edge	string
+log10 of 100 = 2	=IMLOG10("100")	2	edge	string
+log10 of pure imaginary	=IMLOG10("i")	0.682188176920921i	edge	string
+COMPLEX coercion	=IMLOG10(COMPLEX(10,0))	1	coercion	string
+zero error	=IMLOG10("0")	#DIV/0!	error	error
+nested IMPRODUCT then log10	=IMLOG10(IMPRODUCT("10+0i","10+0i"))	2	nested	string
+nested COMPLEX then log10	=IMLOG10(COMPLEX(1000,0))	3	nested	string
+log2 of 1+i	=IMLOG2("1+i")	0.5+1.1330900354568i	official	string
+log2 of COMPLEX(25,34)	=IMLOG2(COMPLEX(25,34))	5.39923590055081+1.35147863744424i	official	string
+log2 of real 100	=IMLOG2(100)	6.64385618977473	official	string
+log2 of 1 = 0	=IMLOG2("1")	0	edge	string
+log2 of 2 = 1	=IMLOG2("2")	1	edge	string
+log2 of pure imaginary	=IMLOG2("i")	2.2661800709136i	edge	string
+COMPLEX coercion	=IMLOG2(COMPLEX(8,0))	3	coercion	string
+integer coercion	=IMLOG2(1024)	10	coercion	string
+zero returns error	=IMLOG2("0")	#DIV/0!	error	error
+nested IMLOG2 of power of 2	=IMLOG2(IMPRODUCT("2+0i","2+0i"))	2	nested	string
+nested COMPLEX then log2	=IMLOG2(COMPLEX(1024,0))	10	nested	string
+log2 of 1 = 0	=IMLOG2("1")	0	edge	string
+log2 of 2 = 1	=IMLOG2("2")	1	edge	string
+log2 of pure imaginary	=IMLOG2("i")	2.2661800709136i	edge	string
+COMPLEX coercion	=IMLOG2(COMPLEX(8,0))	3	coercion	string
+zero error	=IMLOG2("0")	#DIV/0!	error	error
+nested power of 2	=IMLOG2(IMPRODUCT("4+0i","4+0i"))	4	nested	string
+nested COMPLEX then log2	=IMLOG2(COMPLEX(2048,0))	11	nested	string
+product of COMPLEX(3,4) and 2 = 6+8i	=IMPRODUCT(COMPLEX(3,4),2)	6+8i	official	string
+product of 3+4i, 2i, 2i = -12-16i	=IMPRODUCT("3+4i","2i","2i")	-12-16i	official	string
+product of two complex numbers	=IMPRODUCT("1+2i","3+5i")	-7+11i	official	string
+product of complex by 1 = identity	=IMPRODUCT("3+4i","1")	3+4i	edge	string
+product of complex by 0 = 0	=IMPRODUCT("3+4i","0")	0	edge	string
+product of i and i = -1	=IMPRODUCT("i","i")	-1	edge	string
+product of conjugate pair = real	=IMPRODUCT("3+4i","3-4i")	25	edge	string
+COMPLEX coercion as factor	=IMPRODUCT(COMPLEX(2,0),COMPLEX(3,0))	6	coercion	string
+integer factor coercion	=IMPRODUCT("3+4i",2)	6+8i	coercion	string
+nested with IMDIV inverse	=IMDIV(IMPRODUCT("3+4i","2+i"),"2+i")	3+4i	nested	string
+nested product of three	=IMPRODUCT(IMPRODUCT("1+i","1+i"),"1+i")	-2+2i	nested	string
+product with 1 = identity	=IMPRODUCT("3+4i","1")	3+4i	edge	string
+product with 0 = 0	=IMPRODUCT("3+4i","0")	0	edge	string
+i*i = -1	=IMPRODUCT("i","i")	-1	edge	string
+COMPLEX coercion	=IMPRODUCT(COMPLEX(2,3),COMPLEX(1,0))	2+3i	coercion	string
+nested then IMABS	=IMABS(IMPRODUCT("3+4i","3-4i"))	25	nested	number
+nested three factors	=IMPRODUCT(IMPRODUCT("1+i","1-i"),"2+0i")	4	nested	string
+real part of 3+5i = 3	=IMREAL("3+5i")	3	official	number
+real part of 4j = 0	=IMREAL("4j")	0	official	number
+real part of COMPLEX(3,5)	=IMREAL(COMPLEX(3,5))	3	official	number
+real part of real number = itself	=IMREAL("7")	7	edge	number
+real part of 0 = 0	=IMREAL("0")	0	edge	number
+real part of negative real	=IMREAL("-5")	-5	edge	number
+real part of 3-4i = 3	=IMREAL("3-4i")	3	edge	number
+COMPLEX function coercion	=IMREAL(COMPLEX(-3,5))	-3	coercion	number
+integer coercion returns itself	=IMREAL(7)	7	coercion	number
+nested IMCONJUGATE real part same	=IMREAL(IMCONJUGATE("3+4i"))	3	nested	number
+nested IMSUM real parts add	=IMREAL(IMSUM("1+2i","2+3i"))	3	nested	number
+real of i = 0	=IMREAL("i")	0	edge	number
+real of real = itself	=IMREAL("5")	5	edge	number
+real of 0 = 0	=IMREAL("0")	0	edge	number
+COMPLEX coercion	=IMREAL(COMPLEX(3,4))	3	coercion	number
+nested IMCONJUGATE real unchanged	=IMREAL(IMCONJUGATE("5+3i"))	5	nested	number
+nested IMSUM real parts	=IMREAL(IMSUM("3+2i","4+5i"))	7	nested	number
+secant of COMPLEX(4,1)	=IMSEC(COMPLEX(4,1))	-0.557760402867351-0.491827502294509i	official	string
+secant of real 3.5	=IMSEC(3.5)	-1.06785504719181	official	string
+secant of 3+2i	=IMSEC("3+2i")	-0.263512975158389+0.0362116365587685i	official	string
+secant of 0 = 1	=IMSEC("0")	1	edge	string
+secant of pure imaginary	=IMSEC("i")	0.648054273663885	edge	string
+secant of negative real	=IMSEC("-1")	1.85081571768093	edge	string
+COMPLEX coercion	=IMSEC(COMPLEX(3,2))	-0.263512975158389+0.0362116365587685i	coercion	string
+integer coercion to real	=IMSEC(1)	1.85081571768093	coercion	string
+nested IMSEC of COMPLEX	=IMSEC(COMPLEX(4,1))	-0.557760402867351-0.491827502294509i	nested	string
+nested IMSUM then IMSEC	=IMSEC(IMSUM("1+0i","2+0i"))	-1.01010866590799	nested	string
+secant of 0 = 1	=IMSEC("0")	1	edge	string
+secant of 1	=IMSEC("1")	1.85081571768093	edge	string
+secant of pure imaginary	=IMSEC("i")	0.648054273663885	edge	string
+COMPLEX coercion	=IMSEC(COMPLEX(3,2))	-0.263512975158389+0.0362116365587685i	coercion	string
+nested IMCOS then IMSEC (inverse)	=IMSEC(COMPLEX(4,1))	-0.557760402867351-0.491827502294509i	nested	string
+nested IMSUM then IMSEC	=IMSEC(IMSUM("1+0i","2+0i"))	-1.01010866590799	nested	string
+hyperbolic secant of COMPLEX(4,1)	=IMSECH(COMPLEX(4,1))	0.0198041304666168-0.0308224192896954i	official	string
+hyperbolic secant of 3+2i	=IMSECH("3+2i")	-0.0416749644111443-0.0906111371962376i	official	string
+sech of 0 = 1	=IMSECH("0")	1	edge	string
+sech of pure imaginary = cos(y)	=IMSECH("i")	1.85081571768093	edge	string
+sech of negative real	=IMSECH("-1")	0.648054273663885	edge	string
+COMPLEX coercion	=IMSECH(COMPLEX(3,2))	-0.0416749644111443-0.0906111371962376i	coercion	string
+integer coercion	=IMSECH(1)	0.648054273663885	coercion	string
+nested IMSECH of COMPLEX	=IMSECH(COMPLEX(4,1))	0.0198041304666168-0.0308224192896954i	nested	string
+nested IMSUM then IMSECH	=IMSECH(IMSUM("1+0i","2+0i"))	0.0993279274194332	nested	string
+sech of 0 = 1	=IMSECH("0")	1	edge	string
+sech of 1	=IMSECH("1")	0.648054273663885	edge	string
+sech of pure imaginary	=IMSECH("i")	1.85081571768093	edge	string
+COMPLEX coercion	=IMSECH(COMPLEX(3,2))	-0.0416749644111443-0.0906111371962376i	coercion	string
+nested IMSECH of COMPLEX	=IMSECH(COMPLEX(4,1))	0.0198041304666168-0.0308224192896954i	nested	string
+nested IMSUM then IMSECH	=IMSECH(IMSUM("2+0i","1+0i"))	0.0993279274194332	nested	string
+sine of COMPLEX(4,1)	=IMSIN(COMPLEX(4,1))	-1.16780727488952-0.768162763456573i	official	string
+sine of real 3.5	=IMSIN(3.5)	-0.35078322768962	official	string
+sine of 3+2i	=IMSIN("3+2i")	0.53092108624852-3.59056458998578i	official	string
+sine of 0 = 0	=IMSIN("0")	0	edge	string
+sine of pure imaginary = i*sinh(y)	=IMSIN("i")	1.1752011936438i	edge	string
+sine of negative real	=IMSIN("-1")	-0.841470984807897	edge	string
+COMPLEX coercion	=IMSIN(COMPLEX(3,2))	0.53092108624852-3.59056458998578i	coercion	string
+integer coercion	=IMSIN(0)	0	coercion	string
+nested IMCOS check identity	=IMABS(IMSUM(IMPRODUCT(IMSIN("1+i"),IMSIN("1+i")),IMPRODUCT(IMCOS("1+i"),IMCOS("1+i"))))	1.00000000000001	nested	number
+nested IMSUM then IMSIN	=IMSIN(IMSUM("1+0i","2+0i"))	0.141120008059867	nested	string
+sine of 0 = 0	=IMSIN("0")	0	edge	string
+sine of pure imaginary	=IMSIN("i")	1.1752011936438i	edge	string
+sine of negative real	=IMSIN("-1")	-0.841470984807897	edge	string
+COMPLEX coercion	=IMSIN(COMPLEX(1,2))	3.16577851321617+1.95960104142161i	coercion	string
+nested IMSIN of COMPLEX	=IMSIN(COMPLEX(4,1))	-1.16780727488952-0.768162763456573i	nested	string
+nested IMSUM then IMSIN	=IMSIN(IMSUM("1+0i","2+0i"))	0.141120008059867	nested	string
+hyperbolic sine of COMPLEX(4,1)	=IMSINH(COMPLEX(4,1))	14.7448051885587+22.9790855778861i	official	string
+hyperbolic sine of real 3.5	=IMSINH(3.5)	16.542627287635	official	string
+hyperbolic sine of 3+2i	=IMSINH("3+2i")	-4.16890695996656+9.15449914691143i	official	string
+sinh of 0 = 0	=IMSINH("0")	0	edge	string
+sinh of pure imaginary = i*sin(y)	=IMSINH("i")	0.841470984807897i	edge	string
+sinh of negative real	=IMSINH("-1")	-1.1752011936438	edge	string
+COMPLEX coercion	=IMSINH(COMPLEX(4,1))	14.7448051885587+22.9790855778861i	coercion	string
+integer coercion	=IMSINH(1)	1.1752011936438	coercion	string
+nested IMSINH of COMPLEX	=IMSINH(COMPLEX(3,2))	-4.16890695996656+9.15449914691143i	nested	string
+nested IMSUM then IMSINH	=IMSINH(IMSUM("1+0i","2+0i"))	10.0178749274099	nested	string
+sinh of 0 = 0	=IMSINH("0")	0	edge	string
+sinh of 1	=IMSINH("1")	1.1752011936438	edge	string
+sinh of pure imaginary	=IMSINH("i")	0.841470984807897i	edge	string
+COMPLEX coercion	=IMSINH(COMPLEX(3,2))	-4.16890695996656+9.15449914691143i	coercion	string
+nested IMSINH of COMPLEX	=IMSINH(COMPLEX(4,1))	14.7448051885587+22.9790855778861i	nested	string
+nested IMSUM then IMSINH	=IMSINH(IMSUM("1+0i","2+0i"))	10.0178749274099	nested	string
+subtract 2+3i from 6+5i = 4+2i	=IMSUB("6+5i","2+3i")	4+2i	official	string
+subtract complex from itself = 0	=IMSUB("3+4i","3+4i")	0	edge	string
+subtract 0 from complex = complex	=IMSUB("3+4i","0")	3+4i	edge	string
+subtract real from real	=IMSUB("10","3")	7	edge	string
+COMPLEX coercion	=IMSUB(COMPLEX(20,5),COMPLEX(4,0))	16+5i	coercion	string
+nested IMSUM and IMSUB cancel	=IMSUB(IMSUM("3+4i","2+1i"),"2+1i")	3+4i	nested	string
+nested IMABS of IMSUB	=IMABS(IMSUB("5+0i","3+0i"))	2	nested	number
+subtract itself = 0	=IMSUB("3+4i","3+4i")	0	edge	string
+subtract 0 = identity	=IMSUB("5+2i","0")	5+2i	edge	string
+subtract real	=IMSUB("5+3i","2")	3+3i	edge	string
+COMPLEX coercion	=IMSUB(COMPLEX(5,3),COMPLEX(2,1))	3+2i	coercion	string
+nested IMSUM then IMSUB cancel	=IMSUB(IMSUM("1+2i","3+4i"),"3+4i")	1+2i	nested	string
+nested IMABS of IMSUB	=IMABS(IMSUB("4+3i","1+0i"))	4.242640687119285	nested	number
+sum of 1+2i and 3+4i = 4+6i	=IMSUM("1+2i","3+4i")	4+6i	official	string
+sum using COMPLEX function	=IMSUM(COMPLEX(2,5),COMPLEX(4,2))	6+7i	official	string
+sum with 0 = identity	=IMSUM("3+4i","0")	3+4i	edge	string
+sum of two real numbers	=IMSUM("3","4")	7	edge	string
+sum of two pure imaginaries	=IMSUM("2i","3i")	5i	edge	string
+sum of three complex numbers	=IMSUM("1+i","2+i","3+i")	6+3i	edge	string
+COMPLEX coercion	=IMSUM(COMPLEX(1,2),COMPLEX(3,4))	4+6i	coercion	string
+integer arg coercion	=IMSUM("3+4i",5)	8+4i	coercion	string
+nested IMSUB then IMSUM cancel	=IMSUB(IMSUM("3+4i","1+i"),"1+i")	3+4i	nested	string
+nested IMABS of IMSUM	=IMABS(IMSUM("3+0i","4+0i"))	7	nested	number
+sum with 0 = identity	=IMSUM("3+4i","0")	3+4i	edge	string
+sum of pure imaginaries	=IMSUM("2i","3i")	5i	edge	string
+sum of reals	=IMSUM("5","3")	8	edge	string
+COMPLEX coercion	=IMSUM(COMPLEX(1,2),COMPLEX(3,4))	4+6i	coercion	string
+nested IMSUM then IMSUB	=IMSUB(IMSUM("1+2i","3+4i"),"3+4i")	1+2i	nested	string
+nested IMABS of IMSUM	=IMABS(IMSUM("3+0i","4+0i"))	7	nested	number
+tangent of real 0.213	=IMTAN(0.213)	0.216280749620508	official	string
+tangent of 0 = 0	=IMTAN("0")	0	edge	string
+tangent of pure imaginary	=IMTAN("i")	0.761594155955765i	edge	string
+tangent of negative real	=IMTAN("-1")	-1.5574077246549	edge	string
+integer coercion	=IMTAN(1)	1.5574077246549	coercion	string
+nested IMSUM then IMTAN	=IMTAN(IMSUM("1+0i","1+0i"))	-2.18503986326152	nested	string
+tangent of 0 = 0	=IMTAN("0")	0	edge	string
+tangent of pure imaginary	=IMTAN("i")	0.761594155955765i	edge	string
+tangent of negative	=IMTAN("-1")	-1.5574077246549	edge	string
+nested IMSUM then IMTAN	=IMTAN(IMSUM("1+0i","1+0i"))	-2.18503986326152	nested	string
+tanh of 0 = 0	=IMTANH("0")	0	edge	string
+tanh of pure imaginary = i*tan(y)	=IMTANH("i")	1.5574077246549i	edge	string
+tanh of 0 = 0	=IMTANH("0")	0	edge	string
+tanh of pure imaginary	=IMTANH("i")	1.5574077246549i	edge	string
+too many arguments	=IMTANH("1+2i","extra")	#N/A	error	error
+converts octal 37 to binary	=OCT2BIN("37")	11111	official	string
+converts octal 177 to binary 1111111	=OCT2BIN("177")	1111111	official	string
+converts with 8 significant digits	=OCT2BIN("37",8)	00011111	official	string
+converts negative octal 7777777000	=OCT2BIN("7777777000")	1000000000	official	string
+converts octal 0 to binary 0	=OCT2BIN("0")	0	edge	string
+converts max positive octal 777	=OCT2BIN("777")	111111111	edge	string
+integer argument coercion	=OCT2BIN(37)	11111	coercion	string
+leading zeros coercion	=OCT2BIN("000037")	11111	coercion	string
+invalid octal digit 8 returns #NUM!	=OCT2BIN("8")	#NUM!	error	error
+octal out of binary range returns #NUM!	=OCT2BIN("1000")	#NUM!	error	error
+significant_digits too small returns #NUM!	=OCT2BIN("777",2)	#NUM!	error	error
+nested BIN2OCT round-trip	=OCT2BIN(BIN2OCT("1010"))	1010	nested	string
+nested OCT2DEC then DEC2OCT	=OCT2BIN(DEC2OCT(OCT2DEC("77")))	111111	nested	string
+octal zero to binary	=OCT2BIN("0")	0	edge	string
+octal 1 to binary 1	=OCT2BIN("1")	1	edge	string
+max positive 777	=OCT2BIN("777")	111111111	edge	string
+integer coercion	=OCT2BIN(7)	111	coercion	string
+invalid digit 9 error	=OCT2BIN("9")	#NUM!	error	error
+nested round-trip BIN2OCT	=OCT2BIN(BIN2OCT("111"))	111	nested	string
+nested DEC2OCT	=OCT2BIN(DEC2OCT(7))	111	nested	string
+converts octal 37 to decimal 31	=OCT2DEC("37")	31	official	number
+converts octal 177 to decimal 127	=OCT2DEC("177")	127	official	number
+converts octal 0 to decimal 0	=OCT2DEC("0")	0	edge	number
+converts max positive 3777777777	=OCT2DEC("3777777777")	536870911	edge	number
+converts negative 4000000000	=OCT2DEC("4000000000")	-536870912	edge	number
+integer argument coercion	=OCT2DEC(37)	31	coercion	number
+string with leading zeros coercion	=OCT2DEC("0000037")	31	coercion	number
+invalid octal digit 8 returns #NUM!	=OCT2DEC("8")	#NUM!	error	error
+too many digits returns #NUM!	=OCT2DEC("37777777777")	#NUM!	error	error
+invalid char returns #NUM!	=OCT2DEC("abc")	#NUM!	error	error
+nested DEC2OCT round-trip	=OCT2DEC(DEC2OCT(127))	127	nested	number
+nested arithmetic on result	=OCT2DEC("10")+OCT2DEC("7")	15	nested	number
+octal zero to decimal	=OCT2DEC("0")	0	edge	number
+octal 7 to decimal 7	=OCT2DEC("7")	7	edge	number
+max positive 3777777777	=OCT2DEC("3777777777")	536870911	edge	number
+integer coercion	=OCT2DEC(10)	8	coercion	number
+invalid digit error	=OCT2DEC("9")	#NUM!	error	error
+nested DEC2OCT round-trip	=OCT2DEC(DEC2OCT(64))	64	nested	number
+nested addition	=OCT2DEC("7")+OCT2DEC("1")	8	nested	number
+converts octal 37 to hex 1F	=OCT2HEX("37")	1F	official	string
+converts octal 177 to hex 7F	=OCT2HEX("177")	7F	official	string
+converts with 8 significant digits	=OCT2HEX("37",8)	0000001F	official	string
+converts negative octal 4000000000	=OCT2HEX("4000000000")	FFE0000000	official	string
+converts octal 0 to hex 0	=OCT2HEX("0")	0	edge	string
+converts max positive 3777777777	=OCT2HEX("3777777777")	1FFFFFFF	edge	string
+integer argument coercion	=OCT2HEX(37)	1F	coercion	string
+leading zeros coercion	=OCT2HEX("000037")	1F	coercion	string
+invalid octal digit 8 returns #NUM!	=OCT2HEX("8")	#NUM!	error	error
+significant_digits too small returns #NUM!	=OCT2HEX("37777777777",1)	#NUM!	error	error
+invalid chars returns #NUM!	=OCT2HEX("abc")	#NUM!	error	error
+nested HEX2OCT round-trip	=OCT2HEX(HEX2OCT("7F"))	7F	nested	string
+nested DEC2OCT inside	=OCT2HEX(DEC2OCT(255))	FF	nested	string
+octal zero to hex	=OCT2HEX("0")	0	edge	string
+octal 7 to hex 7	=OCT2HEX("7")	7	edge	string
+max positive octal	=OCT2HEX("3777777777")	1FFFFFFF	edge	string
+integer coercion	=OCT2HEX(77)	3F	coercion	string
+invalid digit error	=OCT2HEX("9")	#NUM!	error	error
+nested HEX2OCT round-trip	=OCT2HEX(HEX2OCT("FF"))	FF	nested	string
+nested DEC2OCT	=OCT2HEX(DEC2OCT(255))	FF	nested	string

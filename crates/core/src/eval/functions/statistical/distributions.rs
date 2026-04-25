@@ -426,7 +426,14 @@ pub fn inv_reg_inc_beta(a: f64, b: f64, p: f64) -> f64 {
             continue;
         }
         let dx = fx / dfx;
-        let x_new = (x - dx).clamp(lo + 1e-14, hi - 1e-14);
+        let clamp_lo = lo + 1e-14;
+        let clamp_hi = hi - 1e-14;
+        let x_new = if clamp_lo >= clamp_hi {
+            // Bisection interval collapsed — take midpoint and stop
+            (lo + hi) / 2.0
+        } else {
+            (x - dx).clamp(clamp_lo, clamp_hi)
+        };
         let converged = (x_new - x).abs() < 1e-12;
         x = x_new;
         if converged {

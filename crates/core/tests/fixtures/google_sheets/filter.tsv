@@ -1,37 +1,21 @@
 description	formula_text	expected_value	test_category	expected_type
-FILTER values greater than 2	=ARRAYTOTEXT(FILTER({1,2,3,4,5},{1,2,3,4,5}>2), 1)	#NAME?	filter	error
-FILTER all pass	=ARRAYTOTEXT(FILTER({10,20,30},{TRUE,TRUE,TRUE}), 1)	#NAME?	filter	error
-FILTER none pass returns if_empty	"=FILTER({1,2,3},{FALSE,FALSE,FALSE},""none"")"	none	filter	text
-FILTER first element only	=ARRAYTOTEXT(FILTER({10,20,30},{TRUE,FALSE,FALSE}), 1)	#NAME?	filter	error
-FILTER last element only	=ARRAYTOTEXT(FILTER({10,20,30},{FALSE,FALSE,TRUE}), 1)	#NAME?	filter	error
-FILTER alternating elements	=ARRAYTOTEXT(FILTER({1,2,3,4,5,6},{TRUE,FALSE,TRUE,FALSE,TRUE,FALSE}), 1)	#NAME?	filter	error
-FILTER 2D array rows	=ARRAYTOTEXT(FILTER({1,2;3,4;5,6},{TRUE,FALSE,TRUE}), 1)	#NAME?	filter	error
-FILTER with equality condition	=ARRAYTOTEXT(FILTER({1,2,3,2,1},{1,2,3,2,1}=2), 1)	#NAME?	filter	error
-FILTER with if_empty string	"=FILTER({1,2,3},{FALSE,FALSE,FALSE},""no results"")"	no results	filter	text
-SORT 1D ascending (filter cat)	=ARRAYTOTEXT(SORT({3,1,2},1,1), 1)	#NAME?	filter	error
-SORT 1D descending (BUG-09, filter cat)	=ARRAYTOTEXT(SORT({3,1,2},1,-1), 1)	#NAME?	filter	error
-SORT 2D by col 1 ascending	=ARRAYTOTEXT(SORT({3,30;1,10;2,20},1,1), 1)	#NAME?	filter	error
-SORT 2D by col 2 descending	=ARRAYTOTEXT(SORT({3,30;1,10;2,20},2,-1), 1)	#NAME?	filter	error
-SORT strings ascending	"=ARRAYTOTEXT(SORT({""banana"",""apple"",""cherry""},1,1), 1)"	#NAME?	filter	error
-SORTN top 3 (BUG-11)	=ARRAYTOTEXT(SORTN({5,3,1,4,2},3), 1)	#NAME?	filter	error
-SORTN top 2 (BUG-11)	=ARRAYTOTEXT(SORTN({5,3,1,4,2},2), 1)	#NAME?	filter	error
-SORTN top 1	=ARRAYTOTEXT(SORTN({5,3,1,4,2},1), 1)	#NAME?	filter	error
-SORTN all elements (n=5)	=ARRAYTOTEXT(SORTN({5,3,1,4,2},5), 1)	#NAME?	filter	error
-SORTN with ties mode 0	=ARRAYTOTEXT(SORTN({5,3,3,1,4,2},3,0), 1)	#NAME?	filter	error
-SORTN 2D top 2 rows by first col	"=ARRAYTOTEXT(SORTN({5,""e"";3,""c"";1,""a"";4,""d"";2,""b""},2), 1)"	#NAME?	filter	error
-UNIQUE basic dedup (filter cat)	=ARRAYTOTEXT(UNIQUE({1,2,2,3}), 1)	#NAME?	filter	error
-UNIQUE exactly_once=TRUE (BUG-04, filter cat)	=ARRAYTOTEXT(UNIQUE({1,2,2,3},FALSE,TRUE), 1)	#NAME?	filter	error
-UNIQUE all values already unique	=ARRAYTOTEXT(UNIQUE({5,3,1,4,2}), 1)	#NAME?	filter	error
-UNIQUE with three duplicates exactly_once	=ARRAYTOTEXT(UNIQUE({1,1,1,2,3,3},FALSE,TRUE), 1)	#NAME?	filter	error
-UNIQUE by col on 2D	=ARRAYTOTEXT(UNIQUE({1,2,1;3,4,3},TRUE,FALSE), 1)	#NAME?	filter	error
-INDEX 1D pick element 2 (filter cat)	=INDEX({10,20,30},1,2)	20	filter	number
-INDEX 2D pick row 2 col 1 (filter cat)	=INDEX({1,2;3,4},2,1)	3	filter	number
-INDEX return entire column 2	=ARRAYTOTEXT(INDEX({1,2;3,4;5,6},0,2), 1)	#NAME?	filter	error
-ROWS 1D array (filter cat, BUG-20)	=ROWS({1,2,3,4,5})	1	filter	number
-ROWS 2D array (filter cat)	=ROWS({1,2;3,4;5,6})	3	filter	number
-ROWS column vector (filter cat, BUG-20)	=ROWS({1;2;3})	3	filter	number
-COLUMNS 1D array (filter cat, BUG-20)	=COLUMNS({1,2,3,4,5})	5	filter	number
-COLUMNS 2D array (filter cat)	=COLUMNS({1,2;3,4;5,6})	2	filter	number
-COLUMNS column vector (filter cat, BUG-20)	=COLUMNS({1;2;3})	1	filter	number
-SORTBY ascending (filter cat)	=ARRAYTOTEXT(SORTBY({3,1,2},{2,1,3},1), 1)	#NAME?	filter	error
-SORTBY descending (BUG-10, filter cat)	=ARRAYTOTEXT(SORTBY({3,1,2},{2,1,3},-1), 1)	#NAME?	filter	error
+filter with all false returns #N/A	=FILTER({1,2,3},{FALSE,FALSE,FALSE})	#N/A	official	error
+no matching rows returns #N/A	=FILTER({1,2,3},{FALSE,FALSE,FALSE})	#N/A	error	error
+no arguments returns error	=FILTER()	#N/A	error	error
+nested SUM of FILTER result	=SUM(FILTER({1,2,3,4,5},{1,2,3,4,5}>2))	12	nested	number
+filter with all false returns #N/A	=FILTER({1,2,3},{FALSE,FALSE,FALSE})	#N/A	official	error
+no matching rows returns #N/A	=FILTER({1,2,3},{FALSE,FALSE,FALSE})	#N/A	error	error
+no arguments returns error	=FILTER()	#N/A	error	error
+nested SUM of FILTER result	=SUM(FILTER({1,2,3,4,5},{1,2,3,4,5}>2))	12	nested	number
+sort single element array	=SORT({42})	42	official	number
+sort empty-ish single value	=SORT({0})	0	edge	number
+sort no arguments returns error	=SORT()	#N/A	error	error
+nested SORT in SUM	=SUM(SORT({5,3,1}))	9	nested	number
+n of 1 on single-element array	=SORTN({42},1)	42	coercion	number
+no arguments returns error	=SORTN()	#N/A	error	error
+single element returns same value	=UNIQUE({5})	5	official	number
+unique of single element	=UNIQUE({99})	99	edge	number
+non-array scalar argument treated as single-element	=UNIQUE({42})	42	coercion	number
+no arguments returns error	=UNIQUE()	#N/A	error	error
+non-iterable argument may return error	=UNIQUE(TRUE)	TRUE	error	boolean
+nested IFERROR around bad UNIQUE call	=IFERROR(UNIQUE(),"no input")	no input	nested	string

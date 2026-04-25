@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/truecalc/core/compare/truecalc-mcp-v0.4.19...truecalc-mcp-v0.5.0) - 2026-04-22
+
+### Added
+
+- *(mcp)* add --conformance flag and per-call conformance override
+
+### Other
+
+- separate test files from production code
+
 ## [0.4.19](https://github.com/truecalc/core/compare/truecalc-mcp-v0.4.18...truecalc-mcp-v0.4.19) - 2026-04-21
 
 ### Other

@@ -26,6 +26,11 @@ pub fn workday_intl_fn(args: &[Value]) -> Value {
         None => return Value::Error(ErrorKind::Value),
     };
 
+    // All-weekend mask makes it impossible to advance — return #NUM!
+    if mask.iter().all(|&w| w) {
+        return Value::Error(ErrorKind::Num);
+    }
+
     let days = days_raw as i64;
     if days == 0 {
         return Value::Number(date_to_serial(start));
