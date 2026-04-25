@@ -1450,23 +1450,18 @@ European 30/360 basis (basis=4)	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0
 non-integer frequency truncated to integer (2.7 → 2)	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2.7,0)	94.63436162132213	coercion	number
 numeric string coupon rate coerced to number	"=PRICE(DATE(2008,2,15),DATE(2017,11,15),""0.0575"",0.065,100,2,0)"	94.63436162132213	coercion	number
 compatibility: basis 0 vs basis 1 price difference for same bond	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,0)-PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,1)	-0.0010875865550730168	compatibility	number
-RECEIVED with discount=0 — must be positive	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),1000,0)	#NUM!	error	error
 XIRR with irregular cash flows using explicit dates and rate guess	=XIRR({-4000,200,250,300},{DATE(2012,1,1),DATE(2012,6,23),DATE(2013,5,12),DATE(2014,2,9)},0.09)	-0.6440855342116852	official	number
 YIELD for 30-year bond with semiannual payments, 30/360 basis, coupon 3%	=YIELD(DATE(2010,1,2),DATE(2039,12,31),3,93.45,100,2)	3.1876008031666876	official	number
 YIELD with annual payments, explicit 30/360 day count convention	=YIELD(DATE(2010,1,2),DATE(2039,12,31),3,93.45,100,1,1)	3.1795991124043925	official	number
 YIELD: redemption value above par — GS and Excel should agree but end-of-month handling may differ	=YIELD(DATE(2020,1,31),DATE(2030,3,31),0.05,95,110,2,0)	0.0638866452844587	compatibility	number
 non-integer basis truncated to integer (1.9 → 1)	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,1.9)	94.6354492078772	coercion	number
-RECEIVED with negative investment — error in both platforms	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),-1000,0.05)	#NUM!	compatibility	error
 Days from coupon start to settlement, semiannual, actual/actual basis	=COUPDAYBS(DATE(2010,2,1),DATE(2019,12,31),4,1)	32	official	number
 invalid type value: type=2 returns #NUM!	=CUMPRINC(0.05,12,1000,1,6,2)	-454.6028203534759	error	number
 compatibility: actual/360 vs actual/365 basis difference	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,2)-PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,3)	-0.0411773713803143	compatibility	number
-YIELDDISC with negative redemption value	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),95,-100)	#NUM!	error	error
 Quarterly frequency with actual/actual basis	=COUPDAYBS(DATE(2010,3,15),DATE(2020,12,31),4,1)	74	edge	number
 negative coupon returns NUM error	=DURATION(DATE(2020,1,1),DATE(2030,1,1),-0.05,0.06,2)	#NUM!	error	error
 actual/365 basis (basis=3)	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,3)	94.643594548258	edge	number
 European 30/360 (basis=4) vs US 30/360 (basis=0) end-of-month differences	=MDURATION(DATE(2008,1,31),DATE(2016,3,31),0.08,0.09,2,4)	5.661961831545449	compatibility	number
-RECEIVED with investment=0 — must be positive	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),0,0.05)	#NUM!	error	error
-price zero: pr=0 returns #NUM!	=DISC(DATE(2025,1,1),DATE(2026,1,1),0,100,0)	#NUM!	error	error
 Macaulay duration: 30-year bond with actual/actual day count convention	=DURATION(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,2,1)	1.3278084720868903	official	number
 IFERROR wraps negative yield error returning fallback string	"=IFERROR(MDURATION(DATE(2010,1,1),DATE(2020,1,1),0.08,-0.01,2,0),""invalid yield"")"	invalid yield	nested	string
 text that looks like a date as settlement returns error	"=DURATION(""2020-01-01"",DATE(2030,1,1),0.05,0.06,2)"	7.894997340182344	coercion	number
@@ -1476,10 +1471,7 @@ rate passed as percentage string instead of decimal	"=CUMIPMT(""10%"",10,1000,1,
 negative yield returns error	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),0.08,-0.01,2,0)	#NUM!	error	error
 RECEIVED text date string instead of DATE() function	"=RECEIVED(""2010-01-01"",""2020-01-01"",1000,0.05)"	2000	coercion	number
 TBILLYIELD with text date string instead of DATE function	"=TBILLYIELD(""2020-01-01"",""2020-07-01"",98.45)"	0.031142042315226614	compatibility	number
-RECEIVED end-of-month date: Feb 28 to Aug 31 with 30/360	=RECEIVED(DATE(2010,2,28),DATE(2010,8,31),1000,0.05,0)	1025.6410256410256	compatibility	number
-YIELDMAT: issue date after settlement date — GS may accept, Excel returns #NUM!	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2021,1,1),0.05,95)	#NUM!	compatibility	error
 nested in ROUND to 2 decimal places	=ROUND(PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,0),2)	94.63	nested	number
-YIELDDISC with redemption as FALSE (coerced to 0)	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),95,FALSE)	#NUM!	coercion	error
 compatibility: basis 4 European 30/360 end-of-month date adjustment	=DURATION(DATE(2020,1,31),DATE(2030,3,31),0.05,0.06,2,4)	7.854034812612617	compatibility	number
 TBILLYIELD maturity more than one year after settlement	=TBILLYIELD(DATE(2020,1,1),DATE(2021,6,1),98.45)	#NUM!	error	error
 text settlement date: non-date string causes #VALUE!	"=DISC(""2025-01-01"",DATE(2026,1,1),99,100,0)"	0.01	coercion	number
@@ -1487,10 +1479,8 @@ TBILLPRICE discount rate of 1 (100%): extreme rate	=TBILLPRICE(DATE(2020,1,1),DA
 YIELD: basis 0 vs basis 1 — 30/360 vs actual/actual may produce different results	=YIELD(DATE(2020,1,1),DATE(2030,12,31),0.05,95,100,2,1)	0.05615540928290648	compatibility	number
 XIRR: extremely high rate guess beyond convergence limit	=XIRR({-1000,500,800},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)},100)	0.38877770866447886	compatibility	number
 XNPV: empty string in cash flow array — numeric coercion differs by platform	"=XNPV(0.08,{-1000,"""",700},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)})"	#VALUE!	compatibility	error
-YIELDMAT with negative coupon rate	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),-0.05,95)	#NUM!	error	error
 modified duration with explicit basis=1 (actual/actual)	=MDURATION(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,2,1)	0.8298802950543064	official	number
 bond price with 3% coupon 120% yield semiannual 30-year horizon	=PRICE(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,100,2,0)	2.4964231392093046	official	number
 Issue date equal to maturity returns #NUM!	=ACCRINTM(DATE(2010,6,30),DATE(2010,6,30),0.05,100)	0	error	number
 text settlement date passed as string instead of DATE value	"=COUPDAYSNC(""2011-01-25"",DATE(2011,11,15),2,1)"	110	coercion	number
-redemption as zero returns error	=INTRATE(DATE(2010,1,1),DATE(2020,1,1),1000,0,0)	#NUM!	error	error
 SYD with negative text number for salvage	"=SYD(1000,""-100"",5,1)"	#NUM!	coercion	error

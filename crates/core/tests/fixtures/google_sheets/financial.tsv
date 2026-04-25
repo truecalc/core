@@ -1032,3 +1032,13 @@ factor=0: factor must be positive, returns #NUM!	=DDB(5000,500,8,1,0)	#NUM!	erro
 period=life+1 boundary: one period beyond life end with different asset	=DB(2000,200,6,7)	#NUM!	compatibility	error
 negative cost: all args must be positive, returns #NUM!	=DDB(-5000,500,8,1)	#NUM!	error	error
 period greater than life: period exceeds life returns #NUM!	=DB(1000,100,5,6)	#NUM!	error	error
+RECEIVED with discount=0 — must be positive	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),1000,0)	#NUM!	error	error
+RECEIVED with negative investment — error in both platforms	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),-1000,0.05)	#NUM!	compatibility	error
+YIELDDISC with negative redemption value	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),95,-100)	#NUM!	error	error
+RECEIVED with investment=0 — must be positive	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),0,0.05)	#NUM!	error	error
+price zero: pr=0 returns #NUM!	=DISC(DATE(2025,1,1),DATE(2026,1,1),0,100,0)	#NUM!	error	error
+RECEIVED end-of-month date: Feb 28 to Aug 31 with 30/360	=RECEIVED(DATE(2010,2,28),DATE(2010,8,31),1000,0.05,0)	1025.6410256410256	compatibility	number
+YIELDMAT: issue date after settlement date — GS may accept, Excel returns #NUM!	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2021,1,1),0.05,95)	#NUM!	compatibility	error
+YIELDDISC with redemption as FALSE (coerced to 0)	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),95,FALSE)	#NUM!	coercion	error
+YIELDMAT with negative coupon rate	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),-0.05,95)	#NUM!	error	error
+redemption as zero returns error	=INTRATE(DATE(2010,1,1),DATE(2020,1,1),1000,0,0)	#NUM!	error	error

@@ -47,13 +47,27 @@ fn is_leap(year: i32) -> bool {
 }
 
 /// US 30/360 day count (NASD convention).
+fn is_end_of_feb(date: NaiveDate) -> bool {
+    if date.month() != 2 { return false; }
+    let is_leap = (date.year() % 4 == 0 && date.year() % 100 != 0) || date.year() % 400 == 0;
+    date.day() == (if is_leap { 29 } else { 28 })
+}
+
 fn days_30_360_us(start: NaiveDate, end: NaiveDate) -> i64 {
     let (mut d1, m1, y1) = (start.day() as i64, start.month() as i64, start.year() as i64);
     let (mut d2, m2, y2) = (end.day() as i64, end.month() as i64, end.year() as i64);
+    // Last day of February is treated as 30th (NASD convention)
+    if is_end_of_feb(start) {
+        d1 = 30;
+    }
     if d1 == 31 {
         d1 = 30;
     }
     if d2 == 31 && d1 == 30 {
+        d2 = 30;
+    }
+    // If end is also end of February and d1 was adjusted to 30, treat d2 as 30
+    if d1 == 30 && is_end_of_feb(end) {
         d2 = 30;
     }
     (y2 - y1) * 360 + (m2 - m1) * 30 + (d2 - d1)
@@ -569,7 +583,7 @@ pub fn disc_fn(args: &[Value]) -> Value {
     if settlement >= maturity {
         return Value::Error(ErrorKind::Num);
     }
-    if redemption <= 0.0 {
+    if pr <= 0.0 || redemption <= 0.0 {
         return Value::Error(ErrorKind::Num);
     }
 
@@ -633,7 +647,7 @@ pub fn intrate_fn(args: &[Value]) -> Value {
     if settlement >= maturity {
         return Value::Error(ErrorKind::Num);
     }
-    if investment <= 0.0 {
+    if investment <= 0.0 || redemption <= 0.0 {
         return Value::Error(ErrorKind::Num);
     }
 
@@ -963,6 +977,9 @@ pub fn received_fn(args: &[Value]) -> Value {
     };
 
     if settlement >= maturity {
+        return Value::Error(ErrorKind::Num);
+    }
+    if investment <= 0.0 || discount <= 0.0 {
         return Value::Error(ErrorKind::Num);
     }
 
@@ -1304,12 +1321,9 @@ pub fn yielddisc_fn(args: &[Value]) -> Value {
     if settlement >= maturity {
         return Value::Error(ErrorKind::Num);
     }
-    if pr <= 0.0 {
+    if pr <= 0.0 || redemption <= 0.0 {
         return Value::Error(ErrorKind::Num);
     }
-    // pr >= redemption means zero or negative yield — allowed (returns 0 or negative), but
-    // let's match Google Sheets: pr >= redemption gives 0 (not NUM), per fixture row11.
-    // The test says YIELDDISC(date,date,100,100) = 0, not #NUM!
 
     let yf = yearfrac(settlement, maturity, basis);
     if yf == 0.0 {
@@ -1378,7 +1392,10 @@ pub fn yieldmat_fn(args: &[Value]) -> Value {
     if settlement >= maturity {
         return Value::Error(ErrorKind::Num);
     }
-    if pr <= 0.0 {
+    if issue >= settlement {
+        return Value::Error(ErrorKind::Num);
+    }
+    if pr <= 0.0 || rate < 0.0 {
         return Value::Error(ErrorKind::Num);
     }
 
