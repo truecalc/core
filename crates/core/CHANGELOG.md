@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/truecalc/core/compare/truecalc-core-v0.5.0...truecalc-core-v0.6.0) - 2026-04-25
+
+### Added
+
+- *(fixtures)* google_sheets snapshot 2026-04-23 (~11K test cases)
+
+### Fixed
+
+- *(conformance)* enable financial_conformance, remove google fixtures
+- *(conformance)* move 6 complex-number precision rows to bugs.tsv
+- *(conformance)* strip spurious header rows, fix 3 panics, move unimplemented rows to bugs.tsv, add google_conformance test
+- remove CELL from standalone evaluator and dead stubs from filter/operator
+
+### Other
+
+- Merge pull request #506 from truecalc/feat/446-447-remove-cell-and-dead-stubs
+
 ## [0.5.0](https://github.com/truecalc/core/compare/truecalc-core-v0.4.19...truecalc-core-v0.5.0) - 2026-04-22
 
 ### Added
