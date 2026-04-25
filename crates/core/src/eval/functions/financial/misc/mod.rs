@@ -603,15 +603,14 @@ pub fn dollarde_fn(args: &[Value]) -> Value {
 
     // DOLLARDE: decimal part is treated as numerator/fraction.
     // E.g. DOLLARDE(1.02, 16) = 1 + 2/16 = 1.125
-    // The scale is 10^ceil(log10(fraction)) so:
-    //   fraction=8  → scale=10  → numerator = 0.1 * 10 = 1
-    //   fraction=16 → scale=100 → numerator = 0.02 * 100 = 2
+    // Scale to the smallest power of 10 >= fraction to extract the digits.
+    // Do NOT round — preserves sub-digit precision (e.g. DOLLARDE(100.01,8)=100.0125).
     let scale = {
         let mut s = 1i64;
         while s < fraction { s *= 10; }
         s as f64
     };
-    let numerator = (frac_part * scale).round();
+    let numerator = frac_part * scale;
     let result = int_part + (if dollar < 0.0 { -1.0 } else { 1.0 }) * numerator / fraction as f64;
 
     if !result.is_finite() {
@@ -646,13 +645,13 @@ pub fn dollarfr_fn(args: &[Value]) -> Value {
 
     // DOLLARFR: inverse of DOLLARDE. Convert decimal fraction to xxx/fraction notation.
     // E.g. DOLLARFR(1.125, 16) = 1 + 2/100 = 1.02  (since 0.125 * 16 = 2 → write as .02)
-    // numerator = frac_part * fraction, then express as decimal in 10^ceil(log10(fraction)) scale
+    // Do NOT round — preserves sub-unit precision (e.g. DOLLARFR(1.5,1)=1.5).
     let scale = {
         let mut s = 1i64;
         while s < fraction { s *= 10; }
         s as f64
     };
-    let numerator = (frac_part * fraction as f64).round();
+    let numerator = frac_part * fraction as f64;
     let result = int_part + (if dollar < 0.0 { -1.0 } else { 1.0 }) * numerator / scale;
 
     if !result.is_finite() {
