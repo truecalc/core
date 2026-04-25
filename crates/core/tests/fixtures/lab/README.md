@@ -7,9 +7,10 @@ probes written while fixing an issue.
 ## Intent
 
 When a bug or unexpected behavior is found, a test case capturing it lands here
-first. These cases stay in the lab until they have been run through the official
-Google Sheets oracle pipeline and received a canonical expected value. At that
-point they graduate into `../google_sheets/` as verified conformance data.
+first. These cases stay in the lab until they have been submitted to the fixtures
+pipeline, run in Google Sheets to receive a canonical expected value, and placed
+in the appropriate `../google_sheets/*.tsv` file. At that point the lab entry is
+removed.
 
 The lab is never the final home for a test case — it is the first stop on the
 way to becoming part of the official record.
@@ -18,12 +19,12 @@ way to becoming part of the official record.
 
 - Formulas that exposed a bug during development or code review
 - Edge cases discovered while investigating a conformance failure
-- Regression probes for issues that have been fixed, pending oracle canonicalization
+- Regression probes for fixed issues, pending canonicalization via the GS pipeline
 
 ## What does not belong here
 
-- Changes to `../google_sheets/*.tsv` — those files are immutable oracle data
-  produced by the fixtures pipeline and must never be edited by hand
+- Modifications to `../google_sheets/*.tsv` — those files are canonical reference
+  data produced by the fixtures pipeline and must never be edited by hand
 - Expected values that have not been verified in Google Sheets
 
 ## CI behavior

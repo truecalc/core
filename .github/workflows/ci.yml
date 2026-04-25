@@ -11,6 +11,36 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check fixture / code separation
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          changed=$(git diff --name-only "origin/${BASE_REF}"...HEAD)
+
+          gs_changes=$(echo "$changed" \
+            | grep -c "^crates/core/tests/fixtures/google_sheets/.*\.tsv$" || true)
+          other_changes=$(echo "$changed" \
+            | grep -vc "^crates/core/tests/fixtures/google_sheets/.*\.tsv$" || true)
+
+          if [ "$gs_changes" -gt 0 ] && [ "$other_changes" -gt 0 ]; then
+            echo "::error::This PR mixes canonical fixture changes with code changes."
+            echo "::error::google_sheets/*.tsv updates and code changes must be separate PRs."
+            echo ""
+            echo "Canonical fixture files changed in this PR:"
+            echo "$changed" | grep "^crates/core/tests/fixtures/google_sheets/.*\.tsv$"
+            exit 1
+          fi
+
+          if [ "$gs_changes" -gt 0 ]; then
+            count=$(echo "$changed" | grep -c "\.tsv$" || true)
+            echo "Fixtures-only PR — ${count} canonical TSV file(s) changed, no code changes."
+          else
+            echo "Code PR — no canonical fixture files changed."
+          fi
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable

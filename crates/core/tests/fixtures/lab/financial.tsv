@@ -1,0 +1,13 @@
+description	formula_text	expected_value	test_category	expected_type
+EOM convention: Dec31 maturity — semiannual bond price with actual/actual basis	=PRICE(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,100,2,1)	2.496442712917719	edge	number
+EOM convention: Dec31 maturity — Macaulay duration with actual/actual basis	=DURATION(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,2,1)	1.3278084720868903	edge	number
+EOM convention: Dec31 maturity — YIELD with semiannual payments	=YIELD(DATE(2010,1,2),DATE(2039,12,31),3,93.45,100,2)	3.1876008031666876	edge	number
+EOM convention: Dec31 maturity — COUPDAYBS with actual/actual basis	=COUPDAYBS(DATE(2010,2,1),DATE(2019,12,31),4,1)	32	edge	number
+Clean price vs dirty: European 30/360 (basis=4) produces different price from US 30/360 (basis=0)	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,4)	94.63436162132213	edge	number
+Clean price accrued interest: basis=2 and basis=3 use different period denominators	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,2)-PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,3)	-0.0411773713803143	compatibility	number
+Clean price: actual/365 basis (basis=3) semiannual bond	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,3)	94.643594548258	edge	number
+EOM end-of-month: MDURATION with Jan31 settlement and Mar31 maturity (basis=4)	=MDURATION(DATE(2008,1,31),DATE(2016,3,31),0.08,0.09,2,4)	5.661961831545449	edge	number
+CUMPRINC type normalization: type=2 treated as type=1 (beginning-of-period) by Google Sheets	=CUMPRINC(0.05,12,1000,1,6,2)	-454.6028203534759	coercion	number
+Date coercion: DURATION accepts ISO 8601 date string as settlement	=DURATION("2020-01-01",DATE(2030,1,1),0.05,0.06,2)	7.894997340182344	coercion	number
+Date coercion: COUPNUM accepts ISO 8601 date string as settlement	=COUPNUM("2010-02-01",DATE(2019,12,31),4)	40	coercion	number
+Date coercion: COUPDAYSNC accepts ISO 8601 date string for maturity	=COUPDAYSNC(DATE(2011,1,25),"2011-11-15",2,1)	110	coercion	number
