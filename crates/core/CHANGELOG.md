@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1](https://github.com/truecalc/core/compare/truecalc-core-v0.6.0...truecalc-core-v0.6.1) - 2026-04-25
+
+### Fixed
+
+- *(clippy)* use RangeInclusive::contains for basis bounds check
+- *(ci)* move platform-sensitive complex trig rows back to bugs.tsv
+- *(financial)* EOM convention, clean price AI, CUMPRINC type normalization, date coercion
+- *(financial)* XIRR Brent fallback for hard-to-converge rates
+- *(financial)* DURATION/MDURATION negative coupon/yield, TBILLPRICE discount>=1, TBILLYIELD >1yr
+- *(financial)* validation fixes for RECEIVED, DISC, YIELDDISC, INTRATE, YIELDMAT
+- *(financial)* DDB factor<=0 and negative cost, DB period>life validation
+- *(financial)* rewrite VDB with correct fractional periods and input validation
+- *(financial)* rewrite AMORLINC with proper period 0, basis validation, and date proration
+- *(financial)* skip booleans/text in MIRR and NPV array cash flows
+- *(financial)* input validation for ACCRINT, PRICEDISC, PRICEMAT, CUMIPMT, CUMPRINC
+- *(financial)* TBILLEQ compound formula for DSM > 182 days + discount bounds
+- *(financial)* IRR ignores text strings in array literals (GS/Excel behaviour)
+- *(financial)* robust convergence for IRR and RATE via Brent fallback
+- *(financial)* remove .round() from DOLLARDE/DOLLARFR
+- *(conformance)* reclaim 1033 passing rows from bugs.tsv
+
+### Other
+
+- add lab staging area, CI separation guard, and drop "oracle" language
+- *(conformance)* restore immutable google_sheets fixtures, introduce lab/
+
 ## [0.6.0](https://github.com/truecalc/core/compare/truecalc-core-v0.5.0...truecalc-core-v0.6.0) - 2026-04-25
 
 ### Added
