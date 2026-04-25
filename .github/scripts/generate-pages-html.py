@@ -90,8 +90,15 @@ tot_unit += core_unit
 tot_grand += core_unit
 tot_prop_fns = sum(prop_fns.values())
 
+# All property test functions (including SKIP suites) — needed for nextest breakdown
+prop_fn_all = sum(
+    int(s.get('tests', 0))
+    for s in root.findall('testsuite')
+    if s.get('name', '').startswith('truecalc-core::property_')
+)
 # Total Rust test functions executed by nextest (shown in GitHub Checks)
 nextest_total = sum(int(s.get('tests', 0)) for s in root.findall('testsuite'))
+other_fns = nextest_total - tot_unit - prop_fn_all
 
 # ── Functions data ─────────────────────────────────────────────────────────────
 def esc(s):
@@ -232,7 +239,7 @@ print(f"""<!DOCTYPE html>
     <div class="explainer">
       <strong>What is Google Sheets conformance?</strong><br>
       truecalc evaluates spreadsheet formulas. To verify correctness, every supported formula is run against
-      a <em>Google Sheets oracle</em> — real Google Sheets spreadsheets that produce the expected output.
+      real Google Sheets spreadsheets that produce the expected output.
       On every commit to <code>main</code>, truecalc re-runs all {total} conformance cases and compares
       results. A ✓ means truecalc matches Google Sheets exactly; ⚠ means a known, intentional deviation
       (e.g. a locale difference or an unsupported edge case).<br><br>
@@ -241,8 +248,9 @@ print(f"""<!DOCTYPE html>
       <code>SQRT(x)² ≈ x</code> for x &gt; 0). Each property runs {CASES:,} random cases per commit.<br><br>
       <strong>About the totals:</strong> The <em>Total</em> column counts formula evaluations — each
       conformance row and each property case counts as one. GitHub Checks reports
-      <strong>{nextest_total:,} Rust test functions</strong> (nextest), a different metric: one entry
-      per <code>#[test]</code> item regardless of how many formulas it evaluates internally.
+      <strong>{nextest_total:,} Rust test functions</strong>: {tot_unit:,} unit tests (shown in column) +
+      {prop_fn_all} property test functions (shown as {prop_fn_all}×{CASES:,} cases above) +
+      {other_fns} conformance/integration test functions.
     </div>
 
     <table>
@@ -290,7 +298,7 @@ print(f"""<!DOCTYPE html>
   </div>
 
   <footer>
-    Oracle: Google Sheets &nbsp;·&nbsp;
+    Google Sheets conformance &nbsp;·&nbsp;
     ✓ = 100% passing &nbsp;·&nbsp; ⚠ = known deviation
   </footer>
 

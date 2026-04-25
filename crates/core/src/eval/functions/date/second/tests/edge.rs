@@ -3,7 +3,7 @@ use crate::types::Value;
 
 #[test]
 fn serial_zero_zero_seconds() {
-    // oracle: SECOND(0) = 0
+    // gs: SECOND(0) = 0
     assert_eq!(second_fn(&[Value::Number(0.0)]), Value::Number(0.0));
 }
 

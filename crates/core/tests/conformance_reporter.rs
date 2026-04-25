@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 // ---------------------------------------------------------------------------
-// Oracle helpers — shared logic duplicated from conformance.rs because
+// Shared helpers — logic duplicated from conformance.rs because
 // conformance_reporter.rs compiles as a standalone integration-test module
 // ---------------------------------------------------------------------------
 

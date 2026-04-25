@@ -1,7 +1,7 @@
 use super::super::weekday_fn;
 use crate::types::Value;
 
-// Oracle: Google Sheets, Date.xlsx, WEEKDAY sheet
+// gs: Google Sheets, Date.xlsx, WEEKDAY sheet
 // DATE(2024,1,1) = 45292 (Monday), DATE(2024,1,7) = 45298 (Sunday), DATE(2024,1,6) = 45297 (Saturday)
 
 #[test]

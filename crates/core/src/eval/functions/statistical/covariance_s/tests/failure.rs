@@ -29,7 +29,7 @@ fn covariance_s_unequal_lengths_returns_na() {
 
 #[test]
 fn covariance_s_single_point_returns_num() {
-    // n < 2 → Num (Google Sheets oracle)
+    // n < 2 → Num (Google Sheets)
     let arr1 = Value::Array(vec![Value::Number(5.0)]);
     let arr2 = Value::Array(vec![Value::Number(10.0)]);
     assert_eq!(covariance_s_fn(&[arr1, arr2]), Value::Error(ErrorKind::Num));

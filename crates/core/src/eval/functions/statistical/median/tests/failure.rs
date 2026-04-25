@@ -3,7 +3,7 @@ use crate::types::{ErrorKind, Value};
 
 #[test]
 fn median_no_args_returns_na() {
-    // MEDIAN() → #N/A (Google Sheets oracle)
+    // MEDIAN() → #N/A (Google Sheets)
     assert_eq!(median_fn(&[]), Value::Error(ErrorKind::NA));
 }
 

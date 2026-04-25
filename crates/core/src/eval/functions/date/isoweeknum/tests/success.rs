@@ -1,7 +1,7 @@
 use super::super::isoweeknum_fn;
 use crate::types::Value;
 
-// Oracle: Google Sheets, Date.xlsx, ISOWEEKNUM sheet
+// gs: Google Sheets, Date.xlsx, ISOWEEKNUM sheet
 // DATE(2024,1,1)=45292 (Mon), DATE(2024,1,7)=45298 (Sun), DATE(2024,1,8)=45299 (Mon)
 // DATE(2024,6,15)=45458 (Sat), DATE(2024,12,28)=45654
 

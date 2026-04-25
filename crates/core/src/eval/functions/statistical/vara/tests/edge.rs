@@ -17,7 +17,7 @@ fn vara_false_counts_as_zero() {
 
 #[test]
 fn vara_text_returns_value_error() {
-    // Literal text as direct arg → #VALUE! (Google Sheets oracle)
+    // Literal text as direct arg → #VALUE! (Google Sheets)
     let result = vara_fn(&[Value::Text("hello".to_string()), Value::Number(4.0)]);
     assert_eq!(result, Value::Error(crate::types::ErrorKind::Value));
 }

@@ -199,7 +199,7 @@ pub fn values_match(actual: &Value, expected: &Value, expected_type: &str) -> bo
         (Value::Date(a), Value::Number(b)) => {
             (a - b).abs() <= b.abs() * 1e-4 + 1e-10
         }
-        // Oracle artifact: xlsx/TSV stores numeric-looking text as a number.
+        // Note: xlsx/TSV stores numeric-looking text as a number.
         (Value::Text(s), Value::Number(b)) => {
             if let Ok(v) = s.trim().parse::<f64>() {
                 (v - b).abs() <= b.abs() * 1e-9 + 1e-10

@@ -2,7 +2,7 @@ use super::super::workday_fn;
 use crate::types::Value;
 
 // Serials: DATE(2024,1,1)=45292 Mon, DATE(2024,1,5)=45296 Fri
-// Oracle: WORKDAY(DATE(2024,1,1),5)=45299, WORKDAY(DATE(2024,1,1),1)=45293
+// gs: WORKDAY(DATE(2024,1,1),5)=45299, WORKDAY(DATE(2024,1,1),1)=45293
 //         WORKDAY(DATE(2024,1,5),1)=45299, WORKDAY(DATE(2024,1,1),-1)=45289
 //         WORKDAY(DATE(2024,1,5),0)=45296
 

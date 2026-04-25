@@ -9,13 +9,13 @@ fn serial_zero_is_dec_30_1899() {
 
 #[test]
 fn serial_1_is_dec_31_1899() {
-    // oracle: YEAR(1) = 1899
+    // gs: YEAR(1) = 1899
     assert_eq!(year_fn(&[Value::Number(1.0)]), Value::Number(1899.0));
 }
 
 #[test]
 fn serial_60_excel_bug() {
-    // oracle: YEAR(60) = 1900 (Feb 28 1900, phantom Feb 29)
+    // gs: YEAR(60) = 1900 (Feb 28 1900, phantom Feb 29)
     assert_eq!(year_fn(&[Value::Number(60.0)]), Value::Number(1900.0));
 }
 

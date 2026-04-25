@@ -3,12 +3,12 @@ use serde_json::{json, Value};
 
 use crate::types::TestCase;
 
-pub struct SheetsOracle {
+pub struct SheetsEvaluator {
     web_app_url: String,
     client: reqwest::blocking::Client,
 }
 
-impl SheetsOracle {
+impl SheetsEvaluator {
     pub fn new(web_app_url: String) -> Self {
         Self {
             web_app_url,
