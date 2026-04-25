@@ -229,7 +229,7 @@ pub fn accrint_fn(args: &[Value]) -> Value {
         Err(e) => return e,
     };
 
-    if rate < 0.0 || par <= 0.0 {
+    if rate <= 0.0 || par <= 0.0 {
         return Value::Error(ErrorKind::Num);
     }
 
@@ -342,7 +342,7 @@ pub fn accrintm_fn(args: &[Value]) -> Value {
         Err(e) => return e,
     };
 
-    if rate < 0.0 || par <= 0.0 {
+    if rate <= 0.0 || par <= 0.0 {
         return Value::Error(ErrorKind::Num);
     }
 
@@ -824,7 +824,7 @@ pub fn pricedisc_fn(args: &[Value]) -> Value {
     if settlement >= maturity {
         return Value::Error(ErrorKind::Num);
     }
-    if redemption <= 0.0 {
+    if discount <= 0.0 || redemption <= 0.0 {
         return Value::Error(ErrorKind::Num);
     }
 
@@ -889,6 +889,9 @@ pub fn pricemat_fn(args: &[Value]) -> Value {
     };
 
     if settlement >= maturity {
+        return Value::Error(ErrorKind::Num);
+    }
+    if rate < 0.0 || yld < 0.0 {
         return Value::Error(ErrorKind::Num);
     }
 

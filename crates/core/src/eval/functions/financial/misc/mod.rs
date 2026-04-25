@@ -154,7 +154,12 @@ pub fn cumipmt_fn(args: &[Value]) -> Value {
     let end    = match to_number(args[4].clone()) { Ok(n) => n, Err(e) => return e };
     let typ    = match to_number(args[5].clone()) { Ok(n) => n, Err(e) => return e };
 
-    let start = start.floor() as i64;
+    if rate <= 0.0 || pv <= 0.0 {
+        return Value::Error(ErrorKind::Num);
+    }
+
+    // GS rounds fractional start_period up (2.8 → 3) and end_period down (4.9 → 4)
+    let start = start.ceil() as i64;
     let end = end.floor() as i64;
 
     if start > end || start < 1 {
@@ -196,7 +201,12 @@ pub fn cumprinc_fn(args: &[Value]) -> Value {
     let end   = match to_number(args[4].clone()) { Ok(n) => n, Err(e) => return e };
     let typ   = match to_number(args[5].clone()) { Ok(n) => n, Err(e) => return e };
 
-    let start = start.floor() as i64;
+    if rate <= 0.0 || pv <= 0.0 {
+        return Value::Error(ErrorKind::Num);
+    }
+
+    // GS rounds fractional start_period up (2.8 → 3) and end_period down (4.9 → 4)
+    let start = start.ceil() as i64;
     let end = end.floor() as i64;
 
     if start > end || start < 1 {

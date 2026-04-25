@@ -992,3 +992,18 @@ TBILLEQ exactly 364 days (near max maturity)	=TBILLEQ(DATE(2020,1,1),DATE(2020,1
 TBILLEQ with boolean TRUE coerced to discount (invalid)	=TBILLEQ(DATE(2020,1,1),DATE(2020,7,1),TRUE)	#NUM!	coercion	error
 TBILLEQ maturity exactly one year after settlement: boundary behavior	=TBILLEQ(DATE(2020,1,1),DATE(2021,1,1),0.05)	0.05271286398134196	compatibility	number
 TBILLEQ sample: settlement=2010-01-02 maturity=2010-12-31 discount=9%	=TBILLEQ(DATE(2010,1,2),DATE(2010,12,31),0.09)	0.09797107538773103	official	number
+Rate of zero returns #NUM!	=ACCRINT(DATE(2010,1,1),DATE(2010,7,1),DATE(2011,6,30),0,100,2)	#NUM!	error	error
+Rate of zero returns #NUM!	=ACCRINTM(DATE(2010,1,1),DATE(2010,12,31),0,100)	#NUM!	error	error
+negative rate returns #NUM!	=CUMIPMT(-0.1,10,1000,1,5,0)	#NUM!	error	error
+negative present value: pv<=0 returns #NUM!	=CUMPRINC(0.05,12,-1000,1,6,0)	#NUM!	error	error
+negative discount rate returns #NUM error	=PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),-0.05,100,0)	#NUM!	error	error
+negative yield returns #NUM error	=PRICEMAT(DATE(2010,1,2),DATE(2020,1,1),DATE(2010,1,1),0.05,-0.01,0)	#NUM!	error	error
+present value of zero or less returns #NUM!	=CUMIPMT(0.1,10,0,1,5,0)	#NUM!	error	error
+zero interest rate: rate=0 returns #NUM! error	=CUMPRINC(0,12,1000,1,6,0)	#NUM!	error	error
+GS decimal first_period: 2.8 treated as 3 (starts at period 3)	=CUMIPMT(0.1,10,1000,2.8,5,0)	-236.93460360358762	compatibility	number
+IFERROR wrapping negative-rate error	"=IFERROR(CUMPRINC(-0.01,12,1000,1,6,0),""invalid"")"	invalid	nested	string
+rate of zero or less returns #NUM!	=CUMIPMT(0,10,1000,1,5,0)	#NUM!	error	error
+IFERROR wrapping negative rate returns fallback	"=IFERROR(CUMIPMT(-0.1,10,1000,1,5,0),""invalid"")"	invalid	nested	string
+discount rate of zero returns redemption value	=PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),0,100,0)	#NUM!	error	error
+boolean FALSE as present_value: pv=0 causes #NUM!	=CUMPRINC(0.05,12,FALSE,1,6,0)	#NUM!	coercion	error
+negative coupon rate returns #NUM error	=PRICEMAT(DATE(2010,1,2),DATE(2020,1,1),DATE(2010,1,1),-0.03,0.05,0)	#NUM!	error	error

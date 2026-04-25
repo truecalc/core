@@ -6,15 +6,15 @@ fn approx(a: Value, b: f64, tol: f64) -> bool {
 }
 
 #[test]
-fn pricedisc_zero_discount_returns_redemption() {
-    // If discount = 0, price = redemption regardless of dates
+fn pricedisc_zero_discount_returns_num() {
+    // GS (and Excel) require discount > 0; discount=0 returns #NUM!
     let args = [
         Value::Number(44927.0), // 2023-01-01
         Value::Number(45108.0), // 2023-07-01
         Value::Number(0.0),     // discount = 0%
         Value::Number(100.0),
     ];
-    assert!(approx(pricedisc_fn(&args), 100.0, 1e-9));
+    assert_eq!(pricedisc_fn(&args), Value::Error(crate::types::ErrorKind::Num));
 }
 
 #[test]

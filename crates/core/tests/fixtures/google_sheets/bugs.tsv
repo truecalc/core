@@ -1434,11 +1434,9 @@ VALUE of time string returns fraction	"=VALUE(""12:00:00"")"	0.5	official	number
 GS and Excel agree on date serial from date string	"=VALUE(""1/1/2000"")"	36526	compatibility	number
 Accrued interest with basis 3 (Actual/365)	=ACCRINT(DATE(2010,1,1),DATE(2010,7,1),DATE(2012,6,30),0.08,100,2,3)	19.945205479452056	edge	number
 "Par value supplied as text number ""1000"""	"=ACCRINT(DATE(2010,1,1),DATE(2010,7,1),DATE(2011,6,30),0.05,""1000"",2)"	#VALUE!	coercion	error
-Rate of zero returns #NUM!	=ACCRINT(DATE(2010,1,1),DATE(2010,7,1),DATE(2011,6,30),0,100,2)	#NUM!	error	error
 Issue date equal to settlement returns #NUM!	=ACCRINT(DATE(2011,6,30),DATE(2010,7,1),DATE(2011,6,30),0.05,100,2)	0	error	number
 Day count basis 1 (Actual/Actual) vs 0 (30/360) may differ between GS and Excel	=ACCRINT(DATE(2010,3,31),DATE(2010,9,30),DATE(2012,3,31),0.05,100,2,1)	10	compatibility	number
 Basis 2 (Actual/360) produces different results vs Actual/365 across platforms	=ACCRINT(DATE(2010,1,1),DATE(2010,7,1),DATE(2011,6,30),0.05,100,2,2)	7.5	compatibility	number
-Rate of zero returns #NUM!	=ACCRINTM(DATE(2010,1,1),DATE(2010,12,31),0,100)	#NUM!	error	error
 Sixth period depreciation with actual/actual basis (basis=1)	=AMORLINC(1000,DATE(1969,7,20),DATE(1969,8,20),100,6,0.15,1)	137.2602739726027	official	number
 First period depreciation (period=0) with default basis	=AMORLINC(1000,DATE(2010,1,1),DATE(2010,12,31),100,0,0.15)	150	edge	number
 IFERROR wrapping invalid basis	"=IFERROR(AMORLINC(1000,DATE(2010,1,1),DATE(2010,12,31),100,1,0.15,5),""invalid"")"	invalid	nested	string
@@ -1448,8 +1446,6 @@ text maturity date passed as string	"=COUPNCD(DATE(2011,1,25),""2011-11-15"",2,1
 text maturity date passed as string	"=COUPNUM(DATE(2010,2,1),""2019-12-31"",4)"	40	coercion	number
 text settlement date passed as string	"=COUPPCD(""2011-01-25"",DATE(2011,11,15),2,1)"	2010-11-15T08:00:00.000Z	coercion	string
 text maturity date passed as string	"=COUPPCD(DATE(2011,1,25),""2011-11-15"",2,1)"	2010-11-15T08:00:00.000Z	coercion	string
-negative rate returns #NUM!	=CUMIPMT(-0.1,10,1000,1,5,0)	#NUM!	error	error
-negative present value: pv<=0 returns #NUM!	=CUMPRINC(0.05,12,-1000,1,6,0)	#NUM!	error	error
 negative yield returns NUM error	=DURATION(DATE(2020,1,1),DATE(2030,1,1),0.05,-0.06,2)	#NUM!	error	error
 negative coupon returns error	=MDURATION(DATE(2010,1,1),DATE(2020,1,1),-0.08,0.09,2,0)	#NUM!	error	error
 MIRR with only negative cash flows (no positive income)	=MIRR({-1000,-200,-300},0.08,0.1)	#DIV/0!	error	error
@@ -1461,8 +1457,6 @@ European 30/360 basis (basis=4)	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0
 non-integer frequency truncated to integer (2.7 → 2)	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2.7,0)	94.63436162132213	coercion	number
 numeric string coupon rate coerced to number	"=PRICE(DATE(2008,2,15),DATE(2017,11,15),""0.0575"",0.065,100,2,0)"	94.63436162132213	coercion	number
 compatibility: basis 0 vs basis 1 price difference for same bond	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,0)-PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,1)	-0.0010875865550730168	compatibility	number
-negative discount rate returns #NUM error	=PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),-0.05,100,0)	#NUM!	error	error
-negative yield returns #NUM error	=PRICEMAT(DATE(2010,1,2),DATE(2020,1,1),DATE(2010,1,1),0.05,-0.01,0)	#NUM!	error	error
 RECEIVED with discount=0 — must be positive	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),1000,0)	#NUM!	error	error
 XIRR with irregular cash flows using explicit dates and rate guess	=XIRR({-4000,200,250,300},{DATE(2012,1,1),DATE(2012,6,23),DATE(2013,5,12),DATE(2014,2,9)},0.09)	-0.6440855342116852	official	number
 YIELD for 30-year bond with semiannual payments, 30/360 basis, coupon 3%	=YIELD(DATE(2010,1,2),DATE(2039,12,31),3,93.45,100,2)	3.1876008031666876	official	number
@@ -1470,23 +1464,17 @@ YIELD with annual payments, explicit 30/360 day count convention	=YIELD(DATE(201
 YIELD: redemption value above par — GS and Excel should agree but end-of-month handling may differ	=YIELD(DATE(2020,1,31),DATE(2030,3,31),0.05,95,110,2,0)	0.0638866452844587	compatibility	number
 Basis out of range (5) returns error	=AMORLINC(1000,DATE(2010,1,1),DATE(2010,12,31),100,1,0.15,5)	#NUM!	error	error
 IFERROR wrapping purchase-date-after-period-end error	=IFERROR(AMORLINC(1000,DATE(2011,1,1),DATE(2010,12,31),100,1,0.15),0)	0	nested	number
-present value of zero or less returns #NUM!	=CUMIPMT(0.1,10,0,1,5,0)	#NUM!	error	error
-zero interest rate: rate=0 returns #NUM! error	=CUMPRINC(0,12,1000,1,6,0)	#NUM!	error	error
 non-integer basis truncated to integer (1.9 → 1)	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,1.9)	94.6354492078772	coercion	number
 RECEIVED with negative investment — error in both platforms	=RECEIVED(DATE(2010,1,1),DATE(2020,1,1),-1000,0.05)	#NUM!	compatibility	error
 VDB with salvage greater than cost: error or zero handling	=VDB(100,500,10,0,1)	#NUM!	compatibility	error
 Fractional period less than 1 rounds up to 1	=AMORLINC(1000,DATE(2010,1,1),DATE(2010,12,31),100,0.5,0.15)	150	edge	number
 Days from coupon start to settlement, semiannual, actual/actual basis	=COUPDAYBS(DATE(2010,2,1),DATE(2019,12,31),4,1)	32	official	number
-GS decimal first_period: 2.8 treated as 3 (starts at period 3)	=CUMIPMT(0.1,10,1000,2.8,5,0)	-236.93460360358762	compatibility	number
 invalid type value: type=2 returns #NUM!	=CUMPRINC(0.05,12,1000,1,6,2)	-454.6028203534759	error	number
-IFERROR wrapping negative-rate error	"=IFERROR(CUMPRINC(-0.01,12,1000,1,6,0),""invalid"")"	invalid	nested	string
 factor=0: factor must be positive, returns #NUM!	=DDB(5000,500,8,1,0)	#NUM!	error	error
 compatibility: actual/360 vs actual/365 basis difference	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,2)-PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,3)	-0.0411773713803143	compatibility	number
 YIELDDISC with negative redemption value	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),95,-100)	#NUM!	error	error
 Rate as percentage (0.15) vs decimal: both platforms should treat equally	=AMORLINC(1000,DATE(2010,7,20),DATE(2010,8,20),100,6,0.15,4)	137.5	compatibility	number
 Quarterly frequency with actual/actual basis	=COUPDAYBS(DATE(2010,3,15),DATE(2020,12,31),4,1)	74	edge	number
-rate of zero or less returns #NUM!	=CUMIPMT(0,10,1000,1,5,0)	#NUM!	error	error
-IFERROR wrapping negative rate returns fallback	"=IFERROR(CUMIPMT(-0.1,10,1000,1,5,0),""invalid"")"	invalid	nested	string
 negative coupon returns NUM error	=DURATION(DATE(2020,1,1),DATE(2030,1,1),-0.05,0.06,2)	#NUM!	error	error
 actual/365 basis (basis=3)	=PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,3)	94.643594548258	edge	number
 European 30/360 (basis=4) vs US 30/360 (basis=0) end-of-month differences	=MDURATION(DATE(2008,1,31),DATE(2016,3,31),0.08,0.09,2,4)	5.661961831545449	compatibility	number
@@ -1513,9 +1501,7 @@ YIELDMAT: issue date after settlement date — GS may accept, Excel returns #NUM
 Sixth period depreciation with 30/360 basis (default)	=AMORLINC(1000,DATE(1969,7,20),DATE(1969,8,20),100,6,0.15)	137.5	official	number
 MIRR coercion: text numbers in cash flow array ignored by Excel but not GS	"=MIRR({-1000,""500"",800},0.08,0.1)"	-0.19999999999999996	coercion	number
 nested in ROUND to 2 decimal places	=ROUND(PRICE(DATE(2008,2,15),DATE(2017,11,15),0.0575,0.065,100,2,0),2)	94.63	nested	number
-discount rate of zero returns redemption value	=PRICEDISC(DATE(2010,1,1),DATE(2020,1,1),0,100,0)	#NUM!	error	error
 YIELDDISC with redemption as FALSE (coerced to 0)	=YIELDDISC(DATE(2020,1,1),DATE(2021,1,1),95,FALSE)	#NUM!	coercion	error
-boolean FALSE as present_value: pv=0 causes #NUM!	=CUMPRINC(0.05,12,FALSE,1,6,0)	#NUM!	coercion	error
 compatibility: basis 4 European 30/360 end-of-month date adjustment	=DURATION(DATE(2020,1,31),DATE(2030,3,31),0.05,0.06,2,4)	7.854034812612617	compatibility	number
 negative cost: all args must be positive, returns #NUM!	=DDB(-5000,500,8,1)	#NUM!	error	error
 TBILLYIELD maturity more than one year after settlement	=TBILLYIELD(DATE(2020,1,1),DATE(2021,6,1),98.45)	#NUM!	error	error
@@ -1527,7 +1513,6 @@ XIRR: extremely high rate guess beyond convergence limit	=XIRR({-1000,500,800},{
 XNPV: empty string in cash flow array — numeric coercion differs by platform	"=XNPV(0.08,{-1000,"""",700},{DATE(2020,1,1),DATE(2020,7,1),DATE(2021,1,1)})"	#VALUE!	compatibility	error
 YIELDMAT with negative coupon rate	=YIELDMAT(DATE(2020,1,1),DATE(2025,1,1),DATE(2019,1,1),-0.05,95)	#NUM!	error	error
 modified duration with explicit basis=1 (actual/actual)	=MDURATION(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,2,1)	0.8298802950543064	official	number
-negative coupon rate returns #NUM error	=PRICEMAT(DATE(2010,1,2),DATE(2020,1,1),DATE(2010,1,1),-0.03,0.05,0)	#NUM!	error	error
 bond price with 3% coupon 120% yield semiannual 30-year horizon	=PRICE(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,100,2,0)	2.4964231392093046	official	number
 NPV with mixed types in array cash flow	"=NPV(0.1,{1000,""two"",TRUE,4000})"	4214.876033057851	coercion	number
 Issue date equal to maturity returns #NUM!	=ACCRINTM(DATE(2010,6,30),DATE(2010,6,30),0.05,100)	0	error	number
