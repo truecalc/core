@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3](https://github.com/truecalc/core/compare/truecalc-core-v0.6.2...truecalc-core-v0.6.3) - 2026-04-25
+
+### Fixed
+
+- *(ci)* explain nextest vs formula-eval counts; remove oracle terminology
+
+### Other
+
+- *(fixtures)* remove legacy m1-m4 xlsx fixtures and align lab with source-first layout
+
 ## [0.6.2](https://github.com/truecalc/core/compare/truecalc-core-v0.6.0...truecalc-core-v0.6.2) - 2026-04-25
 
 ### Fixed
