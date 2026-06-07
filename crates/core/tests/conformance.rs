@@ -24,7 +24,7 @@
 //! The test evaluates the formula with `truecalc_core::evaluate` and compares
 //! against the canonical value.  Number comparisons allow 1e-4 relative tolerance.
 
-use truecalc_core::{evaluate, ErrorKind, Value};
+use truecalc_core::{ErrorKind, Value};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use chrono::NaiveDate;
@@ -602,4 +602,10 @@ fn every_registered_function_has_conformance_coverage() {
         "Functions with no passing conformance row: {:?}",
         missing
     );
+}
+
+/// Engine-explicit shim: the free `evaluate` is deprecated in favor of
+/// `Engine::sheets().evaluate` (ADR 2026-04-27).
+fn evaluate(formula: &str, variables: &std::collections::HashMap<String, Value>) -> Value {
+    truecalc_core::Engine::sheets().evaluate(formula, variables)
 }

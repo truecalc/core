@@ -6,7 +6,7 @@
 // These tests complement the fixed-row conformance tests in conformance.rs.
 // They catch regressions for inputs that don't appear in the fixture files.
 
-use truecalc_core::{evaluate, Value};
+use truecalc_core::Value;
 use proptest::prelude::*;
 use std::collections::HashMap;
 
@@ -288,4 +288,10 @@ fn m2_abs_symmetry() {
         prop_assert_eq!(pos, neg, "ABS({}) != ABS({})", x, -x);
     });
     eprintln!("proptest: {CASES} cases (x ∈ [-1e6, 1e6])");
+}
+
+/// Engine-explicit shim: the free `evaluate` is deprecated in favor of
+/// `Engine::sheets().evaluate` (ADR 2026-04-27).
+fn evaluate(formula: &str, variables: &std::collections::HashMap<String, Value>) -> Value {
+    truecalc_core::Engine::sheets().evaluate(formula, variables)
 }

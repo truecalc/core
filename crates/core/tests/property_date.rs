@@ -3,7 +3,7 @@
 // Property-based tests for date functions.
 // Verifies mathematical invariants that hold for any valid date input.
 
-use truecalc_core::{evaluate, Value};
+use truecalc_core::Value;
 use proptest::prelude::*;
 use std::collections::HashMap;
 
@@ -121,4 +121,10 @@ fn day_in_valid_range() {
         }
     });
     eprintln!("proptest: {CASES} cases (y ∈ [1900, 2100], m ∈ [1, 12], d ∈ [1, 28])");
+}
+
+/// Engine-explicit shim: the free `evaluate` is deprecated in favor of
+/// `Engine::sheets().evaluate` (ADR 2026-04-27).
+fn evaluate(formula: &str, variables: &std::collections::HashMap<String, Value>) -> Value {
+    truecalc_core::Engine::sheets().evaluate(formula, variables)
 }

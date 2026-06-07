@@ -1,9 +1,9 @@
-use crate::evaluate;
+use crate::Engine;
 use crate::types::{ErrorKind, Value};
 use std::collections::HashMap;
 
 fn run(formula: &str) -> Value {
-    evaluate(formula, &HashMap::new())
+    Engine::sheets().evaluate(formula, &HashMap::new())
 }
 
 // ── basic concatenation ───────────────────────────────────────────────────────

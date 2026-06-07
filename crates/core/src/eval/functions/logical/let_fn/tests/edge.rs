@@ -1,9 +1,9 @@
-use crate::evaluate;
+use crate::Engine;
 use crate::types::Value;
 use std::collections::HashMap;
 
 fn run(formula: &str) -> Value {
-    evaluate(formula, &HashMap::new())
+    Engine::sheets().evaluate(formula, &HashMap::new())
 }
 
 #[test]
@@ -18,5 +18,5 @@ fn let_binding_shadows_outer() {
     let mut vars = HashMap::new();
     vars.insert("X".to_string(), crate::types::Value::Number(1.0));
     // LET(x, 10, x) should return 10, not the outer x=1
-    assert_eq!(evaluate("=LET(x, 10, x)", &vars), Value::Number(10.0));
+    assert_eq!(Engine::sheets().evaluate("=LET(x, 10, x)", &vars), Value::Number(10.0));
 }

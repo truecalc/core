@@ -27,13 +27,15 @@ cargo add truecalc-core
 
 ```rust
 use std::collections::HashMap;
-use truecalc_core::{evaluate, Value};
+use truecalc_core::{Engine, Value};
+
+let engine = Engine::sheets();
 
 let mut vars = HashMap::new();
 vars.insert("A1".to_string(), Value::Number(100.0));
 vars.insert("B1".to_string(), Value::Number(200.0));
 
-let result = evaluate("SUM(A1, B1)", &vars);
+let result = engine.evaluate("SUM(A1, B1)", &vars);
 assert_eq!(result, Value::Number(300.0));
 ```
 
@@ -41,12 +43,12 @@ assert_eq!(result, Value::Number(300.0));
 
 ```rust
 use std::collections::HashMap;
-use truecalc_core::{evaluate, Value};
+use truecalc_core::{Engine, Value};
 
 let mut vars = HashMap::new();
 vars.insert("score".to_string(), Value::Number(85.0));
 
-match evaluate("IF(score >= 60, \"pass\", \"fail\")", &vars) {
+match Engine::sheets().evaluate("IF(score >= 60, \"pass\", \"fail\")", &vars) {
     Value::Text(s)   => println!("{s}"),           // "pass"
     Value::Number(n) => println!("{n}"),
     Value::Bool(b)   => println!("{b}"),
@@ -59,9 +61,9 @@ match evaluate("IF(score >= 60, \"pass\", \"fail\")", &vars) {
 ### Validate without evaluating
 
 ```rust
-use truecalc_core::validate;
+use truecalc_core::Engine;
 
-match validate("SUM(A1, B1)") {
+match Engine::sheets().validate("SUM(A1, B1)") {
     Ok(_)  => println!("valid"),
     Err(e) => eprintln!("parse error at position {}: {}", e.position, e.message),
 }
@@ -70,9 +72,9 @@ match validate("SUM(A1, B1)") {
 ### Parse to an AST
 
 ```rust
-use truecalc_core::parse;
+use truecalc_core::Engine;
 
-let expr = parse("1 + 2 * 3").expect("valid formula");
+let expr = Engine::sheets().parse("1 + 2 * 3").expect("valid formula");
 // expr is an Expr tree you can walk yourself
 ```
 

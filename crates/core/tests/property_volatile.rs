@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use truecalc_core::{evaluate, Value};
+use truecalc_core::Value;
 
 fn run(formula: &str) -> Value {
     evaluate(formula, &HashMap::new())
@@ -133,4 +133,10 @@ fn now_is_greater_than_today() {
         now,
         today + 1.0
     );
+}
+
+/// Engine-explicit shim: the free `evaluate` is deprecated in favor of
+/// `Engine::sheets().evaluate` (ADR 2026-04-27).
+fn evaluate(formula: &str, variables: &std::collections::HashMap<String, Value>) -> Value {
+    truecalc_core::Engine::sheets().evaluate(formula, variables)
 }

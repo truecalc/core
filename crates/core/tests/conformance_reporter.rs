@@ -3,7 +3,7 @@
 // Collects pass/fail counts per TSV fixture and writes target/conformance-report.json.
 // Called by the generate_conformance_report test in conformance.rs.
 
-use truecalc_core::{evaluate, Value};
+use truecalc_core::Value;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -264,4 +264,10 @@ pub fn collect_tsv_fixture_results(path: &Path, category: &str, report: &mut Con
             ));
         }
     }
+}
+
+/// Engine-explicit shim: the free `evaluate` is deprecated in favor of
+/// `Engine::sheets().evaluate` (ADR 2026-04-27).
+fn evaluate(formula: &str, variables: &std::collections::HashMap<String, Value>) -> Value {
+    truecalc_core::Engine::sheets().evaluate(formula, variables)
 }

@@ -1,10 +1,10 @@
 // Test helpers for truecalc-core integration tests.
-use truecalc_core::{evaluate, Value};
+use truecalc_core::{Engine, Value};
 use std::collections::HashMap;
 
 /// Convenience: evaluate a formula with no variables.
 pub fn eval(formula: &str) -> Value {
-    evaluate(formula, &HashMap::new())
+    Engine::sheets().evaluate(formula, &HashMap::new())
 }
 
 /// Convenience: evaluate a formula with string-keyed variables.
@@ -13,5 +13,5 @@ pub fn eval_with(formula: &str, vars: impl IntoIterator<Item = (&'static str, Va
     for (k, v) in vars {
         map.insert(k.to_string(), v);
     }
-    evaluate(formula, &map)
+    Engine::sheets().evaluate(formula, &map)
 }

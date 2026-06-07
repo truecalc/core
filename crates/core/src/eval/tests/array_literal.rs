@@ -2,7 +2,7 @@ use crate::types::Value;
 use std::collections::HashMap;
 
 fn run_formula(formula: &str) -> Value {
-    crate::evaluate(formula, &HashMap::new())
+    crate::Engine::sheets().evaluate(formula, &HashMap::new())
 }
 
 #[test]

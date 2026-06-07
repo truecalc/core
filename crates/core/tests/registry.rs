@@ -39,7 +39,6 @@ fn registry_new_has_no_duplicates() {
 #[test]
 fn alias_resolves_to_same_result() {
     use std::collections::HashMap;
-    use truecalc_core::evaluate;
     // TTEST and T.TEST are aliases — same result
     let r1 = evaluate("TTEST({1,2,3},{4,5,6},2,1)", &HashMap::new());
     let r2 = evaluate("T.TEST({1,2,3},{4,5,6},2,1)", &HashMap::new());
@@ -60,7 +59,7 @@ fn alias_does_not_appear_in_metadata() {
 #[test]
 fn context_limited_functions_return_name_error() {
     use std::collections::HashMap;
-    use truecalc_core::{evaluate, Value, ErrorKind};
+    use truecalc_core::{Value, ErrorKind};
     // These functions require a cell grid — they should not be registered
     // in the standalone evaluator. Callers should get #NAME? not #N/A.
     let cases = [
@@ -84,9 +83,15 @@ fn context_limited_functions_return_name_error() {
 #[test]
 fn rows_and_columns_work_with_array_input() {
     use std::collections::HashMap;
-    use truecalc_core::{evaluate, Value};
+    use truecalc_core::Value;
     assert_eq!(evaluate("ROWS({1,2,3;4,5,6})", &HashMap::new()), Value::Number(2.0));
     assert_eq!(evaluate("ROWS({1,2,3})", &HashMap::new()),        Value::Number(1.0));
     assert_eq!(evaluate("COLUMNS({1,2,3;4,5,6})", &HashMap::new()), Value::Number(3.0));
     assert_eq!(evaluate("COLUMNS({1})", &HashMap::new()),             Value::Number(1.0));
+}
+
+/// Engine-explicit shim: the free `evaluate` is deprecated in favor of
+/// `Engine::sheets().evaluate` (ADR 2026-04-27).
+fn evaluate(formula: &str, variables: &std::collections::HashMap<String, Value>) -> Value {
+    truecalc_core::Engine::sheets().evaluate(formula, variables)
 }

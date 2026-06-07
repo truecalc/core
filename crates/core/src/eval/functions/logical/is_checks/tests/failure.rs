@@ -1,5 +1,5 @@
 use super::super::{isblank_fn, iserror_fn, isna_fn, isnumber_fn, istext_fn};
-use crate::evaluate;
+use crate::Engine;
 use crate::types::{ErrorKind, Value};
 use std::collections::HashMap;
 
@@ -37,7 +37,7 @@ fn isna_no_args() {
 #[test]
 fn isemail_no_args_returns_na() {
     assert_eq!(
-        evaluate("=ISEMAIL()", &HashMap::new()),
+        Engine::sheets().evaluate("=ISEMAIL()", &HashMap::new()),
         Value::Error(ErrorKind::NA)
     );
 }

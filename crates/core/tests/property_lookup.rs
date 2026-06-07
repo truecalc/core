@@ -4,7 +4,7 @@
 // Verifies invariants: out-of-range inputs produce errors, in-range inputs
 // produce values within the searched set.
 
-use truecalc_core::{evaluate, Value};
+use truecalc_core::Value;
 use proptest::prelude::*;
 use std::collections::HashMap;
 
@@ -56,4 +56,10 @@ fn choose_in_range_returns_value() {
         }
     });
     eprintln!("proptest: {CASES} cases (n_choices ∈ [1, 5], idx_minus_one ∈ [0, 5))");
+}
+
+/// Engine-explicit shim: the free `evaluate` is deprecated in favor of
+/// `Engine::sheets().evaluate` (ADR 2026-04-27).
+fn evaluate(formula: &str, variables: &std::collections::HashMap<String, Value>) -> Value {
+    truecalc_core::Engine::sheets().evaluate(formula, variables)
 }

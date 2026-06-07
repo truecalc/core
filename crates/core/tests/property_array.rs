@@ -3,7 +3,7 @@
 // Property-based tests for array functions.
 // Verifies length-preservation and element-wise invariants.
 
-use truecalc_core::{evaluate, Value};
+use truecalc_core::Value;
 use proptest::prelude::*;
 use std::collections::HashMap;
 
@@ -51,4 +51,10 @@ fn sequence_values_start_at_one() {
         }
     });
     eprintln!("proptest: {CASES} cases (n ∈ [1, 10])");
+}
+
+/// Engine-explicit shim: the free `evaluate` is deprecated in favor of
+/// `Engine::sheets().evaluate` (ADR 2026-04-27).
+fn evaluate(formula: &str, variables: &std::collections::HashMap<String, Value>) -> Value {
+    truecalc_core::Engine::sheets().evaluate(formula, variables)
 }
