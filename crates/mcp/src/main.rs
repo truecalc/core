@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::io::{self, BufRead, Write};
 
-use truecalc_core::{parse, validate, Engine, Expr, Registry, Value};
+use truecalc_core::{Engine, Expr, Registry, Value};
 use serde_json::{json, Value as JsonValue};
 
 // ─── Conformance ─────────────────────────────────────────────────────────────
@@ -14,7 +14,7 @@ struct Engines {
 
 impl Engines {
     fn new() -> Self {
-        Self { google_sheets: Engine::google_sheets() }
+        Self { google_sheets: Engine::sheets() }
     }
 
     fn select(&self, conformance: &str) -> Option<&Engine> {
@@ -147,8 +147,8 @@ fn handle_request(req: &JsonValue, default_conformance: &str, engines: &Engines)
 fn dispatch_tool(name: &str, args: &JsonValue, default_conformance: &str, engines: &Engines) -> JsonValue {
     match name {
         "evaluate" => tool_evaluate(args, default_conformance, engines),
-        "validate" => tool_validate(args),
-        "explain" => tool_explain(args),
+        "validate" => tool_validate(args, engines),
+        "explain" => tool_explain(args, engines),
         "batch_evaluate" => tool_batch_evaluate(args, default_conformance, engines),
         "list_functions" => tool_list_functions(),
         "get_stats" => tool_get_stats(),
@@ -173,23 +173,23 @@ fn tool_evaluate(args: &JsonValue, default_conformance: &str, engines: &Engines)
     value_to_json(&value)
 }
 
-fn tool_validate(args: &JsonValue) -> JsonValue {
+fn tool_validate(args: &JsonValue, engines: &Engines) -> JsonValue {
     let formula = match args["formula"].as_str() {
         Some(f) => f,
         None => return json!({ "error": "missing formula" }),
     };
-    match validate(formula) {
+    match engines.google_sheets.validate(formula) {
         Ok(_) => json!({ "valid": true }),
         Err(e) => json!({ "valid": false, "error": e.to_string() }),
     }
 }
 
-fn tool_explain(args: &JsonValue) -> JsonValue {
+fn tool_explain(args: &JsonValue, engines: &Engines) -> JsonValue {
     let formula = match args["formula"].as_str() {
         Some(f) => f,
         None => return json!({ "error": "missing formula" }),
     };
-    match parse(formula) {
+    match engines.google_sheets.parse(formula) {
         Ok(expr) => {
             let mut functions = Vec::new();
             collect_functions(&expr, &mut functions);

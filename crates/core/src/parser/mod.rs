@@ -373,7 +373,13 @@ fn is_cell_ref(name: &str) -> bool {
 ///
 /// The formula must start with `=`. Returns a [`ParseError`] if the input
 /// is not a valid formula.
+#[deprecated(note = "use Engine::sheets()/Engine::excel() and engine.parse() — engine flavor is required; see ADR 2026-04-27")]
 pub fn parse(formula: &str) -> Result<Expr, ParseError> {
+    parse_formula(formula)
+}
+
+/// Crate-internal parser entry point used by [`crate::Engine`].
+pub(crate) fn parse_formula(formula: &str) -> Result<Expr, ParseError> {
     let input = formula.strip_prefix('=').unwrap_or(formula).trim();
     let p = Parser::new(formula);
     match p.parse_comparison(input) {
@@ -400,13 +406,15 @@ pub fn parse(formula: &str) -> Result<Expr, ParseError> {
 }
 
 /// Validate that a formula string is syntactically correct without returning the AST.
+#[deprecated(note = "use Engine::sheets()/Engine::excel() and engine.validate() — engine flavor is required; see ADR 2026-04-27")]
 pub fn validate(formula: &str) -> Result<(), ParseError> {
-    parse(formula).map(|_| ())
+    parse_formula(formula).map(|_| ())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::parse_formula as parse;
     use crate::parser::ast::{BinaryOp, Expr, UnaryOp};
 
     #[test]
@@ -464,6 +472,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn validate_incomplete_fails() {
         let err = validate("=SUM(1,").unwrap_err();
         assert!(!err.message.is_empty());

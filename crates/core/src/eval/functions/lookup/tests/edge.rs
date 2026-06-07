@@ -1,4 +1,4 @@
-use crate::evaluate;
+use crate::Engine;
 use crate::eval::functions::lookup::{
     index_match::match_fn,
     lookup_fn::{lookup_fn, xmatch_fn},
@@ -8,7 +8,7 @@ use crate::types::{ErrorKind, Value};
 use std::collections::HashMap;
 
 fn run(formula: &str) -> Value {
-    evaluate(formula, &HashMap::new())
+    Engine::sheets().evaluate(formula, &HashMap::new())
 }
 
 fn make_1d(vals: Vec<Value>) -> Value {

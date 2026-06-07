@@ -4,7 +4,7 @@
 // than silently resolving them. This is a correctness invariant derived from
 // Google Sheets behavior: errors are contagious.
 
-use truecalc_core::{evaluate, ErrorKind, Value};
+use truecalc_core::{ErrorKind, Value};
 use proptest::prelude::*;
 use std::collections::HashMap;
 
@@ -110,4 +110,10 @@ fn trim_propagates_error() {
         prop_assert!(is_error(&result), "TRIM did not propagate error, got {:?}", result);
     });
     eprintln!("proptest: {CASES} cases (e ∈ {{#VALUE!, #N/A, #DIV/0!, #NUM!}})");
+}
+
+/// Engine-explicit shim: the free `evaluate` is deprecated in favor of
+/// `Engine::sheets().evaluate` (ADR 2026-04-27).
+fn evaluate(formula: &str, variables: &std::collections::HashMap<String, Value>) -> Value {
+    truecalc_core::Engine::sheets().evaluate(formula, variables)
 }

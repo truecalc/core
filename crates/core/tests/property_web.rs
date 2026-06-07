@@ -1,5 +1,5 @@
 use proptest::prelude::*;
-use truecalc_core::{evaluate, Value};
+use truecalc_core::Value;
 use std::collections::HashMap;
 
 const CASES: u32 = 500;
@@ -169,4 +169,10 @@ fn sanity_hyperlink() {
         run_text("=HYPERLINK(url, label)", vec![("url", "https://x.com"), ("label", "Click")]),
         Value::Text("Click".to_string())
     );
+}
+
+/// Engine-explicit shim: the free `evaluate` is deprecated in favor of
+/// `Engine::sheets().evaluate` (ADR 2026-04-27).
+fn evaluate(formula: &str, variables: &std::collections::HashMap<String, Value>) -> Value {
+    truecalc_core::Engine::sheets().evaluate(formula, variables)
 }

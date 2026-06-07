@@ -1,5 +1,5 @@
 use proptest::prelude::*;
-use truecalc_core::{evaluate, Value};
+use truecalc_core::Value;
 use std::collections::HashMap;
 
 const CASES: u32 = 500;
@@ -150,4 +150,10 @@ fn left_full_len_is_identity() {
 fn concatenate_sanity() {
     let result = run_text_vars("=CONCATENATE(a,b)", vec![("a", "hello"), ("b", " world")]);
     assert_eq!(result, Value::Text("hello world".to_string()));
+}
+
+/// Engine-explicit shim: the free `evaluate` is deprecated in favor of
+/// `Engine::sheets().evaluate` (ADR 2026-04-27).
+fn evaluate(formula: &str, variables: &std::collections::HashMap<String, Value>) -> Value {
+    truecalc_core::Engine::sheets().evaluate(formula, variables)
 }

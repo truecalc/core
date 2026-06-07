@@ -69,7 +69,7 @@ pub fn evaluate(formula: &str, variables: JsValue) -> EvalResult {
         None => HashMap::new(),
     };
 
-    match truecalc_core::evaluate(formula, &vars) {
+    match truecalc_core::Engine::sheets().evaluate(formula, &vars) {
         Value::Number(n) | Value::Date(n) => EvalResult::Number { value: n },
         Value::Text(s) => EvalResult::Text { value: s },
         Value::Bool(b) => EvalResult::Bool { value: b },
@@ -84,7 +84,7 @@ pub fn evaluate(formula: &str, variables: JsValue) -> EvalResult {
 /// Returns `{ valid: true }` on success or `{ valid: false, error: "..." }` on failure.
 #[wasm_bindgen]
 pub fn validate(formula: &str) -> ValidateResult {
-    match truecalc_core::validate(formula) {
+    match truecalc_core::Engine::sheets().validate(formula) {
         Ok(_) => ValidateResult { valid: true, error: None },
         Err(e) => ValidateResult { valid: false, error: Some(e.to_string()) },
     }
@@ -212,7 +212,7 @@ impl WasmEngine {
 #[wasm_bindgen(js_name = "createEngine")]
 pub fn create_engine(target: &str) -> Result<WasmEngine, JsValue> {
     match target {
-        "google-sheets" => Ok(WasmEngine { inner: truecalc_core::Engine::google_sheets() }),
+        "google-sheets" => Ok(WasmEngine { inner: truecalc_core::Engine::sheets() }),
         _ => Err(JsValue::from_str(&format!("Unknown conformance target: '{}'", target))),
     }
 }

@@ -1,5 +1,5 @@
 use proptest::prelude::*;
-use truecalc_core::{evaluate, Value};
+use truecalc_core::Value;
 use std::collections::HashMap;
 
 const CASES: u32 = 500;
@@ -76,4 +76,10 @@ fn npv_zero_rate_sanity() {
     ].into_iter().collect();
     let result = evaluate("=NPV(0, v1, v2)", &vars);
     assert_eq!(result, Value::Number(300.0));
+}
+
+/// Engine-explicit shim: the free `evaluate` is deprecated in favor of
+/// `Engine::sheets().evaluate` (ADR 2026-04-27).
+fn evaluate(formula: &str, variables: &std::collections::HashMap<String, Value>) -> Value {
+    truecalc_core::Engine::sheets().evaluate(formula, variables)
 }

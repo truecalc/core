@@ -1,5 +1,5 @@
 use proptest::prelude::*;
-use truecalc_core::{evaluate, Value};
+use truecalc_core::Value;
 use std::collections::HashMap;
 
 const CASES: u32 = 500;
@@ -124,4 +124,10 @@ fn sanity_bitwise() {
     assert_eq!(run("=BITAND(12, 10)"), Value::Number(8.0));
     assert_eq!(run("=BITOR(12, 10)"), Value::Number(14.0));
     assert_eq!(run("=BITXOR(12, 10)"), Value::Number(6.0));
+}
+
+/// Engine-explicit shim: the free `evaluate` is deprecated in favor of
+/// `Engine::sheets().evaluate` (ADR 2026-04-27).
+fn evaluate(formula: &str, variables: &std::collections::HashMap<String, Value>) -> Value {
+    truecalc_core::Engine::sheets().evaluate(formula, variables)
 }

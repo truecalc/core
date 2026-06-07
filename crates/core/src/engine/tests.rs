@@ -2,15 +2,15 @@ use super::*;
 use std::collections::HashMap;
 
 #[test]
-fn google_sheets_evaluates_sum() {
-    let engine = Engine::google_sheets();
+fn sheets_evaluates_sum() {
+    let engine = Engine::sheets();
     let result = engine.evaluate("=SUM(1,2)", &HashMap::new());
     assert_eq!(result, Value::Number(3.0));
 }
 
 #[test]
-fn google_sheets_evaluates_with_variables() {
-    let engine = Engine::google_sheets();
+fn sheets_evaluates_with_variables() {
+    let engine = Engine::sheets();
     let mut vars = HashMap::new();
     vars.insert("A".to_string(), Value::Number(10.0));
     let result = engine.evaluate("=A+5", &vars);
@@ -19,7 +19,51 @@ fn google_sheets_evaluates_with_variables() {
 
 #[test]
 fn parse_error_returns_value_error() {
-    let engine = Engine::google_sheets();
+    let engine = Engine::sheets();
     let result = engine.evaluate("not a formula", &HashMap::new());
     assert_eq!(result, Value::Error(ErrorKind::Value));
+}
+
+#[test]
+fn sheets_parses_valid_formula() {
+    let engine = Engine::sheets();
+    assert!(engine.parse("=SUM(1,2)").is_ok());
+}
+
+#[test]
+fn sheets_parse_rejects_invalid_formula() {
+    let engine = Engine::sheets();
+    assert!(engine.parse("=SUM(1,").is_err());
+}
+
+#[test]
+fn sheets_validates_formula() {
+    let engine = Engine::sheets();
+    assert!(engine.validate("=1+2").is_ok());
+    assert!(engine.validate("=1+").is_err());
+}
+
+#[test]
+fn excel_parses_and_validates() {
+    let engine = Engine::excel();
+    assert!(engine.parse("=SUM(1,2)").is_ok());
+    assert!(engine.validate("=SUM(1,2)").is_ok());
+    assert!(engine.validate("=SUM(1,").is_err());
+}
+
+#[test]
+fn excel_evaluate_returns_unsupported_error() {
+    // Excel evaluation semantics are not implemented yet — evaluate must
+    // return a clear error rather than silently using Sheets semantics.
+    let engine = Engine::excel();
+    let result = engine.evaluate("=SUM(1,2)", &HashMap::new());
+    assert_eq!(result, Value::Error(ErrorKind::NA));
+}
+
+#[test]
+#[allow(deprecated)]
+fn google_sheets_is_deprecated_alias_for_sheets() {
+    let engine = Engine::google_sheets();
+    let result = engine.evaluate("=SUM(1,2)", &HashMap::new());
+    assert_eq!(result, Value::Number(3.0));
 }

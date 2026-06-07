@@ -1,5 +1,5 @@
 use proptest::prelude::*;
-use truecalc_core::{evaluate, Value};
+use truecalc_core::Value;
 use std::collections::HashMap;
 
 const CASES: u32 = 500;
@@ -104,4 +104,10 @@ fn sanity_isodd_iseven() {
     assert_eq!(run("=ISODD(4)"), Value::Bool(false));
     assert_eq!(run("=ISEVEN(4)"), Value::Bool(true));
     assert_eq!(run("=ISEVEN(3)"), Value::Bool(false));
+}
+
+/// Engine-explicit shim: the free `evaluate` is deprecated in favor of
+/// `Engine::sheets().evaluate` (ADR 2026-04-27).
+fn evaluate(formula: &str, variables: &std::collections::HashMap<String, Value>) -> Value {
+    truecalc_core::Engine::sheets().evaluate(formula, variables)
 }

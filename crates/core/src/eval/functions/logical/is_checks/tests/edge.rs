@@ -1,5 +1,5 @@
 use super::super::{is_valid_email, isblank_fn, iserror_fn, isna_fn, isnumber_fn, istext_fn};
-use crate::evaluate;
+use crate::Engine;
 use crate::types::{ErrorKind, Value};
 use std::collections::HashMap;
 
@@ -51,10 +51,10 @@ fn isemail_no_dot_in_domain() {
 
 #[test]
 fn isemail_number_arg_returns_false() {
-    assert_eq!(evaluate("=ISEMAIL(42)", &HashMap::new()), Value::Bool(false));
+    assert_eq!(Engine::sheets().evaluate("=ISEMAIL(42)", &HashMap::new()), Value::Bool(false));
 }
 
 #[test]
 fn isemail_bool_arg_returns_false() {
-    assert_eq!(evaluate("=ISEMAIL(TRUE)", &HashMap::new()), Value::Bool(false));
+    assert_eq!(Engine::sheets().evaluate("=ISEMAIL(TRUE)", &HashMap::new()), Value::Bool(false));
 }
