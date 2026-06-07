@@ -9,6 +9,8 @@
 
 WebAssembly-powered spreadsheet formula engine for JavaScript/TypeScript.
 
+[DeepWiki](https://deepwiki.com/truecalc/core)
+
 ## Install
 
 ```sh
