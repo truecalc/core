@@ -2022,7 +2022,7 @@ dependencies = [
 
 [[package]]
 name = "truecalc-core"
-version = "0.6.5"
+version = "0.7.0"
 dependencies = [
  "calamine",
  "chrono",
@@ -2034,7 +2034,7 @@ dependencies = [
 
 [[package]]
 name = "truecalc-mcp"
-version = "0.6.5"
+version = "0.7.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2043,7 +2043,7 @@ dependencies = [
 
 [[package]]
 name = "truecalc-wasm"
-version = "0.6.5"
+version = "0.7.0"
 dependencies = [
  "serde",
  "serde-wasm-bindgen",
@@ -2055,7 +2055,7 @@ dependencies = [
 
 [[package]]
 name = "truecalc-workbook"
-version = "0.6.5"
+version = "0.7.0"
 dependencies = [
  "icu_casemap",
  "jsonschema",
