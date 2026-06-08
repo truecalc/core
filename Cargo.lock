@@ -1692,6 +1692,10 @@ dependencies = [
 [[package]]
 name = "truecalc-workbook"
 version = "0.6.4"
+dependencies = [
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "try-lock"
