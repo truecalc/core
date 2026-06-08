@@ -1,6 +1,7 @@
 use crate::eval::evaluate_expr;
 use crate::eval::functions::{check_arity_len, EvalCtx};
 use crate::parser::ast::Expr;
+use crate::parser::refs::Ref;
 use crate::types::{ErrorKind, Value};
 use super::cell_ref::{parse_cell_ref, parse_range_ref};
 
@@ -14,6 +15,12 @@ pub fn row_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         return Value::Number(1.0);
     }
     match &args[0] {
+        Expr::Reference(r, _) => match r {
+            Ref::Cell { addr, .. } => Value::Number(addr.row as f64),
+            Ref::Range { start, .. } => Value::Number(start.row as f64),
+            // The parser never produces `Ref::Name` inside `Expr::Reference`.
+            Ref::Name(_) => Value::Error(ErrorKind::NA),
+        },
         Expr::Variable(name, _) => {
             // Try range first (A1:D4 → top row of range)
             if let Some((_sc, sr, _ec, _er)) = parse_range_ref(name) {
@@ -51,6 +58,12 @@ pub fn column_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         return Value::Number(1.0);
     }
     match &args[0] {
+        Expr::Reference(r, _) => match r {
+            Ref::Cell { addr, .. } => Value::Number(addr.col as f64),
+            Ref::Range { start, .. } => Value::Number(start.col as f64),
+            // The parser never produces `Ref::Name` inside `Expr::Reference`.
+            Ref::Name(_) => Value::Error(ErrorKind::NA),
+        },
         Expr::Variable(name, _) => {
             // Try range first (A1:D4 → left column of range)
             if let Some((sc, _sr, _ec, _er)) = parse_range_ref(name) {

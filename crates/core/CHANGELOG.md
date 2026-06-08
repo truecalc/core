@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5](https://github.com/truecalc/core/compare/truecalc-core-v0.6.4...truecalc-core-v0.6.5) - 2026-06-08
+
+### Added
+
+- engine-explicit API — Engine::sheets()/excel() required entry points
+
+### Fixed
+
+- regenerate workbook.tsv after GAS detectType fix (pipeline re-export)
+
+### Other
+
+- register workbook.tsv as report-only conformance category (P1.5 harness)
+- P1.5 conformance fixtures — cross-sheet refs, named ranges, date types (pipeline-generated)
+
 ## [0.6.4](https://github.com/truecalc/core/compare/truecalc-core-v0.6.2...truecalc-core-v0.6.4) - 2026-04-26
 
 ### Fixed

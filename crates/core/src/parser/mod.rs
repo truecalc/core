@@ -1,7 +1,9 @@
 pub mod ast;
+pub mod refs;
 pub mod tokens;
 
 pub use ast::Expr;
+pub use refs::{CellAddr, Ref};
 use ast::{BinaryOp, Span, UnaryOp};
 use crate::types::ParseError;
 use nom::{IResult, character::complete::multispace0};
@@ -68,8 +70,18 @@ impl<'a> Parser<'a> {
             return Ok((rest, Expr::Bool(b, self.span(i, rest))));
         }
 
-        // Identifier: variable or function call
+        // Quoted-sheet reference: 'Sheet Name'!A1 / 'Sheet Name'!A1:B2
+        if i.starts_with('\'') {
+            return self.parse_quoted_sheet_ref(i);
+        }
+
+        // Identifier: sheet-qualified reference, variable, or function call
         if let Ok((rest, name)) = identifier(i) {
+            // Sheet-qualified reference: Sheet1!A1 / Sheet1!A1:B2 — `!` binds
+            // tightly to the sheet name (no whitespace on either side).
+            if let Some(after_bang) = rest.strip_prefix('!') {
+                return self.parse_ref_body(i, name.to_string(), after_bang);
+            }
             let rest_ws = multispace0(rest)?.0;
             if let Some(args_input) = rest_ws.strip_prefix('(') {
                 // Function call
@@ -120,6 +132,73 @@ impl<'a> Parser<'a> {
         }
 
         Err(nom::Err::Error(nom::error::Error::new(i, nom::error::ErrorKind::Alt)))
+    }
+
+    // ── sheet-qualified references ──────────────────────────────────────
+
+    /// Parse the part after `!`: a cell address, optionally `:cell` for a
+    /// range. `start` is where the whole reference began (for spans); `sheet`
+    /// is the unescaped sheet name.
+    fn parse_ref_body(&self, start: &'a str, sheet: String, i: &'a str) -> IResult<&'a str, Expr> {
+        let err = || nom::Err::Error(nom::error::Error::new(i, nom::error::ErrorKind::Tag));
+        let (rest, cell_text) = identifier(i).map_err(|_| err())?;
+        let addr = CellAddr::parse(cell_text).ok_or_else(err)?;
+        // Optional range tail, mirroring the bare `A1:D4` grammar below.
+        let rest_ws = multispace0(rest)?.0;
+        if let Some(after_colon) = rest_ws.strip_prefix(':') {
+            if let Ok((rest2, end_text)) = identifier(after_colon) {
+                if let Some(end) = CellAddr::parse(end_text) {
+                    let r = Ref::Range { sheet: Some(sheet), start: addr, end };
+                    return Ok((rest2, Expr::Reference(r, self.span(start, rest2))));
+                }
+            }
+        }
+        let r = Ref::Cell { sheet: Some(sheet), addr };
+        Ok((rest, Expr::Reference(r, self.span(start, rest))))
+    }
+
+    /// Parse `'Sheet Name'!A1` / `'Sheet Name'!A1:B2`. `i` starts at the
+    /// opening quote. `''` inside the quotes is an escaped single quote.
+    fn parse_quoted_sheet_ref(&self, i: &'a str) -> IResult<&'a str, Expr> {
+        let inner = &i[1..];
+        let mut sheet = String::new();
+        let mut idx = 0;
+        loop {
+            match inner[idx..].find('\'') {
+                // Unterminated quoted sheet name
+                None => {
+                    return Err(nom::Err::Error(nom::error::Error::new(
+                        i,
+                        nom::error::ErrorKind::Char,
+                    )));
+                }
+                Some(q) => {
+                    sheet.push_str(&inner[idx..idx + q]);
+                    let after = idx + q + 1;
+                    if inner[after..].starts_with('\'') {
+                        sheet.push('\'');
+                        idx = after + 1;
+                    } else {
+                        idx = after;
+                        break;
+                    }
+                }
+            }
+        }
+        let rest = &inner[idx..];
+        if sheet.is_empty() {
+            return Err(nom::Err::Error(nom::error::Error::new(
+                i,
+                nom::error::ErrorKind::Char,
+            )));
+        }
+        match rest.strip_prefix('!') {
+            Some(after_bang) => self.parse_ref_body(i, sheet, after_bang),
+            None => Err(nom::Err::Error(nom::error::Error::new(
+                rest,
+                nom::error::ErrorKind::Char,
+            ))),
+        }
     }
 
     fn parse_arg_list(&self, i: &'a str) -> IResult<&'a str, Vec<Expr>> {

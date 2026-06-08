@@ -1,3 +1,5 @@
+use super::refs::Ref;
+
 /// Byte range of a node within the original formula string.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Span {
@@ -30,6 +32,10 @@ pub enum Expr {
     Text(String, Span),
     Bool(bool, Span),
     Variable(String, Span),
+    /// Sheet-qualified reference: `Sheet1!A1`, `'Q2 Data'!A1:B2`.
+    /// Bare cell/range references (`A1`, `A1:D4`) and bare names remain
+    /// [`Expr::Variable`]; sheet-qualified forms always carry `sheet: Some(_)`.
+    Reference(Ref, Span),
     UnaryOp {
         op: UnaryOp,
         operand: Box<Expr>,
@@ -59,7 +65,7 @@ pub enum Expr {
 impl Expr {
     pub fn span(&self) -> &Span {
         match self {
-            Expr::Number(_, s) | Expr::Text(_, s) | Expr::Bool(_, s) | Expr::Variable(_, s) => s,
+            Expr::Number(_, s) | Expr::Text(_, s) | Expr::Bool(_, s) | Expr::Variable(_, s) | Expr::Reference(_, s) => s,
             Expr::UnaryOp { span, .. }
             | Expr::BinaryOp { span, .. }
             | Expr::FunctionCall { span, .. }
