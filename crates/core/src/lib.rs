@@ -11,6 +11,7 @@ pub use engine::Engine;
 #[allow(deprecated)]
 pub use parser::{parse, validate};
 pub use parser::Expr;
+pub use parser::{CellAddr, Ref};
 pub use types::{ErrorKind, ParseError, Value};
 
 pub use eval::functions::{FunctionMeta, Registry};
