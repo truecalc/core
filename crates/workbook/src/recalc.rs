@@ -48,7 +48,7 @@ use truecalc_core::{Engine, EngineFlavor, ErrorKind, Ref, Resolver, Value as Cor
 use crate::address::Address;
 use crate::casefold::simple_fold;
 use crate::cell::Cell;
-use crate::depgraph::{CellRef, DependencyGraph};
+use crate::depgraph::{CellRef, DependencyGraph, Precedent, RangeRef};
 use crate::spill::{spill_rect, SpillRect, BLOCKED_SPILL_ERROR};
 use crate::value::Value;
 use crate::workbook::Workbook;
@@ -263,6 +263,32 @@ impl Workbook {
             }
         }
 
+        // Spill-occupancy seeding (issue #591). A cell's spill footprint or
+        // blocked status can change without the dependency graph carrying an
+        // edge that would dirty the cells depending on that change, because a
+        // spilled cell is not a formula node (P3.2) and a *blocked* anchor
+        // stores an error rather than an array that reads its blocker. Two
+        // concrete violations of `incremental ≡ full` (P3.3) follow:
+        //
+        //  - **Shrink / replace-with-scalar.** Setting a former array anchor to
+        //    a scalar vacates its old footprint, but `set` has already discarded
+        //    the prior array, so the widen loop's `before = anchor_rectangles()`
+        //    no longer sees the old rectangle and never dirties the readers of
+        //    the vacated cells (e.g. `D1 = =B1+1` after `A1` stops spilling onto
+        //    `B1`).
+        //  - **Unblock.** Clearing or overwriting the cell that blocks a spill
+        //    must let the anchor re-expand, but a blocked anchor has no edge to
+        //    its blocker, so clearing the blocker never re-dirties the anchor.
+        //
+        // Seeding the dirty set with every spill-occupancy-sensitive cell makes
+        // the closure independent of which edit triggered the recalc, so the
+        // result matches a full recalc despite the lost pre-edit footprint.
+        // Over-seeding is safe: a re-evaluated cell whose value is unchanged
+        // emits no change event (`diff_against_snapshot`), so `incremental ≡
+        // full` is preserved while the minimal-closure guarantee still holds for
+        // ordinary (non-spill) edits, which seed nothing here.
+        self.seed_spill_sensitive(&graph, &mut dirty);
+
         // A cell that reads a *spilled* cell has no dependency-graph edge to its
         // spilling anchor (a spilled cell is not a formula node, P3.2), so the
         // closure above can miss a spilled-cell reader when an anchor's spill
@@ -378,6 +404,7 @@ impl Workbook {
                     &new_values,
                     &spills,
                     &cycle,
+                    &to_eval,
                 );
                 // Resolve array results into a placed spill or a blocked-spill
                 // error; a placed spill records its rectangle so later anchors
@@ -417,6 +444,7 @@ impl Workbook {
         prev_values: &BTreeMap<CellRef, Value>,
         prev_spills: &BTreeMap<CellRef, SpillRect>,
         cycle: &BTreeSet<CellRef>,
+        recomputed: &BTreeSet<CellRef>,
     ) -> Value {
         let formula = match self.cell_at(cell).and_then(Cell::formula) {
             Some(f) => f.to_owned(),
@@ -434,6 +462,7 @@ impl Workbook {
             prev_values,
             prev_spills,
             cycle,
+            recomputed,
         };
         let core = engine.evaluate_with_resolver_at(&formula, &mut resolver, now_serial);
         core_to_workbook(core)
@@ -620,6 +649,117 @@ impl Workbook {
         snap
     }
 
+    /// Adds every spill-occupancy-sensitive formula cell to `dirty` (issue
+    /// #591), so an incremental recalc reproduces a full recalc across any spill
+    /// footprint or blocked-status change even though the dependency graph
+    /// carries no edge for those transitions and `set` discarded the pre-edit
+    /// footprint.
+    ///
+    /// A cell is seeded when it is, or reads something that can become or cease
+    /// being, a spill:
+    ///
+    ///  1. **Every array anchor** (a formula cell whose stored value is an
+    ///     array) — re-placed so a footprint that should shrink or grow does so,
+    ///     and so a write into its region re-blocks it.
+    ///  2. **Every blocked-spill anchor** (a formula cell whose stored value is
+    ///     the blocked-spill error) — re-attempted so clearing/overwriting its
+    ///     blocker lets it re-expand (the unblock case).
+    ///  3. **Every reader of a non-authored single cell** — that precedent is
+    ///     empty or spilled today and may flip either way, e.g. `D1 = =B1+1`
+    ///     whose `B1` was spilled by a now-shrunk anchor (the vacated-reader
+    ///     case), or a reader of a cell a spill is about to grow onto.
+    ///  4. **Every reader of a range that overlaps a current spill rectangle** —
+    ///     a range aggregation whose window includes spilled cells, so a change
+    ///     to that spill (grow/shrink/block) re-aggregates.
+    ///
+    /// The blocked-spill error string equals [`BLOCKED_SPILL_ERROR`]; a cell
+    /// merely *holding* that error that is not actually a former/blocked spill
+    /// anchor is harmless to re-evaluate (it recomputes to the same value).
+    fn seed_spill_sensitive(&self, graph: &DependencyGraph, dirty: &mut BTreeSet<CellRef>) {
+        let rects = self.anchor_rectangles();
+        for cell in graph.formula_cells() {
+            // (1)/(2): the cell itself is (or held) a spill.
+            let is_spill_cell = match self.cell_at(cell).map(Cell::value) {
+                Some(Value::Array(_)) => true,
+                Some(Value::Error(code)) => code == BLOCKED_SPILL_ERROR,
+                _ => false,
+            };
+            let mut seed = is_spill_cell;
+            // (3)/(4): the cell reads a spill-sensitive precedent.
+            if !seed {
+                if let Some(precedents) = graph.precedents_of(cell) {
+                    seed = precedents
+                        .iter()
+                        .any(|p| self.precedent_is_spill_sensitive(p, &rects));
+                }
+            }
+            if seed {
+                dirty.insert(cell.clone());
+            }
+        }
+    }
+
+    /// Whether a single precedent reads a cell that is, or could become, a
+    /// spilled cell (issue #591): a non-authored single-cell target (empty or
+    /// spilled today), or a range overlapping a current spill rectangle.
+    fn precedent_is_spill_sensitive(
+        &self,
+        precedent: &Precedent,
+        rects: &BTreeMap<CellRef, SpillRect>,
+    ) -> bool {
+        match precedent {
+            // A single-cell precedent that is not authored is empty or spilled
+            // today, and may flip either way (grow/shrink/block/unblock).
+            Precedent::Cell(c) => self.cell_at(c).is_none(),
+            // A range precedent is spill-sensitive if it overlaps a current
+            // spill rectangle (a spill could grow/shrink/block within it) *or*
+            // if it contains any non-authored cell — which catches a cell a
+            // spill *used to* cover but no longer does (the lost pre-edit
+            // footprint of a shrink/collapse), since that cell is now empty.
+            Precedent::Range(r) => {
+                rects
+                    .iter()
+                    .any(|(anchor, rect)| anchor.sheet == r.sheet && rect_overlaps_range(rect, r))
+                    || self.range_has_unauthored_cell(r)
+            }
+            // A name resolves to a cell or range; treat it conservatively as
+            // spill-sensitive so a name pointing at a spilled cell still seeds
+            // its reader. Names are rare and this only widens the dirty set.
+            Precedent::Name(_) => true,
+            Precedent::Unresolved(_) => false,
+        }
+    }
+
+    /// Whether the range `r` contains at least one cell that is **not** an
+    /// authored cell (empty or spilled). Computed by comparing the range's area
+    /// to the number of authored cells inside it — so the cost is bounded by the
+    /// sheet's populated-cell count, never the range area (issue #591).
+    fn range_has_unauthored_cell(&self, r: &RangeRef) -> bool {
+        let folder = CaseMapperBorrowed::new();
+        let Some(sheet) = self
+            .sheets()
+            .iter()
+            .find(|s| simple_fold(&folder, s.name()) == r.sheet)
+        else {
+            // The range targets a missing sheet; nothing authored, so it is
+            // (vacuously) all-unauthored — seed conservatively.
+            return true;
+        };
+        let rows = (r.end.row - r.start.row + 1) as u64;
+        let cols = (r.end.column - r.start.column + 1) as u64;
+        let area = rows.saturating_mul(cols);
+        let authored_inside = sheet
+            .iter()
+            .filter(|(addr, _)| {
+                addr.row >= r.start.row
+                    && addr.row <= r.end.row
+                    && addr.column >= r.start.column
+                    && addr.column <= r.end.column
+            })
+            .count() as u64;
+        authored_inside < area
+    }
+
     /// Every spill rectangle currently on the stored grid (anchor → rectangle),
     /// derived from authored cells whose stored value is an array (schema spec
     /// §5). Used to detect when an incremental recompute changed a spill
@@ -720,6 +860,15 @@ struct GridResolver<'a> {
     /// The previous pass's spills (same fallback role as `prev_values`).
     prev_spills: &'a BTreeMap<CellRef, SpillRect>,
     cycle: &'a BTreeSet<CellRef>,
+    /// The formula cells being recomputed this recalc (`to_eval`). The stored
+    /// grid still holds these anchors' *pre-recalc* arrays until `apply_changes`
+    /// runs, so the `grid_spilled_value` fallback must ignore an anchor in this
+    /// set: its authoritative spill state for this recalc is the per-pass
+    /// `spills`/`prev_spills`, not the stale grid (issue #591 — otherwise a
+    /// reader of a cell an anchor *stops* spilling onto, e.g. when the anchor
+    /// blocks or shrinks, would resolve the vacated cell from the obsolete
+    /// stored array).
+    recomputed: &'a BTreeSet<CellRef>,
 }
 
 impl GridResolver<'_> {
@@ -787,6 +936,16 @@ impl GridResolver<'_> {
             .find(|s| simple_fold(&folder, s.name()) == sheet_folded)?;
         for (anchor_addr, cell) in sheet.iter() {
             if anchor_addr == addr {
+                continue;
+            }
+            // An anchor being recomputed this recalc has its current spill state
+            // in the per-pass maps; its stored array is stale until
+            // `apply_changes`, so never resolve through it here (issue #591).
+            let anchor_key = CellRef {
+                sheet: sheet_folded.to_owned(),
+                addr: anchor_addr,
+            };
+            if self.recomputed.contains(&anchor_key) {
                 continue;
             }
             let Value::Array(rows) = cell.value() else {
@@ -1071,6 +1230,20 @@ fn changed_rectangle_cells(
         }
     }
     out
+}
+
+/// Whether a spill rectangle and a range reference overlap (same sheet assumed
+/// checked by the caller): their inclusive row/column extents intersect (issue
+/// #591). Used to seed range aggregations that read spilled cells.
+fn rect_overlaps_range(rect: &SpillRect, range: &RangeRef) -> bool {
+    let rect_r0 = rect.anchor.row;
+    let rect_r1 = rect.anchor.row + rect.rows - 1;
+    let rect_c0 = rect.anchor.column;
+    let rect_c1 = rect.anchor.column + rect.cols - 1;
+    rect_r0 <= range.end.row
+        && rect_r1 >= range.start.row
+        && rect_c0 <= range.end.column
+        && rect_c1 >= range.start.column
 }
 
 /// SplitMix64 finalizer — a fast, well-distributed integer mix.
