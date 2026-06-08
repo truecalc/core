@@ -941,8 +941,40 @@ fn invert_matrix(mut mat: Vec<Vec<f64>>) -> Option<Vec<Vec<f64>>> {
 // ── FREQUENCY ─────────────────────────────────────────────────────────────────
 // Array-spill function; Google Sheets returns #REF! in scalar (non-array-formula) context.
 
-fn frequency_fn(_args: &[Value]) -> Value {
-    Value::Error(ErrorKind::Ref)
+fn frequency_fn(args: &[Value]) -> Value {
+    if let Some(e) = check_arity(args, 2, 2) {
+        return e;
+    }
+    // Only numeric values are counted; text, booleans and blanks are ignored.
+    let data: Vec<f64> = flatten_val(&args[0])
+        .iter()
+        .filter_map(|v| if let Value::Number(n) = v { Some(*n) } else { None })
+        .collect();
+    let bins: Vec<f64> = flatten_val(&args[1])
+        .iter()
+        .filter_map(|v| if let Value::Number(n) = v { Some(*n) } else { None })
+        .collect();
+    // One bucket per bin, plus a final "greater than the last bin" bucket.
+    let mut counts = vec![0i64; bins.len() + 1];
+    for &x in &data {
+        let mut placed = false;
+        for (i, &b) in bins.iter().enumerate() {
+            if x <= b {
+                counts[i] += 1;
+                placed = true;
+                break;
+            }
+        }
+        if !placed {
+            counts[bins.len()] += 1;
+        }
+    }
+    // Sheets returns a vertical (column) array of length bins+1.
+    let col: Vec<Vec<Value>> = counts
+        .into_iter()
+        .map(|c| vec![Value::Number(c as f64)])
+        .collect();
+    from_2d(col)
 }
 
 // ── LINEST ────────────────────────────────────────────────────────────────────
