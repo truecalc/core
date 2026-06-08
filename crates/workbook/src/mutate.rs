@@ -36,6 +36,7 @@ use crate::error::WorkbookError;
 use crate::limits;
 use crate::named_range::NamedRange;
 use crate::named_ref;
+use crate::spill::spill_rect;
 use crate::value::Value;
 use crate::workbook::Workbook;
 
@@ -57,6 +58,22 @@ pub enum CellInput {
     /// validated against the workbook's locked engine on `set`; its value is
     /// [`Value::Empty`] until the next recalc (P3.3).
     Formula(String),
+}
+
+/// The effective value at an address after spill resolution (schema spec §5),
+/// returned by [`Workbook::resolved`].
+///
+/// For an authored cell, `anchor` is `None` and `value` is the cell's stored
+/// value. For a *spilled* cell, `value` is the reconstructed array element and
+/// `anchor` is the address of the spilling anchor on the same sheet (the
+/// runtime `spilledFrom` marker of §5 — a derived view, never serialized).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Resolved {
+    /// The effective value at the queried address.
+    pub value: Value,
+    /// The spill anchor, if the queried cell is spilled; `None` for an authored
+    /// cell.
+    pub anchor: Option<Address>,
 }
 
 impl Workbook {
@@ -116,16 +133,73 @@ impl Workbook {
         Ok(self.sheets_mut()[idx].set(addr, cell))
     }
 
-    /// The cell at `addr` on the sheet named `sheet` (case-insensitive), or
-    /// `None` if the sheet or the cell is absent.
+    /// The **authored** cell at `addr` on the sheet named `sheet`
+    /// (case-insensitive), or `None` if no cell is authored there.
     ///
-    /// Spill resolution (returning a spilled cell's bound value while reporting
-    /// its anchor, schema spec §5) lands with the spill engine (P3.5); until
-    /// then this resolves to the *authored* cell only. The accessor is the
-    /// stable seam that resolution will be layered behind, so callers need not
-    /// change when P3.5 ships.
+    /// This returns only authored cells — a literal or a formula physically
+    /// present in `cells`. A *spilled* cell (one materialized by a spill anchor,
+    /// schema spec §5) is **not** authored and has no [`Cell`] to borrow, so
+    /// `get` returns `None` for it; use [`resolved`](Self::resolved) to read the
+    /// effective value at any address (authored *or* spilled) and learn the
+    /// spill anchor. Keeping `get` authored-only preserves the structural
+    /// distinguishability rule of §5 (a cell is authored iff it has an entry).
     pub fn get(&self, sheet: &str, addr: Address) -> Option<&Cell> {
         self.sheet(sheet).and_then(|ws| ws.get(addr))
+    }
+
+    /// The **effective** value at `addr` on the sheet named `sheet`
+    /// (case-insensitive), resolving through array spills (schema spec §5).
+    ///
+    /// Returns `None` only if `addr` is genuinely empty — neither authored nor
+    /// covered by a spill. Otherwise the returned [`Resolved`] carries the
+    /// value and, for a spilled cell, the `anchor` it spilled from (the
+    /// runtime `spilledFrom` view of §5 — never serialized). For an authored
+    /// cell `anchor` is `None`. A blocked-spill anchor is just an authored
+    /// formula cell whose value is the blocked-spill error, so it resolves as
+    /// an ordinary authored cell with no `anchor`.
+    ///
+    /// Resolution reads the **stored** grid (the last recalc's results): a
+    /// spilling anchor stores its full array (§6), and this reconstructs the
+    /// spilled element by the five-line rule of §5. It does not recalc.
+    pub fn resolved(&self, sheet: &str, addr: Address) -> Option<Resolved> {
+        let ws = self.sheet(sheet)?;
+        // Authored cell wins (a spill never overlaps an authored cell — §5).
+        if let Some(cell) = ws.get(addr) {
+            return Some(Resolved {
+                value: cell.value().clone(),
+                anchor: None,
+            });
+        }
+        // Otherwise look for an anchor whose stored array spills onto `addr`.
+        for (anchor_addr, cell) in ws.iter() {
+            let Value::Array(rows) = cell.value() else {
+                continue;
+            };
+            let nrows = rows.len();
+            let ncols = rows.first().map_or(0, Vec::len);
+            let Some(rect) = spill_rect(anchor_addr, nrows, ncols) else {
+                continue;
+            };
+            if anchor_addr == addr {
+                continue; // the anchor is authored, handled above
+            }
+            if let Some((i, j)) = rect.offset_of(addr) {
+                let value = rows[i][j].clone();
+                return Some(Resolved {
+                    value,
+                    anchor: Some(anchor_addr),
+                });
+            }
+        }
+        None
+    }
+
+    /// The spill anchor that materializes `addr` on the sheet named `sheet`
+    /// (case-insensitive), or `None` if `addr` is authored or empty (schema
+    /// spec §5). Convenience over [`resolved`](Self::resolved) when only the
+    /// anchor identity (the `spilledFrom` view) is needed.
+    pub fn spill_anchor(&self, sheet: &str, addr: Address) -> Option<Address> {
+        self.resolved(sheet, addr).and_then(|r| r.anchor)
     }
 
     /// Removes the cell at `addr` on the sheet named `sheet` (case-insensitive),
