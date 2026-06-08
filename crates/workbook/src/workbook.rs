@@ -1,7 +1,10 @@
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
+use icu_casemap::CaseMapperBorrowed;
+
 use crate::canonical;
+use crate::casefold::simple_fold;
 use crate::engine::EngineFlavor;
 use crate::error::WorkbookError;
 use crate::limits;
@@ -75,6 +78,120 @@ impl Workbook {
         &mut self.names
     }
 
+    /// The worksheet named `name` (case-insensitive, simple case folding per
+    /// schema spec §2), or `None` if no sheet matches.
+    pub fn sheet(&self, name: &str) -> Option<&Worksheet> {
+        self.sheet_index(name).map(|i| &self.sheets[i])
+    }
+
+    /// Mutable access to the worksheet named `name` (case-insensitive).
+    pub fn sheet_mut(&mut self, name: &str) -> Option<&mut Worksheet> {
+        match self.sheet_index(name) {
+            Some(i) => Some(&mut self.sheets[i]),
+            None => None,
+        }
+    }
+
+    /// The tab position (0-based array index) of the sheet named `name`
+    /// (case-insensitive per schema spec §2), or `None` if no sheet matches.
+    pub fn sheet_index(&self, name: &str) -> Option<usize> {
+        let folder = CaseMapperBorrowed::new();
+        let target = simple_fold(&folder, name);
+        self.sheets
+            .iter()
+            .position(|s| simple_fold(&folder, s.name()) == target)
+    }
+
+    /// Appends `sheet` after the last tab and returns its 0-based position.
+    ///
+    /// Errors if the name collides with an existing sheet under simple case
+    /// folding (schema spec §2), is empty or too long (schema spec §3), or
+    /// would exceed the per-workbook sheet cap (scope ADR Decision 5).
+    pub fn add_sheet(&mut self, sheet: Worksheet) -> Result<usize, WorkbookError> {
+        let pos = self.sheets.len();
+        self.insert_sheet(pos, sheet)?;
+        Ok(pos)
+    }
+
+    /// Inserts `sheet` at tab position `index`, shifting later tabs right.
+    /// `index == sheets().len()` appends. Position semantics: array index is
+    /// tab position (schema spec §2 — order is significant).
+    ///
+    /// Errors on a duplicate name (case-insensitive, §2), an empty/too-long
+    /// name (§3), the sheet cap (Decision 5), or `index` out of `0..=len`.
+    pub fn insert_sheet(&mut self, index: usize, sheet: Worksheet) -> Result<(), WorkbookError> {
+        if self.sheets.len() >= limits::MAX_SHEETS {
+            return Err(WorkbookError::SheetManagement(format!(
+                "cannot add sheet: workbook already has {} sheets, the limit (scope ADR Decision 5)",
+                limits::MAX_SHEETS
+            )));
+        }
+        if index > self.sheets.len() {
+            return Err(WorkbookError::SheetManagement(format!(
+                "cannot insert sheet at position {index}: only {} tab slots exist",
+                self.sheets.len() + 1
+            )));
+        }
+        validate_sheet_name(sheet.name())?;
+        if let Some(existing) = self.sheet(sheet.name()) {
+            return Err(WorkbookError::SheetManagement(format!(
+                "cannot add sheet {:?}: it collides with the existing sheet {:?} under simple \
+                 case folding (schema spec §2)",
+                sheet.name(),
+                existing.name()
+            )));
+        }
+        self.sheets.insert(index, sheet);
+        Ok(())
+    }
+
+    /// Removes and returns the sheet named `name` (case-insensitive),
+    /// shifting later tabs left, or `None` if no sheet matches.
+    ///
+    /// A workbook-scoped named range may now dangle to the removed sheet; the
+    /// dangling-ref invariant is re-checked at [`to_json`](Self::to_json) /
+    /// [`from_json`](Self::from_json) (schema spec §7).
+    pub fn remove_sheet(&mut self, name: &str) -> Option<Worksheet> {
+        self.sheet_index(name).map(|i| self.sheets.remove(i))
+    }
+
+    /// Renames the sheet currently named `from` (case-insensitive) to `to`.
+    ///
+    /// A pure case change of the *same* sheet is allowed (it does not collide
+    /// with itself). Errors if `from` does not exist, if `to` is empty/too
+    /// long (§3), or if `to` collides with a *different* sheet (§2).
+    pub fn rename_sheet(&mut self, from: &str, to: &str) -> Result<(), WorkbookError> {
+        let idx = self.sheet_index(from).ok_or_else(|| {
+            WorkbookError::SheetManagement(format!("cannot rename: no sheet named {from:?}"))
+        })?;
+        validate_sheet_name(to)?;
+        if let Some(other) = self.sheet_index(to) {
+            if other != idx {
+                return Err(WorkbookError::SheetManagement(format!(
+                    "cannot rename sheet to {to:?}: it collides with another sheet under simple \
+                     case folding (schema spec §2)"
+                )));
+            }
+        }
+        self.sheets[idx].set_name(to);
+        Ok(())
+    }
+
+    /// Moves the sheet at tab position `from` to position `to`, shifting the
+    /// sheets in between (schema spec §2 — array position is tab position).
+    /// Errors if either index is out of `0..len`.
+    pub fn move_sheet(&mut self, from: usize, to: usize) -> Result<(), WorkbookError> {
+        let len = self.sheets.len();
+        if from >= len || to >= len {
+            return Err(WorkbookError::SheetManagement(format!(
+                "cannot move sheet from {from} to {to}: valid tab positions are 0..{len}"
+            )));
+        }
+        let sheet = self.sheets.remove(from);
+        self.sheets.insert(to, sheet);
+        Ok(())
+    }
+
     /// Parses a workbook from JSON bytes, enforcing every document-level rule
     /// of the schema (schema spec §1–§10) and the resource limits of the scope
     /// ADR (Decision 5).
@@ -137,6 +254,29 @@ impl Workbook {
         }
         Ok(canonical)
     }
+}
+
+/// Validates a sheet name for the mutation API: non-empty and ≤ 100 Unicode
+/// scalar values (schema spec §3). Uniqueness is checked separately against the
+/// existing sheet set; this is only the per-name shape check, mirroring the
+/// rule [`Workbook::from_json`] applies to a deserialized document.
+///
+/// [`Workbook::from_json`]: crate::Workbook::from_json
+fn validate_sheet_name(name: &str) -> Result<(), WorkbookError> {
+    let len = name.chars().count();
+    if len == 0 {
+        return Err(WorkbookError::SheetManagement(
+            "a worksheet name must be non-empty (schema spec §3)".to_owned(),
+        ));
+    }
+    if len > limits::MAX_SHEET_NAME_LEN {
+        return Err(WorkbookError::SheetManagement(format!(
+            "worksheet name {name:?} has {len} scalar values, exceeding the limit of {} \
+             (schema spec §3)",
+            limits::MAX_SHEET_NAME_LEN
+        )));
+    }
+    Ok(())
 }
 
 /// Domain ordering of schema spec §8.7: `names` is serialized sorted by `name`
