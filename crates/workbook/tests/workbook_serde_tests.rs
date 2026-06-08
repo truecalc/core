@@ -181,3 +181,19 @@ fn sheet_tab_order_is_preserved() {
     let names: Vec<&str> = back.sheets().iter().map(Worksheet::name).collect();
     assert_eq!(names, ["Zebra", "Alpha"]);
 }
+
+#[test]
+fn unknown_schema_versions_are_rejected() {
+    // §10 reader rule: accept every version this library knows ("1"),
+    // reject unknown versions with a clear upgrade error.
+    for version in ["2", "42", "1.0", ""] {
+        let json = format!(r#"{{"engine":"sheets","names":[],"sheets":[],"version":"{version}"}}"#);
+        let result = serde_json::from_str::<Workbook>(&json);
+        assert!(result.is_err(), "version {version:?} must be rejected");
+    }
+    // Non-string versions are rejected too.
+    let numeric = serde_json::from_str::<Workbook>(
+        r#"{"engine":"sheets","names":[],"sheets":[],"version":1}"#,
+    );
+    assert!(numeric.is_err());
+}

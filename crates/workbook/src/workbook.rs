@@ -1,4 +1,5 @@
-use serde::{Deserialize, Serialize};
+use serde::de::Error as _;
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::engine::EngineFlavor;
 use crate::named_range::NamedRange;
@@ -20,6 +21,7 @@ pub struct Workbook {
     engine: EngineFlavor,
     names: Vec<NamedRange>,
     sheets: Vec<Worksheet>,
+    #[serde(deserialize_with = "de_version")]
     version: String,
 }
 
@@ -67,4 +69,18 @@ impl Workbook {
     pub fn names_mut(&mut self) -> &mut Vec<NamedRange> {
         &mut self.names
     }
+}
+
+/// Reader rule of schema spec §10: accept every version this library
+/// knows (`"1"`), reject unknown versions with a clear "upgrade" error.
+fn de_version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    let version = String::deserialize(deserializer)?;
+    if version != SCHEMA_VERSION {
+        return Err(D::Error::custom(format!(
+            "unsupported schema version {version:?}: this version of \
+             truecalc-workbook reads version \"1\" (schema spec §10); \
+             upgrade truecalc to load this workbook"
+        )));
+    }
+    Ok(version)
 }

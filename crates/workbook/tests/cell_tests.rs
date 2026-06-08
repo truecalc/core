@@ -77,3 +77,12 @@ fn formula_text_round_trips_verbatim() {
     let back: Cell = serde_json::from_str(&json).unwrap();
     assert_eq!(back.formula(), Some("=SUM( a1 , 2)  "));
 }
+
+#[test]
+fn null_formula_is_rejected() {
+    // `formula`, when present, must be a string (schema spec §4); an
+    // explicit null is not schema-valid.
+    let result =
+        serde_json::from_str::<Cell>(r#"{"formula":null,"value":{"type":"number","value":1}}"#);
+    assert!(result.is_err());
+}

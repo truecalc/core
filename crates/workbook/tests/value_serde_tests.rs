@@ -166,3 +166,21 @@ fn integral_json_numbers_deserialize_as_f64() {
         Value::Date(46180.0)
     );
 }
+
+#[test]
+fn one_by_one_arrays_are_rejected() {
+    // §6: 1×1 arrays do not exist in serialized form — an operation
+    // producing one collapses it to its scalar element before storage.
+    let json = r#"{"type":"array","value":[[{"type":"number","value":1}]]}"#;
+    assert!(serde_json::from_str::<Value>(json).is_err());
+    let one_by_one = Value::Array(vec![vec![Value::Number(1.0)]]);
+    assert!(serde_json::to_string(&one_by_one).is_err());
+}
+
+#[test]
+fn one_by_n_and_n_by_one_arrays_are_accepted() {
+    let row = Value::Array(vec![vec![Value::Number(1.0), Value::Number(2.0)]]);
+    assert_eq!(round_trip(&row), row);
+    let column = Value::Array(vec![vec![Value::Number(1.0)], vec![Value::Number(2.0)]]);
+    assert_eq!(round_trip(&column), column);
+}

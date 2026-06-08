@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::error::WorkbookError;
 use crate::value::Value;
@@ -63,8 +63,16 @@ impl Cell {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CellDe {
+    #[serde(default, deserialize_with = "de_formula")]
     formula: Option<String>,
     value: Value,
+}
+
+/// `formula`, when present, must be a JSON string (schema spec §4); an
+/// explicit `"formula": null` is not schema-valid and is rejected rather
+/// than treated as an absent field.
+fn de_formula<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<String>, D::Error> {
+    String::deserialize(deserializer).map(Some)
 }
 
 impl TryFrom<CellDe> for Cell {

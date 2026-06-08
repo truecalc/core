@@ -15,9 +15,10 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 ///   unrepresentable; the serializer rejects them and the deserializer
 ///   refuses them. `-0.0` is normalized to `0.0` on deserialization, and
 ///   equality/hashing treat them as the same value.
-/// - `Array` is row-major, rectangular, non-empty, and holds only scalar
-///   values (never a nested `Array`). It appears only as a spill anchor's
-///   value (schema spec §5).
+/// - `Array` is row-major, rectangular, non-empty, larger than 1×1 (a 1×1
+///   array is collapsed to its scalar element before storage, schema spec
+///   §6), and holds only scalar values (never a nested `Array`). It appears
+///   only as a spill anchor's value (schema spec §5).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     /// Finite IEEE-754 f64.
@@ -43,7 +44,7 @@ pub enum Value {
 
 /// Bit pattern of a finite f64 with `-0.0` normalized to `0.0`, so that
 /// hashing agrees with `==` (schema spec §8: hash and float equality operate
-/// on post-normalization bit patterns; sound because NaN is unrepresentable).
+/// on post-normalization bit patterns; sound because the serializer rejects NaN).
 fn normalized_bits(x: f64) -> u64 {
     if x == 0.0 {
         0.0_f64.to_bits()
@@ -125,6 +126,12 @@ impl Serialize for Value {
             Value::Array(rows) => {
                 if rows.is_empty() || rows[0].is_empty() {
                     return Err(S::Error::custom("array value must be non-empty"));
+                }
+                if rows.len() == 1 && rows[0].len() == 1 {
+                    return Err(S::Error::custom(
+                        "a 1x1 array does not exist in serialized form; collapse it \
+                         to its scalar element (schema spec §6)",
+                    ));
                 }
                 let width = rows[0].len();
                 for row in rows {
@@ -250,6 +257,13 @@ fn parse_array(payload: &serde_json::Value) -> Result<Value, String> {
             row.push(elem);
         }
         rows.push(row);
+    }
+    if rows.len() == 1 && rows[0].len() == 1 {
+        return Err(
+            "a 1x1 array does not exist in serialized form; it must be collapsed \
+             to its scalar element (schema spec §6)"
+                .to_string(),
+        );
     }
     Ok(Value::Array(rows))
 }
