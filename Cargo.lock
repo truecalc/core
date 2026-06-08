@@ -2030,6 +2030,8 @@ dependencies = [
  "nom",
  "proptest",
  "regex-lite",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -2063,6 +2065,7 @@ dependencies = [
  "ryu-js",
  "serde",
  "serde_json",
+ "truecalc-core",
 ]
 
 [[package]]

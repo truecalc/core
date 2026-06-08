@@ -1,17 +1,14 @@
-use serde::{Deserialize, Serialize};
+//! Engine flavor for workbooks.
+//!
+//! The flavor enum is owned by `truecalc-core` (the single source of truth);
+//! the workbook layer re-exports it as [`EngineFlavor`] so there is exactly one
+//! enum across the two crates and no drift is possible (issue #567). Core derives
+//! the serde impls under its `serde` feature with `rename_all = "lowercase"`, so
+//! the JSON wire strings stay `"sheets"` | `"excel"` as pinned by the workbook
+//! JSON schema v1 (spec section 2).
+//!
+//! Engine flavor is explicit and required on every public entry point; there is
+//! no default (ADR 2026-04-27-engine-flavor-explicit-everywhere). It is the
+//! workbook value serialized as the required top-level `engine` field.
 
-/// Which spreadsheet product's semantics every formula in a workbook targets.
-///
-/// Engine flavor is explicit and required on every public entry point; there
-/// is no default (ADR 2026-04-27-engine-flavor-explicit-everywhere).
-/// Serialized as the workbook's required top-level `engine` field:
-/// `"sheets"` | `"excel"`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum EngineFlavor {
-    /// Google Sheets semantics (day 0 of the date serial system is 1899-12-30).
-    Sheets,
-    /// Excel semantics (1900 date system, including the historical
-    /// 1900 leap-year bug).
-    Excel,
-}
+pub use truecalc_core::EngineFlavor;

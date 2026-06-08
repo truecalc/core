@@ -7,7 +7,7 @@ pub mod parser;
 pub mod types;
 
 pub use display::display_number;
-pub use engine::Engine;
+pub use engine::{Engine, EngineFlavor};
 #[allow(deprecated)]
 pub use parser::{parse, validate};
 pub use parser::Expr;
