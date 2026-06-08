@@ -374,6 +374,16 @@ fn display_quotes_a1_like_sheet_name() {
 }
 
 #[test]
+fn display_quotes_boolean_sheet_names() {
+    // TRUE/FALSE parse as boolean literals before identifiers, so a sheet
+    // with one of those names must be quoted in canonical form to re-parse.
+    let r = Ref::Cell { sheet: Some("TRUE".into()), addr: addr(1, 1) };
+    assert_eq!(r.to_string(), "'TRUE'!A1");
+    let r = Ref::Cell { sheet: Some("false".into()), addr: addr(1, 1) };
+    assert_eq!(r.to_string(), "'false'!A1");
+}
+
+#[test]
 fn display_quotes_leading_digit_sheet_name() {
     let r = Ref::Range {
         sheet: Some("2024".into()),
@@ -396,7 +406,7 @@ fn display_name() {
 
 #[test]
 fn display_round_trips_through_parser() {
-    for formula in ["='It''s'!A1:B2", "=Sheet1!A1", "='Q2 Données'!AA10"] {
+    for formula in ["='It''s'!A1:B2", "=Sheet1!A1", "='Q2 Données'!AA10", "='TRUE'!A1", "='FALSE'!B2:C3"] {
         let r1 = match parse(formula) {
             Expr::Reference(r, _) => r,
             other => panic!("expected Reference, got {other:?}"),

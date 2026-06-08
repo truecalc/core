@@ -116,8 +116,10 @@ fn looks_like_cell_addr(name: &str) -> bool {
 }
 
 /// True if `name` cannot appear unquoted before `!` in canonical form.
-/// Unquoted sheet names must match `^[A-Za-z_][A-Za-z0-9_]*$` and must not
-/// look like an A1 cell address (see [`looks_like_cell_addr`]).
+/// Unquoted sheet names must match `^[A-Za-z_][A-Za-z0-9_]*$`, must not
+/// look like an A1 cell address (see [`looks_like_cell_addr`]), and must
+/// not be the boolean literals `TRUE`/`FALSE` (which the parser recognizes
+/// before identifiers, so an unquoted `TRUE!A1` would not re-parse).
 fn sheet_needs_quoting(name: &str) -> bool {
     let mut chars = name.chars();
     let bare = match chars.next() {
@@ -126,7 +128,10 @@ fn sheet_needs_quoting(name: &str) -> bool {
         }
         _ => false,
     };
-    !bare || looks_like_cell_addr(name)
+    !bare
+        || looks_like_cell_addr(name)
+        || name.eq_ignore_ascii_case("TRUE")
+        || name.eq_ignore_ascii_case("FALSE")
 }
 
 fn write_sheet(f: &mut fmt::Formatter<'_>, sheet: &Option<String>) -> fmt::Result {
