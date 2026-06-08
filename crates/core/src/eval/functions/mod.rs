@@ -15,21 +15,54 @@ pub mod web;
 
 use std::collections::HashMap;
 use crate::eval::context::Context;
+use crate::eval::resolver::Resolver;
 use crate::parser::ast::Expr;
 use crate::types::{ErrorKind, Value};
 
 // ── EvalCtx ───────────────────────────────────────────────────────────────
 
-/// Bundles the variable context and function registry for use during evaluation.
-/// Passed to lazy functions so they can recursively evaluate sub-expressions.
+/// Bundles the variable context, function registry, and reference resolver
+/// for use during evaluation. Passed to lazy functions so they can recursively
+/// evaluate sub-expressions.
+///
+/// References that are not bound as local variables (e.g. a LAMBDA parameter)
+/// are read through `resolver`; see [`crate::Resolver`]. The default resolver
+/// ([`EmptyResolver`]) maps every reference to [`Value::Empty`], preserving the
+/// historical contract of [`crate::Engine::evaluate`].
 pub struct EvalCtx<'r> {
     pub ctx: Context,
     pub registry: &'r Registry,
+    /// Resolver for references not bound as local variables. `None` ⇒ such
+    /// references read as [`Value::Empty`] (the historical
+    /// [`crate::Engine::evaluate`] contract).
+    pub resolver: Option<&'r mut dyn Resolver>,
 }
 
 impl<'r> EvalCtx<'r> {
+    /// Build an `EvalCtx` with no resolver: unbound references read as
+    /// [`Value::Empty`]. Use [`EvalCtx::with_resolver`] to supply real
+    /// workbook semantics.
     pub fn new(ctx: Context, registry: &'r Registry) -> Self {
-        Self { ctx, registry }
+        Self { ctx, registry, resolver: None }
+    }
+
+    /// Build an `EvalCtx` that resolves references through `resolver`.
+    pub fn with_resolver(
+        ctx: Context,
+        registry: &'r Registry,
+        resolver: &'r mut dyn Resolver,
+    ) -> Self {
+        Self { ctx, registry, resolver: Some(resolver) }
+    }
+
+    /// Resolve a reference that was not bound as a local variable, delegating
+    /// to [`EvalCtx::resolver`] when present and falling back to
+    /// [`Value::Empty`] otherwise.
+    pub fn resolve_ref(&mut self, r: &crate::parser::refs::Ref) -> Value {
+        match self.resolver {
+            Some(ref mut res) => res.resolve(r),
+            None => Value::Empty,
+        }
     }
 }
 

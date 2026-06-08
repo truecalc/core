@@ -37,6 +37,14 @@ impl Context {
             .unwrap_or(Value::Empty)
     }
 
+    /// Look up a binding by name (case-insensitive), distinguishing an absent
+    /// binding (`None`) from one explicitly bound to [`Value::Empty`]
+    /// (`Some(Value::Empty)`). Used by the evaluator to decide whether a
+    /// reference should fall through to the resolver.
+    pub fn lookup(&self, name: &str) -> Option<Value> {
+        self.vars.get(&name.to_uppercase()).cloned()
+    }
+
     /// Insert or overwrite a binding. Returns the previous value if one existed.
     pub fn set(&mut self, name: String, value: Value) -> Option<Value> {
         self.vars.insert(name.to_uppercase(), value)

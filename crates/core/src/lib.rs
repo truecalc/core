@@ -15,6 +15,7 @@ pub use parser::{CellAddr, Ref};
 pub use types::{ErrorKind, ParseError, Value};
 
 pub use eval::functions::{FunctionMeta, Registry};
+pub use eval::{extract_refs, Resolver};
 
 use std::collections::HashMap;
 
