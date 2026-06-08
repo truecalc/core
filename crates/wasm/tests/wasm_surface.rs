@@ -40,7 +40,7 @@ fn one_dimensional_array_formula_returns_flat_array() {
 fn date_formula_returns_distinct_date_result() {
     // DATE(...) is date-typed; previously collapsed to `number`.
     match evaluate("DATE(2026,6,9)", JsValue::UNDEFINED) {
-        EvalResult::Date { value } => assert_eq!(value, 46180.0),
+        EvalResult::Date { value } => assert_eq!(value, 46182.0), // sheets serial for 2026-06-09 (day 0 = 1899-12-30)
         other => panic!("expected date result, got {other:?}"),
     }
 }
