@@ -24,15 +24,59 @@ fn json_to_value(v: &serde_json::Value) -> Value {
     }
 }
 
-#[derive(Tsify, Serialize)]
+/// The result of evaluating a formula on the WASM surface.
+///
+/// A discriminated union tagged by `type`. Scalars carry their value directly;
+/// the `array` variant is recursive -- each element is itself an `EvalResult`,
+/// so a 2-D array result is an array of `array` rows whose elements are scalar
+/// `EvalResult`s. This mirrors how `truecalc-core` represents array values
+/// internally (1-D arrays are flat, 2-D arrays nest row sub-arrays) and matches
+/// the recursive shape `truecalc-mcp` already emits.
+///
+/// # Surface shape (npm `@truecalc/core` >= 0.7.0)
+///
+/// - `{ type: "number", value: 1.5 }`
+/// - `{ type: "text", value: "yes" }`
+/// - `{ type: "bool", value: true }`
+/// - `{ type: "empty" }`
+/// - `{ type: "error", error: "#REF!" }`
+/// - `{ type: "date", value: 46180 }` -- spreadsheet serial number (epoch implied
+///   by the engine flavor; `sheets` day 0 = 1899-12-30)
+/// - `{ type: "array", value: [ EvalResult, ... ] }` -- recursive; a 2-D result is
+///   `{ type: "array", value: [ { type: "array", value: [ <cells> ] }, ... ] }`
+#[derive(Tsify, Serialize, Debug)]
 #[tsify(into_wasm_abi)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum EvalResult {
     Number { value: f64 },
     Text { value: String },
     Bool { value: bool },
+    /// A spreadsheet serial date number. Distinct from `Number` so consumers can
+    /// format it as a date; the epoch is implied by the engine flavor.
+    Date { value: f64 },
     Error { error: String },
     Empty,
+    /// An (unspilled) array result. Recursive: 2-D arrays are arrays of `array`
+    /// rows. Cells carry their own type, including nested `date`/`error`/`empty`.
+    Array { value: Vec<EvalResult> },
+}
+
+/// Map a `truecalc-core` `Value` onto the WASM `EvalResult` surface shape.
+///
+/// Recurses into arrays so every cell carries its own type; `Date` is preserved
+/// as a distinct `date` result rather than collapsed to `number`.
+pub fn value_to_result(value: Value) -> EvalResult {
+    match value {
+        Value::Number(n) => EvalResult::Number { value: n },
+        Value::Date(n) => EvalResult::Date { value: n },
+        Value::Text(s) => EvalResult::Text { value: s },
+        Value::Bool(b) => EvalResult::Bool { value: b },
+        Value::Error(e) => EvalResult::Error { error: e.to_string() },
+        Value::Empty => EvalResult::Empty,
+        Value::Array(items) => EvalResult::Array {
+            value: items.into_iter().map(value_to_result).collect(),
+        },
+    }
 }
 
 #[derive(Tsify, Serialize)]
@@ -69,14 +113,7 @@ pub fn evaluate(formula: &str, variables: JsValue) -> EvalResult {
         None => HashMap::new(),
     };
 
-    match truecalc_core::Engine::sheets().evaluate(formula, &vars) {
-        Value::Number(n) | Value::Date(n) => EvalResult::Number { value: n },
-        Value::Text(s) => EvalResult::Text { value: s },
-        Value::Bool(b) => EvalResult::Bool { value: b },
-        Value::Error(e) => EvalResult::Error { error: e.to_string() },
-        Value::Empty => EvalResult::Empty,
-        Value::Array(_) => EvalResult::Error { error: "array not supported".to_string() },
-    }
+    value_to_result(truecalc_core::Engine::sheets().evaluate(formula, &vars))
 }
 
 /// Validate a formula string without evaluating it.
@@ -194,14 +231,7 @@ impl WasmEngine {
             None => HashMap::new(),
         };
 
-        match self.inner.evaluate(formula, &vars) {
-            Value::Number(n) | Value::Date(n) => EvalResult::Number { value: n },
-            Value::Text(s) => EvalResult::Text { value: s },
-            Value::Bool(b) => EvalResult::Bool { value: b },
-            Value::Error(e) => EvalResult::Error { error: e.to_string() },
-            Value::Empty => EvalResult::Empty,
-            Value::Array(_) => EvalResult::Error { error: "array not supported".to_string() },
-        }
+        value_to_result(self.inner.evaluate(formula, &vars))
     }
 }
 
