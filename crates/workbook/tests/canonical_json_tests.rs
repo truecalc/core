@@ -241,3 +241,34 @@ fn non_canonical_input_is_accepted_and_output_is_canonical() {
         r#"{"engine":"sheets","names":[],"sheets":[{"cells":{"A10":{"value":{"type":"number","value":10}},"A2":{"value":{"type":"number","value":2}}},"name":"S"}],"version":"1"}"#
     );
 }
+
+#[test]
+fn extreme_exponent_floats_round_trip_byte_identically() {
+    // Regression: serde_json's default float parser is off by up to one ULP for
+    // some extreme exponents; without the `float_roundtrip` feature this value
+    // re-serializes to a different last digit, breaking to_json ∘ from_json = id.
+    let mut wb = Workbook::new(EngineFlavor::Excel);
+    let mut sh = Worksheet::new("S");
+    for (i, v) in [
+        1.5926045055164742e-152f64,
+        5e-324,
+        2.2250738585072014e-308,
+        1.7976931348623157e308,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        sh.cells_mut().insert(
+            format!("A{}", i + 1),
+            Cell::literal(Value::Number(v)).unwrap(),
+        );
+    }
+    wb.sheets_mut().push(sh);
+    let once = wb.to_json().unwrap();
+    let back = Workbook::from_json(once.as_bytes()).unwrap();
+    let twice = back.to_json().unwrap();
+    assert_eq!(
+        once, twice,
+        "extreme-exponent floats must round-trip byte-identically"
+    );
+}
