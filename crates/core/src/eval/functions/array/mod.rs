@@ -1136,7 +1136,7 @@ pub fn byrow_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         let row_val = Value::Array(row.clone());
         match apply_lambda(lambda_expr, &[row_val], ctx) {
             Some(v) => results.push(v),
-            None => return Value::Error(ErrorKind::Value),
+            None => return Value::Error(ErrorKind::NA),
         }
     }
     // Return as column vector (one result per row)
@@ -1167,7 +1167,7 @@ pub fn bycol_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         let col_val = Value::Array(col);
         match apply_lambda(lambda_expr, &[col_val], ctx) {
             Some(v) => results.push(v),
-            None => return Value::Error(ErrorKind::Value),
+            None => return Value::Error(ErrorKind::NA),
         }
     }
     // Return as row vector (one result per col)
@@ -1201,7 +1201,7 @@ pub fn map_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         let bound: Vec<Value> = arrays.iter().map(|a| a[i].clone()).collect();
         match apply_lambda(lambda_expr, &bound, ctx) {
             Some(v) => results.push(v),
-            None => return Value::Error(ErrorKind::Value),
+            None => return Value::Error(ErrorKind::NA),
         }
     }
     // Preserve shape of first array
@@ -1239,7 +1239,7 @@ pub fn reduce_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     for item in &items {
         match apply_lambda(lambda_expr, &[acc.clone(), item.clone()], ctx) {
             Some(v) => acc = v,
-            None => return Value::Error(ErrorKind::Value),
+            None => return Value::Error(ErrorKind::NA),
         }
     }
     acc
@@ -1270,7 +1270,7 @@ pub fn scan_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
                 acc = v.clone();
                 results.push(v);
             }
-            None => return Value::Error(ErrorKind::Value),
+            None => return Value::Error(ErrorKind::NA),
         }
     }
     // Preserve shape of input array
@@ -1317,7 +1317,7 @@ pub fn makearray_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
             let cv = Value::Number(c as f64);
             match apply_lambda(lambda_expr, &[rv, cv], ctx) {
                 Some(v) => row.push(v),
-                None => return Value::Error(ErrorKind::Value),
+                None => return Value::Error(ErrorKind::NA),
             }
         }
         grid.push(row);
