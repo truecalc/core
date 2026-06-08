@@ -1,9 +1,11 @@
 pub mod context;
 pub mod coercion;
 pub mod functions;
+pub mod resolver;
 
 pub use context::Context;
 pub use functions::{EvalCtx, FunctionMeta, Registry};
+pub use resolver::{extract_refs, Resolver};
 
 use crate::parser::ast::{BinaryOp, Expr, UnaryOp};
 use crate::types::{ErrorKind, Value};
@@ -29,10 +31,20 @@ pub fn evaluate_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
         }
         Expr::Text(s, _)   => Value::Text(s.clone()),
         Expr::Bool(b, _)   => Value::Bool(*b),
-        Expr::Variable(name, _) => ctx.ctx.get(name),
-        // Sheet-qualified references resolve through the same delegated
-        // context, keyed by the canonical reference text (e.g. "DATA!A1").
-        Expr::Reference(r, _) => ctx.ctx.get(&r.to_string()),
+        // Bare identifiers: a local binding (LAMBDA parameter, caller-supplied
+        // variable, or canonical-text variable) wins; otherwise the name is
+        // classified into a `Ref` and read through the resolver (P1.3, #525).
+        Expr::Variable(name, _) => match ctx.ctx.lookup(name) {
+            Some(v) => v,
+            None => ctx.resolve_ref(&crate::parser::refs::Ref::classify(name)),
+        },
+        // Sheet-qualified references: a binding under the canonical reference
+        // text wins (back-compat with variable-supplied refs); otherwise the
+        // reference is read through the resolver.
+        Expr::Reference(r, _) => match ctx.ctx.lookup(&r.to_string()) {
+            Some(v) => v,
+            None => ctx.resolve_ref(r),
+        },
 
         // ── Unary ops ───────────────────────────────────────────────────────
         Expr::UnaryOp { op, operand, .. } => {
