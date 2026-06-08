@@ -9,6 +9,7 @@ readme = "README.md"
 keywords = ["spreadsheet", "workbook", "formula", "excel", "sheets"]
 
 [dependencies]
+truecalc-core = { path = "../core", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 ryu-js = "1"
