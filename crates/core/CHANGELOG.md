@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0](https://github.com/truecalc/core/compare/truecalc-core-v0.7.0...truecalc-core-v0.8.0) - 2026-06-08
+
+### Fixed
+
+- *(workbook)* unify EngineFlavor with truecalc-core's flavor enum ([#567](https://github.com/truecalc/core/pull/567))
+
+### Other
+
+- *(workbook)* correct COUNT-skip comment to reference filed issue #584
+- *(workbook)* seed Resolver from input-model sidecar (#575 / #532)
+
 ## [0.7.0](https://github.com/truecalc/core/compare/truecalc-core-v0.6.5...truecalc-core-v0.7.0) - 2026-06-08
 
 ### Added
