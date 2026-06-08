@@ -190,3 +190,25 @@ jobs:
 
       - name: Build WASM
         run: wasm-pack build crates/wasm --target web
+
+  macos-golden:
+    name: macOS golden byte-identity (truecalc-workbook)
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      # Verifies the truecalc-workbook canonical-JSON golden files are
+      # byte-identical on macOS (issue #530 P2.3 acceptance: Linux + macOS).
+      # The golden byte-identity assertions live in
+      # crates/workbook/tests/canonical_json_tests.rs; running the crate's
+      # full test set (incl. canonical_json + golden) keeps this minimal yet
+      # complete for proving cross-OS byte identity.
+      - name: Test truecalc-workbook (golden + canonical JSON)
+        run: cargo test -p truecalc-workbook
