@@ -26,6 +26,7 @@ use icu_casemap::CaseMapperBorrowed;
 use serde_json::Value;
 
 use crate::address::{parse_a1, Address};
+use crate::casefold::simple_fold;
 use crate::limits;
 use crate::named_ref;
 
@@ -362,11 +363,4 @@ fn validate_named_ranges(
     }
 
     Ok(())
-}
-
-/// Unicode **simple** case folding applied per character (schema spec §2): not
-/// `to_lowercase()`/full folding, which disagree on some case pairs and would
-/// break cross-surface determinism.
-fn simple_fold(folder: &CaseMapperBorrowed<'static>, s: &str) -> String {
-    s.chars().map(|c| folder.simple_fold(c)).collect()
 }
