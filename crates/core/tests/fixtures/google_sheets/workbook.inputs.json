@@ -1,0 +1,52 @@
+{
+  "_comment": "Input-model sidecar for workbook.tsv (truecalc/core#575, fixtures extension #2 / #532). Authored cells + named ranges for the workbook conformance scenarios, derived from the truecalc/fixtures pipeline setup.json sources (CROSS_SHEET_REF.setup.json, NAMED_RANGE.setup.json). Immutable, same rule as workbook.tsv: pipeline-derived, never hand-confirmed.",
+  "engine": "sheets",
+  "scenarios": {
+    "cross_sheet_ref": {
+      "sheets": {
+        "Data": {
+          "A1": 10,
+          "A2": 20,
+          "A3": 30,
+          "B1": 5,
+          "B2": "=A1*2",
+          "B3": 40,
+          "C1": "hello",
+          "D1": true,
+          "E1": "=DATE(2026,6,7)"
+        },
+        "Quoted Name": {
+          "A1": 100,
+          "A2": 200,
+          "A3": 300,
+          "B1": 7
+        }
+      },
+      "names": {}
+    },
+    "named_range": {
+      "sheets": {
+        "Data": {
+          "A1": 0.0825,
+          "B1": 10,
+          "B2": 20,
+          "B3": 30,
+          "C1": 1,
+          "C2": 2,
+          "D1": 3,
+          "D2": 4
+        },
+        "Quoted Name": {
+          "A1": 100,
+          "A2": 200
+        }
+      },
+      "names": {
+        "TAX_RATE": "Data!A1",
+        "PRICES": "Data!B1:B3",
+        "GRID": "Data!C1:D2",
+        "QUOTED_VALS": "'Quoted Name'!A1:A2"
+      }
+    }
+  }
+}
