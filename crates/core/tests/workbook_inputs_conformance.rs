@@ -339,9 +339,12 @@ fn values_match(actual: &Value, expected: &Value) -> bool {
 /// - shape-dependent: `ROWS`/`COLUMNS` need a 2-D range the flat resolver shim
 ///   does not synthesize (the real P1.3/P3.x resolver returns shaped ranges;
 ///   this conformance shim deliberately stays minimal).
-/// - known engine deviation: `COUNT` over a range counts booleans, while the
-///   pipeline observed Google Sheets skipping them — a real gap tracked by the
-///   report-only `bugs`/`workbook` runner, not something to self-confirm here.
+/// - known engine deviation: `COUNT` over a range counts the boolean cell,
+///   while the pipeline observed Google Sheets skipping it (`workbook.tsv` row
+///   `=COUNT(Data!A1:D3)` => 6, engine => 7). This is a real engine bug —
+///   COUNT's array-literal path already skips booleans (e.g.
+///   `=COUNT({TRUE,FALSE,1,2})` => 2 in the corpus) but its range path does
+///   not — tracked in #584, not something to self-confirm here.
 ///
 /// Excluding these keeps the blocking assertion honest: it covers only rows the
 /// engine + sidecar fully support, and never masks a regression in them.
