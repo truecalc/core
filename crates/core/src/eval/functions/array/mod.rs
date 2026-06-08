@@ -219,11 +219,15 @@ pub(crate) fn array_constrain_fn(args: &[Value]) -> Value {
     let grid = to_2d(&args[0]);
     let num_rows = match to_f64(&args[1]) {
         Some(n) if n >= 1.0 => n as usize,
-        _ => return Value::Error(ErrorKind::Value),
+        Some(n) if n < 0.0 => return Value::Error(ErrorKind::Num),
+        Some(_) => return Value::Error(ErrorKind::Ref),
+        None => return Value::Error(ErrorKind::Value),
     };
     let num_cols = match to_f64(&args[2]) {
         Some(n) if n >= 1.0 => n as usize,
-        _ => return Value::Error(ErrorKind::Value),
+        Some(n) if n < 0.0 => return Value::Error(ErrorKind::Num),
+        Some(_) => return Value::Error(ErrorKind::Ref),
+        None => return Value::Error(ErrorKind::Value),
     };
     let rows_to_take = num_rows.min(grid.len());
     let result: Vec<Vec<Value>> = grid[..rows_to_take]
@@ -372,6 +376,12 @@ fn tocol_fn(args: &[Value]) -> Value {
     if let Some(e) = check_arity(args, 1, 3) {
         return e;
     }
+    if let Some(m) = args.get(1) {
+        match to_f64(m) {
+            Some(n) if (0.0..4.0).contains(&n) => {}
+            _ => return Value::Error(ErrorKind::Value),
+        }
+    }
     let flat = flatten_val(&args[0]);
     let col: Vec<Vec<Value>> = flat.into_iter().map(|v| vec![v]).collect();
     from_2d(col)
@@ -383,6 +393,12 @@ fn tocol_fn(args: &[Value]) -> Value {
 fn torow_fn(args: &[Value]) -> Value {
     if let Some(e) = check_arity(args, 1, 3) {
         return e;
+    }
+    if let Some(m) = args.get(1) {
+        match to_f64(m) {
+            Some(n) if (0.0..4.0).contains(&n) => {}
+            _ => return Value::Error(ErrorKind::Value),
+        }
     }
     let flat = flatten_val(&args[0]);
     Value::Array(flat)
@@ -399,7 +415,8 @@ fn wrapcols_fn(args: &[Value]) -> Value {
     let flat = flatten_val(&args[0]);
     let wrap_count = match to_f64(&args[1]) {
         Some(n) if n >= 1.0 => n as usize,
-        _ => return Value::Error(ErrorKind::Value),
+        Some(_) => return Value::Error(ErrorKind::Num),
+        None => return Value::Error(ErrorKind::Value),
     };
     let pad = args.get(2).cloned().unwrap_or(Value::Empty);
 
@@ -431,7 +448,8 @@ fn wraprows_fn(args: &[Value]) -> Value {
     let flat = flatten_val(&args[0]);
     let wrap_count = match to_f64(&args[1]) {
         Some(n) if n >= 1.0 => n as usize,
-        _ => return Value::Error(ErrorKind::Value),
+        Some(_) => return Value::Error(ErrorKind::Num),
+        None => return Value::Error(ErrorKind::Value),
     };
     let pad = args.get(2).cloned().unwrap_or(Value::Empty);
 
