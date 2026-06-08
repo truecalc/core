@@ -18,9 +18,9 @@
 
 mod address;
 mod canonical;
-mod depgraph;
 mod casefold;
 mod cell;
+mod depgraph;
 mod engine;
 mod error;
 pub mod limits;
