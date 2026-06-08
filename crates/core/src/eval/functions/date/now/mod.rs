@@ -1,18 +1,28 @@
 use chrono::{Local, Timelike};
-use crate::eval::functions::check_arity;
+use crate::eval::functions::{check_arity_len, EvalCtx};
 use crate::eval::functions::date::serial::{date_to_serial, time_to_serial};
+use crate::parser::ast::Expr;
 use crate::types::Value;
 
 /// `NOW()` — returns the current local datetime as a spreadsheet serial number.
 /// Integer part = date serial; fractional part = time-of-day.
-pub fn now_fn(args: &[Value]) -> Value {
-    if let Some(e) = check_arity(args, 0, 0) {
+///
+/// Volatile. Registered lazy so it can read the evaluation context: when the
+/// context carries a pinned `now_serial` (set via `Engine::evaluate_at`,
+/// P1.4 issue #526) it returns that serial verbatim — deterministic.
+/// Without a pin it falls back to the ambient local clock.
+pub fn now_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
+    if let Some(e) = check_arity_len(args.len(), 0, 0) {
         return e;
     }
-    let now = Local::now().naive_local();
-    let date_serial = date_to_serial(now.date());
-    let time_frac = time_to_serial(now.hour(), now.minute(), now.second());
-    Value::Number(date_serial + time_frac)
+    let serial = match ctx.ctx.now_serial {
+        Some(now) => now,
+        None => {
+            let now = Local::now().naive_local();
+            date_to_serial(now.date()) + time_to_serial(now.hour(), now.minute(), now.second())
+        }
+    };
+    Value::Number(serial)
 }
 
 #[cfg(test)]

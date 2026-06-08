@@ -1,4 +1,6 @@
 pub mod serial;
+#[cfg(test)]
+mod serial_tests;
 pub mod weekend;
 
 pub mod date_fn;
@@ -46,11 +48,11 @@ pub fn register_date(registry: &mut Registry) {
     registry.register_eager("MONTH",            month::month_fn,                    FunctionMeta { category: "date", signature: "MONTH(date)",                                description: "Month number from a date serial number" });
     registry.register_eager("NETWORKDAYS",      networkdays::networkdays_fn,        FunctionMeta { category: "date", signature: "NETWORKDAYS(start,end,[holidays])",          description: "Number of working days between two dates" });
     registry.register_eager("NETWORKDAYS.INTL", networkdays_intl::networkdays_intl_fn, FunctionMeta { category: "date", signature: "NETWORKDAYS.INTL(start,end,[weekend],[holidays])", description: "Working days between dates with custom weekends" });
-    registry.register_eager("NOW",              now::now_fn,                        FunctionMeta { category: "date", signature: "NOW()",                                      description: "Current date and time as a serial number" });
+    registry.register_lazy("NOW",               now::now_fn,                        FunctionMeta { category: "date", signature: "NOW()",                                      description: "Current date and time as a serial number" });
     registry.register_eager("SECOND",           second::second_fn,                  FunctionMeta { category: "date", signature: "SECOND(time)",                               description: "Second component of a time serial number" });
     registry.register_eager("TIME",             time_fn::time_fn,                   FunctionMeta { category: "date", signature: "TIME(hour,minute,second)",                   description: "Creates a time serial number from components" });
     registry.register_eager("TIMEVALUE",        timevalue::timevalue_fn,            FunctionMeta { category: "date", signature: "TIMEVALUE(time_text)",                       description: "Converts a time string to a fractional serial number" });
-    registry.register_eager("TODAY",            today::today_fn,                    FunctionMeta { category: "date", signature: "TODAY()",                                    description: "Current date as a serial number" });
+    registry.register_lazy("TODAY",             today::today_fn,                    FunctionMeta { category: "date", signature: "TODAY()",                                    description: "Current date as a serial number" });
     registry.register_eager("WEEKDAY",          weekday::weekday_fn,                FunctionMeta { category: "date", signature: "WEEKDAY(date,[type])",                       description: "Day of week as a number" });
     registry.register_eager("WEEKNUM",          weeknum::weeknum_fn,                FunctionMeta { category: "date", signature: "WEEKNUM(date,[type])",                       description: "Week number of the year for a date" });
     registry.register_eager("WORKDAY",          workday::workday_fn,                FunctionMeta { category: "date", signature: "WORKDAY(start,days,[holidays])",             description: "Date N working days from start date" });

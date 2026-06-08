@@ -1,4 +1,20 @@
 mod helpers;
+
+/// Top-left (anchor-cell) element of a possibly-array result.
+///
+/// P1.4 (#526): the engine returns array results unspilled.  These tests
+/// were verified against the Google Sheets anchor cell (the top-left
+/// element of the spilled range), which is what the workbook/surface
+/// layer's single-cell view shows -- so they assert on the top-left
+/// element of the unspilled array.
+fn top_left(v: Value) -> Value {
+    match v {
+        Value::Array(items) if !items.is_empty() => {
+            top_left(items.into_iter().next().unwrap())
+        }
+        other => other,
+    }
+}
 use truecalc_core::{Value, ErrorKind};
 use helpers::{eval, eval_with};
 
@@ -131,20 +147,20 @@ fn debug_counta_array() {
 
 #[test]
 fn choosecols_select_single_column() {
-    // GS scalar context: first element of [[2],[5]] -> 2
-    assert_eq!(helpers::eval("=CHOOSECOLS({1,2,3;4,5,6},2)"), Value::Number(2.0));
+    // anchor-cell (top-left) view of [[2],[5]] -> 2
+    assert_eq!(top_left(helpers::eval("=CHOOSECOLS({1,2,3;4,5,6},2)")), Value::Number(2.0));
 }
 
 #[test]
 fn choosecols_select_multiple_columns() {
-    // GS scalar context: first element of [[1,3],[4,6]] -> 1
-    assert_eq!(helpers::eval("=CHOOSECOLS({1,2,3;4,5,6},1,3)"), Value::Number(1.0));
+    // anchor-cell (top-left) view of [[1,3],[4,6]] -> 1
+    assert_eq!(top_left(helpers::eval("=CHOOSECOLS({1,2,3;4,5,6},1,3)")), Value::Number(1.0));
 }
 
 #[test]
 fn choosecols_negative_index_from_end() {
-    // GS scalar context: first element of [[3],[6]] -> 3
-    assert_eq!(helpers::eval("=CHOOSECOLS({1,2,3;4,5,6},-1)"), Value::Number(3.0));
+    // anchor-cell (top-left) view of [[3],[6]] -> 3
+    assert_eq!(top_left(helpers::eval("=CHOOSECOLS({1,2,3;4,5,6},-1)")), Value::Number(3.0));
 }
 
 #[test]
@@ -161,20 +177,20 @@ fn choosecols_out_of_bounds_returns_value_error() {
 
 #[test]
 fn chooserows_select_single_row() {
-    // GS scalar context: first element of [3,4] -> 3
-    assert_eq!(helpers::eval("=CHOOSEROWS({1,2;3,4;5,6},2)"), Value::Number(3.0));
+    // anchor-cell (top-left) view of [3,4] -> 3
+    assert_eq!(top_left(helpers::eval("=CHOOSEROWS({1,2;3,4;5,6},2)")), Value::Number(3.0));
 }
 
 #[test]
 fn chooserows_select_multiple_rows_reorder() {
-    // GS scalar context: first element of [[5,6],[1,2]] -> 5
-    assert_eq!(helpers::eval("=CHOOSEROWS({1,2;3,4;5,6},3,1)"), Value::Number(5.0));
+    // anchor-cell (top-left) view of [[5,6],[1,2]] -> 5
+    assert_eq!(top_left(helpers::eval("=CHOOSEROWS({1,2;3,4;5,6},3,1)")), Value::Number(5.0));
 }
 
 #[test]
 fn chooserows_negative_index_from_end() {
-    // GS scalar context: first element of [5,6] -> 5
-    assert_eq!(helpers::eval("=CHOOSEROWS({1,2;3,4;5,6},-1)"), Value::Number(5.0));
+    // anchor-cell (top-left) view of [5,6] -> 5
+    assert_eq!(top_left(helpers::eval("=CHOOSEROWS({1,2;3,4;5,6},-1)")), Value::Number(5.0));
 }
 
 #[test]
@@ -191,106 +207,106 @@ fn chooserows_out_of_bounds_returns_value_error() {
 
 #[test]
 fn hstack_two_column_vectors() {
-    // GS scalar context: first element of [[1,3],[2,4]] -> 1
-    assert_eq!(helpers::eval("=HSTACK({1;2},{3;4})"), Value::Number(1.0));
+    // anchor-cell (top-left) view of [[1,3],[2,4]] -> 1
+    assert_eq!(top_left(helpers::eval("=HSTACK({1;2},{3;4})")), Value::Number(1.0));
 }
 
 #[test]
 fn hstack_two_row_arrays() {
-    // GS scalar context: first element of [1,2,3,4] -> 1
-    assert_eq!(helpers::eval("=HSTACK({1,2},{3,4})"), Value::Number(1.0));
+    // anchor-cell (top-left) view of [1,2,3,4] -> 1
+    assert_eq!(top_left(helpers::eval("=HSTACK({1,2},{3,4})")), Value::Number(1.0));
 }
 
 #[test]
 fn hstack_three_scalars() {
-    // GS scalar context: first element of [1,2,3] -> 1
-    assert_eq!(helpers::eval("=HSTACK({1},{2},{3})"), Value::Number(1.0));
+    // anchor-cell (top-left) view of [1,2,3] -> 1
+    assert_eq!(top_left(helpers::eval("=HSTACK({1},{2},{3})")), Value::Number(1.0));
 }
 
 #[test]
 fn hstack_2d_arrays() {
-    // GS scalar context: first element of [[1,2,5],[3,4,6]] -> 1
-    assert_eq!(helpers::eval("=HSTACK({1,2;3,4},{5;6})"), Value::Number(1.0));
+    // anchor-cell (top-left) view of [[1,2,5],[3,4,6]] -> 1
+    assert_eq!(top_left(helpers::eval("=HSTACK({1,2;3,4},{5;6})")), Value::Number(1.0));
 }
 
 // ── VSTACK ────────────────────────────────────────────────────────────────────
 
 #[test]
 fn vstack_two_row_arrays() {
-    // GS scalar context: first element of [[1,2],[3,4]] -> 1
-    assert_eq!(helpers::eval("=VSTACK({1,2},{3,4})"), Value::Number(1.0));
+    // anchor-cell (top-left) view of [[1,2],[3,4]] -> 1
+    assert_eq!(top_left(helpers::eval("=VSTACK({1,2},{3,4})")), Value::Number(1.0));
 }
 
 #[test]
 fn vstack_three_rows() {
-    // GS scalar context: first element of [[1,2],[3,4],[5,6]] -> 1
-    assert_eq!(helpers::eval("=VSTACK({1,2},{3,4},{5,6})"), Value::Number(1.0));
+    // anchor-cell (top-left) view of [[1,2],[3,4],[5,6]] -> 1
+    assert_eq!(top_left(helpers::eval("=VSTACK({1,2},{3,4},{5,6})")), Value::Number(1.0));
 }
 
 #[test]
 fn vstack_2d_on_top_of_row() {
-    // GS scalar context: first element of [[1,2],[3,4],[5,6]] -> 1
-    assert_eq!(helpers::eval("=VSTACK({1,2;3,4},{5,6})"), Value::Number(1.0));
+    // anchor-cell (top-left) view of [[1,2],[3,4],[5,6]] -> 1
+    assert_eq!(top_left(helpers::eval("=VSTACK({1,2;3,4},{5,6})")), Value::Number(1.0));
 }
 
 // ── TOCOL ─────────────────────────────────────────────────────────────────────
 
 #[test]
 fn tocol_flattens_row_to_column() {
-    // GS scalar context: first element of [[1],[2],[3]] -> 1
-    assert_eq!(helpers::eval("=TOCOL({1,2,3})"), Value::Number(1.0));
+    // anchor-cell (top-left) view of [[1],[2],[3]] -> 1
+    assert_eq!(top_left(helpers::eval("=TOCOL({1,2,3})")), Value::Number(1.0));
 }
 
 #[test]
 fn tocol_flattens_2d_array() {
-    // GS scalar context: first element of [[1],[2],[3],[4]] -> 1
-    assert_eq!(helpers::eval("=TOCOL({1,2;3,4})"), Value::Number(1.0));
+    // anchor-cell (top-left) view of [[1],[2],[3],[4]] -> 1
+    assert_eq!(top_left(helpers::eval("=TOCOL({1,2;3,4})")), Value::Number(1.0));
 }
 
 #[test]
 fn tocol_single_element() {
-    // GS scalar context: TOCOL({5}) -> single-element array [5] -> first -> 5
-    assert_eq!(helpers::eval("=TOCOL({5})"), Value::Number(5.0));
+    // anchor-cell (top-left) view: TOCOL({5}) -> single-element array [5] -> first -> 5
+    assert_eq!(top_left(helpers::eval("=TOCOL({5})")), Value::Number(5.0));
 }
 
 // ── TOROW ─────────────────────────────────────────────────────────────────────
 
 #[test]
 fn torow_flattens_column_to_row() {
-    // GS scalar context: first element of [1,2,3] -> 1
-    assert_eq!(helpers::eval("=TOROW({1;2;3})"), Value::Number(1.0));
+    // anchor-cell (top-left) view of [1,2,3] -> 1
+    assert_eq!(top_left(helpers::eval("=TOROW({1;2;3})")), Value::Number(1.0));
 }
 
 #[test]
 fn torow_flattens_2d_array() {
-    // GS scalar context: first element of [1,2,3,4] -> 1
-    assert_eq!(helpers::eval("=TOROW({1,2;3,4})"), Value::Number(1.0));
+    // anchor-cell (top-left) view of [1,2,3,4] -> 1
+    assert_eq!(top_left(helpers::eval("=TOROW({1,2;3,4})")), Value::Number(1.0));
 }
 
 #[test]
 fn torow_single_element() {
-    // GS scalar context: TOROW({7}) -> [7] -> first -> 7
-    assert_eq!(helpers::eval("=TOROW({7})"), Value::Number(7.0));
+    // anchor-cell (top-left) view: TOROW({7}) -> [7] -> first -> 7
+    assert_eq!(top_left(helpers::eval("=TOROW({7})")), Value::Number(7.0));
 }
 
 // ── WRAPCOLS ──────────────────────────────────────────────────────────────────
 
 #[test]
 fn wrapcols_evenly_divisible() {
-    // GS scalar context: first element of [[1,3,5],[2,4,6]] -> 1
-    assert_eq!(helpers::eval("=WRAPCOLS({1,2,3,4,5,6},2)"), Value::Number(1.0));
+    // anchor-cell (top-left) view of [[1,3,5],[2,4,6]] -> 1
+    assert_eq!(top_left(helpers::eval("=WRAPCOLS({1,2,3,4,5,6},2)")), Value::Number(1.0));
 }
 
 #[test]
 fn wrapcols_with_padding() {
-    // GS scalar context: first element of [[1,3,5],[2,4,Empty]] -> 1
-    assert_eq!(helpers::eval("=WRAPCOLS({1,2,3,4,5},2)"), Value::Number(1.0));
+    // anchor-cell (top-left) view of [[1,3,5],[2,4,Empty]] -> 1
+    assert_eq!(top_left(helpers::eval("=WRAPCOLS({1,2,3,4,5},2)")), Value::Number(1.0));
 }
 
 #[test]
 fn wrapcols_wrap_count_equals_length() {
-    // GS scalar context: first element of [[1],[2],[3]] -> 1
-    assert_eq!(helpers::eval("=WRAPCOLS({1,2,3},3)"), Value::Number(1.0));
+    // anchor-cell (top-left) view of [[1],[2],[3]] -> 1
+    assert_eq!(top_left(helpers::eval("=WRAPCOLS({1,2,3},3)")), Value::Number(1.0));
 }
 
 #[test]
@@ -302,20 +318,20 @@ fn wrapcols_invalid_wrap_count_returns_value_error() {
 
 #[test]
 fn wraprows_evenly_divisible() {
-    // GS scalar context: first element of [[1,2,3],[4,5,6]] -> 1
-    assert_eq!(helpers::eval("=WRAPROWS({1,2,3,4,5,6},3)"), Value::Number(1.0));
+    // anchor-cell (top-left) view of [[1,2,3],[4,5,6]] -> 1
+    assert_eq!(top_left(helpers::eval("=WRAPROWS({1,2,3,4,5,6},3)")), Value::Number(1.0));
 }
 
 #[test]
 fn wraprows_with_padding() {
-    // GS scalar context: first element of [[1,2,3],[4,5,Empty]] -> 1
-    assert_eq!(helpers::eval("=WRAPROWS({1,2,3,4,5},3)"), Value::Number(1.0));
+    // anchor-cell (top-left) view of [[1,2,3],[4,5,Empty]] -> 1
+    assert_eq!(top_left(helpers::eval("=WRAPROWS({1,2,3,4,5},3)")), Value::Number(1.0));
 }
 
 #[test]
 fn wraprows_wrap_count_equals_length() {
-    // GS scalar context: first element of [1,2,3] -> 1
-    assert_eq!(helpers::eval("=WRAPROWS({1,2,3},3)"), Value::Number(1.0));
+    // anchor-cell (top-left) view of [1,2,3] -> 1
+    assert_eq!(top_left(helpers::eval("=WRAPROWS({1,2,3},3)")), Value::Number(1.0));
 }
 
 #[test]
@@ -327,20 +343,20 @@ fn wraprows_invalid_wrap_count_returns_value_error() {
 
 #[test]
 fn sortby_ascending_by_key() {
-    // Sort {10;20;30} by key {3;1;2} ascending -> {20;30;10}; GS scalar context: 20
-    assert_eq!(helpers::eval("=SORTBY({10;20;30},{3;1;2},1)"), Value::Number(20.0));
+    // Sort {10;20;30} by key {3;1;2} ascending -> {20;30;10}; anchor-cell (top-left) view: 20
+    assert_eq!(top_left(helpers::eval("=SORTBY({10;20;30},{3;1;2},1)")), Value::Number(20.0));
 }
 
 #[test]
 fn sortby_descending_by_key() {
-    // Sort {10;20;30} by key {3;1;2} descending -> {10;30;20}; GS scalar context: 10
-    assert_eq!(helpers::eval("=SORTBY({10;20;30},{3;1;2},-1)"), Value::Number(10.0));
+    // Sort {10;20;30} by key {3;1;2} descending -> {10;30;20}; anchor-cell (top-left) view: 10
+    assert_eq!(top_left(helpers::eval("=SORTBY({10;20;30},{3;1;2},-1)")), Value::Number(10.0));
 }
 
 #[test]
 fn sortby_default_ascending() {
-    // GS scalar context: first element of [[10],[20],[30]] -> 10
-    assert_eq!(helpers::eval("=SORTBY({30;10;20},{3;1;2})"), Value::Number(10.0));
+    // anchor-cell (top-left) view of [[10],[20],[30]] -> 10
+    assert_eq!(top_left(helpers::eval("=SORTBY({30;10;20},{3;1;2})")), Value::Number(10.0));
 }
 
 #[test]
@@ -355,20 +371,20 @@ fn sortby_mismatched_key_length_returns_value_error() {
 
 #[test]
 fn mmult_2x2_identity() {
-    // GS scalar context: first element of [[5,6],[7,8]] -> 5
-    assert_eq!(helpers::eval("=MMULT({1,0;0,1},{5,6;7,8})"), Value::Number(5.0));
+    // anchor-cell (top-left) view of [[5,6],[7,8]] -> 5
+    assert_eq!(top_left(helpers::eval("=MMULT({1,0;0,1},{5,6;7,8})")), Value::Number(5.0));
 }
 
 #[test]
 fn mmult_2x2_matrices() {
-    // {1,2;3,4} * {5,6;7,8} = {19,22;43,50}; GS scalar context: 19
-    assert_eq!(helpers::eval("=MMULT({1,2;3,4},{5,6;7,8})"), Value::Number(19.0));
+    // {1,2;3,4} * {5,6;7,8} = {19,22;43,50}; anchor-cell (top-left) view: 19
+    assert_eq!(top_left(helpers::eval("=MMULT({1,2;3,4},{5,6;7,8})")), Value::Number(19.0));
 }
 
 #[test]
 fn mmult_1x2_by_2x1() {
-    // {1,2} * {3;4} = 11; GS scalar context: [11] -> 11
-    assert_eq!(helpers::eval("=MMULT({1,2},{3;4})"), Value::Number(11.0));
+    // {1,2} * {3;4} = 11; anchor-cell (top-left) view: [11] -> 11
+    assert_eq!(top_left(helpers::eval("=MMULT({1,2},{3;4})")), Value::Number(11.0));
 }
 
 #[test]
@@ -433,20 +449,20 @@ fn frequency_all_above_bin() {
 
 #[test]
 fn index_returns_whole_row() {
-    // INDEX({1,2,3;4,5,6}, 1) -> [1,2,3]; GS scalar context: 1
-    assert_eq!(helpers::eval("=INDEX({1,2,3;4,5,6},1)"), Value::Number(1.0));
+    // INDEX({1,2,3;4,5,6}, 1) -> [1,2,3]; anchor-cell (top-left) view: 1
+    assert_eq!(top_left(helpers::eval("=INDEX({1,2,3;4,5,6},1)")), Value::Number(1.0));
 }
 
 #[test]
 fn index_returns_second_row() {
-    // GS scalar context: first element of [4,5,6] -> 4
-    assert_eq!(helpers::eval("=INDEX({1,2,3;4,5,6},2)"), Value::Number(4.0));
+    // anchor-cell (top-left) view of [4,5,6] -> 4
+    assert_eq!(top_left(helpers::eval("=INDEX({1,2,3;4,5,6},2)")), Value::Number(4.0));
 }
 
 #[test]
 fn index_returns_whole_column() {
-    // INDEX({1,2;3,4}, 0, 1) -> [[1],[3]]; GS scalar context: 1
-    assert_eq!(helpers::eval("=INDEX({1,2;3,4},0,1)"), Value::Number(1.0));
+    // INDEX({1,2;3,4}, 0, 1) -> [[1],[3]]; anchor-cell (top-left) view: 1
+    assert_eq!(top_left(helpers::eval("=INDEX({1,2;3,4},0,1)")), Value::Number(1.0));
 }
 
 #[test]
@@ -463,6 +479,6 @@ fn index_out_of_bounds_col_returns_ref_error() {
 
 #[test]
 fn transpose_single_element_passthrough() {
-    // TRANSPOSE({1}) -> [1]; GS scalar context: first -> 1
-    assert_eq!(helpers::eval("=TRANSPOSE({1})"), Value::Number(1.0));
+    // TRANSPOSE({1}) -> [1]; anchor-cell (top-left) view: first -> 1
+    assert_eq!(top_left(helpers::eval("=TRANSPOSE({1})")), Value::Number(1.0));
 }

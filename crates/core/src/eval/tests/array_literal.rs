@@ -7,16 +7,25 @@ fn run_formula(formula: &str) -> Value {
 
 #[test]
 fn array_literal_evaluates_to_array() {
-    // In Google Sheets scalar context, an array literal returns its first element.
+    // P1.4 (issue #526): array values flow through evaluation unspilled —
+    // the engine returns the full array; spilling (or collapsing to the
+    // top-left element for a single-cell view) is the workbook/surface
+    // layer's job, not the evaluator's.
     let result = run_formula("={1,2,3}");
-    assert_eq!(result, Value::Number(1.0));
+    assert!(matches!(result, Value::Array(_)));
 }
 
 #[test]
 fn array_literal_values_are_correct() {
-    // In Google Sheets scalar context, ={1,2,3} → 1 (top-left element).
     let result = run_formula("={1,2,3}");
-    assert_eq!(result, Value::Number(1.0));
+    assert_eq!(
+        result,
+        Value::Array(vec![
+            Value::Number(1.0),
+            Value::Number(2.0),
+            Value::Number(3.0),
+        ])
+    );
 }
 
 #[test]
@@ -27,9 +36,15 @@ fn array_literal_empty() {
 
 #[test]
 fn array_literal_mixed_types() {
-    // In Google Sheets scalar context, ={1,"hello",TRUE} → 1 (top-left element).
     let result = run_formula("={1,\"hello\",TRUE}");
-    assert_eq!(result, Value::Number(1.0));
+    assert_eq!(
+        result,
+        Value::Array(vec![
+            Value::Number(1.0),
+            Value::Text("hello".to_string()),
+            Value::Bool(true),
+        ])
+    );
 }
 
 #[test]

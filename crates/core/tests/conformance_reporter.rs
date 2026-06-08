@@ -94,6 +94,15 @@ fn infer_type(v: &Value) -> &'static str {
     }
 }
 
+/// Top-left element of a (possibly nested) array value — the anchor-cell
+/// view of an unspilled array result (P1.4, #526); mirrors conformance.rs.
+fn top_left(v: &Value) -> &Value {
+    match v {
+        Value::Array(items) if !items.is_empty() => top_left(&items[0]),
+        other => other,
+    }
+}
+
 fn values_match(actual: &Value, expected: &Value, expected_type: &str) -> bool {
     if expected_type == "array" {
         let literal = match expected {
@@ -112,6 +121,8 @@ fn values_match(actual: &Value, expected: &Value, expected_type: &str) -> bool {
             values_match(a, e, infer_type(e))
         });
     }
+
+    let actual = top_left(actual);
 
     match (actual, expected) {
         (Value::Number(a), Value::Number(b)) => (a - b).abs() <= b.abs() * 1e-4 + 1e-10,

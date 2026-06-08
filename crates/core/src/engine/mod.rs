@@ -6,6 +6,16 @@ use crate::parser::{parse_formula, Expr};
 use crate::types::{ErrorKind, ParseError, Value};
 
 /// Which spreadsheet product's semantics the engine targets.
+///
+/// The engine flavor also locks the **date serial system** (P1.4, issue #526):
+///
+/// - `Sheets`: day 0 = 1899-12-30; no leap-year bug (1900-02-28 = serial 60,
+///   1900-03-01 = serial 61, no serial for the nonexistent 1900-02-29).
+/// - `Excel`: 1900 date system — serial 1 = 1900-01-01, **including** the
+///   historical Lotus 1-2-3 leap-year bug (serial 60 = the fictitious
+///   1900-02-29). Conversion helpers live in
+///   `eval::functions::date::serial`; Excel evaluation itself is still
+///   stubbed (`evaluate` returns `#N/A`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Flavor {
     Sheets,
@@ -53,7 +63,51 @@ impl Engine {
         self.parse(formula).map(|_| ())
     }
 
+    /// Evaluate a formula string with named variables.
+    ///
+    /// Array results flow through **unspilled**: a formula producing an array
+    /// returns the full [`Value::Array`] — spilling it across cells (or
+    /// collapsing it for a single-cell view) is the workbook/surface layer's
+    /// job, not the evaluator's (P1.4, issue #526).
+    ///
+    /// Volatile date functions (`NOW`, `TODAY`) read the ambient local clock.
+    /// Use [`Engine::evaluate_at`] to pin them for deterministic evaluation.
     pub fn evaluate(&self, formula: &str, variables: &HashMap<String, Value>) -> Value {
+        self.evaluate_inner(formula, variables, None)
+    }
+
+    /// Evaluate a formula with the volatile date functions (`NOW`, `TODAY`)
+    /// pinned to `now_serial`, a local-time spreadsheet serial datetime
+    /// (integer part = day serial in this engine's date system, fractional
+    /// part = time of day).
+    ///
+    /// Same formula + same variables + same `now_serial` ⇒ identical result.
+    /// This is the core-level hook the workbook layer's `RecalcContext`
+    /// (timestamp + IANA timezone, scope ADR 2026-06-07 Decision 3) builds on:
+    /// the caller converts its UTC instant + timezone to a local serial and
+    /// passes it here. Conformance fixture rows for volatile formulas are
+    /// verified by pinning `now_serial` to the fixture's recorded
+    /// `meta.evaluatedAt`.
+    ///
+    /// Returns `Value::Error(ErrorKind::Num)` if `now_serial` is not finite.
+    pub fn evaluate_at(
+        &self,
+        formula: &str,
+        variables: &HashMap<String, Value>,
+        now_serial: f64,
+    ) -> Value {
+        if !now_serial.is_finite() {
+            return Value::Error(ErrorKind::Num);
+        }
+        self.evaluate_inner(formula, variables, Some(now_serial))
+    }
+
+    fn evaluate_inner(
+        &self,
+        formula: &str,
+        variables: &HashMap<String, Value>,
+        now_serial: Option<f64>,
+    ) -> Value {
         if self.flavor == Flavor::Excel {
             // Excel evaluation semantics are not implemented yet.
             return Value::Error(ErrorKind::NA);
@@ -61,20 +115,12 @@ impl Engine {
         match parse_formula(formula) {
             Err(_) => Value::Error(ErrorKind::Value),
             Ok(expr) => {
-                let ctx = Context::new(variables.clone());
+                let mut ctx = Context::new(variables.clone());
+                ctx.now_serial = now_serial;
                 let mut eval_ctx = EvalCtx::new(ctx, &self.registry);
-                first_of_array(evaluate_expr(&expr, &mut eval_ctx))
+                evaluate_expr(&expr, &mut eval_ctx)
             }
         }
-    }
-}
-
-fn first_of_array(v: Value) -> Value {
-    match v {
-        Value::Array(elems) if !elems.is_empty() => {
-            first_of_array(elems.into_iter().next().unwrap())
-        }
-        other => other,
     }
 }
 
