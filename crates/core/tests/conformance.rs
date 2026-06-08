@@ -454,7 +454,7 @@ conformance_tsv_test!(web_conformance,         "web.tsv");
 conformance_tsv_test!(financial_conformance,   "financial.tsv");
 
 /// P1.5 workbook fixtures — cross-sheet refs, named ranges, date-typed scalars
-/// (pipeline-generated, core issue #527; registration also proposed in PR #562).
+/// (pipeline-generated, core issue #527; registered via PR #562).
 ///
 /// Report-only (non-blocking) until the engine gains workbook support:
 /// P1.2 reference grammar (#524) + P1.3 resolver resolve cross-sheet/named
