@@ -4,7 +4,7 @@ use crate::eval::functions::check_arity;
 use crate::eval::functions::date::serial::{date_to_serial, serial_to_date};
 use crate::types::{ErrorKind, Value};
 
-/// `EOMONTH(start_date, months)` — serial of the last day of the month N months away.
+/// `EOMONTH(start_date, months)` — date-typed serial of the last day of the month N months away.
 ///
 /// Same month arithmetic as EDATE, but always returns the last day of the target month.
 pub fn eomonth_fn(args: &[Value]) -> Value {
@@ -34,7 +34,8 @@ pub fn eomonth_fn(args: &[Value]) -> Value {
     };
 
     let last_day = last_day_of_month(target_date.year(), target_date.month());
-    Value::Number(date_to_serial(last_day))
+    // Date-typed: pipeline-verified (workbook.tsv `=ISDATE(EOMONTH(...))` → TRUE).
+    Value::Date(date_to_serial(last_day))
 }
 
 fn last_day_of_month(year: i32, month: u32) -> NaiveDate {

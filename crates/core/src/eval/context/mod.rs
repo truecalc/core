@@ -7,6 +7,11 @@ use crate::types::Value;
 /// case-insensitive (`A1`, `a1`, and `A1` all refer to the same binding).
 pub struct Context {
     pub vars: HashMap<String, Value>,
+    /// Pinned "now" for volatile date functions (`NOW`, `TODAY`), as a
+    /// local-time spreadsheet serial datetime (integer part = day serial,
+    /// fraction = time of day). `None` ⇒ the functions read the ambient
+    /// local clock. Set via [`crate::Engine::evaluate_at`] (P1.4, issue #526).
+    pub now_serial: Option<f64>,
 }
 
 impl Context {
@@ -16,12 +21,12 @@ impl Context {
         let normalized = vars.into_iter()
             .map(|(k, v)| (k.to_uppercase(), v))
             .collect();
-        Self { vars: normalized }
+        Self { vars: normalized, now_serial: None }
     }
 
     /// Create an empty `Context` with no variable bindings.
     pub fn empty() -> Self {
-        Self { vars: HashMap::new() }
+        Self { vars: HashMap::new(), now_serial: None }
     }
 
     /// Look up a variable by name (case-insensitive). Returns `Value::Empty` if not found.

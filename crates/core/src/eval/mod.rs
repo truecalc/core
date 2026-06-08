@@ -193,6 +193,15 @@ fn eval_binary(op: &BinaryOp, lv: Value, rv: Value) -> Value {
     match op {
         // ── Arithmetic ──────────────────────────────────────────────────────
         BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Pow => {
+            // Date-type production (schema spec §6: date-typed iff the fixtures
+            // pipeline observes Sheets producing a Date). Observed: date ± offset
+            // via `+` stays date-typed (workbook.tsv `=DATE(2026,6,7)+1` → date);
+            // date − date is a plain number (`=DATE(2026,6,7)-DATE(2026,6,1)` → 6,
+            // `=TODAY()-TODAY()` → 0, both typed number). Everything else —
+            // including date − number, ×, ÷, ^ — stays a plain number until a
+            // fixture observes otherwise.
+            let date_typed_add = matches!(op, BinaryOp::Add)
+                && matches!(lv, Value::Date(_)) != matches!(rv, Value::Date(_));
             let ln = match to_number(lv) { Ok(n) => n, Err(e) => return e };
             let rn = match to_number(rv) { Ok(n) => n, Err(e) => return e };
             let result = match op {
@@ -212,7 +221,11 @@ fn eval_binary(op: &BinaryOp, lv: Value, rv: Value) -> Value {
             if !result.is_finite() {
                 return Value::Error(ErrorKind::Num);
             }
-            Value::Number(result)
+            if date_typed_add {
+                Value::Date(result)
+            } else {
+                Value::Number(result)
+            }
         }
 
         // ── Concatenation ───────────────────────────────────────────────────

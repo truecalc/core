@@ -19,7 +19,7 @@
 //!   formula_text    formula string (may or may not have leading `=`)
 //!   expected_value  canonical expected value as a string
 //!   test_category   basic / edge / coercion / error / nested
-//!   expected_type   number / string / boolean / error / array
+//!   expected_type   number / string / boolean / error / array / date
 //!
 //! The test evaluates the formula with `truecalc_core::evaluate` and compares
 //! against the canonical value.  Number comparisons allow 1e-4 relative tolerance.
@@ -140,6 +140,12 @@ pub fn parse_expected(value: &str, expected_type: &str) -> Option<Value> {
             // Store the array literal string as-is; comparison handled in values_match
             Some(Value::Text(value.to_string()))
         }
+        "date" => {
+            // P1.4 (#526): `date`-typed rows — the pipeline observed Sheets
+            // producing a Date; the engine must produce Value::Date with
+            // this serial (schema spec §6 date-type production rule).
+            value.parse::<f64>().ok().map(Value::Date)
+        }
         _ => Some(Value::Text(value.to_string())),
     }
 }
@@ -172,6 +178,20 @@ fn gas_iso_date_to_serial(s: &str) -> Option<f64> {
     Some(date.signed_duration_since(epoch).num_days() as f64)
 }
 
+/// Top-left element of a (possibly nested) array value.
+///
+/// P1.4 (#526): the engine returns array results unspilled.  The fixtures
+/// pipeline, however, observes the *anchor cell* of the spilled range in
+/// Google Sheets, so a scalar-typed expected value corresponds to the
+/// top-left element of an array actual — the same collapse the workbook /
+/// surface layer applies for a single-cell view.
+fn top_left(v: &Value) -> &Value {
+    match v {
+        Value::Array(items) if !items.is_empty() => top_left(&items[0]),
+        other => other,
+    }
+}
+
 pub fn values_match(actual: &Value, expected: &Value, expected_type: &str) -> bool {
     if expected_type == "array" {
         // expected is stored as Text(array_literal)
@@ -192,8 +212,19 @@ pub fn values_match(actual: &Value, expected: &Value, expected_type: &str) -> bo
         });
     }
 
+    // Scalar expected type: compare against the top-left element of an
+    // unspilled array actual (anchor-cell view, see `top_left`).
+    let actual = top_left(actual);
+
     match (actual, expected) {
         (Value::Number(a), Value::Number(b)) => {
+            (a - b).abs() <= b.abs() * 1e-4 + 1e-10
+        }
+        // P1.4 (#526) date-type production rule: a `date`-typed expected
+        // value only matches a Value::Date actual.  A plain Number actual
+        // against a Date expected falls through to the catch-all arm and
+        // fails -- losing the date type is a conformance failure.
+        (Value::Date(a), Value::Date(b)) => {
             (a - b).abs() <= b.abs() * 1e-4 + 1e-10
         }
         (Value::Date(a), Value::Number(b)) => {
@@ -244,6 +275,22 @@ fn is_volatile_formula(formula: &str) -> bool {
     upper.contains("RAND()") || upper.contains("RANDBETWEEN(") || upper.contains("RANDARRAY(")
 }
 
+/// Pinned "now" serial for fixture files whose volatile rows (`NOW`, `TODAY`)
+/// were captured at a recorded instant (P1.4, issue #526).
+///
+/// workbook.tsv (P1.5, PR #559): the DATE_TYPE block's meta sidecar in the
+/// truecalc/fixtures snapshot `snapshots/2026-06-08/google_sheets/workbook/`
+/// records `evaluatedAt = 2026-06-07T23:50:56.808Z` with the sheet timezone
+/// pinned to `Etc/GMT`, so local time == UTC: day serial 46180 (2026-06-07)
+/// plus the time-of-day fraction.  Rows in pinned files are evaluated through
+/// `Engine::evaluate_at` so volatile date functions are deterministic.
+fn pinned_now_serial(path: &Path) -> Option<f64> {
+    match path.file_name().and_then(|n| n.to_str()) {
+        Some("workbook.tsv") => Some(46180.0 + (23.0 * 3600.0 + 50.0 * 60.0 + 56.808) / 86400.0),
+        _ => None,
+    }
+}
+
 // ---------------------------------------------------------------------------
 // TSV runner
 // ---------------------------------------------------------------------------
@@ -251,6 +298,7 @@ fn is_volatile_formula(formula: &str) -> bool {
 fn run_tsv_fixture(path: &Path) {
     assert!(path.exists(), "fixture not found: {:?}", path);
 
+    let pinned_now = pinned_now_serial(path);
     let vars: HashMap<String, Value> = HashMap::new();
     let mut failures: Vec<String> = Vec::new();
     let mut total = 0usize;
@@ -290,7 +338,10 @@ fn run_tsv_fixture(path: &Path) {
         };
 
         total += 1;
-        let actual = evaluate(formula, &vars);
+        let actual = match pinned_now {
+            Some(now) => truecalc_core::Engine::sheets().evaluate_at(formula, &vars, now),
+            None => evaluate(formula, &vars),
+        };
 
         if !values_match(&actual, &expected, expected_type) {
             failures.push(format!(
@@ -316,6 +367,7 @@ fn run_tsv_fixture(path: &Path) {
 fn run_tsv_fixture_report(path: &Path) {
     assert!(path.exists(), "fixture not found: {:?}", path);
 
+    let pinned_now = pinned_now_serial(path);
     let vars: HashMap<String, Value> = HashMap::new();
     let mut pass = 0usize;
     let mut fail = 0usize;
@@ -352,7 +404,10 @@ fn run_tsv_fixture_report(path: &Path) {
             None => continue,
         };
 
-        let actual = evaluate(formula, &vars);
+        let actual = match pinned_now {
+            Some(now) => truecalc_core::Engine::sheets().evaluate_at(formula, &vars, now),
+            None => evaluate(formula, &vars),
+        };
 
         if values_match(&actual, &expected, expected_type) {
             pass += 1;
@@ -397,6 +452,19 @@ conformance_tsv_test!(array_conformance,       "array.tsv");
 conformance_tsv_test!(filter_conformance,      "filter.tsv");
 conformance_tsv_test!(web_conformance,         "web.tsv");
 conformance_tsv_test!(financial_conformance,   "financial.tsv");
+
+/// P1.5 workbook fixtures — cross-sheet refs, named ranges, date-typed scalars
+/// (pipeline-generated, core issue #527; registration also proposed in PR #562).
+///
+/// Report-only (non-blocking) until the engine gains workbook support:
+/// P1.2 reference grammar (#524) + P1.3 resolver resolve cross-sheet/named
+/// refs.  P1.4 (#526) adds `date`-typed row handling and volatile-row pinning
+/// via `Engine::evaluate_at` (see `pinned_now_serial`).  Once P1.2/P1.3 land,
+/// switch this to `conformance_tsv_test!` so every row blocks CI.
+#[test]
+fn workbook_conformance_report() {
+    run_tsv_fixture_report(&fixture("workbook.tsv"));
+}
 
 /// Known-bug regression baseline.
 ///

@@ -11,6 +11,10 @@ use crate::types::{ErrorKind, Value};
 /// - Month 0 of 2024 → December 2023
 /// - Day 0 of March → last day of February
 ///
+/// Year arguments 0–1899 get **1900 added** (Sheets' +1900 year rule;
+/// pipeline-verified: workbook.tsv `=DATE(1899,12,31)` → serial 693962 =
+/// 3799-12-31, bugs.tsv `=DATE(119,2,1)` → 2019-02-01).
+///
 /// All inputs are truncated to integer before use.
 pub fn date_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 3, 3) {
@@ -22,6 +26,11 @@ pub fn date_fn(args: &[Value]) -> Value {
 
     // Truncate to integers (Google Sheets truncates, not rounds)
     let mut year_i  = year.trunc() as i64;
+    // Sheets' +1900 year rule: year arguments 0–1899 are offsets from 1900.
+    // Applied to the year *argument*, before month normalization.
+    if (0..=1899).contains(&year_i) {
+        year_i += 1900;
+    }
     let month_i = month.trunc() as i64;
     let day_i   = day.trunc() as i64;
 
