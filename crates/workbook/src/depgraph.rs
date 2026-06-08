@@ -419,6 +419,76 @@ impl DependencyGraph {
         }
     }
 
+    /// A topological order over the formula cells **not** on a cycle, for the
+    /// cyclic-graph case (P3.3): cells that do not transitively read the cycle
+    /// still evaluate in dependency order; cells on or downstream of the cycle
+    /// are omitted (the recalc engine gives them the circular error). When the
+    /// graph is acyclic this equals [`topological_order`](Self::topological_order).
+    ///
+    /// `cycle` must be the cycle set returned by
+    /// [`cycle_cells`](Self::cycle_cells) (passed in so the caller computes it
+    /// once). The order is deterministic (canonical tie-breaking), matching
+    /// `topological_order`'s discipline.
+    pub fn acyclic_order_excluding(&self, cycle: &BTreeSet<CellRef>) -> Vec<CellRef> {
+        let nodes: Vec<&CellRef> = self
+            .precedents
+            .keys()
+            .filter(|c| !cycle.contains(*c))
+            .collect();
+        let index_of: HashMap<&CellRef, usize> =
+            nodes.iter().enumerate().map(|(i, n)| (*n, i)).collect();
+
+        // Edges among non-cycle formula cells only (a precedent that is a cycle
+        // cell, a literal, or empty contributes no edge — a cell downstream of
+        // the cycle is then simply never reached and stays omitted).
+        let mut succ: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); nodes.len()];
+        let mut indeg: Vec<usize> = vec![0; nodes.len()];
+        for (i, cell) in nodes.iter().enumerate() {
+            for prec in &self.precedents[*cell] {
+                for fp in self.formula_precedent_cells(prec) {
+                    if cycle.contains(&fp) {
+                        // Downstream of the cycle: drop this node entirely so it
+                        // is never placed (it takes the circular error).
+                        continue;
+                    }
+                    if let Some(&j) = index_of.get(&fp) {
+                        if succ[j].insert(i) {
+                            indeg[i] += 1;
+                        }
+                    }
+                }
+            }
+        }
+        // A node that reads the cycle must be excluded from the order even
+        // though it has in-degree 0 over the surviving edges. Mark such nodes.
+        let mut tainted = vec![false; nodes.len()];
+        for (i, cell) in nodes.iter().enumerate() {
+            for prec in &self.precedents[*cell] {
+                for fp in self.formula_precedent_cells(prec) {
+                    if cycle.contains(&fp) {
+                        tainted[i] = true;
+                    }
+                }
+            }
+        }
+
+        let mut ready: BTreeSet<usize> = (0..nodes.len())
+            .filter(|&i| indeg[i] == 0 && !tainted[i])
+            .collect();
+        let mut order: Vec<CellRef> = Vec::new();
+        while let Some(&node) = ready.iter().next() {
+            ready.remove(&node);
+            order.push(nodes[node].clone());
+            for &dep in &succ[node] {
+                indeg[dep] -= 1;
+                if indeg[dep] == 0 && !tainted[dep] {
+                    ready.insert(dep);
+                }
+            }
+        }
+        order
+    }
+
     /// Every formula cell that lies on a dependency cycle (a strongly connected
     /// component of size > 1, or a self-referential cell).
     ///
