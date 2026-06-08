@@ -1690,6 +1690,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "truecalc-workbook"
+version = "0.6.4"
+
+[[package]]
 name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
