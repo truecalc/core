@@ -210,6 +210,11 @@ fn parse_value(raw: &serde_json::Value) -> Result<Value, String> {
 }
 
 fn parse_finite_f64(payload: &serde_json::Value, kind: &str) -> Result<f64, String> {
+    // `as_f64` is correctly rounded only because the crate enables serde_json's
+    // `float_roundtrip` feature; without it, serde_json's default parser is off
+    // by up to one ULP for some extreme exponents, which would break the
+    // `to_json ∘ from_json = id` byte guarantee (the canonical bytes of the
+    // reparsed value would differ in the last shortest-round-trip digit).
     let n = match payload.as_f64() {
         Some(n) => n,
         None => return Err(format!("a {kind} value must be a JSON number")),

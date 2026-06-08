@@ -10,4 +10,6 @@ keywords = ["spreadsheet", "workbook", "formula", "excel", "sheets"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["float_roundtrip"] }
+ryu-js = "1"
+icu_casemap = "2"
