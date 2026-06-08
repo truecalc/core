@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::eval::functions::Registry;
-use crate::eval::{evaluate_expr, Context, EvalCtx};
+use crate::eval::{evaluate_expr, Context, EvalCtx, Resolver};
 use crate::parser::{parse_formula, Expr};
 use crate::types::{ErrorKind, ParseError, Value};
 
@@ -100,6 +100,74 @@ impl Engine {
             return Value::Error(ErrorKind::Num);
         }
         self.evaluate_inner(formula, variables, Some(now_serial))
+    }
+
+    /// Evaluate a formula string, resolving references through `resolver`.
+    ///
+    /// This is the workbook-facing entry point: unlike [`Engine::evaluate`]
+    /// (which reads references from a variable map and treats anything unbound
+    /// as [`Value::Empty`]), every cell, range, and name reference that is not
+    /// shadowed by a LAMBDA parameter is read through `resolver`. The resolver
+    /// owns workbook semantics -- `#REF!` for a missing sheet, `#NAME?` for an
+    /// undefined name, ranges materialized to [`Value::Array`]. See
+    /// [`Resolver`].
+    ///
+    /// The engine flavor stays explicit: `Engine::excel().evaluate_with_resolver`
+    /// returns `#N/A` until Excel evaluation lands, exactly like
+    /// [`Engine::evaluate`].
+    ///
+    /// ```
+    /// use truecalc_core::{Engine, ErrorKind, Ref, Resolver, Value};
+    ///
+    /// struct OneSheet;
+    /// impl Resolver for OneSheet {
+    ///     fn resolve(&mut self, r: &Ref) -> Value {
+    ///         match r {
+    ///             Ref::Cell { sheet: Some(s), .. } if s == "Data" => Value::Number(10.0),
+    ///             Ref::Cell { sheet: Some(_), .. } => Value::Error(ErrorKind::Ref),
+    ///             _ => Value::Empty,
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// let engine = Engine::sheets();
+    /// assert_eq!(engine.evaluate_with_resolver("=Data!A1", &mut OneSheet), Value::Number(10.0));
+    /// assert_eq!(
+    ///     engine.evaluate_with_resolver("=Gone!A1", &mut OneSheet),
+    ///     Value::Error(ErrorKind::Ref),
+    /// );
+    /// ```
+    pub fn evaluate_with_resolver(&self, formula: &str, resolver: &mut impl Resolver) -> Value {
+        self.evaluate_with_resolver_at(formula, resolver, None)
+    }
+
+    /// Like [`Engine::evaluate_with_resolver`], but with the volatile date
+    /// functions (`NOW`, `TODAY`) pinned to `now_serial` (see
+    /// [`Engine::evaluate_at`]). Returns `Value::Error(ErrorKind::Num)` if
+    /// `now_serial` is not finite.
+    pub fn evaluate_with_resolver_at(
+        &self,
+        formula: &str,
+        resolver: &mut impl Resolver,
+        now_serial: Option<f64>,
+    ) -> Value {
+        if let Some(n) = now_serial {
+            if !n.is_finite() {
+                return Value::Error(ErrorKind::Num);
+            }
+        }
+        if self.flavor == Flavor::Excel {
+            return Value::Error(ErrorKind::NA);
+        }
+        match parse_formula(formula) {
+            Err(_) => Value::Error(ErrorKind::Value),
+            Ok(expr) => {
+                let mut ctx = Context::empty();
+                ctx.now_serial = now_serial;
+                let mut eval_ctx = EvalCtx::with_resolver(ctx, &self.registry, resolver);
+                evaluate_expr(&expr, &mut eval_ctx)
+            }
+        }
     }
 
     fn evaluate_inner(
