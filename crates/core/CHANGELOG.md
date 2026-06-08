@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/truecalc/core/compare/truecalc-core-v0.6.5...truecalc-core-v0.7.0) - 2026-06-08
+
+### Added
+
+- *(core)* Resolver trait, evaluate_with_resolver, extract_refs (P1.3)
+- P1.2 reference grammar — Sheet1!A1, quoted sheets, cross-sheet ranges, named refs
+
+### Fixed
+
+- quote TRUE/FALSE sheet names in canonical display
+
+### Other
+
+- *(core)* fix EmptyResolver intra-doc link; clarify workbook.tsv report-only rationale
+- Merge branch 'main' into feat/526-value-completeness
+- Merge branch 'main' into feat/524-reference-grammar
+
 ## [0.6.5](https://github.com/truecalc/core/compare/truecalc-core-v0.6.4...truecalc-core-v0.6.5) - 2026-06-08
 
 ### Added
