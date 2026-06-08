@@ -16,21 +16,23 @@ use crate::types::{ErrorKind, ParseError, Value};
 ///   1900-02-29). Conversion helpers live in
 ///   `eval::functions::date::serial`; Excel evaluation itself is still
 ///   stubbed (`evaluate` returns `#N/A`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Flavor {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
+pub enum EngineFlavor {
     Sheets,
     Excel,
 }
 
 pub struct Engine {
-    flavor: Flavor,
+    flavor: EngineFlavor,
     registry: Registry,
 }
 
 impl Engine {
     /// Engine targeting Google Sheets conformance.
     pub fn sheets() -> Self {
-        Self { flavor: Flavor::Sheets, registry: Registry::new() }
+        Self { flavor: EngineFlavor::Sheets, registry: Registry::new() }
     }
 
     /// Engine targeting Excel conformance.
@@ -40,13 +42,23 @@ impl Engine {
     /// `Value::Error(ErrorKind::NA)` for every formula. [`Engine::parse`]
     /// and [`Engine::validate`] work.
     pub fn excel() -> Self {
-        Self { flavor: Flavor::Excel, registry: Registry::new() }
+        Self { flavor: EngineFlavor::Excel, registry: Registry::new() }
     }
 
     /// Deprecated alias for [`Engine::sheets`].
     #[deprecated(note = "use Engine::sheets() — engine flavor is required; see ADR 2026-04-27")]
     pub fn google_sheets() -> Self {
         Self::sheets()
+    }
+
+    /// The engine flavor this instance targets.
+    ///
+    /// Flavor is fixed at construction (`Engine::sheets()` / `Engine::excel()`);
+    /// there is no way to change it on an existing engine (engine-flavor ADR
+    /// 2026-04-27). The workbook layer uses this to assert a workbook's locked
+    /// [`EngineFlavor`] matches the engine driving its recalc.
+    pub fn flavor(&self) -> EngineFlavor {
+        self.flavor
     }
 
     /// Parse a formula string into an expression tree.
@@ -156,7 +168,7 @@ impl Engine {
                 return Value::Error(ErrorKind::Num);
             }
         }
-        if self.flavor == Flavor::Excel {
+        if self.flavor == EngineFlavor::Excel {
             return Value::Error(ErrorKind::NA);
         }
         match parse_formula(formula) {
@@ -176,7 +188,7 @@ impl Engine {
         variables: &HashMap<String, Value>,
         now_serial: Option<f64>,
     ) -> Value {
-        if self.flavor == Flavor::Excel {
+        if self.flavor == EngineFlavor::Excel {
             // Excel evaluation semantics are not implemented yet.
             return Value::Error(ErrorKind::NA);
         }
