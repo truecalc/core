@@ -79,15 +79,57 @@ evaluate('CONCAT("Hello, ", name)', { name: 'world' })
 // => { type: 'text', value: 'Hello, world' }
 ```
 
-**Return value shape:**
+**Return value shape** (a discriminated union tagged by `type`):
 
-| `type`    | Shape                                |
-|-----------|--------------------------------------|
-| `number`  | `{ type: 'number', value: 6 }`       |
-| `text`    | `{ type: 'text', value: 'yes' }`     |
-| `boolean` | `{ type: 'boolean', value: true }`   |
-| `error`   | `{ type: 'error', error: '#NAME?' }` |
-| `empty`   | `{ type: 'empty', value: null }`     |
+| `type`   | Shape                                                  |
+|----------|--------------------------------------------------------|
+| `number` | `{ type: 'number', value: 6 }`                         |
+| `text`   | `{ type: 'text', value: 'yes' }`                       |
+| `bool`   | `{ type: 'bool', value: true }`                        |
+| `date`   | `{ type: 'date', value: 46180 }`                       |
+| `error`  | `{ type: 'error', error: '#NAME?' }`                   |
+| `empty`  | `{ type: 'empty' }`                                    |
+| `array`  | `{ type: 'array', value: [ /* EvalResult cells */ ] }` |
+
+`date` carries a spreadsheet **serial number** (`value`); the epoch is implied by
+the engine flavor (`google-sheets`: day 0 = 1899-12-30). Format it yourself if you
+need a calendar date.
+
+`array` is **recursive**: each element is itself an `EvalResult`, so a 1-D result is
+a flat `value` list of scalar cells and a 2-D result is a `value` list of `array`
+rows whose elements are scalar cells. Array cells keep their own type (including
+nested `date`/`error`/`empty`).
+
+```js
+evaluate('SEQUENCE(2,2)')
+// => {
+//   type: 'array',
+//   value: [
+//     { type: 'array', value: [ { type: 'number', value: 1 }, { type: 'number', value: 2 } ] },
+//     { type: 'array', value: [ { type: 'number', value: 3 }, { type: 'number', value: 4 } ] },
+//   ],
+// }
+
+evaluate('TODAY()')
+// => { type: 'date', value: 46180 }
+```
+
+> #### Breaking change in 0.7.0 (surface shape)
+>
+> 0.7.0 ships the unspilled-array core change (see core PR #566 / issue #569).
+> Two observable shapes changed for npm consumers:
+>
+> - **Array-producing formulas** (`SORT`, `FILTER`, `UNIQUE`, `SEQUENCE`,
+>   `TRANSPOSE`, `MMULT`, `HSTACK`/`VSTACK`, `RANDARRAY`, array literals, ...) now
+>   return a full `{ type: 'array', value: [...] }` result. In `<= 0.6.x` these
+>   returned the top-left anchor-cell **scalar** (and, transiently after #566 but
+>   before this fix, an `{ type: 'error', error: 'array not supported' }` object).
+>   To recover the old single-cell behavior, read the first cell yourself, e.g.
+>   `const tl = r.type === 'array' ? r.value[0] : r;` (recurse once more for 2-D).
+> - **Date-producing functions** (`TODAY`, `DATE`, ...) now return
+>   `{ type: 'date', value }` instead of `{ type: 'number', value }`. If you were
+>   treating the result as a number, also accept `type === 'date'` (the `value`
+>   encoding is identical — a serial number).
 
 ### `validate(formula)`
 
