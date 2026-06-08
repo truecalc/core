@@ -11,11 +11,21 @@
 //!
 //! This crate is MIT-licensed and ships separately from `truecalc-core`
 //! (ADR 2026-04-27-workbook-crate-separate-mit).
+//!
+//! [`Workbook::to_json`] / [`Workbook::from_json`] are the canonical
+//! (RFC 8785 / JCS) serialization boundary — the byte-identical cross-surface
+//! contract of schema spec §8.
 
+mod address;
+mod canonical;
 mod cell;
 mod engine;
 mod error;
+pub mod limits;
 mod named_range;
+mod named_ref;
+mod strict_json;
+mod validate;
 mod value;
 mod workbook;
 mod worksheet;
