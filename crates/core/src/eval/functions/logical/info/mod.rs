@@ -11,7 +11,7 @@ pub fn sheets_fn(args: &[Expr], _ctx: &mut EvalCtx<'_>) -> Value {
     match args.len() {
         0 => Value::Number(1.0),
         1 => {
-            if matches!(args[0], Expr::Variable(_, _)) {
+            if matches!(args[0], Expr::Variable(_, _) | Expr::Reference(_, _)) {
                 Value::Number(1.0)
             } else {
                 Value::Error(ErrorKind::NA)

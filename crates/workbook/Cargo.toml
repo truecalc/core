@@ -1,0 +1,11 @@
+[package]
+name = "truecalc-workbook"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Workbook layer for the truecalc spreadsheet engine — engine-locked workbook, worksheet, and cell value types"
+repository.workspace = true
+readme = "README.md"
+keywords = ["spreadsheet", "workbook", "formula", "excel", "sheets"]
+
+[dependencies]

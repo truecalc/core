@@ -121,7 +121,7 @@ pub fn isref_fn(args: &[Expr], _ctx: &mut EvalCtx<'_>) -> Value {
     if check_arity_len(args.len(), 1, 1).is_some() {
         return Value::Error(ErrorKind::NA);
     }
-    Value::Bool(matches!(args[0], Expr::Variable(_, _)))
+    Value::Bool(matches!(args[0], Expr::Variable(_, _) | Expr::Reference(_, _)))
 }
 
 /// `ISFORMULA(value)` — TRUE if the argument is a cell ref containing a formula.
@@ -131,7 +131,7 @@ pub fn isformula_fn(args: &[Expr], _ctx: &mut EvalCtx<'_>) -> Value {
     if check_arity_len(args.len(), 1, 1).is_some() {
         return Value::Error(ErrorKind::NA);
     }
-    if !matches!(args[0], Expr::Variable(_, _)) {
+    if !matches!(args[0], Expr::Variable(_, _) | Expr::Reference(_, _)) {
         return Value::Error(ErrorKind::NA);
     }
     Value::Bool(false)

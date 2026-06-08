@@ -30,6 +30,9 @@ pub fn evaluate_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
         Expr::Text(s, _)   => Value::Text(s.clone()),
         Expr::Bool(b, _)   => Value::Bool(*b),
         Expr::Variable(name, _) => ctx.ctx.get(name),
+        // Sheet-qualified references resolve through the same delegated
+        // context, keyed by the canonical reference text (e.g. "DATA!A1").
+        Expr::Reference(r, _) => ctx.ctx.get(&r.to_string()),
 
         // ── Unary ops ───────────────────────────────────────────────────────
         Expr::UnaryOp { op, operand, .. } => {
