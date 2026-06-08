@@ -27,6 +27,16 @@ pub enum WorkbookError {
     /// position, or an unknown sheet name. Carries a human-readable
     /// description.
     SheetManagement(String),
+    /// A workbook-level mutation
+    /// ([`set`](crate::Workbook::set), [`define_name`](crate::Workbook::define_name),
+    /// [`redefine_name`](crate::Workbook::redefine_name)) violated an invariant —
+    /// an empty-literal write (use clear), an unknown sheet, a syntactically
+    /// invalid formula for the locked engine, an invalid or non-canonical
+    /// named-range name/`ref`, a `ref` to a missing sheet (schema spec §7), a
+    /// duplicate name under simple case folding, or a per-mutation resource cap
+    /// (cells / text / array / formula / named-range count, scope ADR
+    /// Decision 5). Carries a human-readable description.
+    Mutation(String),
 }
 
 impl fmt::Display for WorkbookError {
@@ -39,6 +49,7 @@ impl fmt::Display for WorkbookError {
             ),
             WorkbookError::Validation(msg) => write!(f, "{msg}"),
             WorkbookError::SheetManagement(msg) => write!(f, "{msg}"),
+            WorkbookError::Mutation(msg) => write!(f, "{msg}"),
         }
     }
 }
