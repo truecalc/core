@@ -16,6 +16,17 @@ pub enum WorkbookError {
     /// resource-limit breach (scope ADR Decision 5). Carries a human-readable
     /// description of the first violation found.
     Validation(String),
+    /// A sheet-management operation
+    /// ([`add_sheet`](crate::Workbook::add_sheet),
+    /// [`insert_sheet`](crate::Workbook::insert_sheet),
+    /// [`rename_sheet`](crate::Workbook::rename_sheet),
+    /// [`move_sheet`](crate::Workbook::move_sheet)) violated an invariant —
+    /// a duplicate sheet name under simple case folding (schema spec §2), a
+    /// name that is empty or exceeds the length limit (schema spec §3), the
+    /// per-workbook sheet cap (scope ADR Decision 5), an out-of-range tab
+    /// position, or an unknown sheet name. Carries a human-readable
+    /// description.
+    SheetManagement(String),
 }
 
 impl fmt::Display for WorkbookError {
@@ -27,6 +38,7 @@ impl fmt::Display for WorkbookError {
                  clear a cell by removing its entry instead"
             ),
             WorkbookError::Validation(msg) => write!(f, "{msg}"),
+            WorkbookError::SheetManagement(msg) => write!(f, "{msg}"),
         }
     }
 }

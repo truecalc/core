@@ -18,6 +18,7 @@
 
 mod address;
 mod canonical;
+mod casefold;
 mod cell;
 mod engine;
 mod error;
@@ -30,6 +31,7 @@ mod value;
 mod workbook;
 mod worksheet;
 
+pub use address::Address;
 pub use cell::Cell;
 pub use engine::EngineFlavor;
 pub use error::WorkbookError;
