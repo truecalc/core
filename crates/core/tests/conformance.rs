@@ -456,11 +456,16 @@ conformance_tsv_test!(financial_conformance,   "financial.tsv");
 /// P1.5 workbook fixtures — cross-sheet refs, named ranges, date-typed scalars
 /// (pipeline-generated, core issue #527; registered via PR #562).
 ///
-/// Report-only (non-blocking) until the engine gains workbook support:
-/// P1.2 reference grammar (#524) + P1.3 resolver resolve cross-sheet/named
-/// refs.  P1.4 (#526) adds `date`-typed row handling and volatile-row pinning
-/// via `Engine::evaluate_at` (see `pinned_now_serial`).  Once P1.2/P1.3 land,
-/// switch this to `conformance_tsv_test!` so every row blocks CI.
+/// Report-only (non-blocking). The language pieces are now in place — P1.2
+/// reference grammar (#524) and P1.3 resolver (#525) resolve cross-sheet/named
+/// refs, and P1.4 (#526) adds `date`-typed row handling and volatile-row
+/// pinning via `Engine::evaluate_at` (see `pinned_now_serial`).  This stays
+/// report-only because the blocking runner evaluates with an empty variable
+/// map and no resolver, and the fixtures pipeline does not yet commit the
+/// authored *input* model (the cell values these formulas read) needed to seed
+/// a `Resolver`.  Hardcoding those inputs here would self-confirm expected
+/// values, so the switch to `conformance_tsv_test!` waits on a fixtures-side
+/// input-model sidecar (tracked separately).
 #[test]
 fn workbook_conformance_report() {
     run_tsv_fixture_report(&fixture("workbook.tsv"));

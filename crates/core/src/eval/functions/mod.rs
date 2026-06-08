@@ -26,9 +26,10 @@ use crate::types::{ErrorKind, Value};
 /// evaluate sub-expressions.
 ///
 /// References that are not bound as local variables (e.g. a LAMBDA parameter)
-/// are read through `resolver`; see [`crate::Resolver`]. The default resolver
-/// ([`EmptyResolver`]) maps every reference to [`Value::Empty`], preserving the
-/// historical contract of [`crate::Engine::evaluate`].
+/// are read through `resolver`; see [`crate::Resolver`]. When `resolver` is
+/// `None` (the default, via [`EvalCtx::new`]) every such reference reads as
+/// [`Value::Empty`], preserving the historical contract of
+/// [`crate::Engine::evaluate`].
 pub struct EvalCtx<'r> {
     pub ctx: Context,
     pub registry: &'r Registry,
