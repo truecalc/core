@@ -3,29 +3,37 @@ use crate::types::{ErrorKind, Value};
 use super::array_utils::{flatten_to_rows, flatten_to_flat, values_equal, value_compare, wildcard_match_value, has_wildcards};
 
 /// `INDEX(array, row, [col])` — returns the value at row/col of array.
-/// Row and col are 1-based. Returns #REF! if out of bounds.
+/// Row and col are 1-based. Negative -> #VALUE!, out of bounds -> #REF!.
 pub fn index_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 2, 3) {
         return err;
     }
 
     let array_val = &args[0];
-    let row_idx = match &args[1] {
-        Value::Number(n) => n.trunc() as usize,
+
+    let row_idx_raw = match &args[1] {
+        Value::Number(n) => n.trunc() as i64,
         _ => return Value::Error(ErrorKind::Value),
     };
+    if row_idx_raw < 0 {
+        return Value::Error(ErrorKind::Value);
+    }
+    let row_idx = row_idx_raw as usize;
+
     let col_idx = if args.len() == 3 {
-        match &args[2] {
-            Value::Number(n) => n.trunc() as usize,
+        let col_raw = match &args[2] {
+            Value::Number(n) => n.trunc() as i64,
             _ => return Value::Error(ErrorKind::Value),
+        };
+        if col_raw < 0 {
+            return Value::Error(ErrorKind::Value);
         }
+        col_raw as usize
     } else {
-        0 // 0 means not specified
+        0
     };
 
     let rows = flatten_to_rows(array_val);
-
-    // Check if 2D or 1D
     let is_2d = matches!(array_val, Value::Array(v) if v.iter().any(|e| matches!(e, Value::Array(_))));
 
     if is_2d {
@@ -34,7 +42,6 @@ pub fn index_fn(args: &[Value]) -> Value {
         }
         let row = &rows[row_idx - 1];
         if col_idx == 0 {
-            // Return entire row as array? For conformance, return the row
             return Value::Array(row.clone());
         }
         if col_idx > row.len() {
@@ -42,22 +49,18 @@ pub fn index_fn(args: &[Value]) -> Value {
         }
         row[col_idx - 1].clone()
     } else {
-        // 1D array
         let flat = flatten_to_flat(array_val);
         if col_idx == 0 {
-            // Single index → treat as column vector
             if row_idx < 1 || row_idx > flat.len() {
                 return Value::Error(ErrorKind::Ref);
             }
             flat[row_idx - 1].clone()
         } else if row_idx == 1 {
-            // Row index = 1, treat as row vector
             if col_idx > flat.len() {
                 return Value::Error(ErrorKind::Ref);
             }
             flat[col_idx - 1].clone()
         } else if col_idx == 1 {
-            // Col index = 1, treat as column vector
             if row_idx > flat.len() {
                 return Value::Error(ErrorKind::Ref);
             }
@@ -68,8 +71,8 @@ pub fn index_fn(args: &[Value]) -> Value {
     }
 }
 
-/// `MATCH(search_key, range, [match_type])` — returns 1-based position of search_key.
-/// match_type: 0=exact, 1=less than (sorted asc, default), -1=greater than (sorted desc).
+/// `MATCH(search_key, range, [match_type])` -- returns 1-based position of search_key.
+/// match_type: 0=exact, 1=largest <= key (sorted asc, default), -1=smallest >= key (sorted desc).
 pub fn match_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 2, 3) {
         return err;
@@ -86,21 +89,32 @@ pub fn match_fn(args: &[Value]) -> Value {
         1
     };
 
-    // 2D array as range → #N/A (Google Sheets behaviour)
-    if let Value::Array(outer) = range_val {
-        if outer.iter().any(|e| matches!(e, Value::Array(_))) {
-            return Value::Error(ErrorKind::NA);
+    // Flatten range. Column vectors {"a";"b";"c"} parse as
+    // Array([Array(["a"]), Array(["b"]), Array(["c"])]) -- flatten to 1D.
+    let flat: Vec<Value> = match range_val {
+        Value::Array(outer) => {
+            let all_single = outer.iter().all(|e| matches!(e, Value::Array(v) if v.len() == 1));
+            let any_multi = outer.iter().any(|e| matches!(e, Value::Array(v) if v.len() > 1));
+            if all_single && outer.iter().any(|e| matches!(e, Value::Array(_))) {
+                outer.iter().map(|e| match e {
+                    Value::Array(v) => v[0].clone(),
+                    other => other.clone(),
+                }).collect()
+            } else if any_multi {
+                return Value::Error(ErrorKind::NA);
+            } else {
+                flatten_to_flat(range_val)
+            }
         }
-    }
+        _ => flatten_to_flat(range_val),
+    };
 
-    let flat = flatten_to_flat(range_val);
     if flat.is_empty() {
         return Value::Error(ErrorKind::NA);
     }
 
     match match_type {
         0 => {
-            // Exact match (wildcard supported when pattern contains * or ?)
             for (i, v) in flat.iter().enumerate() {
                 let matched = if has_wildcards(search_key) {
                     wildcard_match_value(search_key, v)
@@ -114,8 +128,6 @@ pub fn match_fn(args: &[Value]) -> Value {
             Value::Error(ErrorKind::NA)
         }
         1 => {
-            // Largest value <= search_key in sorted ascending array.
-            // Scan forward; stop early on first value > search_key (assumes sorted).
             let mut result: Option<usize> = None;
             for (i, v) in flat.iter().enumerate() {
                 match value_compare(v, search_key) {
@@ -131,9 +143,6 @@ pub fn match_fn(args: &[Value]) -> Value {
             }
         }
         -1 => {
-            // Smallest value >= search_key in sorted descending array.
-            // Scan forward (descending), keep updating while v >= search_key.
-            // Stop when v < search_key (assumes sorted desc).
             let mut result: Option<usize> = None;
             for (i, v) in flat.iter().enumerate() {
                 match value_compare(v, search_key) {
