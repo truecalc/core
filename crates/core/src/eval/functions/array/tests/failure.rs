@@ -45,10 +45,12 @@ fn array_constrain_wrong_arity() {
 
 #[test]
 fn array_constrain_zero_rows() {
+    // Google Sheets returns #REF! when ARRAY_CONSTRAIN is asked for zero rows
+    // (fixture array.tsv: "zero rows argument returns empty" -> #REF!).
     let arr = Value::Array(vec![Value::Array(vec![num(1.0), num(2.0)])]);
     assert_eq!(
         array_constrain_fn(&[arr, num(0.0), num(1.0)]),
-        Value::Error(ErrorKind::Value)
+        Value::Error(ErrorKind::Ref)
     );
 }
 

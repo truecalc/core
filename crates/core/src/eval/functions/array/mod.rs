@@ -219,11 +219,15 @@ pub(crate) fn array_constrain_fn(args: &[Value]) -> Value {
     let grid = to_2d(&args[0]);
     let num_rows = match to_f64(&args[1]) {
         Some(n) if n >= 1.0 => n as usize,
-        _ => return Value::Error(ErrorKind::Value),
+        Some(n) if n < 0.0 => return Value::Error(ErrorKind::Num),
+        Some(_) => return Value::Error(ErrorKind::Ref),
+        None => return Value::Error(ErrorKind::Value),
     };
     let num_cols = match to_f64(&args[2]) {
         Some(n) if n >= 1.0 => n as usize,
-        _ => return Value::Error(ErrorKind::Value),
+        Some(n) if n < 0.0 => return Value::Error(ErrorKind::Num),
+        Some(_) => return Value::Error(ErrorKind::Ref),
+        None => return Value::Error(ErrorKind::Value),
     };
     let rows_to_take = num_rows.min(grid.len());
     let result: Vec<Vec<Value>> = grid[..rows_to_take]
@@ -372,6 +376,12 @@ fn tocol_fn(args: &[Value]) -> Value {
     if let Some(e) = check_arity(args, 1, 3) {
         return e;
     }
+    if let Some(m) = args.get(1) {
+        match to_f64(m) {
+            Some(n) if (0.0..4.0).contains(&n) => {}
+            _ => return Value::Error(ErrorKind::Value),
+        }
+    }
     let flat = flatten_val(&args[0]);
     let col: Vec<Vec<Value>> = flat.into_iter().map(|v| vec![v]).collect();
     from_2d(col)
@@ -383,6 +393,12 @@ fn tocol_fn(args: &[Value]) -> Value {
 fn torow_fn(args: &[Value]) -> Value {
     if let Some(e) = check_arity(args, 1, 3) {
         return e;
+    }
+    if let Some(m) = args.get(1) {
+        match to_f64(m) {
+            Some(n) if (0.0..4.0).contains(&n) => {}
+            _ => return Value::Error(ErrorKind::Value),
+        }
     }
     let flat = flatten_val(&args[0]);
     Value::Array(flat)
@@ -399,7 +415,8 @@ fn wrapcols_fn(args: &[Value]) -> Value {
     let flat = flatten_val(&args[0]);
     let wrap_count = match to_f64(&args[1]) {
         Some(n) if n >= 1.0 => n as usize,
-        _ => return Value::Error(ErrorKind::Value),
+        Some(_) => return Value::Error(ErrorKind::Num),
+        None => return Value::Error(ErrorKind::Value),
     };
     let pad = args.get(2).cloned().unwrap_or(Value::Empty);
 
@@ -431,7 +448,8 @@ fn wraprows_fn(args: &[Value]) -> Value {
     let flat = flatten_val(&args[0]);
     let wrap_count = match to_f64(&args[1]) {
         Some(n) if n >= 1.0 => n as usize,
-        _ => return Value::Error(ErrorKind::Value),
+        Some(_) => return Value::Error(ErrorKind::Num),
+        None => return Value::Error(ErrorKind::Value),
     };
     let pad = args.get(2).cloned().unwrap_or(Value::Empty);
 
@@ -698,10 +716,7 @@ pub(crate) fn sumproduct_fn(args: &[Value]) -> Value {
     for i in 0..len {
         let mut prod = 1.0;
         for arr in &arrays {
-            match to_f64(&arr[i]) {
-                Some(n) => prod *= n,
-                None => return Value::Error(ErrorKind::Value),
-            }
+            prod *= to_f64(&arr[i]).unwrap_or(0.0);
         }
         sum += prod;
     }
@@ -717,13 +732,13 @@ fn sumxmy2_fn(args: &[Value]) -> Value {
     let xs = flatten_val(&args[0]);
     let ys = flatten_val(&args[1]);
     if xs.len() != ys.len() {
-        return Value::Error(ErrorKind::Value);
+        return Value::Error(ErrorKind::NA);
     }
     let mut sum = 0.0;
     for (x, y) in xs.iter().zip(ys.iter()) {
-        let xn = match to_f64(x) { Some(n) => n, None => return Value::Error(ErrorKind::Value) };
-        let yn = match to_f64(y) { Some(n) => n, None => return Value::Error(ErrorKind::Value) };
-        sum += (xn - yn).powi(2);
+        if let (Value::Number(xn), Value::Number(yn)) = (x, y) {
+            sum += (*xn - *yn).powi(2);
+        }
     }
     Value::Number(sum)
 }
@@ -737,13 +752,13 @@ fn sumx2my2_fn(args: &[Value]) -> Value {
     let xs = flatten_val(&args[0]);
     let ys = flatten_val(&args[1]);
     if xs.len() != ys.len() {
-        return Value::Error(ErrorKind::Value);
+        return Value::Error(ErrorKind::NA);
     }
     let mut sum = 0.0;
     for (x, y) in xs.iter().zip(ys.iter()) {
-        let xn = match to_f64(x) { Some(n) => n, None => return Value::Error(ErrorKind::Value) };
-        let yn = match to_f64(y) { Some(n) => n, None => return Value::Error(ErrorKind::Value) };
-        sum += xn * xn - yn * yn;
+        if let (Value::Number(xn), Value::Number(yn)) = (x, y) {
+            sum += *xn * *xn - *yn * *yn;
+        }
     }
     Value::Number(sum)
 }
@@ -757,13 +772,13 @@ fn sumx2py2_fn(args: &[Value]) -> Value {
     let xs = flatten_val(&args[0]);
     let ys = flatten_val(&args[1]);
     if xs.len() != ys.len() {
-        return Value::Error(ErrorKind::Value);
+        return Value::Error(ErrorKind::NA);
     }
     let mut sum = 0.0;
     for (x, y) in xs.iter().zip(ys.iter()) {
-        let xn = match to_f64(x) { Some(n) => n, None => return Value::Error(ErrorKind::Value) };
-        let yn = match to_f64(y) { Some(n) => n, None => return Value::Error(ErrorKind::Value) };
-        sum += xn * xn + yn * yn;
+        if let (Value::Number(xn), Value::Number(yn)) = (x, y) {
+            sum += *xn * *xn + *yn * *yn;
+        }
     }
     Value::Number(sum)
 }
@@ -776,6 +791,9 @@ fn mmult_fn(args: &[Value]) -> Value {
     }
     let a = to_2d(&args[0]);
     let b = to_2d(&args[1]);
+    if a.iter().chain(b.iter()).any(|row| row.iter().any(|v| matches!(v, Value::Bool(_)))) {
+        return Value::Error(ErrorKind::Value);
+    }
     let n = a.first().map(|r| r.len()).unwrap_or(0);
     let p = b.first().map(|r| r.len()).unwrap_or(0);
     if b.len() != n {
@@ -815,6 +833,9 @@ fn mdeterm_fn(args: &[Value]) -> Value {
         if row.len() != n {
             return Value::Error(ErrorKind::Value);
         }
+    }
+    if grid.iter().any(|row| row.iter().any(|v| matches!(v, Value::Bool(_)))) {
+        return Value::Error(ErrorKind::Value);
     }
     // Convert to f64 matrix
     let mut mat: Vec<Vec<f64>> = Vec::with_capacity(n);
@@ -871,6 +892,9 @@ fn minverse_fn(args: &[Value]) -> Value {
             return Value::Error(ErrorKind::Value);
         }
     }
+    if grid.iter().any(|row| row.iter().any(|v| matches!(v, Value::Bool(_)))) {
+        return Value::Error(ErrorKind::Value);
+    }
     let mut mat: Vec<Vec<f64>> = Vec::with_capacity(n);
     for row in &grid {
         let mut r = Vec::with_capacity(n);
@@ -923,8 +947,40 @@ fn invert_matrix(mut mat: Vec<Vec<f64>>) -> Option<Vec<Vec<f64>>> {
 // ── FREQUENCY ─────────────────────────────────────────────────────────────────
 // Array-spill function; Google Sheets returns #REF! in scalar (non-array-formula) context.
 
-fn frequency_fn(_args: &[Value]) -> Value {
-    Value::Error(ErrorKind::Ref)
+fn frequency_fn(args: &[Value]) -> Value {
+    if let Some(e) = check_arity(args, 2, 2) {
+        return e;
+    }
+    // Only numeric values are counted; text, booleans and blanks are ignored.
+    let data: Vec<f64> = flatten_val(&args[0])
+        .iter()
+        .filter_map(|v| if let Value::Number(n) = v { Some(*n) } else { None })
+        .collect();
+    let bins: Vec<f64> = flatten_val(&args[1])
+        .iter()
+        .filter_map(|v| if let Value::Number(n) = v { Some(*n) } else { None })
+        .collect();
+    // One bucket per bin, plus a final "greater than the last bin" bucket.
+    let mut counts = vec![0i64; bins.len() + 1];
+    for &x in &data {
+        let mut placed = false;
+        for (i, &b) in bins.iter().enumerate() {
+            if x <= b {
+                counts[i] += 1;
+                placed = true;
+                break;
+            }
+        }
+        if !placed {
+            counts[bins.len()] += 1;
+        }
+    }
+    // Sheets returns a vertical (column) array of length bins+1.
+    let col: Vec<Vec<Value>> = counts
+        .into_iter()
+        .map(|c| vec![Value::Number(c as f64)])
+        .collect();
+    from_2d(col)
 }
 
 // ── LINEST ────────────────────────────────────────────────────────────────────
@@ -1136,7 +1192,7 @@ pub fn byrow_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         let row_val = Value::Array(row.clone());
         match apply_lambda(lambda_expr, &[row_val], ctx) {
             Some(v) => results.push(v),
-            None => return Value::Error(ErrorKind::Value),
+            None => return Value::Error(ErrorKind::NA),
         }
     }
     // Return as column vector (one result per row)
@@ -1167,7 +1223,7 @@ pub fn bycol_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         let col_val = Value::Array(col);
         match apply_lambda(lambda_expr, &[col_val], ctx) {
             Some(v) => results.push(v),
-            None => return Value::Error(ErrorKind::Value),
+            None => return Value::Error(ErrorKind::NA),
         }
     }
     // Return as row vector (one result per col)
@@ -1201,7 +1257,7 @@ pub fn map_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         let bound: Vec<Value> = arrays.iter().map(|a| a[i].clone()).collect();
         match apply_lambda(lambda_expr, &bound, ctx) {
             Some(v) => results.push(v),
-            None => return Value::Error(ErrorKind::Value),
+            None => return Value::Error(ErrorKind::NA),
         }
     }
     // Preserve shape of first array
@@ -1234,12 +1290,15 @@ pub fn reduce_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         return arr_val;
     }
     let items = flatten_val(&arr_val);
+    if items.is_empty() {
+        return Value::Error(ErrorKind::Ref);
+    }
     let lambda_expr = &args[2];
     let mut acc = initial;
     for item in &items {
         match apply_lambda(lambda_expr, &[acc.clone(), item.clone()], ctx) {
             Some(v) => acc = v,
-            None => return Value::Error(ErrorKind::Value),
+            None => return Value::Error(ErrorKind::NA),
         }
     }
     acc
@@ -1270,7 +1329,7 @@ pub fn scan_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
                 acc = v.clone();
                 results.push(v);
             }
-            None => return Value::Error(ErrorKind::Value),
+            None => return Value::Error(ErrorKind::NA),
         }
     }
     // Preserve shape of input array
@@ -1316,8 +1375,9 @@ pub fn makearray_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
             let rv = Value::Number(r as f64);
             let cv = Value::Number(c as f64);
             match apply_lambda(lambda_expr, &[rv, cv], ctx) {
+                Some(Value::Array(_)) => return Value::Error(ErrorKind::Value),
                 Some(v) => row.push(v),
-                None => return Value::Error(ErrorKind::Value),
+                None => return Value::Error(ErrorKind::NA),
             }
         }
         grid.push(row);
