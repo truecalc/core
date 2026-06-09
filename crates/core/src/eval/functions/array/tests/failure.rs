@@ -69,6 +69,6 @@ fn sumproduct_mismatched_lengths() {
 
 #[test]
 fn flatten_wrong_arity() {
+    // FLATTEN now accepts variadic args (1..N); only zero args is an error.
     assert_eq!(flatten_fn(&[]), Value::Error(ErrorKind::NA));
-    assert_eq!(flatten_fn(&[num(1.0), num(2.0)]), Value::Error(ErrorKind::NA));
 }
