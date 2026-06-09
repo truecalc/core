@@ -6,18 +6,26 @@ use crate::types::Value;
 ///
 /// Accepts exactly 1 argument. GS special case: empty text `""` is treated
 /// as 0 (false), so `NOT("")` = TRUE. Other non-bool text remains `#VALUE!`.
+/// When passed an array, NOT broadcasts element-wise (GS array semantics).
 pub fn not_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 1, 1) {
         return err;
     }
-    // GS: NOT("") = TRUE (empty text treated as false/0)
-    let coerced = match &args[0] {
-        Value::Text(s) if s.is_empty() => Ok(false),
-        _ => to_bool(args[0].clone()),
-    };
-    match coerced {
-        Ok(b) => Value::Bool(!b),
-        Err(e) => e,
+    not_scalar_or_array(&args[0])
+}
+
+fn not_scalar_or_array(v: &Value) -> Value {
+    match v {
+        Value::Array(items) => {
+            let mapped: Vec<Value> = items.iter().map(not_scalar_or_array).collect();
+            Value::Array(mapped)
+        }
+        // GS: NOT("") = TRUE (empty text treated as false/0)
+        Value::Text(s) if s.is_empty() => Value::Bool(true),
+        _ => match to_bool(v.clone()) {
+            Ok(b) => Value::Bool(!b),
+            Err(e) => e,
+        },
     }
 }
 

@@ -472,7 +472,7 @@ conformance_tsv_test_report!(lookup_conformance,      "lookup.tsv");
 conformance_tsv_test!(parser_conformance,      "parser.tsv");
 conformance_tsv_test!(database_conformance,    "database.tsv");
 conformance_tsv_test_report!(array_conformance,       "array.tsv");
-conformance_tsv_test_report!(filter_conformance,      "filter.tsv");
+conformance_tsv_test!(filter_conformance,             "filter.tsv");
 conformance_tsv_test!(web_conformance,         "web.tsv");
 conformance_tsv_test_report!(financial_conformance,   "financial.tsv");
 
