@@ -1,5 +1,6 @@
 use crate::eval::coercion::to_string_val;
 use crate::eval::functions::check_arity;
+use crate::eval::functions::date::serial::{text_to_date_serial, text_to_time_serial};
 use crate::types::{ErrorKind, Value};
 
 /// `VALUE(text)` — parses a text string to a number. Returns `#VALUE!` if unparseable.
@@ -37,6 +38,14 @@ pub fn value_fn(args: &[Value]) -> Value {
     let no_commas = trimmed.replace(',', "");
     if let Ok(n) = no_commas.parse::<f64>() {
         return Value::Number(n);
+    }
+    // Date string: "7/20/1969" -> 25404
+    if let Some(serial) = text_to_date_serial(trimmed) {
+        return Value::Number(serial);
+    }
+    // Time string: "12:00:00" -> 0.5
+    if let Some(frac) = text_to_time_serial(trimmed) {
+        return Value::Number(frac);
     }
     Value::Error(ErrorKind::Value)
 }

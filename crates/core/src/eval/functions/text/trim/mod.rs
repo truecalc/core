@@ -11,7 +11,15 @@ pub fn trim_fn(args: &[Value]) -> Value {
         Ok(s) => s,
         Err(e) => return e,
     };
-    let result = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    // GS TRIM: strips/collapses ASCII whitespace (space, tab, newline, etc.)
+    // but does NOT treat U+00A0 (non-breaking space, CHAR(160)) as whitespace.
+    // Strategy: split on runs of ASCII whitespace (chars where c.is_ascii_whitespace()),
+    // filter empty segments, rejoin with single space.
+    let result: String = text
+        .split(|c: char| c.is_ascii_whitespace())
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
     Value::Text(result)
 }
 

@@ -328,6 +328,11 @@ fn run_tsv_fixture(path: &Path) {
             continue;
         }
 
+        // Skip malformed rows where formula column doesn't contain a formula
+        if !formula.starts_with('=') {
+            continue;
+        }
+
         if is_volatile_formula(formula) {
             continue;
         }
@@ -395,6 +400,11 @@ fn run_tsv_fixture_report(path: &Path) {
             continue;
         }
 
+        // Skip malformed rows where formula column doesn't contain a formula
+        if !formula.starts_with('=') {
+            continue;
+        }
+
         if is_volatile_formula(formula) {
             continue;
         }
@@ -455,7 +465,7 @@ conformance_tsv_test!(logical_conformance,            "logical.tsv");
 conformance_tsv_test_report!(info_conformance,        "info.tsv");
 conformance_tsv_test_report!(statistical_conformance, "statistical.tsv");
 conformance_tsv_test!(operator_conformance,         "operator.tsv");
-conformance_tsv_test_report!(text_conformance,        "text.tsv");
+conformance_tsv_test!(text_conformance,        "text.tsv");
 conformance_tsv_test!(date_conformance,        "date.tsv");
 conformance_tsv_test_report!(engineering_conformance, "engineering.tsv");
 conformance_tsv_test_report!(lookup_conformance,      "lookup.tsv");

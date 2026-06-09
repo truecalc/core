@@ -9,9 +9,11 @@ pub fn regexmatch_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 2, 2) {
         return err;
     }
-    let text = match to_string_val(args[0].clone()) {
-        Ok(s) => s,
-        Err(e) => return e,
+    let text = match &args[0] {
+        Value::Text(s) => s.clone(),
+        Value::Empty => String::new(),
+        Value::Error(e) => return Value::Error(e.clone()),
+        _ => return Value::Error(ErrorKind::Value),
     };
     let pattern = match to_string_val(args[1].clone()) {
         Ok(s) => s,
@@ -19,7 +21,7 @@ pub fn regexmatch_fn(args: &[Value]) -> Value {
     };
     let re = match Regex::new(&pattern) {
         Ok(r) => r,
-        Err(_) => return Value::Error(ErrorKind::Value),
+        Err(_) => return Value::Error(ErrorKind::Ref),
     };
     Value::Bool(re.is_match(&text))
 }

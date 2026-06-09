@@ -18,10 +18,11 @@ fn zero_integer_format() {
 }
 
 #[test]
-fn bool_coerced_to_number() {
+fn bool_not_coerced_returns_text() {
+    // GS: TEXT(TRUE, ...) returns "TRUE" — boolean is NOT coerced to a number
     assert_eq!(
         text_fn(&[Value::Bool(true), Value::Text("0".to_string())]),
-        Value::Text("1".to_string())
+        Value::Text("TRUE".to_string())
     );
 }
 
@@ -35,10 +36,10 @@ fn unsupported_format_falls_back_to_display_number() {
 }
 
 #[test]
-fn hash_format_pads_decimal_places() {
-    // "0.##" — # treated same as 0 → two decimal places
+fn hash_format_suppresses_trailing_zeros() {
+    // "0.##" — # suppresses trailing zeros; 1.5 -> "1.5" (not "1.50")
     assert_eq!(
         text_fn(&[Value::Number(1.5), Value::Text("0.##".to_string())]),
-        Value::Text("1.50".to_string())
+        Value::Text("1.5".to_string())
     );
 }

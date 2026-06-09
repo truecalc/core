@@ -37,3 +37,17 @@ fn replace_word() {
         Value::Text("Hello Rust".to_string())
     );
 }
+
+#[test]
+fn occurrence_zero_replaces_all() {
+    // GS: instance_num=0 means replace all occurrences (same as omitting)
+    assert_eq!(
+        substitute_fn(&[
+            Value::Text("hello".to_string()),
+            Value::Text("l".to_string()),
+            Value::Text("r".to_string()),
+            Value::Number(0.0),
+        ]),
+        Value::Text("herro".to_string())
+    );
+}

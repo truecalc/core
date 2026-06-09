@@ -16,8 +16,9 @@ fn wrong_arity_zero_args() {
 
 #[test]
 fn wrong_arity_one_arg() {
+    // one arg is valid: defaults to 1 byte (GS behaviour)
     assert_eq!(
         leftb_fn(&[Value::Text("Hello".to_string())]),
-        Value::Error(ErrorKind::NA)
+        Value::Text("H".to_string())
     );
 }
