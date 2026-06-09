@@ -86,12 +86,36 @@ pub fn values_equal(a: &Value, b: &Value) -> bool {
     }
 }
 
-/// Compare two values for ordering (for approximate match).
-/// Returns None if the types are incomparable.
+/// Map a Value to a numeric ordering key for cross-type comparison.
+/// In spreadsheets: numbers < text < booleans (for LOOKUP/MATCH sorting purposes).
+/// Within booleans: FALSE (0) < TRUE (1).
+fn type_rank(v: &Value) -> u8 {
+    match v {
+        Value::Number(_) => 0,
+        Value::Text(_)   => 1,
+        Value::Bool(_)   => 2,
+        _                => 3,
+    }
+}
+
+/// Compare two values for ordering (for approximate match / LOOKUP / MATCH).
+/// Returns None only if both values are of incomparable types (e.g. error vs text).
+/// Same-type comparisons always return Some.
+/// Cross-type: numbers < text < booleans (spreadsheet convention).
 pub fn value_compare(a: &Value, b: &Value) -> Option<std::cmp::Ordering> {
     match (a, b) {
         (Value::Number(x), Value::Number(y)) => x.partial_cmp(y),
         (Value::Text(x), Value::Text(y)) => Some(x.to_uppercase().cmp(&y.to_uppercase())),
-        _ => None,
+        (Value::Bool(x), Value::Bool(y)) => Some(x.cmp(y)),
+        // Cross-type: use type rank
+        _ => {
+            let ra = type_rank(a);
+            let rb = type_rank(b);
+            if ra != rb {
+                Some(ra.cmp(&rb))
+            } else {
+                None
+            }
+        }
     }
 }
