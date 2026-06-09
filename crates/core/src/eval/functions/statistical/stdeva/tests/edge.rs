@@ -20,13 +20,11 @@ fn stdeva_false_counts_as_zero() {
 }
 
 #[test]
-fn stdeva_non_parseable_text_counts_as_zero() {
-    // AVERAGEA semantics: non-parseable text direct arg -> 0.0
-    // [0.0, 4.0]: sample var=8, stdev=sqrt(8)
+fn stdeva_non_parseable_text_returns_value_error() {
+    // Direct non-parseable text -> #VALUE! for AVERAGEA semantics
+    use crate::types::ErrorKind;
     let result = stdeva_fn(&[Value::Text("hello".to_string()), Value::Number(4.0)]);
-    if let Value::Number(v) = result {
-        assert!((v - 8.0_f64.sqrt()).abs() < 1e-10);
-    } else { panic!("Expected Number, got {:?}", result); }
+    assert_eq!(result, Value::Error(ErrorKind::Value));
 }
 
 #[test]
