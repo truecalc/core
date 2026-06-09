@@ -5,7 +5,8 @@ use crate::types::{ErrorKind, Value};
 
 /// `DATEVALUE(date_text)` — parses a date string and returns its serial number.
 ///
-/// Supports common formats: ISO (YYYY-MM-DD), US slash (M/D/YYYY), and long/short month names.
+/// Supports common formats: ISO (YYYY-MM-DD), US slash (M/D/YYYY), long/short month names,
+/// slash Y/m/d, and datetime strings (the time component is stripped).
 /// Returns `Value::Error(ErrorKind::Value)` for unparseable or invalid strings.
 pub fn datevalue_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 1, 1) {
@@ -21,10 +22,19 @@ pub fn datevalue_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::Value);
     }
 
+    // Strip trailing time portion (e.g. "2023-06-15 14:30:00" → "2023-06-15")
+    // so ISO-datetime and slash-datetime strings are handled correctly.
+    let date_part = if let Some(idx) = text.find(' ') {
+        &text[..idx]
+    } else {
+        text.as_str()
+    };
+
     let formats = [
         "%m/%d/%Y",
         "%m/%d/%y",
         "%Y-%m-%d",
+        "%Y/%m/%d",
         "%d-%b-%Y",
         "%d-%b-%y",
         "%B %d, %Y",
@@ -34,7 +44,7 @@ pub fn datevalue_fn(args: &[Value]) -> Value {
     ];
 
     for fmt in &formats {
-        if let Ok(date) = NaiveDate::parse_from_str(&text, fmt) {
+        if let Ok(date) = NaiveDate::parse_from_str(date_part, fmt) {
             return Value::Number(date_to_serial(date));
         }
     }

@@ -4,7 +4,7 @@ use crate::eval::functions::check_arity;
 use crate::eval::functions::date::serial::serial_to_date;
 use crate::types::{ErrorKind, Value};
 
-/// `DATEDIF(start_date, end_date, unit)` — difference between two dates.
+/// `DATEDIF(start_date, end_date, unit)` -- difference between two dates.
 pub fn datedif_fn(args: &[Value]) -> Value {
     if let Some(e) = check_arity(args, 3, 3) {
         return e;
@@ -46,13 +46,16 @@ pub fn datedif_fn(args: &[Value]) -> Value {
             Value::Number((end - start).num_days() as f64)
         }
         "MD" => {
-            // Complete months elapsed from start to end, then measure remaining days.
-            let total_months = (end.year() - start.year()) * 12
-                + (end.month() as i32 - start.month() as i32);
-            let had_day_pass = end.day() >= start.day();
-            let complete_months = if had_day_pass { total_months } else { total_months - 1 };
-            let adjusted_start = add_months(start, complete_months);
-            Value::Number((end - adjusted_start).num_days() as f64)
+            // Google Sheets implementation: end.day - start.day, and if the result
+            // is negative, add the number of days in the month before end.
+            let diff = end.day() as i32 - start.day() as i32;
+            let result = if diff < 0 {
+                let prev = prev_month(end.year(), end.month());
+                diff + days_in_month(prev.0, prev.1) as i32
+            } else {
+                diff
+            };
+            Value::Number(result as f64)
         }
         "YM" => {
             let total_months = (end.year() - start.year()) * 12
@@ -80,14 +83,22 @@ pub fn datedif_fn(args: &[Value]) -> Value {
     }
 }
 
-/// Add `months` months to a date, clamping to end-of-month on overflow.
-fn add_months(date: NaiveDate, months: i32) -> NaiveDate {
-    let total_months = date.year() * 12 + date.month() as i32 - 1 + months;
-    let year = total_months / 12;
-    let month = (total_months % 12 + 1) as u32;
-    NaiveDate::from_ymd_opt(year, month, date.day())
-        .or_else(|| NaiveDate::from_ymd_opt(year, month + 1, 1))
-        .unwrap()
+/// Returns (year, month) for the month preceding the given month.
+fn prev_month(year: i32, month: u32) -> (i32, u32) {
+    if month == 1 {
+        (year - 1, 12)
+    } else {
+        (year, month - 1)
+    }
+}
+
+/// Number of days in the given (year, month).
+fn days_in_month(year: i32, month: u32) -> u32 {
+    let next_month = if month == 12 { 1 } else { month + 1 };
+    let next_year  = if month == 12 { year + 1 } else { year };
+    let first_of_next = NaiveDate::from_ymd_opt(next_year, next_month, 1).unwrap();
+    let first_of_curr = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
+    (first_of_next - first_of_curr).num_days() as u32
 }
 
 #[cfg(test)]

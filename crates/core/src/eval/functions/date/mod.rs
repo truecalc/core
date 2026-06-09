@@ -1,4 +1,5 @@
 pub mod serial;
+pub mod holidays;
 #[cfg(test)]
 mod serial_tests;
 pub mod weekend;

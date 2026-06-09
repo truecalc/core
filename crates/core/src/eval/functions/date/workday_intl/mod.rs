@@ -1,14 +1,17 @@
 use chrono::{Datelike, Duration};
 use crate::eval::coercion::to_number;
 use crate::eval::functions::check_arity;
+use crate::eval::functions::date::holidays::extract_holidays;
 use crate::eval::functions::date::serial::{date_to_serial, serial_to_date};
 use crate::eval::functions::date::weekend::weekend_mask;
 use crate::types::{ErrorKind, Value};
 
-/// `WORKDAY.INTL(start, days, [weekend], [holidays])` — date serial that is `days`
+/// `WORKDAY.INTL(start, days, [weekend], [holidays])` -- date serial that is `days`
 /// working days from `start`, with a configurable weekend pattern.
 /// Negative `days` moves backward.  The start date itself is not counted.
-/// The optional holidays argument is accepted but ignored.
+///
+/// holidays: omitted = none; empty array `{}` = #REF!; text scalar = #VALUE!;
+/// number/Date or array of number/Date = those serials are skipped.
 pub fn workday_intl_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 2, 4) {
         return err;
@@ -21,12 +24,17 @@ pub fn workday_intl_fn(args: &[Value]) -> Value {
         Err(e) => return e,
     };
 
+    let holidays = match extract_holidays(args.get(3)) {
+        Ok(h) => h,
+        Err(e) => return e,
+    };
+
     let start = match serial_to_date(start_serial) {
         Some(d) => d,
         None => return Value::Error(ErrorKind::Value),
     };
 
-    // All-weekend mask makes it impossible to advance — return #NUM!
+    // All-weekend mask makes it impossible to advance -- return #NUM!
     if mask.iter().all(|&w| w) {
         return Value::Error(ErrorKind::Num);
     }
@@ -36,6 +44,7 @@ pub fn workday_intl_fn(args: &[Value]) -> Value {
         return Value::Number(date_to_serial(start));
     }
 
+    let base = chrono::NaiveDate::from_ymd_opt(1899, 12, 30).unwrap();
     let step = if days > 0 { 1i64 } else { -1i64 };
     let mut remaining = days.abs();
     let mut current = start;
@@ -44,7 +53,10 @@ pub fn workday_intl_fn(args: &[Value]) -> Value {
         current += Duration::days(step);
         let wd = current.weekday().num_days_from_monday() as usize;
         if !mask[wd] {
-            remaining -= 1;
+            let serial = (current - base).num_days();
+            if !holidays.contains(&serial) {
+                remaining -= 1;
+            }
         }
     }
 

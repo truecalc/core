@@ -2,10 +2,11 @@ use crate::eval::coercion::to_number;
 use crate::eval::functions::check_arity;
 use crate::types::{ErrorKind, Value};
 
-/// `EPOCHTODATE(timestamp, [unit])` — convert a Unix timestamp to a spreadsheet serial.
+/// `EPOCHTODATE(timestamp, [unit])` -- convert a Unix timestamp to a spreadsheet serial.
 ///
-/// unit: 1 (default) = seconds, 2 = milliseconds, 3 = microseconds
+/// unit: 1 (default) = seconds, 2 = milliseconds, 3 = microseconds.
 /// Unix epoch (1970-01-01) = serial 25569.
+/// Negative timestamps return `#NUM!`.
 pub fn epochtodate_fn(args: &[Value]) -> Value {
     if let Some(e) = check_arity(args, 1, 2) {
         return e;
@@ -16,6 +17,10 @@ pub fn epochtodate_fn(args: &[Value]) -> Value {
     } else {
         1
     };
+
+    if timestamp < 0.0 {
+        return Value::Error(ErrorKind::Num);
+    }
 
     let seconds = match unit {
         1 => timestamp,

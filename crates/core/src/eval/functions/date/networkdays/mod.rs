@@ -1,18 +1,26 @@
 use chrono::{Datelike, Duration};
 use crate::eval::coercion::to_number;
 use crate::eval::functions::check_arity;
+use crate::eval::functions::date::holidays::extract_holidays;
 use crate::eval::functions::date::serial::serial_to_date;
 use crate::types::{ErrorKind, Value};
 
-/// `NETWORKDAYS(start_date, end_date, [holidays])` — count of working days (Mon–Fri),
+/// `NETWORKDAYS(start_date, end_date, [holidays])` -- count of working days (Mon-Fri),
 /// inclusive of both endpoints.  If start > end, the result is negative.
-/// The optional holidays argument is accepted but ignored (array args unsupported).
+///
+/// holidays: omitted = none; empty array `{}` = #REF!; text scalar = #VALUE!;
+/// number/Date or array of number/Date = those serials are excluded.
 pub fn networkdays_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 2, 3) {
         return err;
     }
     let start_serial = match to_number(args[0].clone()) { Ok(n) => n, Err(e) => return e };
     let end_serial   = match to_number(args[1].clone()) { Ok(n) => n, Err(e) => return e };
+
+    let holidays = match extract_holidays(args.get(2)) {
+        Ok(h) => h,
+        Err(e) => return e,
+    };
 
     let start = match serial_to_date(start_serial) {
         Some(d) => d,
@@ -34,7 +42,11 @@ pub fn networkdays_fn(args: &[Value]) -> Value {
     while current <= to {
         let wd = current.weekday().num_days_from_monday();
         if wd < 5 {
-            count += 1;
+            let serial = (current - chrono::NaiveDate::from_ymd_opt(1899, 12, 30).unwrap())
+                .num_days();
+            if !holidays.contains(&serial) {
+                count += 1;
+            }
         }
         current += Duration::days(1);
     }
