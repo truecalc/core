@@ -493,10 +493,9 @@ pub fn imconjugate_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 1, 1) {
         return err;
     }
-    let suffix = get_suffix(&args[0]);
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
-        Ok(c) => format_complex(Complex::new(c.re, -c.im), suffix),
+        Ok(c) => format_complex(Complex::new(c.re, -c.im), 'i'),
     }
 }
 
@@ -527,12 +526,11 @@ pub fn imln_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 1, 1) {
         return err;
     }
-    let suffix = get_suffix(&args[0]);
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
         Ok(c) => match c.ln() {
             None => Value::Error(ErrorKind::DivByZero),
-            Some(result) => format_complex(result, suffix),
+            Some(result) => format_complex(result, 'i'),
         },
     }
 }
@@ -544,14 +542,13 @@ pub fn imlog10_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 1, 1) {
         return err;
     }
-    let suffix = get_suffix(&args[0]);
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
         Ok(c) => match c.ln() {
             None => Value::Error(ErrorKind::DivByZero),
             Some(result) => {
                 let ln10 = 10.0f64.ln();
-                format_complex(Complex::new(result.re / ln10, result.im / ln10), suffix)
+                format_complex(Complex::new(result.re / ln10, result.im / ln10), 'i')
             }
         },
     }
@@ -562,14 +559,13 @@ pub fn imlog2_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 1, 1) {
         return err;
     }
-    let suffix = get_suffix(&args[0]);
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
         Ok(c) => match c.ln() {
             None => Value::Error(ErrorKind::DivByZero),
             Some(result) => {
                 let ln2 = 2.0f64.ln();
-                format_complex(Complex::new(result.re / ln2, result.im / ln2), suffix)
+                format_complex(Complex::new(result.re / ln2, result.im / ln2), 'i')
             }
         },
     }
@@ -580,7 +576,6 @@ pub fn imlog_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 2, 2) {
         return err;
     }
-    let suffix = get_suffix(&args[0]);
     let c = match value_to_complex(args[0].clone()) {
         Err(e) => return e,
         Ok(v) => v,
@@ -596,7 +591,7 @@ pub fn imlog_fn(args: &[Value]) -> Value {
         None => Value::Error(ErrorKind::DivByZero),
         Some(result) => {
             let ln_base = base.ln();
-            format_complex(Complex::new(result.re / ln_base, result.im / ln_base), suffix)
+            format_complex(Complex::new(result.re / ln_base, result.im / ln_base), 'i')
         }
     }
 }
@@ -608,12 +603,11 @@ pub fn imexp_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 1, 1) {
         return err;
     }
-    let suffix = get_suffix(&args[0]);
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
         Ok(c) => {
             let scale = c.re.exp();
-            format_complex(Complex::new(scale * c.im.cos(), scale * c.im.sin()), suffix)
+            format_complex(Complex::new(scale * c.im.cos(), scale * c.im.sin()), 'i')
         }
     }
 }
