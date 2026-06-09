@@ -3,22 +3,28 @@ use crate::eval::functions::{check_arity_len, EvalCtx};
 use crate::parser::ast::Expr;
 use crate::types::{ErrorKind, Value};
 
-/// `FORMULATEXT(reference)` — returns the formula string of a cell reference.
-/// In a standalone evaluator, all literals have no formula → #N/A.
-pub fn formulatext_fn(args: &[Expr], _ctx: &mut EvalCtx<'_>) -> Value {
+/// `FORMULATEXT(reference)` -- returns the formula string of a cell reference.
+/// In a standalone evaluator, there is no cell grid, so most calls return #N/A.
+/// Exception: if the argument evaluates to a #REF! error, propagate #REF! instead.
+pub fn formulatext_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     if let Some(err) = check_arity_len(args.len(), 1, 1) {
         return err;
     }
-    Value::Error(ErrorKind::NA)
+    // Evaluate the argument to propagate errors (especially #REF!)
+    let val = evaluate_expr(&args[0], ctx);
+    match val {
+        Value::Error(e) => Value::Error(e),
+        _ => Value::Error(ErrorKind::NA),
+    }
 }
 
-/// `GETPIVOTDATA(data_field, pivot_table, ...)` — always errors in a standalone evaluator.
-/// With 0 or 1 args → #N/A (wrong arity). With 2+ args → #REF! (no pivot table present).
+/// `GETPIVOTDATA(data_field, pivot_table, ...)` -- always errors in a standalone evaluator.
+/// With 0 or 1 args -> #N/A (wrong arity). With 2+ args -> #REF! (no pivot table present).
 pub fn getpivotdata_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     if args.len() < 2 {
         return Value::Error(ErrorKind::NA);
     }
-    // Evaluate the pivot_table arg (2nd arg) — if it is already an error, propagate it.
+    // Evaluate the pivot_table arg (2nd arg) -- if it is already an error, propagate it.
     let pivot_ref = evaluate_expr(&args[1], ctx);
     if let Value::Error(e) = pivot_ref {
         return Value::Error(e);
@@ -28,7 +34,7 @@ pub fn getpivotdata_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
 
 /// Encode an offset result as a special text tag that downstream lazy functions
 /// (ROW/COLUMN/ROWS/COLUMNS) can decode.
-/// Format: `__offset__:<row>:<col>:<height>:<width>` (all 1-based, ≥ 1).
+/// Format: `__offset__:<row>:<col>:<height>:<width>` (all 1-based, >= 1).
 pub fn make_offset_tag(row: i64, col: i64, height: i64, width: i64) -> Value {
     Value::Text(format!(
         "__offset__:{}:{}:{}:{}",
@@ -37,7 +43,7 @@ pub fn make_offset_tag(row: i64, col: i64, height: i64, width: i64) -> Value {
 }
 
 /// Parse an `__offset__:row:col:height:width` tag.
-/// Returns `(row, col, height, width)` — all positive, 1-based.
+/// Returns `(row, col, height, width)` -- all positive, 1-based.
 pub fn parse_offset_ref(s: &str) -> Option<(usize, usize, usize, usize)> {
     let s = s.strip_prefix("__offset__:")?;
     let mut parts = s.splitn(4, ':');
@@ -49,7 +55,7 @@ pub fn parse_offset_ref(s: &str) -> Option<(usize, usize, usize, usize)> {
     Some((row, col, height, width))
 }
 
-/// `OFFSET(reference, rows, cols, [height], [width])` — not implementable for value
+/// `OFFSET(reference, rows, cols, [height], [width])` -- not implementable for value
 /// retrieval without a cell grid, but we compute the resulting address and encode it
 /// as `__offset__:row:col:height:width` so that ROW/COLUMN/ROWS/COLUMNS can use it.
 /// SUM(OFFSET(...)) yields 0 (grid is empty).
@@ -83,7 +89,7 @@ pub fn offset_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         _ => return Value::Error(ErrorKind::Value),
     };
 
-    // height / width default to 1; 0 → #VALUE!
+    // height / width default to 1; 0 -> #VALUE!
     let height: i64 = match height_val {
         None => 1,
         Some(Value::Number(n)) => {
@@ -120,8 +126,7 @@ pub fn offset_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
 }
 
 /// Extract (row, col) from an already-evaluated value.
-/// Handles the `__offset__:…` tag and, for INDIRECT results (Value::Empty),
-/// that won't help — callers intercept the Text string arg directly for INDIRECT.
+/// Handles the `__offset__:...` tag and cell reference strings.
 pub fn ref_position_from_value(v: &Value) -> Option<(i64, i64)> {
     match v {
         Value::Text(s) => {
@@ -141,9 +146,9 @@ pub fn ref_position_from_value(v: &Value) -> Option<(i64, i64)> {
     }
 }
 
-/// `SHEET([name])` — returns the sheet index.
+/// `SHEET([name])` -- returns the sheet index.
 /// With no argument, returns 1 (standalone evaluator has 1 sheet).
-/// With a text argument → #REF! (sheet not found).
+/// With a text argument -> #REF! (sheet not found).
 pub fn sheet_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     match args.len() {
         0 => Value::Number(1.0),
