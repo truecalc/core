@@ -83,7 +83,7 @@ pub fn yearfrac_fn(args: &[Value]) -> Value {
         None => return Value::Error(ErrorKind::Value),
     };
 
-    if basis < 0.0 || basis > 4.0 {
+    if !(0.0..=4.0).contains(&basis) {
         return Value::Error(ErrorKind::Num);
     }
     let result = match basis as u32 {
