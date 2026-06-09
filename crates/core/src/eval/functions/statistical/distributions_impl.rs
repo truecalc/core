@@ -37,20 +37,72 @@ fn as_f64(v: &Value) -> Option<f64> {
 // AVERAGE.WEIGHTED
 // ---------------------------------------------------------------------------
 pub fn average_weighted_fn(args: &[Value]) -> Value {
+    // AVERAGE.WEIGHTED(values1, weights1, [values2, weights2, ...])
+    // Args come in value/weight pairs. Bool weights -> #VALUE!. Negative weights -> #VALUE!.
+    // Mismatched sizes -> #VALUE!.
     if args.len() < 2 {
         return Value::Error(ErrorKind::NA);
     }
-    let values = collect_nums(std::slice::from_ref(&args[0]));
-    let weights = collect_nums(std::slice::from_ref(&args[1]));
-    if values.is_empty() || values.len() != weights.len() {
+    if args.len() % 2 != 0 {
         return Value::Error(ErrorKind::NA);
     }
-    let total_weight: f64 = weights.iter().sum();
+    let mut weighted_sum = 0.0_f64;
+    let mut total_weight = 0.0_f64;
+    let mut i = 0;
+    while i + 1 < args.len() {
+        let val_arg = &args[i];
+        let wt_arg = &args[i + 1];
+        let vals = collect_nums(std::slice::from_ref(val_arg));
+        let wts = match collect_weights_arg(wt_arg) {
+            Ok(v) => v,
+            Err(e) => return e,
+        };
+        if vals.len() != wts.len() {
+            return Value::Error(ErrorKind::Value);
+        }
+        for &w in &wts {
+            if w < 0.0 {
+                return Value::Error(ErrorKind::Value);
+            }
+        }
+        for (&v, &w) in vals.iter().zip(wts.iter()) {
+            weighted_sum += v * w;
+            total_weight += w;
+        }
+        i += 2;
+    }
     if total_weight == 0.0 {
         return Value::Error(ErrorKind::DivByZero);
     }
-    let weighted_sum: f64 = values.iter().zip(weights.iter()).map(|(v, w)| v * w).sum();
     Value::Number(weighted_sum / total_weight)
+}
+
+fn collect_weights_arg(arg: &Value) -> Result<Vec<f64>, Value> {
+    match arg {
+        Value::Number(n) => Ok(vec![*n]),
+        Value::Date(n) => Ok(vec![*n]),
+        Value::Bool(_) => Err(Value::Error(ErrorKind::Value)),
+        Value::Text(s) => match s.trim().parse::<f64>() {
+            Ok(v) if v.is_finite() => Ok(vec![v]),
+            _ => Err(Value::Error(ErrorKind::Value)),
+        },
+        Value::Empty => Ok(vec![]),
+        Value::Error(e) => Err(Value::Error(*e)),
+        Value::Array(inner) => {
+            let mut out = Vec::new();
+            for item in inner {
+                match item {
+                    Value::Number(n) => out.push(*n),
+                    Value::Date(n) => out.push(*n),
+                    Value::Bool(_) => return Err(Value::Error(ErrorKind::Value)),
+                    Value::Text(_) | Value::Empty => {}
+                    Value::Error(e) => return Err(Value::Error(*e)),
+                    Value::Array(_) => {}
+                }
+            }
+            Ok(out)
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
