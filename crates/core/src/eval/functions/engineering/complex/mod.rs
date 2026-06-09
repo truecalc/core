@@ -493,9 +493,10 @@ pub fn imconjugate_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 1, 1) {
         return err;
     }
+    let suffix = get_suffix(&args[0]);
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
-        Ok(c) => format_complex(Complex::new(c.re, -c.im), 'i'),
+        Ok(c) => format_complex(Complex::new(c.re, -c.im), suffix),
     }
 }
 
@@ -603,11 +604,12 @@ pub fn imexp_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 1, 1) {
         return err;
     }
+    let suffix = get_suffix(&args[0]);
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
         Ok(c) => {
             let scale = c.re.exp();
-            format_complex(Complex::new(scale * c.im.cos(), scale * c.im.sin()), 'i')
+            format_complex(Complex::new(scale * c.im.cos(), scale * c.im.sin()), suffix)
         }
     }
 }
