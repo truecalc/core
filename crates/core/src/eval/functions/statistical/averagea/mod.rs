@@ -1,32 +1,26 @@
 use crate::types::{ErrorKind, Value};
+use super::stat_helpers::collect_nums_a_direct;
 
-/// `AVERAGEA(value1, ...)` — average of all values, coercing booleans (TRUE=1, FALSE=0).
-/// - Numbers included directly.
-/// - Booleans coerced: TRUE=1, FALSE=0.
-/// - Text in direct args → `#VALUE!`.
-/// - Empty → skip.
-/// - No args → `#N/A`.
+/// `AVERAGEA(value1, ...)` — average including booleans and text.
+/// - Numbers/Dates: included at face value.
+/// - Booleans: TRUE=1, FALSE=0 (always, direct and array).
+/// - Direct text that parses as number: coerced to that number.
+/// - Direct text that does NOT parse: treated as 0 (counted).
+/// - Array text: treated as 0 (counted).
+/// - Empty: skipped.
+/// - No args → `#N/A`. No numeric values → `#DIV/0!`.
 pub fn averagea_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);
     }
-    let mut total = 0.0_f64;
-    let mut count = 0usize;
-    for arg in args {
-        let n = match arg {
-            Value::Number(n) => *n,
-            Value::Bool(b)   => if *b { 1.0 } else { 0.0 },
-            Value::Text(_)   => return Value::Error(ErrorKind::Value),
-            Value::Empty     => continue,
-            _                => continue,
-        };
-        total += n;
-        count += 1;
-    }
-    if count == 0 {
+    let nums = match collect_nums_a_direct(args) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
+    if nums.is_empty() {
         return Value::Error(ErrorKind::DivByZero);
     }
-    Value::Number(total / count as f64)
+    Value::Number(nums.iter().sum::<f64>() / nums.len() as f64)
 }
 
 #[cfg(test)]
