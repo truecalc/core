@@ -123,14 +123,8 @@ pub(crate) fn format_oct(n: i64, places: Option<usize>) -> Result<String, ()> {
         n as u64
     };
     let s = format!("{:o}", bits);
+    // GS ignores places for negative numbers (full two's-complement string always returned)
     if n < 0 {
-        // GS ignores places for negative numbers (no zero-padding), but still
-        // returns #NUM! if an explicit places value is smaller than the result.
-        if let Some(p) = places {
-            if p < s.len() {
-                return Err(());
-            }
-        }
         return Ok(s);
     }
     apply_places(s, places, 10)
