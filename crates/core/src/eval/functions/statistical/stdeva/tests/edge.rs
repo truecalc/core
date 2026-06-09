@@ -7,9 +7,7 @@ fn stdeva_true_counts_as_one() {
     let result = stdeva_fn(&[Value::Bool(true), Value::Number(3.0)]);
     if let Value::Number(v) = result {
         assert!((v - 2.0_f64.sqrt()).abs() < 1e-10);
-    } else {
-        panic!("Expected Number, got {:?}", result);
-    }
+    } else { panic!("Expected Number, got {:?}", result); }
 }
 
 #[test]
@@ -18,16 +16,17 @@ fn stdeva_false_counts_as_zero() {
     let result = stdeva_fn(&[Value::Bool(false), Value::Number(2.0)]);
     if let Value::Number(v) = result {
         assert!((v - 2.0_f64.sqrt()).abs() < 1e-10);
-    } else {
-        panic!("Expected Number, got {:?}", result);
-    }
+    } else { panic!("Expected Number, got {:?}", result); }
 }
 
 #[test]
-fn stdeva_text_returns_value_error() {
-    // Literal text as direct arg → #VALUE! (Google Sheets)
+fn stdeva_non_parseable_text_counts_as_zero() {
+    // AVERAGEA semantics: non-parseable text direct arg -> 0.0
+    // [0.0, 4.0]: sample var=8, stdev=sqrt(8)
     let result = stdeva_fn(&[Value::Text("hello".to_string()), Value::Number(4.0)]);
-    assert_eq!(result, Value::Error(crate::types::ErrorKind::Value));
+    if let Value::Number(v) = result {
+        assert!((v - 8.0_f64.sqrt()).abs() < 1e-10);
+    } else { panic!("Expected Number, got {:?}", result); }
 }
 
 #[test]
