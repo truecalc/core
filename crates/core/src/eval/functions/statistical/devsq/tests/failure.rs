@@ -7,10 +7,11 @@ fn devsq_no_args_returns_na() {
 }
 
 #[test]
-fn devsq_no_numeric_values_returns_num_error() {
+fn devsq_non_numeric_text_returns_value_error() {
+    // Direct non-numeric text -> #VALUE! (Google Sheets conformant)
     assert_eq!(
-        devsq_fn(&[Value::Text("a".to_string()), Value::Bool(false)]),
-        Value::Error(ErrorKind::Num)
+        devsq_fn(&[Value::Text("a".to_string()), Value::Number(1.0)]),
+        Value::Error(ErrorKind::Value)
     );
 }
 
