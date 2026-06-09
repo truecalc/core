@@ -39,6 +39,11 @@ pub fn filter_fn(args: &[Value]) -> Value {
         }
     };
 
+    // Length mismatch between array and include -> #N/A (Google Sheets behaviour)
+    if arr_elems.len() != inc_elems.len() {
+        return Value::Error(ErrorKind::NA);
+    }
+
     let mut result: Vec<Value> = Vec::new();
     for (elem, flag) in arr_elems.iter().zip(inc_elems.iter()) {
         if is_truthy(flag) {
@@ -79,17 +84,46 @@ fn compare_sort_values(a: &Value, b: &Value) -> std::cmp::Ordering {
     }
 }
 
-/// `SORTN(array, [n], [display_ties_mode], [sort_column], [is_ascending])` —
-/// returns the top N sorted elements of a 1-D array (or rows of a 2-D array).
+/// `SORTN(array, [n], [display_ties_mode], [sort_column], [is_ascending])` ---
+/// returns the top N rows of a sorted array.
+///
+/// Google Sheets semantics: a flat 1-D row array counts as **one row**, so
+/// `n` limits the number of rows to return, not the number of elements.
+/// With one row any valid `n >= 1` returns that single row unchanged.
+///
+/// Validation:
+/// - `n = 0` or `n < 0`  -> #VALUE!
+/// - `display_ties_mode` outside 0-3 -> #VALUE!
 pub fn sortn_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 1, 5) {
         return err;
     }
 
-    let n_limit: Option<usize> = args.get(1).and_then(|v| match v {
-        Value::Number(n) => Some(*n as usize),
-        _ => None,
-    });
+    // Validate and extract n (must be >= 1 when provided)
+    let n_limit: Option<usize> = if let Some(v) = args.get(1) {
+        match v {
+            Value::Number(n) => {
+                let n_val = *n;
+                if n_val <= 0.0 {
+                    return Value::Error(ErrorKind::Value);
+                }
+                Some(n_val as usize)
+            }
+            _ => None,
+        }
+    } else {
+        None
+    };
+
+    // Validate ties_mode: must be 0, 1, 2, or 3 when provided
+    if let Some(v) = args.get(2) {
+        if let Value::Number(m) = v {
+            let m_int = *m as i64;
+            if !(0..=3).contains(&m_int) {
+                return Value::Error(ErrorKind::Value);
+            }
+        }
+    }
 
     let sort_col = args.get(3).and_then(|v| match v {
         Value::Number(n) => Some(*n as usize),
@@ -117,14 +151,10 @@ pub fn sortn_fn(args: &[Value]) -> Value {
                 let limit = n_limit.unwrap_or(rows.len()).min(rows.len());
                 Value::Array(rows.into_iter().take(limit).collect())
             } else {
-                // 1D: sort elements and take top N
-                let mut elems: Vec<Value> = outer.clone();
-                elems.sort_by(|a, b| {
-                    let cmp = compare_sort_values(a, b);
-                    if ascending { cmp } else { cmp.reverse() }
-                });
-                let limit = n_limit.unwrap_or(elems.len()).min(elems.len());
-                Value::Array(elems.into_iter().take(limit).collect())
+                // 1-D flat row array: treated as a single row by Google Sheets.
+                // SORTN limits rows; with 1 row, any n >= 1 returns the whole row
+                // unchanged (elements within the single row are never rearranged).
+                Value::Array(outer.clone())
             }
         }
         other => other.clone(),

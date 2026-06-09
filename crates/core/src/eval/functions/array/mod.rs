@@ -474,6 +474,13 @@ pub(crate) fn sort_fn(args: &[Value]) -> Value {
         return e;
     }
     let is_1d = matches!(&args[0], Value::Array(outer) if !outer.iter().any(|e| matches!(e, Value::Array(_))));
+
+    // Google Sheets semantics: a flat 1-D row array is treated as a single row.
+    // SORT sorts *rows*; with only one row nothing changes regardless of parameters.
+    if is_1d {
+        return args[0].clone();
+    }
+
     let mut grid = to_2d(&args[0]);
     let sort_col = if args.len() >= 2 {
         match to_f64(&args[1]) {
@@ -493,16 +500,6 @@ pub(crate) fn sort_fn(args: &[Value]) -> Value {
     } else {
         true
     };
-
-    if is_1d {
-        // 1D: sort the elements within the single row
-        let mut elems = grid.into_iter().next().unwrap_or_default();
-        elems.sort_by(|a, b| {
-            let cmp = compare_values_sort(a, b);
-            if ascending { cmp } else { cmp.reverse() }
-        });
-        return Value::Array(elems);
-    }
 
     grid.sort_by(|a, b| {
         let va = a.get(sort_col).unwrap_or(&Value::Empty);
@@ -623,24 +620,11 @@ pub(crate) fn unique_fn(args: &[Value]) -> Value {
     let by_col = args.get(1).map(|v| matches!(v, Value::Bool(true))).unwrap_or(false);
     let exactly_once = args.get(2).map(|v| matches!(v, Value::Bool(true))).unwrap_or(false);
 
-    // For 1D arrays, deduplicate individual elements (not rows)
+    // Google Sheets semantics: a flat 1-D row array is treated as a single row.
+    // UNIQUE with by_col=FALSE deduplicates rows; with only one row, it is
+    // always unique and is returned as-is (regardless of exactly_once).
     if is_1d && !by_col {
-        let elems = flatten_val(&args[0]);
-        let mut seen: Vec<Value> = Vec::new();
-        let mut counts: Vec<usize> = Vec::new();
-        for elem in &elems {
-            if let Some(pos) = seen.iter().position(|s| values_equal_1d(s, elem)) {
-                counts[pos] += 1;
-            } else {
-                seen.push(elem.clone());
-                counts.push(1);
-            }
-        }
-        let result: Vec<Value> = seen.into_iter().zip(counts)
-            .filter(|(_, cnt)| !exactly_once || *cnt == 1)
-            .map(|(v, _)| v)
-            .collect();
-        return Value::Array(result);
+        return args[0].clone();
     }
 
     if by_col {
