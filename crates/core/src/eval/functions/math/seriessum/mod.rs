@@ -26,6 +26,10 @@ pub fn seriessum_fn(args: &[Value]) -> Value {
         Value::Array(elems) => {
             let mut cs = Vec::with_capacity(elems.len());
             for elem in elems {
+                // GS: booleans in array coefficients -> #VALUE!
+                if matches!(elem, Value::Bool(_)) {
+                    return Value::Error(ErrorKind::Value);
+                }
                 match to_number(elem.clone()) {
                     Err(e) => return e,
                     Ok(v) => cs.push(v),

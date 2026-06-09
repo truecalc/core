@@ -1387,6 +1387,18 @@ pub fn makearray_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
 
 // ── Registration ─────────────────────────────────────────────────────────────
 
+
+/// `ARRAYFORMULA(array_formula)` — evaluate an array formula.
+/// In the engine this is a pass-through: the argument is already evaluated in
+/// array context.  The function exists so formulas that wrap an expression in
+/// ARRAYFORMULA parse and evaluate without an #NAME? error.
+pub fn arrayformula_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
+    if args.len() != 1 {
+        return Value::Error(ErrorKind::NA);
+    }
+    evaluate_expr(&args[0], ctx)
+}
+
 pub fn register_array(registry: &mut Registry) {
     registry.register_eager("ROWS", rows_fn, FunctionMeta {
         category: "array",
@@ -1562,6 +1574,11 @@ pub fn register_array(registry: &mut Registry) {
         category: "array",
         signature: "MAKEARRAY(rows, cols, lambda)",
         description: "Creates an array using a LAMBDA for each cell value",
+    });
+    registry.register_lazy("ARRAYFORMULA", arrayformula_lazy_fn, FunctionMeta {
+        category: "array",
+        signature: "ARRAYFORMULA(array_formula)",
+        description: "Evaluates a formula as an array formula",
     });
 }
 

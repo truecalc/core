@@ -38,12 +38,8 @@ pub fn combina_fn(args: &[Value]) -> Value {
     }
     let n_int = n.trunc() as u64;
     let k_int = k.trunc() as u64;
-    // n=0, k>0 -> 0
-    if n_int == 0 && k_int > 0 {
-        return Value::Number(0.0);
-    }
-    // n=0,k=0 or k=0 -> 1
-    if k_int == 0 {
+    // k=0 -> 1; GS special case: n=0,k>0 also returns 1
+    if k_int == 0 || n_int == 0 {
         return Value::Number(1.0);
     }
     // C(n+k-1, k)

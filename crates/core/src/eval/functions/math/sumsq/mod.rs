@@ -9,7 +9,7 @@ pub fn sumsq_fn(args: &[Value]) -> Value {
     }
     let mut sum = 0.0_f64;
     for arg in args {
-        match sumsq_value(arg) {
+        match sumsq_value(arg, false) {
             Err(e) => return e,
             Ok(n) => sum += n,
         }
@@ -22,30 +22,27 @@ pub fn sumsq_fn(args: &[Value]) -> Value {
 
 /// Recursively square-sum a value, flattening arrays.
 /// Non-numeric text and empty values contribute 0.
-fn sumsq_value(v: &Value) -> Result<f64, Value> {
+fn sumsq_value(v: &Value, in_array: bool) -> Result<f64, Value> {
     match v {
         Value::Array(elems) => {
             let mut total = 0.0_f64;
             for elem in elems {
-                total += sumsq_value(elem)?;
+                total += sumsq_value(elem, true)?;
             }
             Ok(total)
         }
         Value::Number(n) => Ok(n * n),
+        Value::Bool(_) if in_array => Ok(0.0), // skipped in array context
         Value::Bool(b) => {
             let n = if *b { 1.0_f64 } else { 0.0_f64 };
             Ok(n * n)
         }
         Value::Empty => Ok(0.0),
+        Value::Text(_) if in_array => Ok(0.0), // skipped in array context
         Value::Text(s) => {
-            if s.is_empty() {
-                Ok(0.0)
-            } else {
-                match s.parse::<f64>() {
-                    Ok(n) => Ok(n * n),
-                    Err(_) => Ok(0.0), // non-numeric text ignored
-                }
-            }
+            // Direct arg: non-numeric text -> #VALUE!
+            if let Ok(n) = s.trim().parse::<f64>() { Ok(n * n) }
+            else { Err(Value::Error(crate::types::ErrorKind::Value)) }
         }
         Value::Error(_) => Err(v.clone()),
         Value::Date(n) => Ok(n * n),

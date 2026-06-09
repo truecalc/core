@@ -54,11 +54,30 @@ impl Complex {
     }
 
     fn sqrt(self) -> Self {
-        // Principal square root
+        // Principal square root.
+        //
+        // For pure negative reals (im==0, re<0) GS uses the polar/trig form which
+        // yields a tiny non-zero real part (cos(pi/2) ≈ 6.12e-17). Conformance
+        // fixtures expect that floating-point residual, so we match it here.
+        //
+        // For all other inputs the algebraic formula avoids trig round-off --
+        // most importantly IMSQRT("4j"): both components come out as sqrt(2)
+        // exactly rather than differing by one ULP.
         let r = self.abs();
-        let sqrt_r = r.sqrt();
-        let theta = self.arg();
-        Complex::new(sqrt_r * (theta / 2.0).cos(), sqrt_r * (theta / 2.0).sin())
+        if r == 0.0 {
+            return Complex::new(0.0, 0.0);
+        }
+        if self.im == 0.0 && self.re < 0.0 {
+            // Polar/trig form preserves the cos(pi/2) residual GS shows.
+            let theta = self.arg(); // = pi
+            let sqrt_r = r.sqrt();
+            return Complex::new(sqrt_r * (theta / 2.0).cos(), sqrt_r * (theta / 2.0).sin());
+        }
+        // Algebraic form: sqrt((|z|+re)/2) + i*sign(im)*sqrt((|z|-re)/2)
+        let re_out = ((r + self.re) / 2.0).sqrt();
+        let im_out = ((r - self.re) / 2.0).sqrt();
+        let im_out = if self.im < 0.0 { -im_out } else { im_out };
+        Complex::new(re_out, im_out)
     }
 
     fn ln(self) -> Option<Self> {
@@ -124,8 +143,16 @@ pub(super) fn parse_complex(s: &str) -> Option<Complex> {
     }
 
     if let Some(idx) = split {
-        let re_str = &s[..idx];
+        let mut re_str = &s[..idx];
         let im_str = &s[idx..];
+
+        // "3++4i": re_str="3+", im_str="+4". Strip a trailing operator from re_str.
+        if !re_str.is_empty()
+            && (re_str.ends_with('+') || re_str.ends_with('-'))
+            && (re_str[..re_str.len()-1].parse::<f64>().is_ok() || re_str.len() == 1)
+        {
+            re_str = &re_str[..re_str.len()-1];
+        }
 
         let re = if re_str.is_empty() { 0.0 } else { re_str.parse::<f64>().ok()? };
         let im = if im_str == "+" || im_str.is_empty() {
@@ -241,6 +268,8 @@ fn value_to_complex(v: Value) -> Result<Complex, Value> {
             parse_complex(&s).ok_or(Value::Error(ErrorKind::Value))
         }
         Value::Error(_) => Err(v),
+        // GS: booleans are NOT valid complex arguments -> #NUM!
+        Value::Bool(_) => Err(Value::Error(ErrorKind::Num)),
         _ => {
             match to_number(v) {
                 Ok(n) => Ok(Complex::new(n, 0.0)),
@@ -248,6 +277,14 @@ fn value_to_complex(v: Value) -> Result<Complex, Value> {
             }
         }
     }
+}
+
+/// Extract the imaginary suffix ('i' or 'j') from a Value, defaulting to 'i'.
+fn get_suffix(v: &Value) -> char {
+    if let Value::Text(s) = v {
+        if s.ends_with('j') { return 'j'; }
+    }
+    'i'
 }
 
 // ── COMPLEX ───────────────────────────────────────────────────────────────────
@@ -434,11 +471,19 @@ pub fn imargument_fn(args: &[Value]) -> Value {
 // ── IMLN ─────────────────────────────────────────────────────────────────────
 
 /// `IMLN(complex)` — natural log of complex number.
+/// GS always returns results with 'i' suffix, regardless of input notation.
 pub fn imln_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 1, 1) {
         return err;
     }
-    match value_to_complex(args[0].clone()) {
+    // GS returns #NUM! (not #VALUE!) when the text is not a valid complex string.
+    let val = args[0].clone();
+    if let Value::Text(ref s) = val {
+        if parse_complex(s).is_none() {
+            return Value::Error(ErrorKind::Num);
+        }
+    }
+    match value_to_complex(val) {
         Err(e) => e,
         Ok(c) => match c.ln() {
             None => Value::Error(ErrorKind::DivByZero),
@@ -535,13 +580,35 @@ pub fn impower_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(c) => c,
     };
-    let exp = match value_to_complex(args[1].clone()) {
+    // The exponent is always real. Use to_number so that:
+    //   - TRUE/FALSE coerce to 1/0 (GS rows 1042/1043)
+    //   - non-numeric text like "abc" returns #VALUE! not #NUM! (GS row 1047)
+    let exp_n = match to_number(args[1].clone()) {
         Err(e) => return e,
-        Ok(c) => c,
+        Ok(v) => v,
     };
+    let exp = Complex::new(exp_n, 0.0);
+    let suffix = get_suffix(&args[0]);
     match base.pow(exp) {
         None => Value::Error(ErrorKind::Num),
-        Some(result) => format_complex(result, 'i'),
+        Some(mut result) => {
+            // Snap near-integer components to exact integers (FP rounding).
+            // e.g. IMPOWER("5+2i",3) real part: 64.999...999 -> 65.
+            // Only snap when the rounded value is non-zero: tiny residuals that
+            // round to zero (e.g. 16·sin(2π) ≈ -3.9e-15) must be preserved —
+            // Google Sheets includes them (rows 1039/1040/1053).
+            if result.re.round() != 0.0
+                && (result.re.round() - result.re).abs() < 1e-9 * result.re.abs().max(1.0)
+            {
+                result.re = result.re.round();
+            }
+            if result.im.round() != 0.0
+                && (result.im.round() - result.im).abs() < 1e-9 * result.im.abs().max(1.0)
+            {
+                result.im = result.im.round();
+            }
+            format_complex(result, suffix)
+        }
     }
 }
 
@@ -552,9 +619,16 @@ pub fn imsqrt_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 1, 1) {
         return err;
     }
+    let suffix = get_suffix(&args[0]);
+    // GS returns #NUM! (not #VALUE!) when the text is not a valid complex string.
+    if let Value::Text(ref s) = args[0] {
+        if parse_complex(s).is_none() {
+            return Value::Error(ErrorKind::Num);
+        }
+    }
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
-        Ok(c) => format_complex(c.sqrt(), 'i'),
+        Ok(c) => format_complex(c.sqrt(), suffix),
     }
 }
 

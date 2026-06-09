@@ -32,7 +32,7 @@ fn count_nonempty(v: &Value) -> usize {
 /// function_code 5 (or 105): MIN
 /// function_code 9 (or 109): SUM
 pub fn subtotal_fn(args: &[Value]) -> Value {
-    if let Some(err) = check_arity(args, 2, 255) {
+    if let Some(err) = check_arity(args, 1, 255) {
         return err;
     }
 
@@ -45,6 +45,10 @@ pub fn subtotal_fn(args: &[Value]) -> Value {
     let func = code % 100;
 
     let rest = &args[1..];
+    // GS: no range args -> 0
+    if rest.is_empty() {
+        return Value::Number(0.0);
+    }
     // GS returns #VALUE! when range arguments are inline array literals.
     if rest.iter().any(|a| matches!(a, Value::Array(_))) {
         return Value::Error(ErrorKind::Value);

@@ -76,8 +76,27 @@ fn parse_criterion_str(s: &str) -> Criterion {
         return Criterion::TextEq(s.to_lowercase());
     }
 
-    // No operator prefix: check for wildcards.
-    if rest.contains('*') || rest.contains('?') {
+    // No operator prefix: check for wildcards or tilde escapes.
+    // A tilde-escaped pattern also needs wildcard_match so that ~ is decoded
+    // (e.g. "a~?b" should match the literal text "a?b").
+    let has_wildcard_or_tilde = {
+        let chars: Vec<char> = rest.chars().collect();
+        let mut found = false;
+        let mut i = 0;
+        while i < chars.len() {
+            if chars[i] == '~' {
+                found = true; // tilde escape -> route through wildcard_match
+                break;
+            } else if chars[i] == '*' || chars[i] == '?' {
+                found = true;
+                break;
+            } else {
+                i += 1;
+            }
+        }
+        found
+    };
+    if has_wildcard_or_tilde {
         return Criterion::WildcardEq(rest.to_lowercase().chars().collect());
     }
 
@@ -144,6 +163,16 @@ fn wildcard_match(pattern: &[char], text: &[char]) -> bool {
             false
         }
         (Some(_), None) => false,
+        (Some('~'), _) => {
+            // Tilde escape: next char is literal (must match exactly)
+            if pattern.len() < 2 {
+                return false;
+            }
+            match text.first() {
+                Some(t) if *t == pattern[1] => wildcard_match(&pattern[2..], &text[1..]),
+                _ => false,
+            }
+        }
         (Some(p), Some(t)) => {
             if *p == '?' || *p == *t {
                 wildcard_match(&pattern[1..], &text[1..])

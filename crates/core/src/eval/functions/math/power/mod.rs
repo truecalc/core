@@ -14,7 +14,22 @@ pub fn power_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(v) => v,
     };
-    let result = base.powf(exp);
+    // GS: POWER(-8, 1/3) = -2.0 (real odd-root for negative base)
+    // When base < 0 and exp is rational p/q with q odd, use real root.
+    let result = if base < 0.0 && exp.fract() != 0.0 {
+        // Check if 1/exp is close to an odd integer -> odd root
+        let inv = 1.0 / exp;
+        let inv_round = inv.round();
+        if (inv - inv_round).abs() < 1e-9 && (inv_round.abs() as i64) % 2 == 1 {
+            let mag = base.abs().powf(exp);
+            -mag
+        } else {
+            // non-real result -> #NUM!
+            return Value::Error(ErrorKind::Num);
+        }
+    } else {
+        base.powf(exp)
+    };
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);
     }

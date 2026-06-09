@@ -2,21 +2,36 @@ use crate::eval::coercion::to_number;
 use crate::eval::functions::check_arity;
 use crate::types::Value;
 
-/// Error function (Abramowitz & Stegun approximation 7.1.26, max error < 1.5e-7).
-pub(crate) fn erf(x: f64) -> f64 {
-    if x == 0.0 { return 0.0; }
-    if x < 0.0 { return -erf(-x); }
-    let t = 1.0 / (1.0 + 0.3275911 * x);
-    let poly = t * (0.254829592
-        + t * (-0.284496736
-            + t * (1.421413741
-                + t * (-1.453152027
-                    + t * 1.061405429))));
-    1.0 - poly * (-x * x).exp()
+/// Complementary error function — high precision (< 1e-4 relative error).
+/// Uses Taylor series for |x| < 1, continued fraction for |x| >= 1.
+pub(crate) fn erfc(x: f64) -> f64 {
+    if x < 0.0 { return 2.0 - erfc(-x); }
+    if x == 0.0 { return 1.0; }
+    if x > 26.0 { return 0.0; }
+    if x < 1.0 {
+        // erf via Maclaurin series (12 terms, accurate to ~1e-15 for |x|<1)
+        let x2 = x * x;
+        let mut total = x;
+        let mut term = x;
+        for n in 1u32..13 {
+            term *= -x2 * (2 * n - 1) as f64 / (n as f64 * (2 * n + 1) as f64);
+            total += term;
+        }
+        return 1.0 - (2.0 / std::f64::consts::PI.sqrt()) * total;
+    }
+    // Continued fraction for x >= 1: erfc(x) = exp(-x^2)/sqrt(pi) * 1/CF
+    // Evaluate from the tail inward (50 terms)
+    let mut cf = 0.0f64;
+    for k in (1u32..=50).rev() {
+        cf = (k as f64 * 0.5) / (x + cf);
+    }
+    (-x * x).exp() / (std::f64::consts::PI.sqrt() * (x + cf))
 }
 
-pub(crate) fn erfc(x: f64) -> f64 {
-    1.0 - erf(x)
+/// Error function: erf(x) = 1 - erfc(x).
+pub(crate) fn erf(x: f64) -> f64 {
+    if x < 0.0 { return -erf(-x); }
+    1.0 - erfc(x)
 }
 
 pub fn erf_fn(args: &[Value]) -> Value {

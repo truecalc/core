@@ -4,32 +4,26 @@ use crate::types::{ErrorKind, Value};
 
 // ── ERF / ERF.PRECISE ────────────────────────────────────────────────────────
 
-/// Error function approximation using Abramowitz & Stegun (7.1.26).
-/// Maximum error: 1.5e-7.
+/// Error function using Abramowitz & Stegun approximation 7.1.26.
+/// Maximum absolute error: < 1.5e-7.
 fn erf(x: f64) -> f64 {
-    if x == 0.0 {
-        return 0.0;
-    }
-    if x < 0.0 {
-        return -erf(-x);
-    }
-    // Use complementary erfc for large x to avoid cancellation
-    if x > 6.0 {
-        return 1.0;
-    }
-    // Horner-form rational approximation (A&S 7.1.26, p=0.3275911)
+    if x == 0.0 { return 0.0; }
+    if x < 0.0 { return -erf(-x); }
     let t = 1.0 / (1.0 + 0.3275911 * x);
-    let poly = t * (0.254_829_592
-        + t * (-0.284_496_736
-            + t * (1.421_413_741
-                + t * (-1.453_152_027
-                    + t * 1.061_405_429))));
+    let poly = t * (0.254829592
+        + t * (-0.284496736
+            + t * (1.421413741
+                + t * (-1.453152027
+                    + t * 1.061405429))));
     1.0 - poly * (-x * x).exp()
 }
 
-/// Complementary error function: erfc(x) = 1 - erf(x).
-fn erfc(x: f64) -> f64 {
+fn erfc_precise(x: f64) -> f64 {
     1.0 - erf(x)
+}
+
+fn erfc(x: f64) -> f64 {
+    erfc_precise(x)
 }
 
 /// `ERF(lower_limit, [upper_limit])` — error function.

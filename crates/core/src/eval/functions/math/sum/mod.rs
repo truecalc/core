@@ -32,7 +32,12 @@ pub fn sum_fn(args: &[Value]) -> Value {
 fn sum_top_level(v: &Value) -> Result<f64, Value> {
     match v {
         Value::Array(_) => sum_array_value(v),
-        // Direct non-array arg: full to_number coercion (Bool → 0/1, Text → parsed)
+        // GS: direct text that cannot parse as number -> #VALUE!
+        Value::Text(s) => {
+            s.trim().parse::<f64>()
+                .map_err(|_| Value::Error(crate::types::ErrorKind::Value))
+        }
+        // Direct non-array arg: full to_number coercion (Bool -> 0/1)
         other => to_number(other.clone()),
     }
 }

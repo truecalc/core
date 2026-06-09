@@ -26,7 +26,14 @@ pub fn log_fn(args: &[Value]) -> Value {
             // log base 1 = ln(x)/ln(1) = ln(x)/0 → #DIV/0!
             return Value::Error(ErrorKind::DivByZero);
         }
-        n.log(base)
+        // Use dedicated methods to avoid FP round-trip errors (LOG(1000,10) must be 3.0).
+        if (base - 10.0).abs() < f64::EPSILON {
+            n.log10()
+        } else if (base - std::f64::consts::E).abs() < f64::EPSILON {
+            n.ln()
+        } else {
+            n.log(base)
+        }
     } else {
         n.log10()
     };
