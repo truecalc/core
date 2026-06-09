@@ -588,8 +588,7 @@ fn every_registered_function_has_conformance_coverage() {
         .copied()
         .collect();
     let context_limited: std::collections::HashSet<&str> = [
-        "INDIRECT", "OFFSET", "FORMULATEXT", "GETPIVOTDATA", "ISFORMULA", "CELL",
-        "SHEET", "SHEETS",
+        "OFFSET", "FORMULATEXT", "GETPIVOTDATA",
     ]
     .iter()
     .copied()
