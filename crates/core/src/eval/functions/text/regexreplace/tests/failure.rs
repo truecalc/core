@@ -24,7 +24,7 @@ fn too_many_args_returns_na() {
 }
 
 #[test]
-fn invalid_pattern_returns_value_error() {
+fn invalid_pattern_returns_ref_error() {
     assert_eq!(
         regexreplace_fn(&[
             Value::Text("hello".into()),

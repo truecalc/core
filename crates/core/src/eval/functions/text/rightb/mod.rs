@@ -38,8 +38,8 @@ pub fn rightb_fn(args: &[Value]) -> Value {
             break;
         }
         if pos < skip && pos + w > skip {
-            // skip falls inside this char: snap forward to next char
-            char_start = i + 1;
+            // skip lands inside this char: snap back to include it (GS behaviour)
+            char_start = i;
             break;
         }
         pos += w;

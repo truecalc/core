@@ -25,15 +25,15 @@ pub fn leftb_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::Value);
     }
     let budget = n as usize;
+    // Include chars until budget is exhausted; if a char would only partially
+    // fit (used < budget but used + w > budget), snap UP and include it.
     let mut used = 0usize;
     let result: String = text.chars().take_while(|&c| {
-        let w = dbcs_char_width(c);
-        if used + w <= budget {
-            used += w;
-            true
-        } else {
-            false
+        if used >= budget {
+            return false;
         }
+        used += dbcs_char_width(c);
+        true
     }).collect();
     Value::Text(result)
 }

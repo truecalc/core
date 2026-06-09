@@ -22,6 +22,11 @@ fn format_with_commas(int_part: u64) -> String {
 
 /// Apply a format string to a number value, returning the formatted string.
 fn apply_format(n: f64, fmt: &str) -> String {
+    // GS: asterisk fill formats (*<char>) are not supported; return "0"
+    if fmt.starts_with('*') {
+        return "0".to_string();
+    }
+
     // ── Percentage format: ends with '%' ─────────────────────────────────────
     if let Some(pct_fmt) = fmt.strip_suffix('%') {
         let pct_val = n * 100.0;
@@ -162,45 +167,122 @@ fn apply_format(n: f64, fmt: &str) -> String {
         }
     }
 
-    // ── Comma + decimal format: e.g. "$#,##0.00", "#,##0.00", "#,##0" ───────
-    let has_comma = fmt.contains(',');
+    // ── Number format: handles prefix, commas, #/0/? digit tokens ─────────────
+    // Extract optional leading prefix (anything before the first digit token or comma)
+    let digit_token = |c: char| c == '#' || c == '0' || c == '?';
+    let prefix_end = fmt.char_indices()
+        .find(|&(_, c)| digit_token(c) || c == ',')
+        .map(|(i, _)| i)
+        .unwrap_or(fmt.len());
+    let prefix = &fmt[..prefix_end];
+    let rest = &fmt[prefix_end..];
+
+    let has_comma = rest.contains(',');
     let negative = n < 0.0;
     let abs_n = n.abs();
 
-    if has_comma {
-        // Extract any currency prefix (characters before the first '#' or '0')
-        let prefix: String = fmt.chars().take_while(|c| *c != '#' && *c != '0').collect();
+    // Split rest into integer and fractional format parts
+    let (int_fmt, frac_fmt) = if let Some(dot_pos) = rest.find('.') {
+        (&rest[..dot_pos], &rest[dot_pos + 1..])
+    } else {
+        (rest, "")
+    };
 
-        if let Some(dot_pos) = fmt.find('.') {
-            let decimal_part = &fmt[dot_pos + 1..];
-            if decimal_part.chars().all(|c| c == '0' || c == '#') {
-                let places = decimal_part.len();
-                let scale = 10f64.powi(places as i32);
-                let rounded = (abs_n * scale).round() / scale;
-                let int_part = rounded as u64;
-                let frac = rounded - int_part as f64;
-                let frac_digits = (frac * scale).round() as u64;
-                let int_str = format_with_commas(int_part);
-                let result = format!("{}{}.{:0>width$}", prefix, int_str, frac_digits, width = places);
-                return if negative { format!("-{}", result) } else { result };
-            }
+    // Strip commas from int_fmt to get the actual digit pattern
+    let int_pattern: String = int_fmt.chars().filter(|c| *c != ',').collect();
+
+    // Only proceed if all remaining chars are digit tokens
+    let valid_int = int_pattern.chars().all(|c| c == '#' || c == '0' || c == '?');
+    let valid_frac = frac_fmt.chars().all(|c| c == '#' || c == '0' || c == '?');
+
+    if valid_int && valid_frac {
+        // Count minimum integer digits (number of '0' tokens)
+        let min_int_digits = int_pattern.chars().filter(|&c| c == '0').count().max(1);
+        let total_int_tokens = int_pattern.len();
+
+        // Count fractional tokens
+        let frac_len = frac_fmt.len();
+        let frac_places_needed = frac_fmt.chars().filter(|&c| c == '0').count();
+        // Max decimal places = all tokens; trailing # suppress trailing zeros
+        let max_frac_places = frac_len;
+
+        // Round to max_frac_places
+        let scale = 10f64.powi(max_frac_places as i32);
+        let rounded = (abs_n * scale).round() / scale;
+        let int_part = rounded.trunc() as u64;
+        let frac_val = rounded - int_part as f64;
+
+        // Format integer part with minimum digits
+        let int_str_raw = format!("{:0>width$}", int_part, width = min_int_digits);
+        // Suppress leading chars beyond total tokens if all are '#'
+        // (GS: leading # means suppress if zero)
+        let int_str = if total_int_tokens > min_int_digits && int_str_raw.len() < total_int_tokens {
+            int_str_raw.clone()
         } else {
-            // No decimal point — just comma grouping
-            let int_part = abs_n.round() as u64;
-            let result = format!("{}{}", prefix, format_with_commas(int_part));
-            return if negative { format!("-{}", result) } else { result };
-        }
-    }
+            int_str_raw
+        };
 
-    // ── Simple decimal-only format: "0.00", "#.##" etc. ──────────────────────
-    if let Some(dot_pos) = fmt.find('.') {
-        let decimal_part = &fmt[dot_pos + 1..];
-        if decimal_part.chars().all(|c| c == '0' || c == '#') {
-            let places = decimal_part.len();
-            return format!("{:.prec$}", n, prec = places);
-        }
-    } else if fmt.chars().all(|c| c == '0' || c == '#') {
-        return format!("{:.0}", n);
+        // Apply comma grouping if needed
+        let int_formatted = if has_comma {
+            // insert commas in int_str
+            let s = &int_str;
+            let len = s.len();
+            let mut r = String::with_capacity(len + len / 3);
+            for (i, c) in s.chars().enumerate() {
+                if i > 0 && (len - i).is_multiple_of(3) {
+                    r.push(',');
+                }
+                r.push(c);
+            }
+            r
+        } else {
+            int_str.clone()
+        };
+
+        // Format fractional part
+        let frac_str = if max_frac_places == 0 {
+            String::new()
+        } else {
+            let frac_digits = (frac_val * scale).round() as u64;
+            let full = format!("{:0>width$}", frac_digits, width = max_frac_places);
+            // Apply per-token rules: # = suppress trailing zeros, ? = space-pad, 0 = keep
+            let chars: Vec<char> = full.chars().collect();
+            let tokens: Vec<char> = frac_fmt.chars().collect();
+            // Find last non-suppressible position (# suppresses trailing zeros)
+            let keep_up_to = {
+                let mut last_keep = 0usize;
+                for (i, &tok) in tokens.iter().enumerate() {
+                    if tok == '0' || tok == '?' {
+                        last_keep = i + 1; // must include at least up to here
+                    } else if tok == '#' && chars[i] != '0' {
+                        last_keep = i + 1; // # includes if non-zero
+                    }
+                }
+                last_keep
+            };
+            let mut frac_out = String::new();
+            for (i, &tok) in tokens.iter().enumerate() {
+                if i < keep_up_to {
+                    if tok == '?' && chars[i] == '0' && i >= frac_places_needed {
+                        frac_out.push(' '); // ? pads with space instead of zero when trailing
+                    } else {
+                        frac_out.push(chars[i]);
+                    }
+                } else if tok == '?' {
+                    frac_out.push(' ');
+                }
+                // '#' beyond keep_up_to: omit
+            }
+            frac_out
+        };
+
+        let number_str = if frac_str.is_empty() {
+            format!("{}{}", prefix, int_formatted)
+        } else {
+            format!("{}{}.{}", prefix, int_formatted, frac_str)
+        };
+
+        return if negative { format!("-{}", number_str) } else { number_str };
     }
 
     // ── Fallback ─────────────────────────────────────────────────────────────
@@ -224,6 +306,10 @@ pub fn text_fn(args: &[Value]) -> Value {
     // Preserve the original value for date detection
     let raw = args[0].clone();
     let is_date = matches!(raw, Value::Date(_));
+    // GS: boolean input is NOT coerced to a number; it is returned as "TRUE" or "FALSE".
+    if let Value::Bool(b) = raw {
+        return Value::Text(if b { "TRUE".to_string() } else { "FALSE".to_string() });
+    }
     let n = match &raw {
         Value::Date(d) => *d,
         Value::Number(n) => *n,

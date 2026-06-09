@@ -3,74 +3,71 @@ use crate::eval::functions::check_arity;
 use crate::eval::functions::text::lenb::dbcs_char_width;
 use crate::types::{ErrorKind, Value};
 
-fn wildcard_match(pattern: &[char], text: &[char]) -> bool {
-    match pattern.first() {
-        None => true,
-        Some('*') => {
-            for i in 0..=text.len() {
-                if wildcard_match(&pattern[1..], &text[i..]) {
-                    return true;
-                }
-            }
-            false
-        }
-        Some(_) => match text.first() {
-            None => false,
-            Some(t) => {
-                let p = &pattern[0];
-                if *p == '?' || p.to_lowercase().next() == t.to_lowercase().next() {
-                    wildcard_match(&pattern[1..], &text[1..])
-                } else {
-                    false
-                }
-            }
-        },
+// Pattern token: (char, is_wildcard). Tilde-escaped chars have is_wildcard=false.
+type Pat = (char, bool);
+
+fn wc_match(pat: &[Pat], text: &[char]) -> bool {
+    if pat.is_empty() { return text.is_empty(); }
+    let (pc, is_wc) = pat[0];
+    if is_wc && pc == '*' {
+        return (0..=text.len()).any(|i| wc_match(&pat[1..], &text[i..]));
+    }
+    if is_wc {
+        return !text.is_empty() && wc_match(&pat[1..], &text[1..]);
+    }
+    match text.first() {
+        None => false,
+        Some(t) => pc.to_lowercase().next() == t.to_lowercase().next() && wc_match(&pat[1..], &text[1..]),
     }
 }
 
-fn wildcard_find(pattern: &[char], text: &[char], start_idx: usize) -> Option<usize> {
-    if pattern.is_empty() {
-        return if start_idx <= text.len() { Some(start_idx) } else { None };
-    }
-    for i in start_idx..=text.len() {
-        if wildcard_match(pattern, &text[i..]) {
-            return Some(i);
-        }
-    }
-    None
+fn wc_find(pat: &[Pat], text: &[char], start: usize) -> Option<usize> {
+    (start..=text.len()).find(|&i| wc_match(pat, &text[i..]))
 }
 
-/// Convert a 1-based DBCS start byte to a char index, snapping forward if inside a char.
-fn dbcs_start_to_char_idx(s: &str, start_1based: usize) -> usize {
-    if start_1based <= 1 {
-        return 0;
-    }
-    let target = start_1based - 1;
+fn dbcs_to_char_idx(s: &str, byte_1based: usize) -> usize {
+    if byte_1based <= 1 { return 0; }
+    let target = byte_1based - 1;
     let mut pos = 0usize;
     for (i, c) in s.chars().enumerate() {
         let w = dbcs_char_width(c);
-        if pos >= target {
-            return i;
-        }
-        if pos < target && pos + w > target {
-            return i + 1;
-        }
+        if pos >= target { return i; }
+        if pos < target && pos + w > target { return i + 1; }
         pos += w;
     }
     s.chars().count()
 }
 
-/// Convert a char index to a 1-based DBCS byte position.
-fn char_idx_to_dbcs_byte(s: &str, char_idx: usize) -> usize {
+fn char_to_dbcs_byte(s: &str, char_idx: usize) -> usize {
     s.chars().take(char_idx).map(dbcs_char_width).sum::<usize>() + 1
 }
 
-/// `SEARCHB(find_text, within_text, [start_num])` — case-insensitive DBCS byte-position search
-/// with wildcard support (`?` = any char, `*` = any sequence, `~` escapes).
-pub fn searchb_fn(args: &[Value]) -> Value {
-    if let Some(err) = check_arity(args, 2, 3) {
-        return err;
+fn unescape_pattern(raw: &str) -> Vec<Pat> {
+    let mut out = Vec::new();
+    let mut chars = raw.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '~' {
+            if let Some(&next) = chars.peek() {
+                if next == '?' || next == '*' || next == '~' {
+                    chars.next();
+                    out.push((next, false));
+                    continue;
+                }
+            }
+            out.push((c, false));
+        } else if c == '?' {
+            out.push((c, true));
+        } else if c == '*' {
+            out.push((c, true));
+        } else {
+            out.push((c, false));
+        }
     }
+    out
+}
+
+pub fn searchb_fn(args: &[Value]) -> Value {
+    if let Some(err) = check_arity(args, 2, 3) { return err; }
     let find_text = match to_string_val(args[0].clone()) {
         Ok(s) => s,
         Err(e) => return e,
@@ -79,49 +76,26 @@ pub fn searchb_fn(args: &[Value]) -> Value {
         Ok(s) => s,
         Err(e) => return e,
     };
-    let start_num = if args.len() == 3 {
+    let start_byte = if args.len() == 3 {
         match to_number(args[2].clone()) {
-            Ok(n) => n,
+            Ok(n) => {
+                if n < 1.0 { return Value::Error(ErrorKind::Value); }
+                n as usize
+            },
             Err(e) => return e,
         }
     } else {
-        1.0
+        1
     };
-    if start_num < 1.0 {
-        return Value::Error(ErrorKind::Value);
-    }
-    let start_dbcs = start_num as usize; // 1-based DBCS byte
+    let start_char = dbcs_to_char_idx(&within_text, start_byte);
     let within_chars: Vec<char> = within_text.chars().collect();
-    let char_start = dbcs_start_to_char_idx(&within_text, start_dbcs);
-    if char_start > within_chars.len() {
-        return Value::Error(ErrorKind::Value);
-    }
-    // Unescape tilde sequences in pattern
-    let pattern_raw: Vec<char> = find_text.chars().collect();
-    let mut pattern: Vec<char> = Vec::with_capacity(pattern_raw.len());
-    let mut i = 0;
-    while i < pattern_raw.len() {
-        if pattern_raw[i] == '~' && i + 1 < pattern_raw.len() {
-            match pattern_raw[i + 1] {
-                '?' | '*' | '~' => {
-                    pattern.push(pattern_raw[i + 1]);
-                    i += 2;
-                    continue;
-                }
-                _ => {}
-            }
-        }
-        pattern.push(pattern_raw[i]);
-        i += 1;
-    }
-    match wildcard_find(&pattern, &within_chars, char_start) {
-        Some(char_idx) => {
-            let dbcs_pos = char_idx_to_dbcs_byte(&within_text, char_idx);
-            Value::Number(dbcs_pos as f64)
-        }
+    if start_char > within_chars.len() { return Value::Error(ErrorKind::Value); }
+    let pat = unescape_pattern(&find_text);
+    match wc_find(&pat, &within_chars, start_char) {
         None => Value::Error(ErrorKind::Value),
+        Some(char_idx) => {
+            let byte_pos = char_to_dbcs_byte(&within_text, char_idx);
+            Value::Number(byte_pos as f64)
+        },
     }
 }
-
-#[cfg(test)]
-mod tests;

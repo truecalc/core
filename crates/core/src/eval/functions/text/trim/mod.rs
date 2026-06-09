@@ -11,7 +11,13 @@ pub fn trim_fn(args: &[Value]) -> Value {
         Ok(s) => s,
         Err(e) => return e,
     };
-    let result = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    // GS TRIM only strips/collapses ASCII space (U+0020).
+    // Non-breaking space (U+00A0) and other Unicode whitespace are preserved.
+    let result: String = text
+        .split(' ')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
     Value::Text(result)
 }
 

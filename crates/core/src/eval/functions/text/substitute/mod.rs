@@ -22,7 +22,11 @@ pub fn substitute_fn(args: &[Value]) -> Value {
     };
     let instance_num = if args.len() == 4 {
         match to_number(args[3].clone()) {
-            Ok(n) => Some(n as usize),
+            Ok(n) => {
+                let i = n as i64;
+                if i < 0 { return Value::Error(ErrorKind::Value); }
+                if i == 0 { None } else { Some(i as usize) }
+            },
             Err(e) => return e,
         }
     } else {
@@ -36,9 +40,6 @@ pub fn substitute_fn(args: &[Value]) -> Value {
     match instance_num {
         None => Value::Text(text.replace(&old_text, &new_text)),
         Some(target) => {
-            if target == 0 {
-                return Value::Error(ErrorKind::Value);
-            }
             // Count overlapping occurrences: advance one char at a time.
             let chars: Vec<char> = text.chars().collect();
             let old_chars: Vec<char> = old_text.chars().collect();

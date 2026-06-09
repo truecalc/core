@@ -27,7 +27,37 @@ pub fn regexreplace_fn(args: &[Value]) -> Value {
         Ok(r) => r,
         Err(_) => return Value::Error(ErrorKind::Ref),
     };
-    Value::Text(re.replace_all(&text, replacement.as_str()).into_owned())
+    // GS behaviour: after a non-empty match, skip any zero-length match at the
+    // same position so that e.g. REGEXREPLACE("hello",".*","world") -> "world"
+    // (not "worldworld" which regex_lite::replace_all would produce).
+    let text_bytes = text.as_bytes();
+    let mut result = String::new();
+    let mut last_end = 0usize;
+    let mut prev_match_end: Option<usize> = None;
+    for m in re.find_iter(&text) {
+        // Skip a zero-length match at the same byte offset as the previous match end
+        if m.start() == m.end() {
+            if let Some(prev) = prev_match_end {
+                if m.start() == prev {
+                    continue;
+                }
+            }
+        }
+        result.push_str(&text[last_end..m.start()]);
+        result.push_str(&replacement);
+        last_end = m.end();
+        prev_match_end = Some(m.end());
+        // After a zero-length match, advance by one byte to avoid infinite loop
+        if m.start() == m.end() {
+            if last_end < text_bytes.len() {
+                result.push(text_bytes[last_end] as char);
+                last_end += 1;
+            }
+        }
+    }
+    result.push_str(&text[last_end..]);
+    let _ = text_bytes; // suppress unused warning
+    Value::Text(result)
 }
 
 #[cfg(test)]
