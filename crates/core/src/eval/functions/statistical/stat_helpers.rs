@@ -58,7 +58,7 @@ pub fn collect_nums_direct(args: &[Value]) -> Result<Vec<f64>, Value> {
                 // Array context: skip non-numeric silently
                 collect_nums_into(inner, &mut nums);
             }
-            Value::Error(e) => return Err(Value::Error(*e)),
+            Value::Error(e) => return Err(Value::Error(e.clone())),
         }
     }
     Ok(nums)
@@ -99,7 +99,7 @@ pub fn collect_nums_a_direct(args: &[Value]) -> Result<Vec<f64>, Value> {
                 // Array context: bools coerce, text→0
                 collect_nums_a_into(inner, &mut nums);
             }
-            Value::Error(e) => return Err(Value::Error(*e)),
+            Value::Error(e) => return Err(Value::Error(e.clone())),
         }
     }
     Ok(nums)
