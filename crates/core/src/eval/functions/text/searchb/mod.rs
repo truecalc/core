@@ -72,9 +72,7 @@ fn unescape_pattern(raw: &str) -> Vec<Pat> {
                 }
             }
             out.push((c, false));
-        } else if c == '?' {
-            out.push((c, true));
-        } else if c == '*' {
+        } else if c == '?' || c == '*' {
             out.push((c, true));
         } else {
             out.push((c, false));

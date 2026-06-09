@@ -26,7 +26,7 @@ pub fn rightb_fn(args: &[Value]) -> Value {
     }
     let budget = n as usize;
     let total = dbcs_len(&text);
-    let skip = if budget >= total { 0 } else { total - budget };
+    let skip = total.saturating_sub(budget);
     // Walk forward snapping to char boundary if skip lands inside a char.
     let chars: Vec<char> = text.chars().collect();
     let mut pos = 0usize;

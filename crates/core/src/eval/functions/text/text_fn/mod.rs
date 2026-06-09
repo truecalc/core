@@ -5,21 +5,6 @@ use crate::eval::functions::check_arity;
 use crate::eval::functions::date::serial::serial_to_date;
 use crate::types::Value;
 
-/// Format an integer part with thousands separators.
-fn format_with_commas(int_part: u64) -> String {
-    let s = int_part.to_string();
-    let bytes = s.as_bytes();
-    let len = bytes.len();
-    let mut result = String::with_capacity(len + len / 3);
-    for (i, &b) in bytes.iter().enumerate() {
-        if i > 0 && (len - i).is_multiple_of(3) {
-            result.push(',');
-        }
-        result.push(b as char);
-    }
-    result
-}
-
 /// Apply a format string to a number value, returning the formatted string.
 fn apply_format(n: f64, fmt: &str) -> String {
     // GS: asterisk fill formats (*<char>) are not supported; return "0"
@@ -196,8 +181,8 @@ fn apply_format(n: f64, fmt: &str) -> String {
     let valid_frac = frac_fmt.chars().all(|c| c == '#' || c == '0' || c == '?');
 
     // Only apply the digit-format branch when there's at least one actual digit token
-    let has_any_digit_token = int_pattern.contains(|c| c == '#' || c == '0' || c == '?')
-        || frac_fmt.contains(|c| c == '#' || c == '0' || c == '?');
+    let has_any_digit_token = int_pattern.contains(['#', '0', '?'])
+        || frac_fmt.contains(['#', '0', '?']);
 
     if valid_int && valid_frac && has_any_digit_token {
         // Count minimum integer digits (number of '0' tokens)
