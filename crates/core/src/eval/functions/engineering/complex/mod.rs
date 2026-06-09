@@ -147,10 +147,11 @@ pub(super) fn parse_complex(s: &str) -> Option<Complex> {
         let im_str = &s[idx..];
 
         // "3++4i": re_str="3+", im_str="+4". Strip a trailing operator from re_str.
-        if !re_str.is_empty() && (re_str.ends_with('+') || re_str.ends_with('-')) {
-            if re_str[..re_str.len()-1].parse::<f64>().is_ok() || re_str.len() == 1 {
-                re_str = &re_str[..re_str.len()-1];
-            }
+        if !re_str.is_empty()
+            && (re_str.ends_with('+') || re_str.ends_with('-'))
+            && (re_str[..re_str.len()-1].parse::<f64>().is_ok() || re_str.len() == 1)
+        {
+            re_str = &re_str[..re_str.len()-1];
         }
 
         let re = if re_str.is_empty() { 0.0 } else { re_str.parse::<f64>().ok()? };
