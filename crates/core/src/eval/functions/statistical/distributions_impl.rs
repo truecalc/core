@@ -87,7 +87,7 @@ fn collect_weights_arg(arg: &Value) -> Result<Vec<f64>, Value> {
             _ => Err(Value::Error(ErrorKind::Value)),
         },
         Value::Empty => Ok(vec![]),
-        Value::Error(e) => Err(Value::Error(*e)),
+        Value::Error(e) => Err(Value::Error(e.clone())),
         Value::Array(inner) => {
             let mut out = Vec::new();
             for item in inner {
@@ -96,7 +96,7 @@ fn collect_weights_arg(arg: &Value) -> Result<Vec<f64>, Value> {
                     Value::Date(n) => out.push(*n),
                     Value::Bool(_) => return Err(Value::Error(ErrorKind::Value)),
                     Value::Text(_) | Value::Empty => {}
-                    Value::Error(e) => return Err(Value::Error(*e)),
+                    Value::Error(e) => return Err(Value::Error(e.clone())),
                     Value::Array(_) => {}
                 }
             }
