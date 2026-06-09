@@ -118,12 +118,10 @@ pub fn sortn_fn(args: &[Value]) -> Value {
     };
 
     // Validate ties_mode: must be 0, 1, 2, or 3 when provided
-    if let Some(v) = args.get(2) {
-        if let Value::Number(m) = v {
-            let m_int = *m as i64;
-            if !(0..=3).contains(&m_int) {
-                return Value::Error(ErrorKind::Value);
-            }
+    if let Some(Value::Number(m)) = args.get(2) {
+        let m_int = *m as i64;
+        if !(0..=3).contains(&m_int) {
+            return Value::Error(ErrorKind::Value);
         }
     }
 

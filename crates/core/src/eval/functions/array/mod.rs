@@ -74,16 +74,7 @@ fn to_f64(v: &Value) -> Option<f64> {
     }
 }
 
-/// Case-insensitive equality for scalar Values (used by UNIQUE).
-fn values_equal_1d(a: &Value, b: &Value) -> bool {
-    match (a, b) {
-        (Value::Number(x), Value::Number(y)) => x == y,
-        (Value::Bool(x), Value::Bool(y)) => x == y,
-        (Value::Text(x), Value::Text(y)) => x.to_uppercase() == y.to_uppercase(),
-        (Value::Empty, Value::Empty) => true,
-        _ => false,
-    }
-}
+
 
 // ── ROWS ─────────────────────────────────────────────────────────────────────
 
