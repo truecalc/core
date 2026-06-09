@@ -375,7 +375,7 @@ fn tocol_fn(args: &[Value]) -> Value {
     }
     let ignore = if let Some(m) = args.get(1) {
         match to_f64(m) {
-            Some(n) if n >= 0.0 && n <= 3.0 => n as u8,
+            Some(n) if (0.0..=3.0).contains(&n) => n as u8,
             _ => return Value::Error(ErrorKind::Value),
         }
     } else {
@@ -386,12 +386,11 @@ fn tocol_fn(args: &[Value]) -> Value {
     let flat = if scan_by_col {
         // column-major order
         let grid = to_2d(&args[0]);
-        let nrows = grid.len();
         let ncols = grid.first().map(|r| r.len()).unwrap_or(0);
         let mut out = Vec::new();
         for c in 0..ncols {
-            for r in 0..nrows {
-                out.push(grid[r][c].clone());
+            for row in &grid {
+                out.push(row[c].clone());
             }
         }
         out
@@ -423,7 +422,7 @@ fn torow_fn(args: &[Value]) -> Value {
     }
     let ignore = if let Some(m) = args.get(1) {
         match to_f64(m) {
-            Some(n) if n >= 0.0 && n <= 3.0 => n as u8,
+            Some(n) if (0.0..=3.0).contains(&n) => n as u8,
             _ => return Value::Error(ErrorKind::Value),
         }
     } else {
@@ -434,12 +433,11 @@ fn torow_fn(args: &[Value]) -> Value {
     let flat = if scan_by_col {
         // column-major order
         let grid = to_2d(&args[0]);
-        let nrows = grid.len();
         let ncols = grid.first().map(|r| r.len()).unwrap_or(0);
         let mut out = Vec::new();
         for c in 0..ncols {
-            for r in 0..nrows {
-                out.push(grid[r][c].clone());
+            for row in &grid {
+                out.push(row[c].clone());
             }
         }
         out
