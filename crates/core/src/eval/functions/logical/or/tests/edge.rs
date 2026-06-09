@@ -35,3 +35,24 @@ fn single_false() {
     let args = vec![Expr::Bool(false, span())];
     assert_eq!(run(args), Value::Bool(false));
 }
+
+#[test]
+fn array_with_one_true_element() {
+    // OR({FALSE,FALSE,TRUE}) = TRUE — array is flattened, TRUE element found
+    let result = crate::evaluate("=OR({FALSE,FALSE,TRUE})", &std::collections::HashMap::new());
+    assert_eq!(result, Value::Bool(true));
+}
+
+#[test]
+fn array_all_false() {
+    // OR({FALSE,FALSE,FALSE}) = FALSE — no truthy elements
+    let result = crate::evaluate("=OR({FALSE,FALSE,FALSE})", &std::collections::HashMap::new());
+    assert_eq!(result, Value::Bool(false));
+}
+
+#[test]
+fn array_with_nonzero() {
+    // OR({0,0,2}) = TRUE — nonzero number is truthy
+    let result = crate::evaluate("=OR({0,0,2})", &std::collections::HashMap::new());
+    assert_eq!(result, Value::Bool(true));
+}

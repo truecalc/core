@@ -35,3 +35,24 @@ fn mixed_true_and_false() {
     let args = vec![Expr::Bool(true, span()), Expr::Number(0.0, span())];
     assert_eq!(run(args), Value::Bool(false));
 }
+
+#[test]
+fn array_with_false_element() {
+    // AND({TRUE,FALSE,TRUE}) = FALSE — array is flattened, FALSE element found
+    let result = crate::evaluate("=AND({TRUE,FALSE,TRUE})", &std::collections::HashMap::new());
+    assert_eq!(result, Value::Bool(false));
+}
+
+#[test]
+fn array_all_true() {
+    // AND({TRUE,TRUE,TRUE}) = TRUE — all elements truthy
+    let result = crate::evaluate("=AND({TRUE,TRUE,TRUE})", &std::collections::HashMap::new());
+    assert_eq!(result, Value::Bool(true));
+}
+
+#[test]
+fn array_with_zero_is_false() {
+    // AND({1,0,1}) = FALSE — zero is falsy
+    let result = crate::evaluate("=AND({1,0,1})", &std::collections::HashMap::new());
+    assert_eq!(result, Value::Bool(false));
+}

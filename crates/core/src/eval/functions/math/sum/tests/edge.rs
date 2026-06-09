@@ -42,3 +42,17 @@ fn overflow_to_infinity_returns_num_error() {
         Value::Error(ErrorKind::Num)
     );
 }
+
+#[test]
+fn bool_inside_array_is_skipped() {
+    // GS/Excel: booleans inside array literals are ignored (treated as 0, not 1)
+    // SUM({TRUE,1,2}) = 3 (TRUE skipped), SUM({TRUE,TRUE,FALSE}) = 0
+    assert_eq!(
+        sum_fn(&[Value::Array(vec![Value::Bool(true), Value::Number(1.0), Value::Number(2.0)])]),
+        Value::Number(3.0)
+    );
+    assert_eq!(
+        sum_fn(&[Value::Array(vec![Value::Bool(true), Value::Bool(true), Value::Bool(false)])]),
+        Value::Number(0.0)
+    );
+}
