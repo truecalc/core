@@ -109,15 +109,16 @@ fn too_many_args_returns_na_error() {
 // ── type error paths ──────────────────────────────────────────────────────────
 
 #[test]
-fn non_numeric_first_arg_returns_value_error() {
-    // ISBETWEEN("text", 1, 10) → #VALUE!
+fn non_numeric_first_arg_returns_false() {
+    // ISBETWEEN("text", 1, 10) -> FALSE (GS 2026-06-08 fixture: mixed-type value
+    // cannot be in a numeric range, so result is FALSE not #VALUE!)
     assert_eq!(
         isbetween_fn(&[
             Value::Text("text".to_string()),
             Value::Number(1.0),
             Value::Number(10.0),
         ]),
-        Value::Error(ErrorKind::Value)
+        Value::Bool(false)
     );
 }
 

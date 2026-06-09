@@ -298,7 +298,8 @@ pub fn isbetween_fn(args: &[Value]) -> Value {
         true
     };
     // Use text comparison if all three comparison args are text.
-    // Mixed text+numeric types return #VALUE! (same as GS behavior).
+    // When value is non-numeric text but bounds are numeric (mixed-type), Google Sheets
+    // returns FALSE rather than #VALUE! — the value simply cannot be in range.
     let is_text_val = matches!(&args[0], Value::Text(_));
     let is_text_lo = matches!(&args[1], Value::Text(_));
     let is_text_hi = matches!(&args[2], Value::Text(_));
@@ -319,8 +320,11 @@ pub fn isbetween_fn(args: &[Value]) -> Value {
         let upper_ok = if upper_inclusive { value <= upper } else { value < upper };
         Value::Bool(lower_ok && upper_ok)
     } else {
+        // In a mixed-type scenario (e.g. text value, numeric bounds), attempt numeric
+        // coercion.  If the value argument cannot be coerced to a number, Google Sheets
+        // returns FALSE (out-of-range) rather than propagating a #VALUE! error.
         let value = match to_number(args[0].clone()) {
-            Err(e) => return e,
+            Err(_) => return Value::Bool(false),
             Ok(v) => v,
         };
         let lower = match to_number(args[1].clone()) {
