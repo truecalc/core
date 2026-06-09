@@ -7,20 +7,39 @@ use crate::types::Value;
 /// `OR(val1, ...)` — TRUE if ANY argument is truthy.
 ///
 /// Short-circuits on the first true value. Returns `#VALUE!` with no args
-/// or if any arg cannot be coerced to bool.
+/// or if any arg cannot be coerced to bool. Array arguments are flattened:
+/// each element is checked individually (GS/Excel compatible).
 pub fn or_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     if let Some(err) = check_arity_len(args.len(), 1, usize::MAX) {
         return err;
     }
     for arg in args {
         let val = evaluate_expr(arg, ctx);
-        match to_bool(val) {
+        match check_any_true(val) {
             Ok(true) => return Value::Bool(true),
             Ok(false) => {}
             Err(e) => return e,
         }
     }
     Value::Bool(false)
+}
+
+/// Recursively check if any element of a value (array or scalar) is truthy.
+/// Returns Ok(true) if any truthy, Ok(false) if all falsy, Err if coercion fails.
+fn check_any_true(val: Value) -> Result<bool, Value> {
+    match val {
+        Value::Array(elems) => {
+            for elem in elems {
+                match check_any_true(elem) {
+                    Ok(true) => return Ok(true),
+                    Ok(false) => {}
+                    Err(e) => return Err(e),
+                }
+            }
+            Ok(false)
+        }
+        other => to_bool(other),
+    }
 }
 
 #[cfg(test)]

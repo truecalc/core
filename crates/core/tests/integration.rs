@@ -484,3 +484,37 @@ fn transpose_single_element_passthrough() {
     // TRANSPOSE({1}) -> [1]; anchor-cell (top-left) view: first -> 1
     assert_eq!(top_left(helpers::eval("=TRANSPOSE({1})")), Value::Number(1.0));
 }
+
+// ── XOR array argument ────────────────────────────────────────────────────────
+
+#[test]
+fn xor_array_odd_true_count() {
+    // XOR({TRUE,FALSE,FALSE}) = TRUE — one TRUE element (odd)
+    assert_eq!(helpers::eval("=XOR({TRUE,FALSE,FALSE})"), Value::Bool(true));
+}
+
+#[test]
+fn xor_array_even_true_count() {
+    // XOR({TRUE,FALSE,TRUE}) = FALSE — two TRUE elements (even)
+    assert_eq!(helpers::eval("=XOR({TRUE,FALSE,TRUE})"), Value::Bool(false));
+}
+
+// ── SUM with boolean elements inside array (GS: booleans skipped) ────────────
+
+#[test]
+fn sum_array_bool_true_skipped() {
+    // SUM({TRUE,1,2}) = 3 — TRUE is skipped in array context (GS/Excel)
+    assert_eq!(helpers::eval("=SUM({TRUE,1,2})"), Value::Number(3.0));
+}
+
+#[test]
+fn sum_array_all_bools_zero() {
+    // SUM({TRUE,TRUE,FALSE}) = 0 — all booleans skipped in array context
+    assert_eq!(helpers::eval("=SUM({TRUE,TRUE,FALSE})"), Value::Number(0.0));
+}
+
+#[test]
+fn sum_direct_bool_still_counts() {
+    // SUM(TRUE,FALSE,TRUE) = 2 — direct bool args still coerced (not array context)
+    assert_eq!(helpers::eval("=SUM(TRUE,FALSE,TRUE)"), Value::Number(2.0));
+}

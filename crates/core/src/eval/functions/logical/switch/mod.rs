@@ -24,7 +24,12 @@ pub fn switch_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     let mut i = 0;
     while i < pairs_end {
         let case_val = evaluate_expr(&rest[i], ctx);
-        if case_val == expr_val {
+        // Text comparisons are case-insensitive (GS/Excel semantics).
+        let matched = match (&expr_val, &case_val) {
+            (Value::Text(a), Value::Text(b)) => a.to_uppercase() == b.to_uppercase(),
+            _ => case_val == expr_val,
+        };
+        if matched {
             return evaluate_expr(&rest[i + 1], ctx);
         }
         i += 2;

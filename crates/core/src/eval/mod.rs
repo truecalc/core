@@ -121,7 +121,7 @@ fn eval_apply(func: &Expr, call_args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
             for param_expr in &lambda_args[..param_count] {
                 match param_expr {
                     Expr::Variable(n, _) => params.push(n.to_uppercase()),
-                    _ => return Value::Error(ErrorKind::Value),
+                    _ => return Value::Error(ErrorKind::Name),
                 }
             }
             let body = &lambda_args[lambda_args.len() - 1];
