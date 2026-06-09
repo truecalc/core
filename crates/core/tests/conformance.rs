@@ -479,7 +479,7 @@ conformance_tsv_test!(operator_conformance,         "operator.tsv");
 conformance_tsv_test!(text_conformance,        "text.tsv");
 conformance_tsv_test!(date_conformance,        "date.tsv");
 conformance_tsv_test!(engineering_conformance, "engineering.tsv");
-conformance_tsv_test_report!(lookup_conformance,      "lookup.tsv");
+conformance_tsv_test!(lookup_conformance,             "lookup.tsv");
 conformance_tsv_test!(parser_conformance,      "parser.tsv");
 conformance_tsv_test!(database_conformance,    "database.tsv");
 conformance_tsv_test!(array_conformance,       "array.tsv");

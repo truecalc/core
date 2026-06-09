@@ -44,6 +44,85 @@ pub fn lookup_fn(args: &[Value]) -> Value {
     }
 }
 
+/// Find the position of `search_key` in `arr` using the given `match_mode` and `search_mode`.
+/// Returns the 0-based index, or None if not found.
+fn xlookup_find(
+    arr: &[Value],
+    search_key: &Value,
+    match_mode: i64,
+    search_mode: i64,
+) -> Option<usize> {
+    match match_mode {
+        0 => {
+            // Exact match (with wildcard support); search_mode controls direction.
+            if search_mode == -1 {
+                // Reverse scan: last-to-first.
+                if has_wildcards(search_key) {
+                    arr.iter().rposition(|v| wildcard_match_value(search_key, v))
+                } else {
+                    arr.iter().rposition(|v| values_equal(v, search_key))
+                }
+            } else {
+                if has_wildcards(search_key) {
+                    arr.iter().position(|v| wildcard_match_value(search_key, v))
+                } else {
+                    arr.iter().position(|v| values_equal(v, search_key))
+                }
+            }
+        }
+        1 => {
+            // Next larger or equal (exact first, then smallest value > search_key).
+            let mut res: Option<usize> = None;
+            for (i, v) in arr.iter().enumerate() {
+                if values_equal(v, search_key) { return Some(i); }
+                if let Some(std::cmp::Ordering::Greater) = value_compare(v, search_key) {
+                    res = Some(i);
+                    break;
+                }
+            }
+            res
+        }
+        -1 => {
+            // Next smaller or equal (exact first, then keep updating while <=).
+            let mut res: Option<usize> = None;
+            for (i, v) in arr.iter().enumerate() {
+                if values_equal(v, search_key) { return Some(i); }
+                match value_compare(v, search_key) {
+                    Some(std::cmp::Ordering::Less) => {
+                        res = Some(i);
+                    }
+                    Some(std::cmp::Ordering::Greater) => break,
+                    _ => {}
+                }
+            }
+            res
+        }
+        2 => {
+            // Wildcard match (search_mode ignored for wildcards).
+            if has_wildcards(search_key) {
+                if search_mode == -1 {
+                    arr.iter().rposition(|v| wildcard_match_value(search_key, v))
+                } else {
+                    arr.iter().position(|v| wildcard_match_value(search_key, v))
+                }
+            } else {
+                if search_mode == -1 {
+                    arr.iter().rposition(|v| values_equal(v, search_key))
+                } else {
+                    arr.iter().position(|v| values_equal(v, search_key))
+                }
+            }
+        }
+        _ => {
+            if search_mode == -1 {
+                arr.iter().rposition(|v| values_equal(v, search_key))
+            } else {
+                arr.iter().position(|v| values_equal(v, search_key))
+            }
+        }
+    }
+}
+
 /// `XLOOKUP(search_key, lookup_array, return_array, [if_not_found], [match_mode], [search_mode])`
 pub fn xlookup_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 3, 6) {
@@ -53,6 +132,12 @@ pub fn xlookup_fn(args: &[Value]) -> Value {
     let search_key = &args[0];
     let lookup_array = flatten_to_flat(&args[1]);
     let return_array = flatten_to_flat(&args[2]);
+
+    // Empty lookup_array → #REF! (Google Sheets behaviour)
+    if lookup_array.is_empty() {
+        return Value::Error(ErrorKind::Ref);
+    }
+
     let if_not_found: Option<Value> = if args.len() >= 4 {
         Some(args[3].clone())
     } else {
@@ -66,46 +151,16 @@ pub fn xlookup_fn(args: &[Value]) -> Value {
     } else {
         0
     };
-
-    let result_idx = match match_mode {
-        0 => lookup_array.iter().position(|v| values_equal(v, search_key)),
-        1 => {
-            // Next larger or equal
-            let mut res: Option<usize> = None;
-            for (i, v) in lookup_array.iter().enumerate() {
-                if values_equal(v, search_key) { res = Some(i); break; }
-                if let Some(std::cmp::Ordering::Greater) = value_compare(v, search_key) {
-                    res = Some(i);
-                    break;
-                }
-            }
-            res
+    let search_mode = if args.len() >= 6 {
+        match &args[5] {
+            Value::Number(n) => n.trunc() as i64,
+            _ => 1,
         }
-        -1 => {
-            // Next smaller or equal
-            let mut res: Option<usize> = None;
-            for (i, v) in lookup_array.iter().enumerate() {
-                if values_equal(v, search_key) { res = Some(i); break; }
-                match value_compare(v, search_key) {
-                    Some(std::cmp::Ordering::Less) | Some(std::cmp::Ordering::Equal) => {
-                        res = Some(i);
-                    }
-                    Some(std::cmp::Ordering::Greater) => break,
-                    _ => {}
-                }
-            }
-            res
-        }
-        2 => {
-            // Wildcard match
-            if has_wildcards(search_key) {
-                lookup_array.iter().position(|v| wildcard_match_value(search_key, v))
-            } else {
-                lookup_array.iter().position(|v| values_equal(v, search_key))
-            }
-        }
-        _ => lookup_array.iter().position(|v| values_equal(v, search_key)),
+    } else {
+        1
     };
+
+    let result_idx = xlookup_find(&lookup_array, search_key, match_mode, search_mode);
 
     match result_idx {
         Some(idx) => {
@@ -139,12 +194,26 @@ pub fn xmatch_fn(args: &[Value]) -> Value {
     } else {
         0
     };
+    let search_mode = if args.len() >= 4 {
+        match &args[3] {
+            Value::Number(n) => n.trunc() as i64,
+            _ => 1,
+        }
+    } else {
+        1
+    };
 
     match match_mode {
         0 => {
-            // Exact match (with wildcard support when pattern has * or ?)
+            // Exact match (with wildcard support)
             let pos = if has_wildcards(search_key) {
-                lookup_array.iter().position(|v| wildcard_match_value(search_key, v))
+                if search_mode == -1 {
+                    lookup_array.iter().rposition(|v| wildcard_match_value(search_key, v))
+                } else {
+                    lookup_array.iter().position(|v| wildcard_match_value(search_key, v))
+                }
+            } else if search_mode == -1 {
+                lookup_array.iter().rposition(|v| values_equal(v, search_key))
             } else {
                 lookup_array.iter().position(|v| values_equal(v, search_key))
             };
@@ -206,7 +275,13 @@ pub fn xmatch_fn(args: &[Value]) -> Value {
         2 => {
             // Wildcard match
             let pos = if has_wildcards(search_key) {
-                lookup_array.iter().position(|v| wildcard_match_value(search_key, v))
+                if search_mode == -1 {
+                    lookup_array.iter().rposition(|v| wildcard_match_value(search_key, v))
+                } else {
+                    lookup_array.iter().position(|v| wildcard_match_value(search_key, v))
+                }
+            } else if search_mode == -1 {
+                lookup_array.iter().rposition(|v| values_equal(v, search_key))
             } else {
                 lookup_array.iter().position(|v| values_equal(v, search_key))
             };

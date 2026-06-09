@@ -123,4 +123,36 @@ pub fn register_lookup(registry: &mut Registry) {
             description: "Returns the sheet number of the current or named sheet",
         },
     );
+    // Lazy so argument expressions (INDIRECT/OFFSET) are visible before evaluation.
+    registry.register_lazy(
+        "OFFSET",
+        misc::offset_fn,
+        FunctionMeta {
+            category: "lookup",
+            signature: "OFFSET(reference, rows, cols, [height], [width])",
+            description: "Returns a range offset from a reference",
+        },
+    );
+    registry.register_lazy(
+        "FORMULATEXT",
+        misc::formulatext_fn,
+        FunctionMeta {
+            category: "lookup",
+            signature: "FORMULATEXT(reference)",
+            description: "Returns the formula string for a cell reference",
+        },
+    );
+    registry.register_lazy(
+        "GETPIVOTDATA",
+        misc::getpivotdata_fn,
+        FunctionMeta {
+            category: "lookup",
+            signature: "GETPIVOTDATA(data_field, pivot_table, ...)",
+            description: "Retrieves data from a PivotTable",
+        },
+    );
+    // Override eager ROWS/COLUMNS from array module with ref-aware lazy versions.
+    registry.register_internal_lazy("ROWS",    row_col::rows_fn);
+    registry.register_internal_lazy("COLUMNS", row_col::columns_fn);
+
 }

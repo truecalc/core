@@ -86,6 +86,13 @@ pub fn match_fn(args: &[Value]) -> Value {
         1
     };
 
+    // 2D array as range → #N/A (Google Sheets behaviour)
+    if let Value::Array(outer) = range_val {
+        if outer.iter().any(|e| matches!(e, Value::Array(_))) {
+            return Value::Error(ErrorKind::NA);
+        }
+    }
+
     let flat = flatten_to_flat(range_val);
     if flat.is_empty() {
         return Value::Error(ErrorKind::NA);
@@ -107,7 +114,8 @@ pub fn match_fn(args: &[Value]) -> Value {
             Value::Error(ErrorKind::NA)
         }
         1 => {
-            // Largest value <= search_key in sorted ascending array
+            // Largest value <= search_key in sorted ascending array.
+            // Scan forward; stop early on first value > search_key (assumes sorted).
             let mut result: Option<usize> = None;
             for (i, v) in flat.iter().enumerate() {
                 match value_compare(v, search_key) {
@@ -123,14 +131,17 @@ pub fn match_fn(args: &[Value]) -> Value {
             }
         }
         -1 => {
-            // Smallest value >= search_key in sorted descending array
+            // Smallest value >= search_key in sorted descending array.
+            // Scan forward (descending), keep updating while v >= search_key.
+            // Stop when v < search_key (assumes sorted desc).
             let mut result: Option<usize> = None;
             for (i, v) in flat.iter().enumerate() {
                 match value_compare(v, search_key) {
                     Some(std::cmp::Ordering::Greater) | Some(std::cmp::Ordering::Equal) => {
                         result = Some(i + 1);
                     }
-                    _ => break,
+                    Some(std::cmp::Ordering::Less) => break,
+                    None => {}
                 }
             }
             match result {
