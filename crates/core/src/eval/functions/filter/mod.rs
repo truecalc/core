@@ -63,6 +63,8 @@ fn is_truthy(v: &Value) -> bool {
         Value::Bool(b) => *b,
         Value::Number(n) => *n != 0.0,
         Value::Text(s) => !s.is_empty(),
+        // Unwrap single-element inner arrays (column arrays from {a;b;c} syntax)
+        Value::Array(items) if items.len() == 1 => is_truthy(&items[0]),
         _ => false,
     }
 }

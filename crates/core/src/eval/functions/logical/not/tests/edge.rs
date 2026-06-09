@@ -12,6 +12,10 @@ fn no_args_returns_value_error() {
 }
 
 #[test]
-fn array_returns_value_error() {
-    assert_eq!(not_fn(&[Value::Array(vec![Value::Bool(true)])]), Value::Error(ErrorKind::Value));
+fn array_broadcasts_element_wise() {
+    // GS: NOT broadcasts over arrays element-wise
+    assert_eq!(
+        not_fn(&[Value::Array(vec![Value::Bool(true), Value::Bool(false)])]),
+        Value::Array(vec![Value::Bool(false), Value::Bool(true)])
+    );
 }
