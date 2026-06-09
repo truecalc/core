@@ -1,4 +1,3 @@
-use crate::eval::coercion::to_number;
 use crate::eval::functions::check_arity;
 use crate::types::{ErrorKind, Value};
 use super::array_utils::{flatten_to_rows, flatten_to_flat, values_equal, value_compare, wildcard_match_value, has_wildcards};
