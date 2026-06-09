@@ -1,0 +1,15 @@
+description	formula_text	expected_value	test_category	expected_type
+ARRAYFORMULA multiplies array by scalar	=ARRAYFORMULA({1,2,3}*2)	2	official	number
+ARRAYFORMULA adds two arrays element-wise	=ARRAYFORMULA({1,2,3}+{10,20,30})	11	official	number
+ARRAYFORMULA with SUM of array	=ARRAYFORMULA(SUM({1,2,3,4,5}))	15	official	number
+ARRAYFORMULA with IF over array	=ARRAYFORMULA(IF({1,2,3}>2,"big","small"))	small	official	string
+ARRAYFORMULA of single value	=ARRAYFORMULA(42)	42	official	number
+ARRAYFORMULA with LEN over text array	=ARRAYFORMULA(LEN({"hi","hello","hey"}))	2	edge	number
+ARRAYFORMULA with nested arithmetic	=ARRAYFORMULA({2,4,6}/2+{1,1,1})	2	edge	number
+ARRAYFORMULA with ISNUMBER over array	=ARRAYFORMULA(ISNUMBER({1,"a",3}))	TRUE	edge	boolean
+ARRAYFORMULA with AND — returns single value	=ARRAYFORMULA(AND({TRUE,FALSE,TRUE}))	FALSE	edge	boolean
+no arguments returns error	=ARRAYFORMULA()	#N/A	error	error
+too many arguments returns error	=ARRAYFORMULA({1,2},{3,4})	#N/A	error	error
+nested ARRAYFORMULA SUM in IF	=IF(ARRAYFORMULA(SUM({1,2,3}))=6,"correct","wrong")	correct	nested	string
+nested ARRAYFORMULA with UPPER	=ARRAYFORMULA(UPPER({"hello","world"}))	HELLO	nested	string
+GS-only — Excel uses Ctrl+Shift+Enter array formulas or dynamic arrays natively	=ARRAYFORMULA({1,2,3}*{4,5,6})	4	compatibility	number
