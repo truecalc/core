@@ -451,7 +451,7 @@ macro_rules! conformance_tsv_test_report {
 }
 
 conformance_tsv_test_report!(math_conformance,        "math.tsv");
-conformance_tsv_test_report!(logical_conformance,     "logical.tsv");
+conformance_tsv_test!(logical_conformance,            "logical.tsv");
 conformance_tsv_test_report!(info_conformance,        "info.tsv");
 conformance_tsv_test_report!(statistical_conformance, "statistical.tsv");
 conformance_tsv_test!(operator_conformance,         "operator.tsv");

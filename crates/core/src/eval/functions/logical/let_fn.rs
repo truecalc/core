@@ -24,7 +24,7 @@ pub fn let_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     for i in 0..pair_count {
         match &args[i * 2] {
             Expr::Variable(_, _) => {}
-            _ => return Value::Error(ErrorKind::Value),
+            _ => return Value::Error(ErrorKind::Name),
         }
     }
 
