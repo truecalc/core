@@ -148,6 +148,10 @@ pub fn sinh_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(v) => v,
     };
+    // GS returns #NUM! for |x| >= 710 (result near f64::MAX exceeds GS limit).
+    if n.abs() >= 710.0 {
+        return Value::Error(ErrorKind::Num);
+    }
     let result = n.sinh();
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);

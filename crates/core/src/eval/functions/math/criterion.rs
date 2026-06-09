@@ -76,14 +76,17 @@ fn parse_criterion_str(s: &str) -> Criterion {
         return Criterion::TextEq(s.to_lowercase());
     }
 
-    // No operator prefix: check for wildcards (excluding tilde-escaped ones).
-    let has_wildcard = {
+    // No operator prefix: check for wildcards or tilde escapes.
+    // A tilde-escaped pattern also needs wildcard_match so that ~ is decoded
+    // (e.g. "a~?b" should match the literal text "a?b").
+    let has_wildcard_or_tilde = {
         let chars: Vec<char> = rest.chars().collect();
         let mut found = false;
         let mut i = 0;
         while i < chars.len() {
             if chars[i] == '~' {
-                i += 2; // skip escaped char
+                found = true; // tilde escape -> route through wildcard_match
+                break;
             } else if chars[i] == '*' || chars[i] == '?' {
                 found = true;
                 break;
@@ -93,7 +96,7 @@ fn parse_criterion_str(s: &str) -> Criterion {
         }
         found
     };
-    if has_wildcard {
+    if has_wildcard_or_tilde {
         return Criterion::WildcardEq(rest.to_lowercase().chars().collect());
     }
 

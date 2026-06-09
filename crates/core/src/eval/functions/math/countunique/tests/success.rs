@@ -82,12 +82,12 @@ fn mixed_types_number_text_bool() {
 }
 
 #[test]
-fn text_case_insensitive() {
-    // COUNTUNIQUE("a","b","A") → 2 (case-insensitive)
+fn text_case_sensitive() {
+    // GS COUNTUNIQUE is case-sensitive: "a","b","A" are 3 distinct values
     let result = countunique_fn(&[
         Value::Text("a".into()),
         Value::Text("b".into()),
         Value::Text("A".into()),
     ]);
-    assert_eq!(result, Value::Number(2.0));
+    assert_eq!(result, Value::Number(3.0));
 }

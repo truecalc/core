@@ -4,32 +4,22 @@ use crate::types::{ErrorKind, Value};
 
 // ── ERF / ERF.PRECISE ────────────────────────────────────────────────────────
 
-/// Error function approximation using Abramowitz & Stegun (7.1.26).
-/// Maximum error: 1.5e-7.
+/// Error function using Abramowitz & Stegun approximation 7.1.26.
+/// Maximum absolute error: < 1.5e-7.
 fn erf(x: f64) -> f64 {
-    if x >= 0.0 { 1.0 - erfc_precise(x) } else { erfc_precise(-x) - 1.0 }
+    if x == 0.0 { return 0.0; }
+    if x < 0.0 { return -erf(-x); }
+    let t = 1.0 / (1.0 + 0.3275911 * x);
+    let poly = t * (0.254829592
+        + t * (-0.284496736
+            + t * (1.421413741
+                + t * (-1.453152027
+                    + t * 1.061405429))));
+    1.0 - poly * (-x * x).exp()
 }
 
 fn erfc_precise(x: f64) -> f64 {
-    if x < 0.0 { return 2.0 - erfc_precise(-x); }
-    if x == 0.0 { return 1.0; }
-    if x > 26.0 { return 0.0; }
-    if x <= 0.5 {
-        let x2 = x * x;
-        let ev = x * std::f64::consts::FRAC_2_SQRT_PI
-            * (1.0 - x2*(1.0/3.0 - x2*(1.0/10.0 - x2*(1.0/42.0 - x2*(1.0/216.0 - x2/1320.0)))));
-        return 1.0 - ev;
-    }
-    if x <= 4.0 {
-        let (p0,p1,p2,p3): (f64,f64,f64,f64) = (2.4266795523053173e2, 2.1979261618294152e1, 6.9963834886191355, -3.5609843701815385e-2);
-        let (q0,q1,q2): (f64,f64,f64) = (2.1505887586986120e2, 9.1164905404325264e1, 1.5082797630407787e1);
-        let num = ((p3*x+p2)*x+p1)*x+p0;
-        let den = ((x+q2)*x+q1)*x+q0;
-        return (-x*x).exp()*num/den;
-    }
-    let x2=x*x; let t=1.0/x2;
-    let s=1.0+t*(-0.5+t*(0.75+t*(-1.875+t*6.5625)));
-    (-x2).exp()*s/(x*std::f64::consts::PI.sqrt())
+    1.0 - erf(x)
 }
 
 fn erfc(x: f64) -> f64 {

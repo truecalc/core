@@ -7,9 +7,9 @@ fn combina_0_0() {
 }
 
 #[test]
-fn combina_0_k_returns_zero() {
-    // n=0, k>0 -> 0
-    assert_eq!(combina_fn(&[Value::Number(0.0), Value::Number(3.0)]), Value::Number(0.0));
+fn combina_0_k_returns_one() {
+    // GS: COMBINA(0,k) -> 1 for k>0 (fixture row 424)
+    assert_eq!(combina_fn(&[Value::Number(0.0), Value::Number(3.0)]), Value::Number(1.0));
 }
 
 #[test]
