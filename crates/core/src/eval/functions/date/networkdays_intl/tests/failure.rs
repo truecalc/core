@@ -34,3 +34,24 @@ fn invalid_weekend_code() {
     let args = [Value::Number(45292.0), Value::Number(45296.0), Value::Number(99.0)];
     assert_eq!(networkdays_intl_fn(&args), Value::Error(ErrorKind::Value));
 }
+
+#[test]
+fn all_ones_string_weekend_returns_num_error() {
+    // =NETWORKDAYS.INTL(...,"1111111") → #NUM!
+    let args = [Value::Number(45292.0), Value::Number(45298.0), Value::Text("1111111".into())];
+    assert_eq!(networkdays_intl_fn(&args), Value::Error(ErrorKind::Num));
+}
+
+#[test]
+fn invalid_chars_in_string_weekend_returns_num_error() {
+    // =NETWORKDAYS.INTL(...,"abc0011") → #NUM!
+    let args = [Value::Number(45292.0), Value::Number(45298.0), Value::Text("abc0011".into())];
+    assert_eq!(networkdays_intl_fn(&args), Value::Error(ErrorKind::Num));
+}
+
+#[test]
+fn wrong_length_string_weekend_returns_num_error() {
+    // =NETWORKDAYS.INTL(...,"00011") → #NUM!
+    let args = [Value::Number(45292.0), Value::Number(45298.0), Value::Text("00011".into())];
+    assert_eq!(networkdays_intl_fn(&args), Value::Error(ErrorKind::Num));
+}

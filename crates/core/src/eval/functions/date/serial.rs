@@ -36,9 +36,23 @@ pub fn time_to_serial(h: u32, m: u32, s: u32) -> f64 {
 /// Parse a date text string and return its serial number, or None on failure.
 /// Supports the same formats as DATEVALUE (including datetime strings and Y/m/d slash).
 pub fn text_to_date_serial(text: &str) -> Option<f64> {
-    // Strip trailing time portion (e.g. "2023-06-15 14:30:00" → "2023-06-15")
-    let date_part = if let Some(idx) = text.find(' ') {
-        &text[..idx]
+    // Empty string coerces to serial 0 (Dec 30, 1899) — matches Google Sheets.
+    if text.is_empty() {
+        return Some(0.0);
+    }
+
+    // Strip a trailing time component only when the part after the space looks
+    // like a time string (starts with digit(s) followed by ':').  This avoids
+    // truncating month-name formats such as "January 1, 2023".
+    let date_part: &str = if let Some(idx) = text.find(' ') {
+        let after = &text[idx + 1..];
+        let looks_like_time = after
+            .chars()
+            .next()
+            .map(|c| c.is_ascii_digit())
+            .unwrap_or(false)
+            && after.contains(':');
+        if looks_like_time { &text[..idx] } else { text }
     } else {
         text
     };
@@ -60,9 +74,19 @@ pub fn text_to_date_serial(text: &str) -> Option<f64> {
 /// Parse a time text string and return its fractional day serial, or None on failure.
 /// Supports the same formats as TIMEVALUE, including fractional seconds and datetime strings.
 pub fn text_to_time_serial(text: &str) -> Option<f64> {
-    // If it looks like a datetime (contains a space), extract the time part.
+    // If it looks like a datetime (contains a space AND the part before the space
+    // does not itself look like a time string), extract the time part.
+    // "2023-06-15 14:30:00" → time_part = "14:30:00"
+    // "2:15 PM" → time_part = "2:15 PM"  (kept whole, `:` before the space)
+    // "12:00:00 AM" → time_part = "12:00:00 AM" (kept whole)
     let time_part = if let Some(idx) = text.find(' ') {
-        &text[idx + 1..]
+        let before = &text[..idx];
+        if before.contains(':') {
+            // Part before space already looks like a time component — keep the full string.
+            text
+        } else {
+            &text[idx + 1..]
+        }
     } else {
         text
     };

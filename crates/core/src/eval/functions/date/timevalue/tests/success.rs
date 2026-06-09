@@ -35,3 +35,24 @@ fn pm_notation() {
     let args = [Value::Text("2:30 PM".to_string())];
     assert!(approx(timevalue_fn(&args), (14.0 * 3600.0 + 30.0 * 60.0) / 86400.0));
 }
+
+#[test]
+fn midnight_am() {
+    // "12:00:00 AM" = midnight = 0.0
+    let args = [Value::Text("12:00:00 AM".to_string())];
+    assert_eq!(timevalue_fn(&args), Value::Number(0.0));
+}
+
+#[test]
+fn noon_pm() {
+    // "12:00:00 PM" = noon = 0.5
+    let args = [Value::Text("12:00:00 PM".to_string())];
+    assert_eq!(timevalue_fn(&args), Value::Number(0.5));
+}
+
+#[test]
+fn two_fifteen_pm() {
+    // "2:15 PM" = 14:15 = 51300/86400 = 0.59375
+    let args = [Value::Text("2:15 PM".to_string())];
+    assert_eq!(timevalue_fn(&args), Value::Number(0.59375));
+}

@@ -30,12 +30,25 @@ pub fn weekend_mask(weekend: Option<&Value>) -> Result<[bool; 7], Value> {
             };
             Ok(mask)
         }
-        Some(Value::Text(s)) if s.len() == 7 => {
+        Some(Value::Text(s)) => {
+            // Wrong length → #NUM!
+            if s.len() != 7 {
+                return Err(Value::Error(ErrorKind::Num));
+            }
             let b = s.as_bytes();
-            Ok([
+            // Invalid characters (not '0' or '1') → #NUM!
+            if b.iter().any(|&c| c != b'0' && c != b'1') {
+                return Err(Value::Error(ErrorKind::Num));
+            }
+            let mask = [
                 b[0] == b'1', b[1] == b'1', b[2] == b'1',
                 b[3] == b'1', b[4] == b'1', b[5] == b'1', b[6] == b'1',
-            ])
+            ];
+            // All-ones → every day is a weekend → #NUM!
+            if mask.iter().all(|&x| x) {
+                return Err(Value::Error(ErrorKind::Num));
+            }
+            Ok(mask)
         }
         _ => Err(Value::Error(ErrorKind::Value)),
     }
@@ -143,9 +156,9 @@ mod tests {
     }
 
     #[test]
-    fn string_bitmask_all_ones_all_weekend() {
-        let mask = weekend_mask(Some(&Value::Text("1111111".into()))).unwrap();
-        assert_eq!(mask, [true; 7]);
+    fn string_bitmask_all_ones_returns_num_error() {
+        let result = weekend_mask(Some(&Value::Text("1111111".into())));
+        assert_eq!(result, Err(Value::Error(ErrorKind::Num)));
     }
 
     #[test]
@@ -167,8 +180,8 @@ mod tests {
     }
 
     #[test]
-    fn wrong_string_length_returns_value_error() {
+    fn wrong_string_length_returns_num_error() {
         let result = weekend_mask(Some(&Value::Text("011".into())));
-        assert_eq!(result, Err(Value::Error(ErrorKind::Value)));
+        assert_eq!(result, Err(Value::Error(ErrorKind::Num)));
     }
 }
