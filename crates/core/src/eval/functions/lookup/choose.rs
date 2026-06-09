@@ -17,6 +17,12 @@ pub fn choose_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
             if n < 1 { return Value::Error(ErrorKind::Num); }
             n as usize
         }
+        // Bool coercion: TRUE→1, FALSE→0 (out of range → #NUM!)
+        Value::Bool(b) => {
+            if b { 1usize } else { return Value::Error(ErrorKind::Num); }
+        }
+        // Empty (omitted arg) → treated as 0 → out of range → #NUM!
+        Value::Empty => return Value::Error(ErrorKind::Num),
         Value::Error(e) => return Value::Error(e),
         _ => return Value::Error(ErrorKind::Value),
     };
