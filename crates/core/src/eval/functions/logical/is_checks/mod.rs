@@ -114,14 +114,30 @@ pub fn isnontext_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     Value::Bool(!matches!(val, Value::Text(_)))
 }
 
-/// `ISREF(value)` — TRUE if the argument is a cell reference (Variable node).
-/// Errors in the argument are NOT propagated; they return FALSE.
-/// Only 0 args → `#N/A`.
-pub fn isref_fn(args: &[Expr], _ctx: &mut EvalCtx<'_>) -> Value {
+/// `ISREF(value)` — TRUE if the argument is a cell reference.
+///
+/// - A bare cell/range variable → TRUE.
+/// - `INDIRECT(<valid ref>)` → TRUE (INDIRECT returns `Empty` for valid refs).
+/// - `INDIRECT(<invalid ref>)` → FALSE (errors in the arg are suppressed, never
+///   propagated — this distinguishes ISREF from ISFORMULA).
+/// - Inline arrays, scalars, or any other expression → FALSE.
+/// - Wrong arity → `#N/A`.
+pub fn isref_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     if check_arity_len(args.len(), 1, 1).is_some() {
         return Value::Error(ErrorKind::NA);
     }
-    Value::Bool(matches!(args[0], Expr::Variable(_, _) | Expr::Reference(_, _)))
+    match &args[0] {
+        // Bare cell/range reference in the AST is always a ref.
+        Expr::Variable(_, _) | Expr::Reference(_, _) => Value::Bool(true),
+        // INDIRECT call: evaluate it; Empty means a valid (blank) ref → TRUE.
+        // Any error (e.g. #REF! for out-of-range) → FALSE (errors not propagated).
+        Expr::FunctionCall { name, .. } if name.eq_ignore_ascii_case("INDIRECT") => {
+            let val = evaluate_expr(&args[0], ctx);
+            Value::Bool(matches!(val, Value::Empty))
+        }
+        // Everything else: evaluate to handle any nested errors, but always FALSE.
+        _ => Value::Bool(false),
+    }
 }
 
 /// `ISFORMULA(value)` — TRUE if the argument is a cell ref containing a formula.

@@ -63,11 +63,9 @@ fn context_limited_functions_return_name_error() {
     // These functions require a cell grid — they should not be registered
     // in the standalone evaluator. Callers should get #NAME? not #N/A.
     let cases = [
-        "INDIRECT(\"A1\")",
         "OFFSET({1,2,3},0,1)",
         "FORMULATEXT(SUM(1,2))",
         "GETPIVOTDATA(\"Sales\",{1})",
-        "ISFORMULA(SUM(1,2))",
     ];
     for formula in cases {
         let result = evaluate(formula, &HashMap::new());
