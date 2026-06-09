@@ -33,6 +33,20 @@ pub fn time_to_serial(h: u32, m: u32, s: u32) -> f64 {
     (h as f64 * 3600.0 + m as f64 * 60.0 + s as f64) / 86400.0
 }
 
+/// Returns true if `s` looks like a slash-separated date where the year field
+/// (the last `/`-delimited token) is exactly 1 or 2 digits.  Prevents
+/// `%m/%d/%Y` from consuming "01/15/99" as year 99 CE instead of routing
+/// it through the two-digit-year century-remap path.
+fn has_two_digit_slash_year(s: &str) -> bool {
+    let parts: Vec<&str> = s.split('/').collect();
+    if parts.len() == 3 {
+        let y = parts[2].trim();
+        y.len() <= 2 && y.chars().all(|c| c.is_ascii_digit())
+    } else {
+        false
+    }
+}
+
 /// Parse a date text string and return its serial number, or None on failure.
 /// Supports the same formats as DATEVALUE (including datetime strings and Y/m/d slash).
 pub fn text_to_date_serial(text: &str) -> Option<f64> {
@@ -64,6 +78,10 @@ pub fn text_to_date_serial(text: &str) -> Option<f64> {
         "%B %d %Y",  "%b %d %Y",
     ];
     for fmt in &formats_4y {
+        // Guard: don't let %m/%d/%Y swallow two-digit-year slash inputs.
+        if *fmt == "%m/%d/%Y" && has_two_digit_slash_year(date_part) {
+            continue;
+        }
         if let Ok(date) = NaiveDate::parse_from_str(date_part, fmt) {
             return Some(date_to_serial(date));
         }

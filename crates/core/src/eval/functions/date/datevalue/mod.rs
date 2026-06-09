@@ -3,6 +3,20 @@ use crate::eval::functions::check_arity;
 use crate::eval::functions::date::serial::date_to_serial;
 use crate::types::{ErrorKind, Value};
 
+/// Returns true if `s` looks like a slash-separated date where the year field
+/// (the last `/`-delimited token) is exactly 1 or 2 digits.  Used to prevent
+/// chrono's `%m/%d/%Y` from consuming "01/15/99" as year 99 CE instead of
+/// routing it through the two-digit-year century-remap path.
+fn has_two_digit_slash_year(s: &str) -> bool {
+    let parts: Vec<&str> = s.split('/').collect();
+    if parts.len() == 3 {
+        let y = parts[2].trim();
+        y.len() <= 2 && y.chars().all(|c| c.is_ascii_digit())
+    } else {
+        false
+    }
+}
+
 /// `DATEVALUE(date_text)` — parses a date string and returns its serial number.
 ///
 /// Supports common formats: ISO (YYYY-MM-DD), US slash (M/D/YYYY), long/short month names,
@@ -35,6 +49,8 @@ pub fn datevalue_fn(args: &[Value]) -> Value {
     };
 
     // Formats without two-digit year (%y) — parsed directly.
+    // Skip %m/%d/%Y when the year field is only 1-2 digits; those inputs must
+    // go through the century-remap path below (%m/%d/%y).
     let formats_4y = [
         "%m/%d/%Y",
         "%Y-%m-%d",
@@ -47,6 +63,10 @@ pub fn datevalue_fn(args: &[Value]) -> Value {
     ];
 
     for fmt in &formats_4y {
+        // Guard: don't let %m/%d/%Y swallow two-digit-year slash inputs.
+        if *fmt == "%m/%d/%Y" && has_two_digit_slash_year(date_part) {
+            continue;
+        }
         if let Ok(date) = NaiveDate::parse_from_str(date_part, fmt) {
             return Value::Number(date_to_serial(date));
         }
