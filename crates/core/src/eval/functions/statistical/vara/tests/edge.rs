@@ -3,23 +3,23 @@ use crate::types::Value;
 
 #[test]
 fn vara_true_counts_as_one() {
-    // Bool(true)=1.0 is included; [1.0, 3.0]: mean=2, var=2
+    // [1.0, 3.0]: mean=2, var=2
     let result = vara_fn(&[Value::Bool(true), Value::Number(3.0)]);
     assert_eq!(result, Value::Number(2.0));
 }
 
 #[test]
 fn vara_false_counts_as_zero() {
-    // Bool(false)=0.0 is included; [0.0, 2.0]: mean=1, var=2
+    // [0.0, 2.0]: mean=1, var=2
     let result = vara_fn(&[Value::Bool(false), Value::Number(2.0)]);
     assert_eq!(result, Value::Number(2.0));
 }
 
 #[test]
-fn vara_text_returns_value_error() {
-    // Literal text as direct arg → #VALUE! (Google Sheets)
+fn vara_non_parseable_text_counts_as_zero() {
+    // AVERAGEA semantics: text -> 0.0; [0.0, 4.0]: sample var=8
     let result = vara_fn(&[Value::Text("hello".to_string()), Value::Number(4.0)]);
-    assert_eq!(result, Value::Error(crate::types::ErrorKind::Value));
+    assert_eq!(result, Value::Number(8.0));
 }
 
 #[test]
