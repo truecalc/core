@@ -89,10 +89,16 @@ pub fn matches_criterion(value: &Value, crit: &Criterion) -> bool {
     match crit {
         Criterion::NumEq(n) => match value {
             Value::Number(v) => (v - n).abs() < 1e-10,
+            // Google Sheets coercion: a numeric criterion matches a text cell
+            // whose content parses as the same number (e.g. criteria=1 matches
+            // cell text "1").  This is the standard DB-function behaviour for
+            // ID columns stored as strings.
+            Value::Text(s) => s.trim().parse::<f64>().map_or(false, |v| (v - n).abs() < 1e-10),
             _ => false,
         },
         Criterion::NumNe(n) => match value {
             Value::Number(v) => (v - n).abs() >= 1e-10,
+            Value::Text(s) => s.trim().parse::<f64>().map_or(true, |v| (v - n).abs() >= 1e-10),
             _ => true, // non-numbers are "not equal" to a number
         },
         Criterion::NumLt(n) => matches!(value, Value::Number(v) if v < n),
