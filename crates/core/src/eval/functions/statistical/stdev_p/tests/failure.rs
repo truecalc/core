@@ -7,10 +7,10 @@ fn stdev_p_no_args_returns_na() {
 }
 
 #[test]
-fn stdev_p_no_numeric_values_returns_div_zero() {
+fn stdev_p_non_numeric_text_returns_value_error() {
     assert_eq!(
-        stdev_p_fn(&[Value::Text("a".to_string()), Value::Bool(false)]),
-        Value::Error(ErrorKind::DivByZero)
+        stdev_p_fn(&[Value::Text("a".to_string()), Value::Number(2.0)]),
+        Value::Error(ErrorKind::Value)
     );
 }
 
