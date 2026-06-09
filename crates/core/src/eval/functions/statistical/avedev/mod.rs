@@ -1,13 +1,17 @@
 use crate::types::{ErrorKind, Value};
-use super::stat_helpers::collect_nums;
+use super::stat_helpers::collect_nums_direct;
 
 /// `AVEDEV(value1, ...)` — average of absolute deviations from the mean.
-/// Ignores text, bool, empty. Returns `#DIV/0!` if no numeric values.
+/// Direct bool/text-number args coerce; non-numeric text → #VALUE!.
+/// Returns `#DIV/0!` if no numeric values.
 pub fn avedev_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);
     }
-    let nums = collect_nums(args);
+    let nums = match collect_nums_direct(args) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
     let n = nums.len();
     if n == 0 {
         return Value::Error(ErrorKind::DivByZero);
