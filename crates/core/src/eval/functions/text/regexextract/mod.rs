@@ -13,7 +13,7 @@ pub fn regexextract_fn(args: &[Value]) -> Value {
     let text = match &args[0] {
         Value::Text(s) => s.clone(),
         Value::Empty => String::new(),
-        Value::Error(e) => return Value::Error(*e),
+        Value::Error(e) => return Value::Error(e.clone()),
         _ => return Value::Error(ErrorKind::Value),
     };
     let pattern = match to_string_val(args[1].clone()) {
