@@ -593,10 +593,17 @@ pub fn impower_fn(args: &[Value]) -> Value {
         Some(mut result) => {
             // Snap near-integer components to exact integers (FP rounding).
             // e.g. IMPOWER("5+2i",3) real part: 64.999...999 -> 65.
-            if (result.re.round() - result.re).abs() < 1e-9 * result.re.abs().max(1.0) {
+            // Only snap when the rounded value is non-zero: tiny residuals that
+            // round to zero (e.g. 16·sin(2π) ≈ -3.9e-15) must be preserved —
+            // Google Sheets includes them (rows 1039/1040/1053).
+            if result.re.round() != 0.0
+                && (result.re.round() - result.re).abs() < 1e-9 * result.re.abs().max(1.0)
+            {
                 result.re = result.re.round();
             }
-            if (result.im.round() - result.im).abs() < 1e-9 * result.im.abs().max(1.0) {
+            if result.im.round() != 0.0
+                && (result.im.round() - result.im).abs() < 1e-9 * result.im.abs().max(1.0)
+            {
                 result.im = result.im.round();
             }
             format_complex(result, suffix)
