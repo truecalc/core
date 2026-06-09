@@ -10,8 +10,8 @@ use crate::types::{ErrorKind, Value};
 /// If cols>1: returns a nested 2D Array.
 pub fn sequence_fn(args: &[Value]) -> Value {
     if args.is_empty() {
-        // No args: SEQUENCE() = SEQUENCE(1) = [1]
-        return Value::Number(1.0);
+        // GS: SEQUENCE() with no args -> #REF!
+        return Value::Error(ErrorKind::Ref);
     }
     if let Some(err) = check_arity(args, 1, 4) {
         return err;

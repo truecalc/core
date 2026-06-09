@@ -30,17 +30,19 @@ pub fn round_fn(args: &[Value]) -> Value {
 
 /// Round `n` up (away from zero) to `digits` decimal places.
 pub fn roundup_fn(args: &[Value]) -> Value {
-    if let Some(err) = check_arity(args, 2, 2) {
+    if let Some(err) = check_arity(args, 1, 2) {
         return err;
     }
     let n = match to_number(args[0].clone()) {
         Err(e) => return e,
         Ok(v) => v,
     };
-    let digits = match to_number(args[1].clone()) {
-        Err(e) => return e,
-        Ok(v) => v,
-    };
+    let digits = if args.len() >= 2 {
+        match to_number(args[1].clone()) {
+            Err(e) => return e,
+            Ok(v) => v,
+        }
+    } else { 0.0 };
     let d = digits.trunc() as i32;
     let result = round_away_from_zero(n, d);
     if !result.is_finite() {
@@ -51,17 +53,19 @@ pub fn roundup_fn(args: &[Value]) -> Value {
 
 /// Round `n` down (toward zero) to `digits` decimal places.
 pub fn rounddown_fn(args: &[Value]) -> Value {
-    if let Some(err) = check_arity(args, 2, 2) {
+    if let Some(err) = check_arity(args, 1, 2) {
         return err;
     }
     let n = match to_number(args[0].clone()) {
         Err(e) => return e,
         Ok(v) => v,
     };
-    let digits = match to_number(args[1].clone()) {
-        Err(e) => return e,
-        Ok(v) => v,
-    };
+    let digits = if args.len() >= 2 {
+        match to_number(args[1].clone()) {
+            Err(e) => return e,
+            Ok(v) => v,
+        }
+    } else { 0.0 };
     let d = digits.trunc() as i32;
     let result = round_toward_zero(n, d);
     if !result.is_finite() {

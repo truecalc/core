@@ -8,7 +8,7 @@ pub fn product_fn(args: &[Value]) -> Value {
     }
     let mut product = 1.0_f64;
     for arg in args {
-        match product_value(arg) {
+        match product_top_level(arg) {
             Err(e) => return e,
             Ok(n) => product *= n,
         }
@@ -19,17 +19,28 @@ pub fn product_fn(args: &[Value]) -> Value {
     Value::Number(product)
 }
 
-/// Recursively multiply a value, flattening arrays.
-fn product_value(v: &Value) -> Result<f64, Value> {
+/// Top-level: arrays use array-context (booleans/text skipped).
+/// Direct scalars use full coercion.
+fn product_top_level(v: &Value) -> Result<f64, Value> {
+    match v {
+        Value::Array(_) => product_array_value(v),
+        other => to_number(other.clone()),
+    }
+}
+
+/// Array-context: booleans, text, empty silently skipped (contribute 1).
+fn product_array_value(v: &Value) -> Result<f64, Value> {
     match v {
         Value::Array(elems) => {
             let mut p = 1.0_f64;
             for elem in elems {
-                p *= product_value(elem)?;
+                p *= product_array_value(elem)?;
             }
             Ok(p)
         }
-        other => to_number(other.clone()),
+        Value::Bool(_) | Value::Text(_) | Value::Empty => Ok(1.0),
+        Value::Error(_) => Err(v.clone()),
+        Value::Number(n) | Value::Date(n) => Ok(*n),
     }
 }
 

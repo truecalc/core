@@ -266,6 +266,10 @@ pub fn csc_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(v) => v,
     };
+    // GS: |x| >= 1e14 -> #NUM!
+    if n.abs() >= 1e14 {
+        return Value::Error(ErrorKind::Num);
+    }
     let sin = n.sin();
     if sin == 0.0 || !sin.is_finite() {
         return Value::Error(ErrorKind::DivByZero);
@@ -285,7 +289,11 @@ pub fn csch_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::DivByZero);
     }
     let sinh = n.sinh();
-    if sinh == 0.0 || !sinh.is_finite() {
+    if !sinh.is_finite() {
+        // overflow for large |x| -> #NUM!
+        return Value::Error(ErrorKind::Num);
+    }
+    if sinh == 0.0 {
         return Value::Error(ErrorKind::DivByZero);
     }
     Value::Number(1.0 / sinh)

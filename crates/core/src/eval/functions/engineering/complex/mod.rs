@@ -241,6 +241,8 @@ fn value_to_complex(v: Value) -> Result<Complex, Value> {
             parse_complex(&s).ok_or(Value::Error(ErrorKind::Value))
         }
         Value::Error(_) => Err(v),
+        // GS: booleans are NOT valid complex arguments -> #NUM!
+        Value::Bool(_) => Err(Value::Error(ErrorKind::Num)),
         _ => {
             match to_number(v) {
                 Ok(n) => Ok(Complex::new(n, 0.0)),
@@ -248,6 +250,14 @@ fn value_to_complex(v: Value) -> Result<Complex, Value> {
             }
         }
     }
+}
+
+/// Extract the imaginary suffix ('i' or 'j') from a Value, defaulting to 'i'.
+fn get_suffix(v: &Value) -> char {
+    if let Value::Text(s) = v {
+        if s.ends_with('j') { return 'j'; }
+    }
+    'i'
 }
 
 // ── COMPLEX ───────────────────────────────────────────────────────────────────
@@ -438,11 +448,12 @@ pub fn imln_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 1, 1) {
         return err;
     }
+    let suffix = get_suffix(&args[0]);
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
         Ok(c) => match c.ln() {
             None => Value::Error(ErrorKind::DivByZero),
-            Some(result) => format_complex(result, 'i'),
+            Some(result) => format_complex(result, suffix),
         },
     }
 }
@@ -539,9 +550,10 @@ pub fn impower_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(c) => c,
     };
+    let suffix = get_suffix(&args[0]);
     match base.pow(exp) {
         None => Value::Error(ErrorKind::Num),
-        Some(result) => format_complex(result, 'i'),
+        Some(result) => format_complex(result, suffix),
     }
 }
 
@@ -552,9 +564,10 @@ pub fn imsqrt_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 1, 1) {
         return err;
     }
+    let suffix = get_suffix(&args[0]);
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
-        Ok(c) => format_complex(c.sqrt(), 'i'),
+        Ok(c) => format_complex(c.sqrt(), suffix),
     }
 }
 

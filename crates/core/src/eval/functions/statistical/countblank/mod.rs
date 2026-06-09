@@ -1,4 +1,6 @@
-use crate::eval::functions::check_arity;
+use crate::eval::evaluate_expr;
+use crate::eval::functions::{check_arity_len, EvalCtx};
+use crate::parser::ast::Expr;
 use crate::types::Value;
 
 fn count_blanks_in(values: &[Value]) -> usize {
@@ -15,11 +17,19 @@ fn count_blanks_in(values: &[Value]) -> usize {
 }
 
 /// `COUNTBLANK(range)` — counts empty/blank values.
-pub fn countblank_fn(args: &[Value]) -> Value {
-    if let Some(err) = check_arity(args, 1, 255) {
+///
+/// Registered as a lazy function so that error values in arguments (e.g.
+/// COUNTBLANK(1/0)) are received as Value::Error and counted as non-blank
+/// (returning 0), rather than being short-circuited by the eager evaluator.
+pub fn countblank_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
+    if let Some(err) = check_arity_len(args.len(), 1, 255) {
         return err;
     }
-    Value::Number(count_blanks_in(args) as f64)
+    let mut evaluated: Vec<Value> = Vec::with_capacity(args.len());
+    for arg in args {
+        evaluated.push(evaluate_expr(arg, ctx));
+    }
+    Value::Number(count_blanks_in(&evaluated) as f64)
 }
 
 #[cfg(test)]

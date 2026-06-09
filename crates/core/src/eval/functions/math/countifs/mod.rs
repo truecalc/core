@@ -22,8 +22,11 @@ pub fn countifs_fn(args: &[Value]) -> Value {
         })
         .collect();
 
-    // Use the first range's length as the row count.
+    // All ranges must have the same length; mismatched -> #VALUE!
     let row_count = pairs[0].0.len();
+    if pairs.iter().any(|(range, _)| range.len() != row_count) {
+        return Value::Error(ErrorKind::Value);
+    }
 
     let mut count = 0usize;
     for i in 0..row_count {

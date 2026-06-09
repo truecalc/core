@@ -62,7 +62,7 @@ pub fn register_statistical(registry: &mut Registry) {
     registry.register_eager("AVERAGEIFS",averageifs::averageifs_fn,FunctionMeta { category: "statistical", signature: "AVERAGEIFS(avg_range,criteria_range1,criteria1,...)", description: "Conditional average with multiple criteria" });
     registry.register_lazy("COUNT",  count::count_lazy_fn,  FunctionMeta { category: "statistical", signature: "COUNT(value1,...)",  description: "Count numeric values" });
     registry.register_lazy("COUNTA", count::counta_lazy_fn, FunctionMeta { category: "statistical", signature: "COUNTA(value1,...)", description: "Count non-empty values" });
-    registry.register_eager("COUNTBLANK", countblank::countblank_fn, FunctionMeta { category: "statistical", signature: "COUNTBLANK(range)", description: "Count blank/empty cells" });
+    registry.register_lazy("COUNTBLANK", countblank::countblank_fn, FunctionMeta { category: "statistical", signature: "COUNTBLANK(range)", description: "Count blank/empty cells" });
     registry.register_eager("GEOMEAN",  geomean::geomean_fn,  FunctionMeta { category: "statistical", signature: "GEOMEAN(value1,...)", description: "Geometric mean" });
     registry.register_eager("HARMEAN",  harmean::harmean_fn,  FunctionMeta { category: "statistical", signature: "HARMEAN(value1,...)", description: "Harmonic mean" });
     registry.register_eager("KURT",     kurt::kurt_fn,        FunctionMeta { category: "statistical", signature: "KURT(value1,...)",    description: "Excess kurtosis" });
