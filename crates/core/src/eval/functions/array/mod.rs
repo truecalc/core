@@ -313,13 +313,17 @@ fn chooserows_fn(args: &[Value]) -> Value {
 }
 
 // ── FLATTEN ───────────────────────────────────────────────────────────────────
-// Returns a single-column (ROWS=n, COLS=1) array
+// Returns a single-column (ROWS=n, COLS=1) array.
+// Google Sheets FLATTEN accepts multiple arguments and concatenates them.
 
 pub(crate) fn flatten_fn(args: &[Value]) -> Value {
-    if let Some(e) = check_arity(args, 1, 1) {
+    if let Some(e) = check_arity(args, 1, usize::MAX) {
         return e;
     }
-    let flat = flatten_val(&args[0]);
+    let mut flat: Vec<Value> = Vec::new();
+    for arg in args {
+        flat.extend(flatten_val(arg));
+    }
     // Return as column vector (nested array of single-element rows)
     let col: Vec<Vec<Value>> = flat.into_iter().map(|v| vec![v]).collect();
     from_2d(col)
@@ -528,7 +532,12 @@ pub(crate) fn sort_fn(args: &[Value]) -> Value {
 
     // Google Sheets semantics: a flat 1-D row array is treated as a single row.
     // SORT sorts *rows*; with only one row nothing changes regardless of parameters.
+    // Exception: if by_col=TRUE is requested on a 1D array, GS returns #N/A.
     if is_1d {
+        let by_col = args.get(3).map(|v| matches!(v, Value::Bool(true))).unwrap_or(false);
+        if by_col {
+            return Value::Error(ErrorKind::NA);
+        }
         return args[0].clone();
     }
 
@@ -771,18 +780,10 @@ fn sumxmy2_fn(args: &[Value]) -> Value {
     }
     let mut sum = 0.0;
     for (x, y) in xs.iter().zip(ys.iter()) {
-        // text/error/empty are skipped; booleans coerce to 1.0/0.0
-        let xn = match x {
-            Value::Number(n) => *n,
-            Value::Bool(b) => if *b { 1.0 } else { 0.0 },
-            _ => continue,
-        };
-        let yn = match y {
-            Value::Number(n) => *n,
-            Value::Bool(b) => if *b { 1.0 } else { 0.0 },
-            _ => continue,
-        };
-        sum += (xn - yn).powi(2);
+        // Only numeric values contribute; text, booleans, errors, empty are skipped.
+        if let (Value::Number(xn), Value::Number(yn)) = (x, y) {
+            sum += (*xn - *yn).powi(2);
+        }
     }
     Value::Number(sum)
 }
@@ -800,17 +801,9 @@ fn sumx2my2_fn(args: &[Value]) -> Value {
     }
     let mut sum = 0.0;
     for (x, y) in xs.iter().zip(ys.iter()) {
-        let xn = match x {
-            Value::Number(n) => *n,
-            Value::Bool(b) => if *b { 1.0 } else { 0.0 },
-            _ => continue,
-        };
-        let yn = match y {
-            Value::Number(n) => *n,
-            Value::Bool(b) => if *b { 1.0 } else { 0.0 },
-            _ => continue,
-        };
-        sum += xn * xn - yn * yn;
+        if let (Value::Number(xn), Value::Number(yn)) = (x, y) {
+            sum += *xn * *xn - *yn * *yn;
+        }
     }
     Value::Number(sum)
 }
@@ -828,17 +821,9 @@ fn sumx2py2_fn(args: &[Value]) -> Value {
     }
     let mut sum = 0.0;
     for (x, y) in xs.iter().zip(ys.iter()) {
-        let xn = match x {
-            Value::Number(n) => *n,
-            Value::Bool(b) => if *b { 1.0 } else { 0.0 },
-            _ => continue,
-        };
-        let yn = match y {
-            Value::Number(n) => *n,
-            Value::Bool(b) => if *b { 1.0 } else { 0.0 },
-            _ => continue,
-        };
-        sum += xn * xn + yn * yn;
+        if let (Value::Number(xn), Value::Number(yn)) = (x, y) {
+            sum += *xn * *xn + *yn * *yn;
+        }
     }
     Value::Number(sum)
 }
@@ -1016,10 +1001,23 @@ fn frequency_fn(args: &[Value]) -> Value {
         .iter()
         .filter_map(|v| if let Value::Number(n) = v { Some(*n) } else { None })
         .collect();
-    let bins: Vec<f64> = flatten_val(&args[1])
+    let bins_raw = flatten_val(&args[1]);
+    // Empty bins array → #REF! (Google Sheets behaviour)
+    if bins_raw.is_empty() || matches!(bins_raw.as_slice(), [Value::Empty]) {
+        return Value::Error(ErrorKind::Ref);
+    }
+    // Also treat an array whose only element is Empty as empty
+    let all_empty = bins_raw.iter().all(|v| matches!(v, Value::Empty));
+    if all_empty {
+        return Value::Error(ErrorKind::Ref);
+    }
+    let bins: Vec<f64> = bins_raw
         .iter()
         .filter_map(|v| if let Value::Number(n) = v { Some(*n) } else { None })
         .collect();
+    if bins.is_empty() {
+        return Value::Error(ErrorKind::Ref);
+    }
     // One bucket per bin, plus a final "greater than the last bin" bucket.
     let mut counts = vec![0i64; bins.len() + 1];
     for &x in &data {
