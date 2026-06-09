@@ -12,10 +12,10 @@ fn stdev_s_one_value_returns_div_zero() {
 }
 
 #[test]
-fn stdev_s_no_numeric_values_returns_div_zero() {
+fn stdev_s_non_numeric_text_returns_value_error() {
     assert_eq!(
-        stdev_s_fn(&[Value::Text("a".to_string()), Value::Bool(false)]),
-        Value::Error(ErrorKind::DivByZero)
+        stdev_s_fn(&[Value::Text("a".to_string()), Value::Number(2.0)]),
+        Value::Error(ErrorKind::Value)
     );
 }
 
