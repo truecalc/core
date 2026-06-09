@@ -454,7 +454,7 @@ conformance_tsv_test_report!(math_conformance,        "math.tsv");
 conformance_tsv_test_report!(logical_conformance,     "logical.tsv");
 conformance_tsv_test_report!(info_conformance,        "info.tsv");
 conformance_tsv_test_report!(statistical_conformance, "statistical.tsv");
-conformance_tsv_test_report!(operator_conformance,    "operator.tsv");
+conformance_tsv_test!(operator_conformance,         "operator.tsv");
 conformance_tsv_test_report!(text_conformance,        "text.tsv");
 conformance_tsv_test_report!(date_conformance,        "date.tsv");
 conformance_tsv_test_report!(engineering_conformance, "engineering.tsv");
