@@ -7,6 +7,7 @@ pub fn to_dollars_fn(args: &[Value]) -> Value {
     }
     match &args[0] {
         Value::Number(n) => Value::Number(*n),
+        Value::Bool(b)   => Value::Bool(*b),
         Value::Text(s)   => Value::Text(s.clone()),
         Value::Error(_)  => args[0].clone(),
         _                => Value::Error(ErrorKind::Value),

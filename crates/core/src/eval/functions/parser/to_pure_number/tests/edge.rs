@@ -8,15 +8,17 @@ fn negative_float() {
 }
 
 #[test]
-fn bool_true_is_one() {
+fn bool_true_passes_through() {
+    // Google Sheets: TO_PURE_NUMBER(TRUE) returns TRUE (boolean passthrough).
     let args = [Value::Bool(true)];
-    assert_eq!(to_pure_number_fn(&args), Value::Number(1.0));
+    assert_eq!(to_pure_number_fn(&args), Value::Bool(true));
 }
 
 #[test]
-fn bool_false_is_zero() {
+fn bool_false_passes_through() {
+    // Google Sheets: TO_PURE_NUMBER(FALSE) returns FALSE (boolean passthrough).
     let args = [Value::Bool(false)];
-    assert_eq!(to_pure_number_fn(&args), Value::Number(0.0));
+    assert_eq!(to_pure_number_fn(&args), Value::Bool(false));
 }
 
 #[test]

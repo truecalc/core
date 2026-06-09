@@ -19,7 +19,14 @@ fn error_propagates() {
 }
 
 #[test]
-fn bool_returns_value_error() {
+fn bool_true_passes_through() {
+    // Google Sheets: TO_DOLLARS(TRUE) returns TRUE (boolean passthrough).
     let args = [Value::Bool(true)];
-    assert_eq!(to_dollars_fn(&args), Value::Error(ErrorKind::Value));
+    assert_eq!(to_dollars_fn(&args), Value::Bool(true));
+}
+
+#[test]
+fn bool_false_passes_through() {
+    let args = [Value::Bool(false)];
+    assert_eq!(to_dollars_fn(&args), Value::Bool(false));
 }
