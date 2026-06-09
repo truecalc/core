@@ -7,10 +7,10 @@ fn var_p_no_args_returns_na() {
 }
 
 #[test]
-fn var_p_no_numeric_values_returns_div_zero() {
+fn var_p_non_numeric_text_returns_value_error() {
     assert_eq!(
-        var_p_fn(&[Value::Text("a".to_string()), Value::Bool(false)]),
-        Value::Error(ErrorKind::DivByZero)
+        var_p_fn(&[Value::Text("a".to_string()), Value::Number(2.0)]),
+        Value::Error(ErrorKind::Value)
     );
 }
 
