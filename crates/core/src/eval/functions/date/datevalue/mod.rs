@@ -1,4 +1,4 @@
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate};
 use crate::eval::functions::check_arity;
 use crate::eval::functions::date::serial::date_to_serial;
 use crate::types::{ErrorKind, Value};

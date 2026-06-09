@@ -1,4 +1,4 @@
-use chrono::{Duration, NaiveDate, NaiveTime, Timelike};
+use chrono::{Datelike, Duration, NaiveDate, NaiveTime, Timelike};
 
 /// Base date for serial number 0 in the **Sheets** date system
 /// (December 30, 1899). Locked per engine flavor — see `engine::Flavor`
@@ -217,7 +217,6 @@ pub fn excel_ymd_to_serial(year: i32, month: u32, day: u32) -> Option<f64> {
 /// which is why this returns a tuple rather than a `NaiveDate`.
 /// Serials below 1 return `None`.
 pub fn excel_serial_to_ymd(serial: f64) -> Option<(i32, u32, u32)> {
-    use chrono::Datelike;
     let days = serial.floor();
     if days < 1.0 {
         return None;
