@@ -1,10 +1,34 @@
 use crate::eval::coercion::{to_number, to_string_val};
 use crate::eval::functions::check_arity;
+use crate::eval::functions::text::lenb::dbcs_char_width;
 use crate::types::{ErrorKind, Value};
 
-/// `REPLACEB(old_text, start_byte, num_bytes, new_text)` — replaces N bytes starting at byte position.
-/// start_byte is 1-based. For ASCII text this is identical to REPLACE.
-/// Returns `#VALUE!` if start_byte < 1 or num_bytes < 0.
+/// Convert a 1-based DBCS start byte to a char index, snapping forward if inside a char.
+fn dbcs_start_to_char_idx(s: &str, start_1based: usize) -> usize {
+    if start_1based <= 1 {
+        return 0;
+    }
+    let target = start_1based - 1; // 0-based
+    let mut pos = 0usize;
+    for (i, c) in s.chars().enumerate() {
+        let w = dbcs_char_width(c);
+        if pos >= target {
+            return i;
+        }
+        if pos < target && pos + w > target {
+            return i + 1; // snap forward past partial char
+        }
+        pos += w;
+    }
+    s.chars().count()
+}
+
+/// Convert a char index to a 1-based DBCS byte position.
+fn char_idx_to_dbcs_byte_end(s: &str, char_idx: usize) -> usize {
+    s.chars().take(char_idx).map(dbcs_char_width).sum::<usize>()
+}
+
+/// `REPLACEB(old_text, start_byte, num_bytes, new_text)` — DBCS byte-position replacement.
 pub fn replaceb_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 4, 4) {
         return err;
@@ -28,19 +52,33 @@ pub fn replaceb_fn(args: &[Value]) -> Value {
     if start_num < 1.0 || num_bytes < 0.0 {
         return Value::Error(ErrorKind::Value);
     }
-    let start_byte = (start_num as usize) - 1;
-    let num_bytes = num_bytes as usize;
-    let total = text.len();
-    let start_byte = start_byte.min(total);
-    // Snap to char boundary
-    let start_byte = (start_byte..=total)
-        .find(|&i| text.is_char_boundary(i))
-        .unwrap_or(total);
-    let end_byte = (start_byte + num_bytes).min(total);
-    let end_byte = (end_byte..=total)
-        .find(|&i| text.is_char_boundary(i))
-        .unwrap_or(total);
-    Value::Text(format!("{}{}{}", &text[..start_byte], new_text, &text[end_byte..]))
+    let start_dbcs = start_num as usize; // 1-based
+    let num = num_bytes as usize;
+    let chars: Vec<char> = text.chars().collect();
+    // Snap start forward to char boundary
+    let start_char = dbcs_start_to_char_idx(&text, start_dbcs);
+    // end DBCS byte = (snapped start DBCS byte) + num_bytes
+    let start_dbcs_snapped = char_idx_to_dbcs_byte_end(&text, start_char) + 1; // 1-based
+    let end_dbcs_target = start_dbcs_snapped.saturating_sub(1) + num; // 0-based end exclusive
+    // Find end char: walk from start_char taking num_bytes
+    let mut taken = 0usize;
+    let mut end_char = start_char;
+    for c in chars[start_char..].iter() {
+        let w = dbcs_char_width(*c);
+        if taken + w <= num {
+            taken += w;
+            end_char += 1;
+            if taken == num { break; }
+        } else {
+            // Partial char: skip (exclude from replacement range)
+            break;
+        }
+    }
+    // Build result: prefix + new_text + suffix
+    let prefix: String = chars[..start_char].iter().collect();
+    let suffix: String = chars[end_char..].iter().collect();
+    let _ = end_dbcs_target; // used for clarity only
+    Value::Text(format!("{}{}{}", prefix, new_text, suffix))
 }
 
 #[cfg(test)]

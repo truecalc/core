@@ -1,6 +1,6 @@
 use crate::eval::coercion::{to_bool, to_string_val};
 use crate::eval::functions::check_arity;
-use crate::types::Value;
+use crate::types::{ErrorKind, Value};
 
 /// `SPLIT(text, delimiter, [split_by_each=TRUE], [remove_empty_text=TRUE])` —
 /// splits text by delimiter, returns an array.
@@ -21,6 +21,9 @@ pub fn split_fn(args: &[Value]) -> Value {
         Ok(s) => s,
         Err(e) => return e,
     };
+    if delimiter.is_empty() {
+        return Value::Error(ErrorKind::Value);
+    }
     let split_by_each = if args.len() >= 3 {
         match to_bool(args[2].clone()) {
             Ok(b) => b,

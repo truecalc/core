@@ -1,10 +1,11 @@
 use crate::eval::coercion::{to_number, to_string_val};
 use crate::eval::functions::check_arity;
+use crate::eval::functions::text::lenb::dbcs_char_width;
 use crate::types::{ErrorKind, Value};
 
-/// `MIDB(text, start_byte, num_bytes)` — returns a substring by byte position.
-/// start_byte is 1-based. For ASCII text this is identical to MID.
-/// Returns `#VALUE!` if start_byte < 1 or num_bytes < 0.
+/// `MIDB(text, start_byte, num_bytes)` — returns a substring by DBCS byte position.
+/// start_byte is 1-based. Partial double-byte characters are excluded.
+/// If start_byte falls inside a double-byte char, returns empty string.
 pub fn midb_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 3, 3) {
         return err;
@@ -27,21 +28,41 @@ pub fn midb_fn(args: &[Value]) -> Value {
     if num_bytes < 0.0 {
         return Value::Error(ErrorKind::Value);
     }
-    let start_byte = (start as usize) - 1;
-    let num_bytes = num_bytes as usize;
-    let total = text.len();
-    if start_byte >= total {
+    if num_bytes == 0.0 {
         return Value::Text(String::new());
     }
-    // Snap to char boundary
-    let start_byte = (start_byte..=total)
-        .find(|&i| text.is_char_boundary(i))
-        .unwrap_or(total);
-    let end_byte = (start_byte + num_bytes).min(total);
-    let end_byte = (end_byte..=total)
-        .find(|&i| text.is_char_boundary(i))
-        .unwrap_or(total);
-    Value::Text(text[start_byte..end_byte].to_string())
+    let start_dbcs = (start as usize) - 1; // 0-based DBCS byte
+    let budget = num_bytes as usize;
+    let mut pos = 0usize;
+    let mut result = String::new();
+    let mut bytes_taken = 0usize;
+    let mut collecting = false;
+    for c in text.chars() {
+        let w = dbcs_char_width(c);
+        let char_end = pos + w;
+        if !collecting {
+            if pos == start_dbcs {
+                collecting = true;
+            } else if pos < start_dbcs && char_end > start_dbcs {
+                // start_dbcs is inside this char — return empty (partial char boundary)
+                return Value::Text(String::new());
+            }
+        }
+        if collecting {
+            if bytes_taken + w <= budget {
+                result.push(c);
+                bytes_taken += w;
+                if bytes_taken == budget {
+                    break;
+                }
+            } else {
+                // Partial char at end — skip
+                break;
+            }
+        }
+        pos += w;
+    }
+    Value::Text(result)
 }
 
 #[cfg(test)]
