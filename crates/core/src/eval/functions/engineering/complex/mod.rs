@@ -54,16 +54,30 @@ impl Complex {
     }
 
     fn sqrt(self) -> Self {
-        // Principal square root via algebraic formula (avoids trig rounding errors).
-        // For z = x + iy: sqrt(z) = sqrt((|z|+x)/2) + i*sign(y)*sqrt((|z|-x)/2)
+        // Principal square root.
+        //
+        // For pure negative reals (im==0, re<0) GS uses the polar/trig form which
+        // yields a tiny non-zero real part (cos(pi/2) ≈ 6.12e-17). Conformance
+        // fixtures expect that floating-point residual, so we match it here.
+        //
+        // For all other inputs the algebraic formula avoids trig round-off --
+        // most importantly IMSQRT("4j"): both components come out as sqrt(2)
+        // exactly rather than differing by one ULP.
         let r = self.abs();
         if r == 0.0 {
             return Complex::new(0.0, 0.0);
         }
-        let re = ((r + self.re) / 2.0).sqrt();
-        let im = ((r - self.re) / 2.0).sqrt();
-        let im = if self.im < 0.0 { -im } else { im };
-        Complex::new(re, im)
+        if self.im == 0.0 && self.re < 0.0 {
+            // Polar/trig form preserves the cos(pi/2) residual GS shows.
+            let theta = self.arg(); // = pi
+            let sqrt_r = r.sqrt();
+            return Complex::new(sqrt_r * (theta / 2.0).cos(), sqrt_r * (theta / 2.0).sin());
+        }
+        // Algebraic form: sqrt((|z|+re)/2) + i*sign(im)*sqrt((|z|-re)/2)
+        let re_out = ((r + self.re) / 2.0).sqrt();
+        let im_out = ((r - self.re) / 2.0).sqrt();
+        let im_out = if self.im < 0.0 { -im_out } else { im_out };
+        Complex::new(re_out, im_out)
     }
 
     fn ln(self) -> Option<Self> {
@@ -250,7 +264,7 @@ fn value_to_complex(v: Value) -> Result<Complex, Value> {
     match v {
         Value::Number(n) | Value::Date(n) => Ok(Complex::new(n, 0.0)),
         Value::Text(s) => {
-            parse_complex(&s).ok_or(Value::Error(ErrorKind::Num))
+            parse_complex(&s).ok_or(Value::Error(ErrorKind::Value))
         }
         Value::Error(_) => Err(v),
         // GS: booleans are NOT valid complex arguments -> #NUM!
@@ -461,7 +475,14 @@ pub fn imln_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 1, 1) {
         return err;
     }
-    match value_to_complex(args[0].clone()) {
+    // GS returns #NUM! (not #VALUE!) when the text is not a valid complex string.
+    let val = args[0].clone();
+    if let Value::Text(ref s) = val {
+        if parse_complex(s).is_none() {
+            return Value::Error(ErrorKind::Num);
+        }
+    }
+    match value_to_complex(val) {
         Err(e) => e,
         Ok(c) => match c.ln() {
             None => Value::Error(ErrorKind::DivByZero),
@@ -558,16 +579,14 @@ pub fn impower_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(c) => c,
     };
-    // The exponent accepts booleans as numbers (TRUE=1, FALSE=0), unlike the
-    // base which requires a complex string.
-    let exp_val = match args[1].clone() {
-        Value::Bool(b) => Value::Number(if b { 1.0 } else { 0.0 }),
-        other => other,
-    };
-    let exp = match value_to_complex(exp_val) {
+    // The exponent is always real. Use to_number so that:
+    //   - TRUE/FALSE coerce to 1/0 (GS rows 1042/1043)
+    //   - non-numeric text like "abc" returns #VALUE! not #NUM! (GS row 1047)
+    let exp_n = match to_number(args[1].clone()) {
         Err(e) => return e,
-        Ok(c) => c,
+        Ok(v) => v,
     };
+    let exp = Complex::new(exp_n, 0.0);
     let suffix = get_suffix(&args[0]);
     match base.pow(exp) {
         None => Value::Error(ErrorKind::Num),
@@ -593,6 +612,12 @@ pub fn imsqrt_fn(args: &[Value]) -> Value {
         return err;
     }
     let suffix = get_suffix(&args[0]);
+    // GS returns #NUM! (not #VALUE!) when the text is not a valid complex string.
+    if let Value::Text(ref s) = args[0] {
+        if parse_complex(s).is_none() {
+            return Value::Error(ErrorKind::Num);
+        }
+    }
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
         Ok(c) => format_complex(c.sqrt(), suffix),

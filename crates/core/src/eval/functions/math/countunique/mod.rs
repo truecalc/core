@@ -25,6 +25,7 @@ fn to_unique_key(v: &Value) -> Option<UniqueKey> {
 
 /// Eager version kept only for unit tests; the registered version is lazy.
 pub fn countunique_fn(args: &[Value]) -> Value {
+    if let Some(err) = check_arity(args, 1, 255) { return err; }
     let mut seen: HashSet<UniqueKey> = HashSet::new();
     for arg in args {
         match arg {
