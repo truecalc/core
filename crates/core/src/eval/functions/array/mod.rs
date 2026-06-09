@@ -313,13 +313,17 @@ fn chooserows_fn(args: &[Value]) -> Value {
 }
 
 // ── FLATTEN ───────────────────────────────────────────────────────────────────
-// Returns a single-column (ROWS=n, COLS=1) array
+// Returns a single-column (ROWS=n, COLS=1) array.
+// Google Sheets FLATTEN accepts multiple arguments and concatenates them.
 
 pub(crate) fn flatten_fn(args: &[Value]) -> Value {
-    if let Some(e) = check_arity(args, 1, 1) {
+    if let Some(e) = check_arity(args, 1, usize::MAX) {
         return e;
     }
-    let flat = flatten_val(&args[0]);
+    let mut flat: Vec<Value> = Vec::new();
+    for arg in args {
+        flat.extend(flatten_val(arg));
+    }
     // Return as column vector (nested array of single-element rows)
     let col: Vec<Vec<Value>> = flat.into_iter().map(|v| vec![v]).collect();
     from_2d(col)
@@ -362,37 +366,95 @@ fn vstack_fn(args: &[Value]) -> Value {
 
 // ── TOCOL ─────────────────────────────────────────────────────────────────────
 // Converts array to column vector (many rows, 1 col)
+// ignore: 0=keep all, 1=ignore blanks, 2=ignore errors, 3=ignore both
+// scan_by_col: if TRUE, scan column-major instead of row-major
 
 fn tocol_fn(args: &[Value]) -> Value {
     if let Some(e) = check_arity(args, 1, 3) {
         return e;
     }
-    if let Some(m) = args.get(1) {
+    let ignore = if let Some(m) = args.get(1) {
         match to_f64(m) {
-            Some(n) if (0.0..4.0).contains(&n) => {}
+            Some(n) if (0.0..=3.0).contains(&n) => n as u8,
             _ => return Value::Error(ErrorKind::Value),
         }
-    }
-    let flat = flatten_val(&args[0]);
-    let col: Vec<Vec<Value>> = flat.into_iter().map(|v| vec![v]).collect();
+    } else {
+        0
+    };
+    let scan_by_col = args.get(2).map(|v| matches!(v, Value::Bool(true))).unwrap_or(false);
+
+    let flat = if scan_by_col {
+        // column-major order
+        let grid = to_2d(&args[0]);
+        let ncols = grid.first().map(|r| r.len()).unwrap_or(0);
+        let mut out = Vec::new();
+        for c in 0..ncols {
+            for row in &grid {
+                out.push(row[c].clone());
+            }
+        }
+        out
+    } else {
+        flatten_val(&args[0])
+    };
+
+    let filtered: Vec<Value> = flat.into_iter().filter(|v| {
+        let is_blank = matches!(v, Value::Empty) || matches!(v, Value::Text(s) if s.is_empty());
+        let is_error = matches!(v, Value::Error(_));
+        if ignore == 1 && is_blank { return false; }
+        if ignore == 2 && is_error { return false; }
+        if ignore == 3 && (is_blank || is_error) { return false; }
+        true
+    }).collect();
+
+    let col: Vec<Vec<Value>> = filtered.into_iter().map(|v| vec![v]).collect();
     from_2d(col)
 }
 
 // ── TOROW ─────────────────────────────────────────────────────────────────────
 // Converts array to row vector (1 row, many cols)
+// ignore: 0=keep all, 1=ignore blanks, 2=ignore errors, 3=ignore both
+// scan_by_col: if TRUE, scan column-major instead of row-major
 
 fn torow_fn(args: &[Value]) -> Value {
     if let Some(e) = check_arity(args, 1, 3) {
         return e;
     }
-    if let Some(m) = args.get(1) {
+    let ignore = if let Some(m) = args.get(1) {
         match to_f64(m) {
-            Some(n) if (0.0..4.0).contains(&n) => {}
+            Some(n) if (0.0..=3.0).contains(&n) => n as u8,
             _ => return Value::Error(ErrorKind::Value),
         }
-    }
-    let flat = flatten_val(&args[0]);
-    Value::Array(flat)
+    } else {
+        0
+    };
+    let scan_by_col = args.get(2).map(|v| matches!(v, Value::Bool(true))).unwrap_or(false);
+
+    let flat = if scan_by_col {
+        // column-major order
+        let grid = to_2d(&args[0]);
+        let ncols = grid.first().map(|r| r.len()).unwrap_or(0);
+        let mut out = Vec::new();
+        for c in 0..ncols {
+            for row in &grid {
+                out.push(row[c].clone());
+            }
+        }
+        out
+    } else {
+        flatten_val(&args[0])
+    };
+
+    let filtered: Vec<Value> = flat.into_iter().filter(|v| {
+        let is_blank = matches!(v, Value::Empty) || matches!(v, Value::Text(s) if s.is_empty());
+        let is_error = matches!(v, Value::Error(_));
+        if ignore == 1 && is_blank { return false; }
+        if ignore == 2 && is_error { return false; }
+        if ignore == 3 && (is_blank || is_error) { return false; }
+        true
+    }).collect();
+
+    Value::Array(filtered)
 }
 
 // ── WRAPCOLS ──────────────────────────────────────────────────────────────────
@@ -468,7 +530,12 @@ pub(crate) fn sort_fn(args: &[Value]) -> Value {
 
     // Google Sheets semantics: a flat 1-D row array is treated as a single row.
     // SORT sorts *rows*; with only one row nothing changes regardless of parameters.
+    // Exception: if by_col=TRUE is requested on a 1D array, GS returns #N/A.
     if is_1d {
+        let by_col = args.get(3).map(|v| matches!(v, Value::Bool(true))).unwrap_or(false);
+        if by_col {
+            return Value::Error(ErrorKind::NA);
+        }
         return args[0].clone();
     }
 
@@ -711,6 +778,7 @@ fn sumxmy2_fn(args: &[Value]) -> Value {
     }
     let mut sum = 0.0;
     for (x, y) in xs.iter().zip(ys.iter()) {
+        // Only numeric values contribute; text, booleans, errors, empty are skipped.
         if let (Value::Number(xn), Value::Number(yn)) = (x, y) {
             sum += (*xn - *yn).powi(2);
         }
@@ -931,10 +999,23 @@ fn frequency_fn(args: &[Value]) -> Value {
         .iter()
         .filter_map(|v| if let Value::Number(n) = v { Some(*n) } else { None })
         .collect();
-    let bins: Vec<f64> = flatten_val(&args[1])
+    let bins_raw = flatten_val(&args[1]);
+    // Empty bins array → #REF! (Google Sheets behaviour)
+    if bins_raw.is_empty() || matches!(bins_raw.as_slice(), [Value::Empty]) {
+        return Value::Error(ErrorKind::Ref);
+    }
+    // Also treat an array whose only element is Empty as empty
+    let all_empty = bins_raw.iter().all(|v| matches!(v, Value::Empty));
+    if all_empty {
+        return Value::Error(ErrorKind::Ref);
+    }
+    let bins: Vec<f64> = bins_raw
         .iter()
         .filter_map(|v| if let Value::Number(n) = v { Some(*n) } else { None })
         .collect();
+    if bins.is_empty() {
+        return Value::Error(ErrorKind::Ref);
+    }
     // One bucket per bin, plus a final "greater than the last bin" bucket.
     let mut counts = vec![0i64; bins.len() + 1];
     for &x in &data {
@@ -967,13 +1048,24 @@ fn linest_fn(args: &[Value]) -> Value {
     }
     let ys = flatten_val(&args[0]);
     let n = ys.len();
+    // boolean or text y-values → #VALUE!
+    if ys.iter().any(|v| matches!(v, Value::Bool(_) | Value::Text(_))) {
+        return Value::Error(ErrorKind::Value);
+    }
+    if n < 2 {
+        return Value::Error(ErrorKind::NA);
+    }
     let xs: Vec<f64> = if args.len() >= 2 {
-        flatten_val(&args[1]).iter().filter_map(to_f64).collect()
+        let xv = flatten_val(&args[1]);
+        if xv.len() != n {
+            return Value::Error(ErrorKind::Ref);
+        }
+        xv.iter().filter_map(to_f64).collect()
     } else {
         (1..=n).map(|i| i as f64).collect()
     };
-    if xs.len() != n || n < 2 {
-        return Value::Error(ErrorKind::Value);
+    if xs.len() != n {
+        return Value::Error(ErrorKind::Ref);
     }
     let y_vals: Vec<f64> = ys.iter().filter_map(to_f64).collect();
     if y_vals.len() != n {
@@ -1008,13 +1100,24 @@ fn logest_fn(args: &[Value]) -> Value {
     }
     let ys = flatten_val(&args[0]);
     let n = ys.len();
+    // boolean y-values → #VALUE! (TRUE would coerce to 1 but GS errors)
+    if ys.iter().any(|v| matches!(v, Value::Bool(_))) {
+        return Value::Error(ErrorKind::Value);
+    }
+    if n < 2 {
+        return Value::Error(ErrorKind::NA);
+    }
     let xs: Vec<f64> = if args.len() >= 2 {
-        flatten_val(&args[1]).iter().filter_map(to_f64).collect()
+        let xv = flatten_val(&args[1]);
+        if xv.len() != n {
+            return Value::Error(ErrorKind::Ref);
+        }
+        xv.iter().filter_map(to_f64).collect()
     } else {
         (1..=n).map(|i| i as f64).collect()
     };
-    if xs.len() != n || n < 2 {
-        return Value::Error(ErrorKind::Value);
+    if xs.len() != n {
+        return Value::Error(ErrorKind::Ref);
     }
     let y_vals: Vec<f64> = ys.iter().filter_map(to_f64).collect();
     if y_vals.len() != n {
@@ -1040,13 +1143,24 @@ fn trend_fn(args: &[Value]) -> Value {
     }
     let ys = flatten_val(&args[0]);
     let n = ys.len();
+    // boolean or text y-values → #VALUE!
+    if ys.iter().any(|v| matches!(v, Value::Bool(_) | Value::Text(_))) {
+        return Value::Error(ErrorKind::Value);
+    }
+    if n < 2 {
+        return Value::Error(ErrorKind::NA);
+    }
     let xs: Vec<f64> = if args.len() >= 2 {
-        flatten_val(&args[1]).iter().filter_map(to_f64).collect()
+        let xv = flatten_val(&args[1]);
+        if xv.len() != n {
+            return Value::Error(ErrorKind::Ref);
+        }
+        xv.iter().filter_map(to_f64).collect()
     } else {
         (1..=n).map(|i| i as f64).collect()
     };
-    if xs.len() != n || n < 2 {
-        return Value::Error(ErrorKind::Value);
+    if xs.len() != n {
+        return Value::Error(ErrorKind::Ref);
     }
     let y_vals: Vec<f64> = ys.iter().filter_map(to_f64).collect();
     if y_vals.len() != n {
@@ -1071,13 +1185,24 @@ fn growth_fn(args: &[Value]) -> Value {
     }
     let ys = flatten_val(&args[0]);
     let n = ys.len();
+    // boolean y-values → #VALUE! (GS errors on TRUE/FALSE in y)
+    if ys.iter().any(|v| matches!(v, Value::Bool(_))) {
+        return Value::Error(ErrorKind::Value);
+    }
+    if n < 2 {
+        return Value::Error(ErrorKind::NA);
+    }
     let xs: Vec<f64> = if args.len() >= 2 {
-        flatten_val(&args[1]).iter().filter_map(to_f64).collect()
+        let xv = flatten_val(&args[1]);
+        if xv.len() != n {
+            return Value::Error(ErrorKind::Ref);
+        }
+        xv.iter().filter_map(to_f64).collect()
     } else {
         (1..=n).map(|i| i as f64).collect()
     };
-    if xs.len() != n || n < 2 {
-        return Value::Error(ErrorKind::Value);
+    if xs.len() != n {
+        return Value::Error(ErrorKind::Ref);
     }
     let y_vals: Vec<f64> = ys.iter().filter_map(to_f64).collect();
     if y_vals.len() != n {
@@ -1093,18 +1218,26 @@ fn growth_fn(args: &[Value]) -> Value {
     } else {
         xs.clone()
     };
-    // Ignore b param (args[3]) — not fully implemented; flag error if b=FALSE
-    if args.len() >= 4 {
-        let b_false = match &args[3] {
-            Value::Bool(b) => !b,
-            Value::Number(n) => *n == 0.0,
-            _ => false,
-        };
-        if b_false {
-            return Value::Error(ErrorKind::Value);
+    // b param: TRUE (default) = compute intercept normally;
+    //          FALSE = force intercept through origin (ln(b)=0, so b=1)
+    let use_intercept = if args.len() >= 4 {
+        match &args[3] {
+            Value::Bool(b) => *b,
+            Value::Number(n) => *n != 0.0,
+            _ => true,
         }
-    }
-    let (log_base, log_intercept) = simple_linear_regression(&xs, &log_y);
+    } else {
+        true
+    };
+    let (log_base, log_intercept) = if use_intercept {
+        simple_linear_regression(&xs, &log_y)
+    } else {
+        // Force intercept = 0: slope = sum(x*lny)/sum(x^2)
+        let sum_xy: f64 = xs.iter().zip(log_y.iter()).map(|(x, ly)| x * ly).sum();
+        let sum_xx: f64 = xs.iter().map(|x| x * x).sum();
+        let slope = if sum_xx.abs() < 1e-15 { 0.0 } else { sum_xy / sum_xx };
+        (slope, 0.0)
+    };
     let result: Vec<Value> = new_xs
         .iter()
         .map(|&x| Value::Number((log_base * x + log_intercept).exp()))
