@@ -1,9 +1,22 @@
+use crate::eval::coercion::to_number;
 use crate::eval::functions::check_arity;
 use crate::types::{ErrorKind, Value};
 use super::array_utils::{flatten_to_rows, flatten_to_flat, values_equal, value_compare, wildcard_match_value, has_wildcards};
 
+/// Helper: coerce a Value to an index (i64). Handles Number and Bool; propagates errors.
+/// Returns Err(Value::Error(...)) if coercion fails.
+fn coerce_index(v: &Value) -> Result<i64, Value> {
+    match v {
+        Value::Number(n) => Ok(n.trunc() as i64),
+        Value::Bool(b) => Ok(if *b { 1 } else { 0 }),
+        Value::Error(e) => Err(Value::Error(e.clone())),
+        _ => Err(Value::Error(ErrorKind::Value)),
+    }
+}
+
 /// `INDEX(array, row, [col])` — returns the value at row/col of array.
 /// Row and col are 1-based. Negative -> #VALUE!, out of bounds -> #REF!.
+/// row=0 or col=0 means "all" (returns entire row/col or for 1D: first element).
 pub fn index_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 2, 3) {
         return err;
@@ -11,9 +24,9 @@ pub fn index_fn(args: &[Value]) -> Value {
 
     let array_val = &args[0];
 
-    let row_idx_raw = match &args[1] {
-        Value::Number(n) => n.trunc() as i64,
-        _ => return Value::Error(ErrorKind::Value),
+    let row_idx_raw = match coerce_index(&args[1]) {
+        Ok(n) => n,
+        Err(e) => return e,
     };
     if row_idx_raw < 0 {
         return Value::Error(ErrorKind::Value);
@@ -21,9 +34,9 @@ pub fn index_fn(args: &[Value]) -> Value {
     let row_idx = row_idx_raw as usize;
 
     let col_idx = if args.len() == 3 {
-        let col_raw = match &args[2] {
-            Value::Number(n) => n.trunc() as i64,
-            _ => return Value::Error(ErrorKind::Value),
+        let col_raw = match coerce_index(&args[2]) {
+            Ok(n) => n,
+            Err(e) => return e,
         };
         if col_raw < 0 {
             return Value::Error(ErrorKind::Value);
@@ -37,8 +50,21 @@ pub fn index_fn(args: &[Value]) -> Value {
     let is_2d = matches!(array_val, Value::Array(v) if v.iter().any(|e| matches!(e, Value::Array(_))));
 
     if is_2d {
-        if row_idx < 1 || row_idx > rows.len() {
+        // row=0 means return entire column; col=0 means return entire row
+        if row_idx == 0 && col_idx == 0 {
+            return array_val.clone();
+        }
+        if row_idx > rows.len() {
             return Value::Error(ErrorKind::Ref);
+        }
+        if row_idx == 0 {
+            // Return entire column col_idx across all rows
+            let col = col_idx;
+            if col < 1 || rows.iter().any(|r| col > r.len()) {
+                return Value::Error(ErrorKind::Ref);
+            }
+            let col_vals: Vec<Value> = rows.iter().map(|r| r[col - 1].clone()).collect();
+            return Value::Array(col_vals);
         }
         let row = &rows[row_idx - 1];
         if col_idx == 0 {
@@ -51,11 +77,17 @@ pub fn index_fn(args: &[Value]) -> Value {
     } else {
         let flat = flatten_to_flat(array_val);
         if col_idx == 0 {
-            if row_idx < 1 || row_idx > flat.len() {
+            // row=0: return entire array; row>=1: return that element
+            if row_idx == 0 {
+                // GS: INDEX(row_vector, 0) returns first element
+                return flat.first().cloned().unwrap_or(Value::Error(ErrorKind::Ref));
+            }
+            if row_idx > flat.len() {
                 return Value::Error(ErrorKind::Ref);
             }
             flat[row_idx - 1].clone()
-        } else if row_idx == 1 {
+        } else if row_idx == 0 || row_idx == 1 {
+            // Row vector: row=0 or row=1 both select by column index
             if col_idx > flat.len() {
                 return Value::Error(ErrorKind::Ref);
             }
