@@ -106,6 +106,10 @@ pub(crate) fn format_bin(n: i64, places: Option<usize>) -> Result<String, ()> {
         n as u64
     };
     let s = format!("{:b}", bits);
+    // GS ignores places for negative numbers (full two's-complement string always returned)
+    if n < 0 {
+        return Ok(s);
+    }
     apply_places(s, places, 10)
 }
 
@@ -119,6 +123,10 @@ pub(crate) fn format_oct(n: i64, places: Option<usize>) -> Result<String, ()> {
         n as u64
     };
     let s = format!("{:o}", bits);
+    // GS ignores places for negative numbers (full two's-complement string always returned)
+    if n < 0 {
+        return Ok(s);
+    }
     apply_places(s, places, 10)
 }
 
@@ -132,6 +140,10 @@ pub(crate) fn format_hex(n: i64, places: Option<usize>) -> Result<String, ()> {
         n as u64
     };
     let s = format!("{:X}", bits);
+    // GS ignores places for negative numbers (full two's-complement string always returned)
+    if n < 0 {
+        return Ok(s);
+    }
     apply_places(s, places, 10)
 }
 

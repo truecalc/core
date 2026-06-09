@@ -16,7 +16,9 @@ pub fn bitor_fn(args: &[Value]) -> Value {
         Ok(n) => n,
         Err(e) => return e,
     };
-    if a < 0.0 || b < 0.0 || a > MAX_BIT as f64 || b > MAX_BIT as f64 {
+    if a < 0.0 || b < 0.0 || a > MAX_BIT as f64 || b > MAX_BIT as f64
+        || a.fract() != 0.0 || b.fract() != 0.0
+    {
         return Value::Error(ErrorKind::Num);
     }
     let result = (a as u64) | (b as u64);

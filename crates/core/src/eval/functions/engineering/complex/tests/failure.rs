@@ -5,18 +5,21 @@ fn t(s: &str) -> Value {
     Value::Text(s.to_string())
 }
 
-// ── Non-parseable string → Error(Value) ───────────────────────────────────────
+// ── Non-parseable string → Error(Num) ────────────────────────────────────────
+// GS returns #NUM! (not #VALUE!) when an IM* function receives an invalid
+// complex-number string.  The COMPLEX/BIT*/DEC*/ERF family still returns
+// #VALUE! for non-numeric inputs — those are handled separately.
 
 #[test]
 fn imabs_non_parseable() {
-    assert_eq!(imabs_fn(&[t("not-a-number")]), Value::Error(ErrorKind::Value));
+    assert_eq!(imabs_fn(&[t("not-a-number")]), Value::Error(ErrorKind::Num));
 }
 
 #[test]
 fn imreal_non_parseable() {
     assert_eq!(
         imreal_fn(&[t("bad input")]),
-        Value::Error(ErrorKind::Value)
+        Value::Error(ErrorKind::Num)
     );
 }
 
@@ -24,7 +27,7 @@ fn imreal_non_parseable() {
 fn imaginary_non_parseable() {
     assert_eq!(
         imaginary_fn(&[t("??")]),
-        Value::Error(ErrorKind::Value)
+        Value::Error(ErrorKind::Num)
     );
 }
 
