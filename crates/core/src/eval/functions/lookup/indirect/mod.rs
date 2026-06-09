@@ -57,7 +57,7 @@ fn is_a1_ref(s: &str) -> bool {
     }
     let col = col_label_to_index(&s[..col_end]);
     let row: usize = rest.parse().unwrap_or(0);
-    col >= 1 && col <= MAX_COL && row >= 1 && row <= MAX_ROW
+    (1..=MAX_COL).contains(&col) && (1..=MAX_ROW).contains(&row)
 }
 
 /// A1-style range: "A1:B2" — both halves must be valid single A1 cell refs.
@@ -90,7 +90,7 @@ fn is_r1c1_ref(s: &str) -> bool {
         return false;
     }
     let col: usize = std::str::from_utf8(rest).unwrap().parse().unwrap_or(0);
-    row >= 1 && row <= MAX_ROW && col >= 1 && col <= MAX_COL
+    (1..=MAX_ROW).contains(&row) && (1..=MAX_COL).contains(&col)
 }
 
 #[cfg(test)]

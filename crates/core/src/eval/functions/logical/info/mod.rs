@@ -82,11 +82,11 @@ pub fn type_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
 /// - `Expr::Variable("B1", _)` → `Some("B1")`
 /// - `Expr::FunctionCall { name: "INDIRECT", args: [Expr::Text(s, _)], .. }` → `Some(s)`
 /// - Anything else → `None` (caller should evaluate the expr to check for errors)
-fn extract_ref_address<'a>(expr: &'a Expr) -> Option<&'a str> {
+fn extract_ref_address(expr: &Expr) -> Option<&str> {
     match expr {
         Expr::Variable(name, _) => Some(name.as_str()),
         Expr::FunctionCall { name, args, .. } if name.eq_ignore_ascii_case("INDIRECT") => {
-            if args.len() >= 1 {
+            if !args.is_empty() {
                 if let Expr::Text(s, _) = &args[0] {
                     return Some(s.as_str());
                 }
