@@ -12,10 +12,11 @@ fn varpa_false_counts_as_zero() {
 }
 
 #[test]
-fn varpa_non_parseable_text_counts_as_zero() {
-    // AVERAGEA semantics: text -> 0.0; [0.0, 4.0]: pop var=4
+fn varpa_non_parseable_text_returns_value_error() {
+    // Direct non-parseable text -> #VALUE! for AVERAGEA semantics
+    use crate::types::ErrorKind;
     let result = varpa_fn(&[Value::Text("hello".to_string()), Value::Number(4.0)]);
-    assert_eq!(result, Value::Number(4.0));
+    assert_eq!(result, Value::Error(ErrorKind::Value));
 }
 
 #[test]
