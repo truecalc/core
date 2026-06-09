@@ -827,7 +827,7 @@ fn duration_calc(args: &[Value], _modified: bool) -> Result<f64, Value> {
     use crate::eval::functions::date::serial::serial_to_date;
     use crate::eval::functions::financial::bonds::{
         coupon_period_days, days_between, months_per_period, next_coupon_date,
-        prev_coupon_date, add_months, validate_basis, validate_frequency,
+        prev_coupon_date, add_months_coupon, last_day_of_month, validate_basis, validate_frequency,
     };
 
     let settlement_s = to_number(args[0].clone())?;
@@ -860,8 +860,10 @@ fn duration_calc(args: &[Value], _modified: bool) -> Result<f64, Value> {
     let days_to_ncd = days_between(settlement, ncd, basis) as f64;
     let dsc_e = days_to_ncd / period_days;
 
-    // Count coupons
+    // Count coupons using EOM-aware stepping keyed on maturity
     let mpp = months_per_period(frequency);
+    let mat_eom = maturity == last_day_of_month(maturity.year(), maturity.month());
+    let mat_day = maturity.day();
     let mut coupon_dates: Vec<f64> = Vec::new();
     let mut t = dsc_e; // fractional periods from settlement to first coupon
     let mut cur = ncd;
@@ -870,7 +872,7 @@ fn duration_calc(args: &[Value], _modified: bool) -> Result<f64, Value> {
         if cur >= maturity {
             break;
         }
-        cur = add_months(cur, mpp);
+        cur = add_months_coupon(cur, mpp, mat_eom, mat_day);
         t += 1.0;
         if t > 1000.0 { break; } // safety
     }
