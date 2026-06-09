@@ -28,6 +28,7 @@ fn as_f64(v: &Value) -> Option<f64> {
     match v {
         Value::Number(n) => Some(*n),
         Value::Bool(b) => Some(if *b { 1.0 } else { 0.0 }),
+        Value::Text(s) => s.trim().parse::<f64>().ok().filter(|n| n.is_finite()),
         _ => None,
     }
 }
@@ -420,8 +421,9 @@ pub fn chisq_dist_rt_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let x = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    if x < 0.0 || df < 1.0 {
+    let df_raw = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df = df_raw.trunc();
+    if x < 0.0 || df < 1.0 || df > 1e10 {
         return Value::Error(ErrorKind::Num);
     }
     Value::Number(1.0 - d::chisq_cdf(x, df))
@@ -433,8 +435,9 @@ pub fn chidist_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let x = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    if x < 0.0 || df < 1.0 {
+    let df_raw = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df = df_raw.trunc();
+    if x < 0.0 || df < 1.0 || df > 1e10 {
         return Value::Error(ErrorKind::Num);
     }
     Value::Number(1.0 - d::chisq_cdf(x, df))
@@ -466,8 +469,9 @@ pub fn chisq_inv_rt_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let p = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    if p < 0.0 || p > 1.0 || df < 1.0 {
+    let df_raw = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df = df_raw.trunc();
+    if p < 0.0 || p > 1.0 || df < 1.0 || df > 1e10 {
         return Value::Error(ErrorKind::Num);
     }
     let v = d::chisq_inv(1.0 - p, df);
@@ -572,7 +576,8 @@ pub fn tdist_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let x = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df_raw = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df = df_raw.trunc();
     let tails = match as_f64(&args[2]) { Some(v) => v as i64, None => return Value::Error(ErrorKind::Value) };
     if df < 1.0 || x < 0.0 {
         return Value::Error(ErrorKind::Num);
@@ -762,8 +767,8 @@ pub fn f_dist_rt_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let x = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df1 = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df2 = match as_f64(&args[2]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df1 = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) }.trunc();
+    let df2 = match as_f64(&args[2]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) }.trunc();
     if x < 0.0 || df1 < 1.0 || df2 < 1.0 {
         return Value::Error(ErrorKind::Num);
     }
@@ -1058,10 +1063,17 @@ pub fn binom_inv_fn(args: &[Value]) -> Value {
     if args.len() < 3 {
         return Value::Error(ErrorKind::NA);
     }
+    if args.len() > 3 {
+        return Value::Error(ErrorKind::NA);
+    }
     let n_f = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
     let p = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
     let alpha = match as_f64(&args[2]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
     if n_f < 0.0 || p < 0.0 || p > 1.0 || alpha <= 0.0 || alpha >= 1.0 {
+        return Value::Error(ErrorKind::Num);
+    }
+    // GS returns #NUM! for degenerate p=0 or p=1
+    if p == 0.0 || p == 1.0 {
         return Value::Error(ErrorKind::Num);
     }
     let n = n_f as u64;
