@@ -22,30 +22,47 @@ pub fn datevalue_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::Value);
     }
 
-    // Strip trailing time portion (e.g. "2023-06-15 14:30:00" → "2023-06-15")
-    // so ISO-datetime and slash-datetime strings are handled correctly.
-    let date_part = if let Some(idx) = text.find(' ') {
-        &text[..idx]
+    // Strip trailing time component only when the suffix after the space looks
+    // like a time string (starts with a digit followed by ':').  This preserves
+    // month-name formats such as "January 1, 2023".
+    let date_part: &str = if let Some(idx) = text.find(' ') {
+        let after = &text[idx + 1..];
+        let looks_like_time = after.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false)
+            && after.contains(':');
+        if looks_like_time { &text[..idx] } else { text.as_str() }
     } else {
         text.as_str()
     };
 
-    let formats = [
+    // Formats without two-digit year (%y) — parsed directly.
+    let formats_4y = [
         "%m/%d/%Y",
-        "%m/%d/%y",
         "%Y-%m-%d",
         "%Y/%m/%d",
         "%d-%b-%Y",
-        "%d-%b-%y",
         "%B %d, %Y",
         "%b %d, %Y",
         "%B %d %Y",
         "%b %d %Y",
     ];
 
-    for fmt in &formats {
+    for fmt in &formats_4y {
         if let Ok(date) = NaiveDate::parse_from_str(date_part, fmt) {
             return Value::Number(date_to_serial(date));
+        }
+    }
+
+    // Two-digit-year formats: chrono maps %y to the literal year (e.g. 99 → year 99),
+    // but GS/Excel use 00-29 → 2000-2029 and 30-99 → 1930-1999.
+    let formats_2y: &[&str] = &["%m/%d/%y", "%d-%b-%y"];
+    for fmt in formats_2y {
+        if let Ok(date) = NaiveDate::parse_from_str(date_part, fmt) {
+            let y = date.year();
+            // Remap raw two-digit year to spreadsheet century.
+            let century_year = if y <= 29 { y + 2000 } else if y <= 99 { y + 1900 } else { y };
+            if let Some(remapped) = NaiveDate::from_ymd_opt(century_year, date.month(), date.day()) {
+                return Value::Number(date_to_serial(remapped));
+            }
         }
     }
 

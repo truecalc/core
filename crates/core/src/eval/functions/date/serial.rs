@@ -57,15 +57,26 @@ pub fn text_to_date_serial(text: &str) -> Option<f64> {
         text
     };
 
-    let formats = [
-        "%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d", "%Y/%m/%d",
-        "%d-%b-%Y", "%d-%b-%y",
+    let formats_4y = [
+        "%m/%d/%Y", "%Y-%m-%d", "%Y/%m/%d",
+        "%d-%b-%Y",
         "%B %d, %Y", "%b %d, %Y",
         "%B %d %Y",  "%b %d %Y",
     ];
-    for fmt in &formats {
+    for fmt in &formats_4y {
         if let Ok(date) = NaiveDate::parse_from_str(date_part, fmt) {
             return Some(date_to_serial(date));
+        }
+    }
+    // Two-digit-year formats with century remapping (00-29→2000s, 30-99→1900s).
+    let formats_2y: &[&str] = &["%m/%d/%y", "%d-%b-%y"];
+    for fmt in formats_2y {
+        if let Ok(date) = NaiveDate::parse_from_str(date_part, fmt) {
+            let y = date.year();
+            let century_year = if y <= 29 { y + 2000 } else if y <= 99 { y + 1900 } else { y };
+            if let Some(remapped) = NaiveDate::from_ymd_opt(century_year, date.month(), date.day()) {
+                return Some(date_to_serial(remapped));
+            }
         }
     }
     None

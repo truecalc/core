@@ -83,6 +83,9 @@ pub fn yearfrac_fn(args: &[Value]) -> Value {
         None => return Value::Error(ErrorKind::Value),
     };
 
+    if basis < 0.0 || basis > 4.0 {
+        return Value::Error(ErrorKind::Num);
+    }
     let result = match basis as u32 {
         0 => days_30_360_us(start, end) as f64 / 360.0,
         1 => yearfrac_actual_actual(start, end),
