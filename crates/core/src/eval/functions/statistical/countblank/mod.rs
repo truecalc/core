@@ -3,7 +3,7 @@ use crate::eval::functions::{check_arity_len, EvalCtx};
 use crate::parser::ast::Expr;
 use crate::types::Value;
 
-fn count_blanks_in(values: &[Value]) -> usize {
+pub(crate) fn count_blanks_in(values: &[Value]) -> usize {
     let mut count = 0;
     for v in values {
         match v {
