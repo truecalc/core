@@ -168,8 +168,24 @@ fn last_day_of_month(year: i32, month: u32) -> NaiveDate {
     next_month_start - Duration::days(1)
 }
 
-fn is_last_day_of_month(date: NaiveDate) -> bool {
-    date == last_day_of_month(date.year(), date.month())
+/// Count Feb 29 occurrences in [start, end) (exclusive end).
+/// Used for basis=3 (Actual/365) where Google Sheets excludes leap days.
+fn count_feb29(start: NaiveDate, end: NaiveDate) -> i64 {
+    if start >= end {
+        return 0;
+    }
+    let mut count = 0i64;
+    let mut year = start.year();
+    let end_year = end.year();
+    while year <= end_year {
+        if let Some(feb29) = NaiveDate::from_ymd_opt(year, 2, 29) {
+            if feb29 >= start && feb29 < end {
+                count += 1;
+            }
+        }
+        year += 1;
+    }
+    count
 }
 
 /// Add months to a date, snapping to end-of-month if necessary.
@@ -183,11 +199,6 @@ pub fn add_months(date: NaiveDate, months: i32) -> NaiveDate {
     let total_months = date.year() * 12 + date.month() as i32 - 1 + months;
     let year = total_months / 12;
     let month = (total_months % 12 + 1) as u32;
-
-    if is_last_day_of_month(date) {
-        // Preserve EOM: return last day of target month
-        return last_day_of_month(year, month);
-    }
 
     let day = date.day();
     NaiveDate::from_ymd_opt(year, month, day)
@@ -246,6 +257,10 @@ pub fn accrint_fn(args: &[Value]) -> Value {
         Ok(n) => n,
         Err(e) => return e,
     };
+    // Text par value must return #VALUE! (text coercion not allowed for par)
+    if matches!(args[4], Value::Text(_)) {
+        return Value::Error(ErrorKind::Value);
+    }
     let par = match to_number(args[4].clone()) {
         Ok(n) => n,
         Err(e) => return e,
@@ -281,8 +296,11 @@ pub fn accrint_fn(args: &[Value]) -> Value {
         None => return Value::Error(ErrorKind::Value),
     };
 
-    if settlement <= issue {
+    if settlement < issue {
         return Value::Error(ErrorKind::Num);
+    }
+    if settlement == issue {
+        return Value::Number(0.0);
     }
 
     // ACCRINT sums over coupon periods from issue to settlement.
@@ -323,6 +341,15 @@ pub fn accrint_fn(args: &[Value]) -> Value {
             days_between(period_start, period_end, basis) as f64
         };
         let e = coupon_period_days(pcd, ncd, frequency, basis);
+        // basis=2 (Actual/360): cap a at e so A/E never exceeds 1 for a full coupon period.
+        let a = if basis == 2 { a.min(e) } else { a };
+        // basis=3 (Actual/365): Google Sheets excludes Feb 29 from the numerator
+        // (every year is treated as exactly 365 days). Subtract leap days in [period_start, period_end).
+        let a = if basis == 3 && !(is_last && period_end == ncd) {
+            a - count_feb29(period_start, period_end) as f64
+        } else {
+            a
+        };
 
         if e > 0.0 {
             result += par * (rate / frequency as f64) * (a / e);
@@ -363,6 +390,10 @@ pub fn accrintm_fn(args: &[Value]) -> Value {
         Ok(n) => n,
         Err(e) => return e,
     };
+    // Text par value must return #VALUE!
+    if matches!(args[3], Value::Text(_)) {
+        return Value::Error(ErrorKind::Value);
+    }
     let par = match to_number(args[3].clone()) {
         Ok(n) => n,
         Err(e) => return e,
@@ -390,8 +421,11 @@ pub fn accrintm_fn(args: &[Value]) -> Value {
         None => return Value::Error(ErrorKind::Value),
     };
 
-    if settlement <= issue {
+    if settlement < issue {
         return Value::Error(ErrorKind::Num);
+    }
+    if settlement == issue {
+        return Value::Number(0.0);
     }
 
     let yf = yearfrac(issue, settlement, basis);
@@ -488,7 +522,7 @@ pub fn coupncd_fn(args: &[Value]) -> Value {
         Err(e) => return e,
     };
     let ncd = next_coupon_date(settlement, maturity, frequency);
-    Value::Number(date_to_serial(ncd))
+    Value::Date(date_to_serial(ncd))
 }
 
 // ---------------------------------------------------------------------------
@@ -537,7 +571,7 @@ pub fn couppcd_fn(args: &[Value]) -> Value {
         Err(e) => return e,
     };
     let pcd = prev_coupon_date(settlement, maturity, frequency);
-    Value::Number(date_to_serial(pcd))
+    Value::Date(date_to_serial(pcd))
 }
 
 // ---------------------------------------------------------------------------

@@ -145,11 +145,24 @@ pub fn ppmt_fn(args: &[Value]) -> Value {
 /// `CUMIPMT(rate, nper, pv, start_period, end_period, type)`
 ///
 /// Cumulative interest paid between start and end period (inclusive).
+/// Parse a number value, also accepting a percent string like "10%" → 0.1.
+fn coerce_percent_or_number(v: Value) -> Result<f64, Value> {
+    if let Value::Text(ref s) = v {
+        let trimmed = s.trim();
+        if let Some(without_pct) = trimmed.strip_suffix('%') {
+            return without_pct.trim().parse::<f64>()
+                .map(|n| n / 100.0)
+                .map_err(|_| Value::Error(ErrorKind::Value));
+        }
+    }
+    to_number(v)
+}
+
 pub fn cumipmt_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 6, 6) {
         return err;
     }
-    let rate   = match to_number(args[0].clone()) { Ok(n) => n, Err(e) => return e };
+    let rate   = match coerce_percent_or_number(args[0].clone()) { Ok(n) => n, Err(e) => return e };
     let nper   = match to_number(args[1].clone()) { Ok(n) => n, Err(e) => return e };
     let pv     = match to_number(args[2].clone()) { Ok(n) => n, Err(e) => return e };
     let start  = match to_number(args[3].clone()) { Ok(n) => n, Err(e) => return e };
@@ -301,7 +314,12 @@ pub fn syd_fn(args: &[Value]) -> Value {
         return err;
     }
     let cost    = match to_number(args[0].clone()) { Ok(n) => n, Err(e) => return e };
+    // GS: if salvage is a text string whose numeric value is negative, return #NUM!
+    let salvage_is_text = matches!(args[1], Value::Text(_));
     let salvage = match to_number(args[1].clone()) { Ok(n) => n, Err(e) => return e };
+    if salvage_is_text && salvage < 0.0 {
+        return Value::Error(ErrorKind::Num);
+    }
     let life    = match to_number(args[2].clone()) { Ok(n) => n, Err(e) => return e };
     let per     = match to_number(args[3].clone()) { Ok(n) => n, Err(e) => return e };
 
@@ -895,6 +913,10 @@ fn flatten_array(v: Value) -> Result<Vec<f64>, Value> {
                         for sub in flatten_array(Value::Array(inner))? {
                             out.push(sub);
                         }
+                    }
+                    // Empty string in an array literal is an error (GS: #VALUE!)
+                    Value::Text(ref s) if s.is_empty() => {
+                        return Err(Value::Error(ErrorKind::Value));
                     }
                     other => out.push(to_number(other)?),
                 }
