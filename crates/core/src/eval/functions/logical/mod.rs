@@ -31,6 +31,7 @@ pub fn register_logical(registry: &mut Registry) {
     registry.register_lazy("ISERR",     is_checks::iserr_fn,        FunctionMeta { category: "logical", signature: "ISERR(value)",                         description: "True if value is an error other than #N/A" });
     registry.register_lazy("ISLOGICAL", is_checks::islogical_fn,    FunctionMeta { category: "logical", signature: "ISLOGICAL(value)",                     description: "True if value is a logical (boolean)" });
     registry.register_lazy("ISNONTEXT", is_checks::isnontext_fn,    FunctionMeta { category: "logical", signature: "ISNONTEXT(value)",                     description: "True if value is not text" });
+    registry.register_lazy("ISFORMULA", is_checks::isformula_fn,    FunctionMeta { category: "logical", signature: "ISFORMULA(value)",                     description: "True if the cell contains a formula" });
     registry.register_eager("NA",       constants::na_fn,           FunctionMeta { category: "logical", signature: "NA()",                                 description: "Returns the #N/A error value" });
     registry.register_eager("TRUE",     constants::true_fn,         FunctionMeta { category: "logical", signature: "TRUE()",                               description: "Logical true value" });
     registry.register_eager("FALSE",    constants::false_fn,        FunctionMeta { category: "logical", signature: "FALSE()",                              description: "Logical false value" });
@@ -39,9 +40,10 @@ pub fn register_logical(registry: &mut Registry) {
     registry.register_lazy("N",         info::n_fn,                 FunctionMeta { category: "logical", signature: "N(value)",                             description: "Convert value to number" });
     registry.register_lazy("TYPE",      info::type_fn,              FunctionMeta { category: "logical", signature: "TYPE(value)",                          description: "Number indicating value type" });
     registry.register_lazy("ISREF",     is_checks::isref_fn,        FunctionMeta { category: "logical", signature: "ISREF(value)",                         description: "True if value is a cell reference" });
-    registry.register_lazy("ISDATE",    is_checks::isdate_fn,        FunctionMeta { category: "logical", signature: "ISDATE(value)",                        description: "True if value is a date" });
+    registry.register_lazy("ISDATE",    is_checks::isdate_fn,       FunctionMeta { category: "logical", signature: "ISDATE(value)",                        description: "True if value is a date" });
     registry.register_lazy("LAMBDA",   lambda::lambda_fn,           FunctionMeta { category: "logical", signature: "LAMBDA(param1, ..., body)",             description: "Create a lambda function" });
     registry.register_lazy("LET",      let_fn::let_fn,              FunctionMeta { category: "logical", signature: "LET(name1, val1, ..., body)",           description: "Bind named values and evaluate body" });
     registry.register_lazy("SHEETS",    info::sheets_fn,             FunctionMeta { category: "logical", signature: "SHEETS([reference])",                  description: "Number of sheets in a reference or workbook" });
     registry.register_lazy("ISEMAIL",   is_checks::isemail_fn,       FunctionMeta { category: "logical", signature: "ISEMAIL(value)",                       description: "True if value is a valid email address" });
+    registry.register_lazy("CELL",      info::cell_fn,               FunctionMeta { category: "logical", signature: "CELL(info_type, [reference])",         description: "Returns information about a cell" });
 }

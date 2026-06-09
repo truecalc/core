@@ -452,7 +452,7 @@ macro_rules! conformance_tsv_test_report {
 
 conformance_tsv_test_report!(math_conformance,        "math.tsv");
 conformance_tsv_test!(logical_conformance,            "logical.tsv");
-conformance_tsv_test_report!(info_conformance,        "info.tsv");
+conformance_tsv_test!(info_conformance,        "info.tsv");
 conformance_tsv_test_report!(statistical_conformance, "statistical.tsv");
 conformance_tsv_test!(operator_conformance,         "operator.tsv");
 conformance_tsv_test_report!(text_conformance,        "text.tsv");
@@ -588,8 +588,7 @@ fn every_registered_function_has_conformance_coverage() {
         .copied()
         .collect();
     let context_limited: std::collections::HashSet<&str> = [
-        "INDIRECT", "OFFSET", "FORMULATEXT", "GETPIVOTDATA", "ISFORMULA", "CELL",
-        "SHEET", "SHEETS",
+        "OFFSET", "FORMULATEXT", "GETPIVOTDATA",
     ]
     .iter()
     .copied()

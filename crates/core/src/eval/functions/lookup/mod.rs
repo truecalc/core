@@ -24,6 +24,15 @@ pub fn register_lookup(registry: &mut Registry) {
             description: "Returns a cell address string",
         },
     );
+    registry.register_eager(
+        "INDIRECT",
+        indirect::indirect_fn,
+        FunctionMeta {
+            category: "lookup",
+            signature: "INDIRECT(ref_text, [a1])",
+            description: "Returns the value referenced by a cell address string",
+        },
+    );
     registry.register_lazy(
         "CHOOSE",
         choose::choose_fn,
