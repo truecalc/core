@@ -16,10 +16,11 @@ fn vara_false_counts_as_zero() {
 }
 
 #[test]
-fn vara_non_parseable_text_counts_as_zero() {
-    // AVERAGEA semantics: text -> 0.0; [0.0, 4.0]: sample var=8
+fn vara_non_parseable_text_returns_value_error() {
+    // Direct non-parseable text -> #VALUE! for AVERAGEA semantics
+    use crate::types::ErrorKind;
     let result = vara_fn(&[Value::Text("hello".to_string()), Value::Number(4.0)]);
-    assert_eq!(result, Value::Number(8.0));
+    assert_eq!(result, Value::Error(ErrorKind::Value));
 }
 
 #[test]
