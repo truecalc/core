@@ -20,6 +20,6 @@ fn too_many_args_returns_na() {
 fn invalid_pattern_returns_ref_error() {
     assert_eq!(
         regexmatch_fn(&[Value::Text("hello".into()), Value::Text("[invalid".into())]),
-        Value::Error(ErrorKind::Value)
+        Value::Error(ErrorKind::Ref)
     );
 }

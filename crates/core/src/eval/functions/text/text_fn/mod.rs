@@ -195,7 +195,11 @@ fn apply_format(n: f64, fmt: &str) -> String {
     let valid_int = int_pattern.chars().all(|c| c == '#' || c == '0' || c == '?');
     let valid_frac = frac_fmt.chars().all(|c| c == '#' || c == '0' || c == '?');
 
-    if valid_int && valid_frac {
+    // Only apply the digit-format branch when there's at least one actual digit token
+    let has_any_digit_token = int_pattern.contains(|c| c == '#' || c == '0' || c == '?')
+        || frac_fmt.contains(|c| c == '#' || c == '0' || c == '?');
+
+    if valid_int && valid_frac && has_any_digit_token {
         // Count minimum integer digits (number of '0' tokens)
         let min_int_digits = int_pattern.chars().filter(|&c| c == '0').count().max(1);
         let total_int_tokens = int_pattern.len();

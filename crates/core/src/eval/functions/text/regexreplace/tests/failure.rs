@@ -31,6 +31,6 @@ fn invalid_pattern_returns_ref_error() {
             Value::Text("[invalid".into()),
             Value::Text("X".into()),
         ]),
-        Value::Error(ErrorKind::Value)
+        Value::Error(ErrorKind::Ref)
     );
 }

@@ -11,10 +11,12 @@ pub fn trim_fn(args: &[Value]) -> Value {
         Ok(s) => s,
         Err(e) => return e,
     };
-    // GS TRIM only strips/collapses ASCII space (U+0020).
-    // Non-breaking space (U+00A0) and other Unicode whitespace are preserved.
+    // GS TRIM: strips/collapses ASCII whitespace (space, tab, newline, etc.)
+    // but does NOT treat U+00A0 (non-breaking space, CHAR(160)) as whitespace.
+    // Strategy: split on runs of ASCII whitespace (chars where c.is_ascii_whitespace()),
+    // filter empty segments, rejoin with single space.
     let result: String = text
-        .split(' ')
+        .split(|c: char| c.is_ascii_whitespace())
         .filter(|s| !s.is_empty())
         .collect::<Vec<_>>()
         .join(" ");
