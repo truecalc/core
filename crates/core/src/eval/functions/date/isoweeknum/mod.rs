@@ -13,9 +13,12 @@ pub fn isoweeknum_fn(args: &[Value]) -> Value {
         return err;
     }
     let serial = match to_number(args[0].clone()) { Ok(n) => n, Err(e) => return e };
+    if serial < 0.0 {
+        return Value::Error(ErrorKind::Num);
+    }
     let date = match serial_to_date(serial) {
         Some(d) => d,
-        None => return Value::Error(ErrorKind::Value),
+        None => return Value::Error(ErrorKind::Num),
     };
     Value::Number(date.iso_week().week() as f64)
 }

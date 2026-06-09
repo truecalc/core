@@ -1,4 +1,4 @@
-use chrono::{Duration, NaiveDate, NaiveTime, Timelike};
+use chrono::{Datelike, Duration, NaiveDate, NaiveTime, Timelike};
 
 /// Base date for serial number 0 in the **Sheets** date system
 /// (December 30, 1899). Locked per engine flavor — see `engine::Flavor`
@@ -33,37 +33,167 @@ pub fn time_to_serial(h: u32, m: u32, s: u32) -> f64 {
     (h as f64 * 3600.0 + m as f64 * 60.0 + s as f64) / 86400.0
 }
 
+/// Returns true if `s` looks like a slash-separated date where the year field
+/// (the last `/`-delimited token) is exactly 1 or 2 digits.  Prevents
+/// `%m/%d/%Y` from consuming "01/15/99" as year 99 CE instead of routing
+/// it through the two-digit-year century-remap path.
+fn has_two_digit_slash_year(s: &str) -> bool {
+    let parts: Vec<&str> = s.split('/').collect();
+    if parts.len() == 3 {
+        let y = parts[2].trim();
+        y.len() <= 2 && y.chars().all(|c| c.is_ascii_digit())
+    } else {
+        false
+    }
+}
+
 /// Parse a date text string and return its serial number, or None on failure.
-/// Supports the same formats as DATEVALUE.
+/// Supports the same formats as DATEVALUE (including datetime strings and Y/m/d slash).
 pub fn text_to_date_serial(text: &str) -> Option<f64> {
-    let formats = [
-        "%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d",
-        "%d-%b-%Y", "%d-%b-%y",
+    // Empty string coerces to serial 0 (Dec 30, 1899) — matches Google Sheets.
+    if text.is_empty() {
+        return Some(0.0);
+    }
+
+    // Strip a trailing time component only when the part after the space looks
+    // like a time string (starts with digit(s) followed by ':').  This avoids
+    // truncating month-name formats such as "January 1, 2023".
+    let date_part: &str = if let Some(idx) = text.find(' ') {
+        let after = &text[idx + 1..];
+        let looks_like_time = after
+            .chars()
+            .next()
+            .map(|c| c.is_ascii_digit())
+            .unwrap_or(false)
+            && after.contains(':');
+        if looks_like_time { &text[..idx] } else { text }
+    } else {
+        text
+    };
+
+    let formats_4y = [
+        "%m/%d/%Y", "%Y-%m-%d", "%Y/%m/%d",
+        "%d-%b-%Y",
         "%B %d, %Y", "%b %d, %Y",
         "%B %d %Y",  "%b %d %Y",
     ];
-    for fmt in &formats {
-        if let Ok(date) = NaiveDate::parse_from_str(text, fmt) {
+    for fmt in &formats_4y {
+        // Guard: don't let %m/%d/%Y swallow two-digit-year slash inputs.
+        if *fmt == "%m/%d/%Y" && has_two_digit_slash_year(date_part) {
+            continue;
+        }
+        if let Ok(date) = NaiveDate::parse_from_str(date_part, fmt) {
             return Some(date_to_serial(date));
+        }
+    }
+    // Two-digit-year formats with century remapping (00-29→2000s, 30-99→1900s).
+    let formats_2y: &[&str] = &["%m/%d/%y", "%d-%b-%y"];
+    for fmt in formats_2y {
+        if let Ok(date) = NaiveDate::parse_from_str(date_part, fmt) {
+            let y = date.year();
+            let century_year = if y <= 29 { y + 2000 } else if y <= 99 { y + 1900 } else { y };
+            if let Some(remapped) = NaiveDate::from_ymd_opt(century_year, date.month(), date.day()) {
+                return Some(date_to_serial(remapped));
+            }
         }
     }
     None
 }
 
 /// Parse a time text string and return its fractional day serial, or None on failure.
-/// Supports the same formats as TIMEVALUE.
+/// Supports the same formats as TIMEVALUE, including fractional seconds and datetime strings.
 pub fn text_to_time_serial(text: &str) -> Option<f64> {
+    // If it looks like a datetime (contains a space AND the part before the space
+    // does not itself look like a time string), extract the time part.
+    // "2023-06-15 14:30:00" → time_part = "14:30:00"
+    // "2:15 PM" → time_part = "2:15 PM"  (kept whole, `:` before the space)
+    // "12:00:00 AM" → time_part = "12:00:00 AM" (kept whole)
+    let time_part = if let Some(idx) = text.find(' ') {
+        let before = &text[..idx];
+        if before.contains(':') {
+            // Part before space already looks like a time component — keep the full string.
+            text
+        } else {
+            &text[idx + 1..]
+        }
+    } else {
+        text
+    };
+
+    // Try fractional-seconds formats first (e.g. "11:59:59.50 PM").
+    // chrono's %S does not handle fractional seconds, so we strip the sub-second
+    // part manually then delegate to the integer-second path.
+    let stripped = strip_fractional_seconds(time_part);
+    let candidates: &[&str] = if stripped.as_deref() != Some(time_part) {
+        // We did strip something — try the stripped version.
+        &[stripped.as_deref().unwrap_or(time_part), time_part]
+    } else {
+        &[time_part]
+    };
+
     let formats = [
-        "%H:%M:%S", "%H:%M",
-        "%I:%M %p", "%I:%M:%S %p",
-        "%I:%M%p",  "%I:%M:%S%p",
+        "%H:%M:%S",
+        "%H:%M",
+        "%I:%M %p",
+        "%I:%M:%S %p",
+        "%I:%M%p",
+        "%I:%M:%S%p",
     ];
-    for fmt in &formats {
-        if let Ok(t) = NaiveTime::parse_from_str(text, fmt) {
-            return Some(time_to_serial(t.hour(), t.minute(), t.second()));
+
+    // For fractional-seconds inputs, parse the stripped string and add back the
+    // sub-second fraction manually.
+    if let Some(ref stripped_str) = stripped {
+        if stripped_str.as_str() != time_part {
+            // Determine the sub-second value.
+            let sub_second = extract_sub_second(time_part).unwrap_or(0.0);
+            for fmt in &formats {
+                if let Ok(t) = NaiveTime::parse_from_str(stripped_str, fmt) {
+                    let serial = time_to_serial(t.hour(), t.minute(), t.second());
+                    return Some(serial + sub_second / 86400.0);
+                }
+            }
+        }
+    }
+
+    for candidate in candidates {
+        for fmt in &formats {
+            if let Ok(t) = NaiveTime::parse_from_str(candidate, fmt) {
+                return Some(time_to_serial(t.hour(), t.minute(), t.second()));
+            }
+        }
+    }
+
+    None
+}
+
+/// Remove a sub-second component from a time string so chrono can parse it.
+/// "11:59:59.50 PM" → Some("11:59:59 PM"), "14:15:30" → None (no change needed).
+fn strip_fractional_seconds(s: &str) -> Option<String> {
+    // Look for a decimal point that follows two digits (the seconds field).
+    if let Some(dot_pos) = s.find('.') {
+        // Make sure there are at least 2 chars before the dot (the seconds digits).
+        if dot_pos >= 2 {
+            // Find where the sub-second digits end (next non-digit character or end of string).
+            let after_dot = &s[dot_pos + 1..];
+            let frac_len = after_dot.chars().take_while(|c| c.is_ascii_digit()).count();
+            let end = dot_pos + 1 + frac_len;
+            let result = format!("{}{}", &s[..dot_pos], &s[end..]);
+            return Some(result);
         }
     }
     None
+}
+
+/// Extract the sub-second value (0.0..1.0) from a time string containing a decimal point.
+fn extract_sub_second(s: &str) -> Option<f64> {
+    if let Some(dot_pos) = s.find('.') {
+        let after_dot = &s[dot_pos..]; // ".50 PM" etc.
+        let frac_end = 1 + after_dot[1..].chars().take_while(|c| c.is_ascii_digit()).count();
+        let frac_str = &after_dot[..frac_end]; // ".50"
+        frac_str.parse::<f64>().ok()
+    } else {
+        None
+    }
 }
 
 // ── Excel 1900 date system (flavor-locked, P1.4 issue #526) ─────────────────
@@ -105,7 +235,6 @@ pub fn excel_ymd_to_serial(year: i32, month: u32, day: u32) -> Option<f64> {
 /// which is why this returns a tuple rather than a `NaiveDate`.
 /// Serials below 1 return `None`.
 pub fn excel_serial_to_ymd(serial: f64) -> Option<(i32, u32, u32)> {
-    use chrono::Datelike;
     let days = serial.floor();
     if days < 1.0 {
         return None;

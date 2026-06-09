@@ -13,8 +13,8 @@ fn fractional_seconds_produce_fractional_serial() {
 }
 
 #[test]
-fn negative_timestamp_before_epoch() {
-    // -86400 seconds → one day before 1970-01-01 → serial 25568
+fn negative_timestamp_returns_num_error() {
+    // Negative timestamps are not supported → #NUM!
     let args = [Value::Number(-86400.0), Value::Number(1.0)];
-    assert_eq!(epochtodate_fn(&args), Value::Number(25568.0));
+    assert_eq!(epochtodate_fn(&args), Value::Error(crate::types::ErrorKind::Num));
 }

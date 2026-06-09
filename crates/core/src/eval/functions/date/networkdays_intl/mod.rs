@@ -1,13 +1,16 @@
 use chrono::{Datelike, Duration};
 use crate::eval::coercion::to_number;
 use crate::eval::functions::check_arity;
+use crate::eval::functions::date::holidays::extract_holidays;
 use crate::eval::functions::date::serial::serial_to_date;
 use crate::eval::functions::date::weekend::weekend_mask;
 use crate::types::{ErrorKind, Value};
 
-/// `NETWORKDAYS.INTL(start, end, [weekend], [holidays])` — count of working days
+/// `NETWORKDAYS.INTL(start, end, [weekend], [holidays])` -- count of working days
 /// with a configurable weekend pattern.  If start > end, result is negative.
-/// The optional holidays argument is accepted but ignored.
+///
+/// holidays: omitted = none; empty array `{}` = #REF!; text scalar = #VALUE!;
+/// number/Date or array of number/Date = those serials are excluded.
 pub fn networkdays_intl_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 2, 4) {
         return err;
@@ -17,6 +20,11 @@ pub fn networkdays_intl_fn(args: &[Value]) -> Value {
 
     let mask = match weekend_mask(args.get(2)) {
         Ok(m) => m,
+        Err(e) => return e,
+    };
+
+    let holidays = match extract_holidays(args.get(3)) {
+        Ok(h) => h,
         Err(e) => return e,
     };
 
@@ -35,12 +43,16 @@ pub fn networkdays_intl_fn(args: &[Value]) -> Value {
         (end, start, -1i64)
     };
 
+    let base = chrono::NaiveDate::from_ymd_opt(1899, 12, 30).unwrap();
     let mut count = 0i64;
     let mut current = from;
     while current <= to {
         let wd = current.weekday().num_days_from_monday() as usize;
         if !mask[wd] {
-            count += 1;
+            let serial = (current - base).num_days();
+            if !holidays.contains(&serial) {
+                count += 1;
+            }
         }
         current += Duration::days(1);
     }

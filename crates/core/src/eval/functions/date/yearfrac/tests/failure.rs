@@ -31,3 +31,10 @@ fn invalid_basis_5_returns_num_error() {
     let args = [Value::Number(45292.0), Value::Number(45658.0), Value::Number(5.0)];
     assert_eq!(yearfrac_fn(&args), Value::Error(ErrorKind::Num));
 }
+
+#[test]
+fn negative_basis_returns_num_error() {
+    // =YEARFRAC(DATE(2023,1,1),DATE(2023,12,31),-1) → #NUM!
+    let args = [Value::Number(44927.0), Value::Number(45291.0), Value::Number(-1.0)];
+    assert_eq!(yearfrac_fn(&args), Value::Error(ErrorKind::Num));
+}

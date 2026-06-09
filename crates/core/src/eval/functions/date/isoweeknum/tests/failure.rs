@@ -18,3 +18,10 @@ fn non_numeric_arg_returns_value_error() {
     let args = [Value::Text("not_a_date".to_string())];
     assert_eq!(isoweeknum_fn(&args), Value::Error(ErrorKind::Value));
 }
+
+#[test]
+fn negative_serial_returns_num_error() {
+    // =ISOWEEKNUM(-1) → #NUM!
+    let args = [Value::Number(-1.0)];
+    assert_eq!(isoweeknum_fn(&args), Value::Error(ErrorKind::Num));
+}
