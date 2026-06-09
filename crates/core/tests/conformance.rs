@@ -328,6 +328,11 @@ fn run_tsv_fixture(path: &Path) {
             continue;
         }
 
+        // Skip malformed rows where formula column doesn't contain a formula
+        if !formula.starts_with('=') {
+            continue;
+        }
+
         if is_volatile_formula(formula) {
             continue;
         }
@@ -392,6 +397,11 @@ fn run_tsv_fixture_report(path: &Path) {
         let expected_type  = record[4].trim();
 
         if formula.is_empty() || expected_str.trim().is_empty() {
+            continue;
+        }
+
+        // Skip malformed rows where formula column doesn't contain a formula
+        if !formula.starts_with('=') {
             continue;
         }
 

@@ -6,23 +6,40 @@ use crate::types::{ErrorKind, Value};
 // Pattern token: (char, is_wildcard). Tilde-escaped chars have is_wildcard=false.
 type Pat = (char, bool);
 
-fn wc_match(pat: &[Pat], text: &[char]) -> bool {
-    if pat.is_empty() { return text.is_empty(); }
+/// Match pattern against the PREFIX of text, returning the number of text chars consumed
+/// if successful, or None if no match. '*' consumes 0..N chars greedily.
+fn wc_prefix_match(pat: &[Pat], text: &[char]) -> Option<usize> {
+    if pat.is_empty() { return Some(0); }
     let (pc, is_wc) = pat[0];
     if is_wc && pc == '*' {
-        return (0..=text.len()).any(|i| wc_match(&pat[1..], &text[i..]));
+        // '*' can consume 0..text.len() chars; try greedy first (longest match)
+        for skip in (0..=text.len()).rev() {
+            if let Some(rest) = wc_prefix_match(&pat[1..], &text[skip..]) {
+                return Some(skip + rest);
+            }
+        }
+        return None;
     }
-    if is_wc {
-        return !text.is_empty() && wc_match(&pat[1..], &text[1..]);
+    if is_wc { // '?' consumes exactly one char
+        if text.is_empty() { return None; }
+        return wc_prefix_match(&pat[1..], &text[1..]).map(|n| n + 1);
     }
+    // Literal char: case-insensitive compare
     match text.first() {
-        None => false,
-        Some(t) => pc.to_lowercase().next() == t.to_lowercase().next() && wc_match(&pat[1..], &text[1..]),
+        None => None,
+        Some(t) => {
+            if pc.to_lowercase().next() == t.to_lowercase().next() {
+                wc_prefix_match(&pat[1..], &text[1..]).map(|n| n + 1)
+            } else {
+                None
+            }
+        },
     }
 }
 
+/// Find the first char-index >= start where pattern matches as a prefix of text[i..].
 fn wc_find(pat: &[Pat], text: &[char], start: usize) -> Option<usize> {
-    (start..=text.len()).find(|&i| wc_match(pat, &text[i..]))
+    (start..=text.len()).find(|&i| wc_prefix_match(pat, &text[i..]).is_some())
 }
 
 fn dbcs_to_char_idx(s: &str, byte_1based: usize) -> usize {
