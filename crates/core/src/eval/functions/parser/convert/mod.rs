@@ -104,25 +104,27 @@ fn get_unit(name: &str) -> Option<(UnitCategory, f64)> {
         "admkn" => Some((UnitCategory::Speed, 0.514773)),
 
         // Area (base: m²)
-        "m2"   => Some((UnitCategory::Area, 1.0)),
-        "km2"  => Some((UnitCategory::Area, 1e6)),
-        "ft2"  => Some((UnitCategory::Area, 0.09290304)),
-        "in2"  => Some((UnitCategory::Area, 0.00064516)),
-        "yd2"  => Some((UnitCategory::Area, 0.83612736)),
-        "mi2"  => Some((UnitCategory::Area, 2589988.110336)),
+        // GS accepts both "m2" and "m^2" notation for squared units.
+        "m2"  | "m^2"   => Some((UnitCategory::Area, 1.0)),
+        "km2" | "km^2"  => Some((UnitCategory::Area, 1e6)),
+        "ft2" | "ft^2"  => Some((UnitCategory::Area, 0.09290304)),
+        "in2" | "in^2"  => Some((UnitCategory::Area, 0.00064516)),
+        "yd2" | "yd^2"  => Some((UnitCategory::Area, 0.83612736)),
+        "mi2" | "mi^2"  => Some((UnitCategory::Area, 2589988.110336)),
         "ha"   => Some((UnitCategory::Area, 10000.0)),
         "ar"   => Some((UnitCategory::Area, 100.0)),
         "acre" => Some((UnitCategory::Area, 4046.8564224)),
 
         // Volume (base: L)
+        // GS accepts both "m3" and "m^3" notation for cubed units.
         "l" | "L" | "lt" => Some((UnitCategory::Volume, 1.0)),
         "ml" | "mL"      => Some((UnitCategory::Volume, 0.001)),
-        "m3"             => Some((UnitCategory::Volume, 1000.0)),
-        "km3"            => Some((UnitCategory::Volume, 1e12)),
-        "ft3"            => Some((UnitCategory::Volume, 28.316846592)),
-        "in3"            => Some((UnitCategory::Volume, 0.016387064)),
-        "yd3"            => Some((UnitCategory::Volume, 764.554857984)),
-        "mi3"            => Some((UnitCategory::Volume, 4_168_181_825.440_579_4)),
+        "m3"  | "m^3"    => Some((UnitCategory::Volume, 1000.0)),
+        "km3" | "km^3"   => Some((UnitCategory::Volume, 1e12)),
+        "ft3" | "ft^3"   => Some((UnitCategory::Volume, 28.316846592)),
+        "in3" | "in^3"   => Some((UnitCategory::Volume, 0.016387064)),
+        "yd3" | "yd^3"   => Some((UnitCategory::Volume, 764.554857984)),
+        "mi3" | "mi^3"   => Some((UnitCategory::Volume, 4_168_181_825.440_579_4)),
         "gal"            => Some((UnitCategory::Volume, 3.785411784)),
         "qt"             => Some((UnitCategory::Volume, 0.946352946)),
         "cup"            => Some((UnitCategory::Volume, 0.2365882365)),
@@ -132,7 +134,7 @@ fn get_unit(name: &str) -> Option<(UnitCategory, f64)> {
         "uk_pt"          => Some((UnitCategory::Volume, 0.56826125)),
         "uk_qt"          => Some((UnitCategory::Volume, 1.1365225)),
         "uk_gal"         => Some((UnitCategory::Volume, 4.54609)),
-        "ang3"           => Some((UnitCategory::Volume, 1e-30)),
+        "ang3" | "ang^3" => Some((UnitCategory::Volume, 1e-30)),
 
         // Magnetism (base: T)
         "T"  => Some((UnitCategory::Magnetism, 1.0)),
