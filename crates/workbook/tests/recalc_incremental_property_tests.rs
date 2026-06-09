@@ -81,6 +81,83 @@ proptest! {
     }
 }
 
+/// A spill-aware grid on one sheet:
+///   A1: an array anchor whose width we vary (spills across row 1),
+///   B3: `=B1+1`   (reader of a spilled cell — column B is in A1's path),
+///   C3: `=C1+1`   (reader of a cell A1 spills onto only when wide enough),
+///   D3: `=SUM(B1:C1)` (range reader over spilled cells),
+///   plus a *blocker* cell whose presence in row 1 blocks the spill.
+/// Random edits then resize the array, and write/clear the blocker, so the
+/// spill shrinks, grows, blocks, and unblocks. After each edit incremental
+/// recalc must stay byte-identical to a full recalc (issue #591).
+fn build_spill_grid() -> Workbook {
+    let mut wb = Workbook::new(EngineFlavor::Sheets);
+    wb.add_sheet(Worksheet::new("S")).unwrap();
+    wb.set("S", addr(1, 1), CellInput::Formula("={10,20}".into()))
+        .unwrap(); // A1 spills A1:B1
+    wb.set("S", addr(3, 2), CellInput::Formula("=B1+1".into()))
+        .unwrap(); // B3 reads spilled B1
+    wb.set("S", addr(3, 3), CellInput::Formula("=C1+1".into()))
+        .unwrap(); // C3 reads C1 (spilled only when A1 is >= 3 wide)
+    wb.set("S", addr(3, 4), CellInput::Formula("=SUM(B1:C1)".into()))
+        .unwrap(); // D3 range-reads spilled cells
+    wb
+}
+
+/// Array literals of widths 1..=4, used to drive shrink/grow. Width 1 collapses
+/// to a scalar (no spill); 2..=4 spill across row 1.
+fn array_formula(width: usize) -> CellInput {
+    let elems: Vec<String> = (1..=width).map(|i| (i * 10).to_string()).collect();
+    if width == 1 {
+        CellInput::Formula(format!("={}", elems[0]))
+    } else {
+        CellInput::Formula(format!("={{{}}}", elems.join(",")))
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(64))]
+
+    /// `incremental ≡ full` across spill footprint and blocked-status changes:
+    /// each edit resizes the anchor array (shrink/grow, incl. collapse to a
+    /// scalar) or writes/clears a blocker in the spill path (block/unblock).
+    #[test]
+    fn incremental_equals_full_across_spill_transitions(
+        // Each step: (anchor width 1..=4, blocker present, blocker col 2..=4).
+        steps in proptest::collection::vec((1usize..=4, any::<bool>(), 2u32..=4), 1..8),
+    ) {
+        let mut live = build_spill_grid();
+        live.recalc(&ctx());
+
+        for (width, blocker, bcol) in steps {
+            // Resize / collapse the anchor.
+            live.set("S", addr(1, 1), array_formula(width)).unwrap();
+            let mut edited = vec![("S".to_string(), addr(1, 1))];
+
+            // Toggle a blocker in row 1 (a literal an array would spill onto).
+            let blocker_addr = addr(1, bcol);
+            if blocker {
+                live.set("S", blocker_addr, CellInput::Literal(Value::Number(99.0)))
+                    .unwrap();
+            } else {
+                live.clear("S", blocker_addr);
+            }
+            edited.push(("S".to_string(), blocker_addr));
+
+            let mut full = live.clone();
+            full.recalc(&ctx());
+            live.recalc_incremental(&ctx(), &edited);
+
+            prop_assert_eq!(
+                live.to_json().unwrap(),
+                full.to_json().unwrap(),
+                "incremental and full diverged: width={} blocker={} bcol={}",
+                width, blocker, bcol
+            );
+        }
+    }
+}
+
 #[test]
 fn incremental_recomputes_only_the_dirty_closure() {
     let mut wb = Workbook::new(EngineFlavor::Sheets);
