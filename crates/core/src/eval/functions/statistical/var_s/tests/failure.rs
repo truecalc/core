@@ -8,15 +8,14 @@ fn var_s_no_args_returns_na() {
 
 #[test]
 fn var_s_one_value_returns_div_zero() {
-    // n < 2 → DivByZero
     assert_eq!(var_s_fn(&[Value::Number(5.0)]), Value::Error(ErrorKind::DivByZero));
 }
 
 #[test]
-fn var_s_no_numeric_values_returns_div_zero() {
+fn var_s_non_numeric_text_returns_value_error() {
     assert_eq!(
-        var_s_fn(&[Value::Text("a".to_string()), Value::Bool(false)]),
-        Value::Error(ErrorKind::DivByZero)
+        var_s_fn(&[Value::Text("a".to_string()), Value::Number(2.0)]),
+        Value::Error(ErrorKind::Value)
     );
 }
 
