@@ -1,4 +1,3 @@
-use crate::eval::coercion::to_number;
 use crate::eval::functions::check_arity;
 use crate::types::{ErrorKind, Value};
 
@@ -9,16 +8,32 @@ pub fn average_fn(args: &[Value]) -> Value {
     let mut sum = 0.0_f64;
     let mut count = 0usize;
     for arg in args {
-        let scalars: Vec<&Value> = match arg {
-            Value::Array(elems) => elems.iter().collect(),
-            other => vec![other],
-        };
-        for scalar in scalars {
-            match to_number(scalar.clone()) {
-                Err(e) => return e,
-                Ok(n) => {
-                    sum += n;
-                    count += 1;
+        match arg {
+            Value::Number(n) => { sum += n; count += 1; }
+            Value::Date(n)   => { sum += n; count += 1; }
+            Value::Bool(b)   => { sum += if *b { 1.0 } else { 0.0 }; count += 1; }
+            Value::Text(s) => {
+                // Direct text: empty or non-parseable -> #VALUE!
+                let t = s.trim();
+                if t.is_empty() {
+                    return Value::Error(ErrorKind::Value);
+                }
+                match t.parse::<f64>() {
+                    Ok(v) if v.is_finite() => { sum += v; count += 1; }
+                    _ => return Value::Error(ErrorKind::Value),
+                }
+            }
+            Value::Empty => {} // skip
+            Value::Error(e) => return Value::Error(e.clone()),
+            Value::Array(elems) => {
+                // Array context: skip bool/text, include numbers
+                for elem in elems {
+                    match elem {
+                        Value::Number(n) => { sum += n; count += 1; }
+                        Value::Date(n)   => { sum += n; count += 1; }
+                        Value::Error(e)  => return Value::Error(e.clone()),
+                        _ => {} // Bool, Text, Empty all skipped in array
+                    }
                 }
             }
         }
