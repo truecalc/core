@@ -824,6 +824,7 @@ pub fn mduration_fn(args: &[Value]) -> Value {
 }
 
 fn duration_calc(args: &[Value], _modified: bool) -> Result<f64, Value> {
+    use chrono::Datelike;
     use crate::eval::functions::date::serial::serial_to_date;
     use crate::eval::functions::financial::bonds::{
         coupon_period_days, days_between, months_per_period, next_coupon_date,
