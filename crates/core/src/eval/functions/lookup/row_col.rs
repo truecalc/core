@@ -20,7 +20,7 @@ fn extract_ref_string_from_expr(arg: &Expr, ctx: &mut EvalCtx<'_>) -> Option<Str
     match arg {
         // INDIRECT("literal") — pull the literal out without evaluating INDIRECT.
         Expr::FunctionCall { name, args, .. } if name.eq_ignore_ascii_case("INDIRECT") => {
-            if args.len() >= 1 {
+            if !args.is_empty() {
                 match &args[0] {
                     Expr::Text(s, _) => return Some(s.clone()),
                     _ => {
