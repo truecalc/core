@@ -159,7 +159,7 @@ pub fn coupon_period_days(pcd: NaiveDate, ncd: NaiveDate, frequency: u32, basis:
     }
 }
 
-fn last_day_of_month(year: i32, month: u32) -> NaiveDate {
+pub fn last_day_of_month(year: i32, month: u32) -> NaiveDate {
     let next_month_start = if month == 12 {
         NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
     } else {
@@ -168,8 +168,24 @@ fn last_day_of_month(year: i32, month: u32) -> NaiveDate {
     next_month_start - Duration::days(1)
 }
 
-fn is_last_day_of_month(date: NaiveDate) -> bool {
-    date == last_day_of_month(date.year(), date.month())
+/// Count Feb 29 occurrences in [start, end) (exclusive end).
+/// Used for basis=3 (Actual/365) where Google Sheets excludes leap days.
+fn count_feb29(start: NaiveDate, end: NaiveDate) -> i64 {
+    if start >= end {
+        return 0;
+    }
+    let mut count = 0i64;
+    let mut year = start.year();
+    let end_year = end.year();
+    while year <= end_year {
+        if let Some(feb29) = NaiveDate::from_ymd_opt(year, 2, 29) {
+            if feb29 >= start && feb29 < end {
+                count += 1;
+            }
+        }
+        year += 1;
+    }
+    count
 }
 
 /// Add months to a date, snapping to end-of-month if necessary.
@@ -184,11 +200,6 @@ pub fn add_months(date: NaiveDate, months: i32) -> NaiveDate {
     let year = total_months / 12;
     let month = (total_months % 12 + 1) as u32;
 
-    if is_last_day_of_month(date) {
-        // Preserve EOM: return last day of target month
-        return last_day_of_month(year, month);
-    }
-
     let day = date.day();
     NaiveDate::from_ymd_opt(year, month, day)
         .unwrap_or_else(|| last_day_of_month(year, month))
@@ -199,15 +210,34 @@ pub fn months_per_period(frequency: u32) -> i32 {
     12 / frequency as i32
 }
 
+/// Add months to a date using bond EOM convention.
+///
+/// If `eom` is true (maturity was end-of-month), the result is always the
+/// last day of the target month.  Otherwise, use `day` clamped to the target
+/// month's last day.
+pub fn add_months_coupon(date: NaiveDate, months: i32, eom: bool, day: u32) -> NaiveDate {
+    let total_months = date.year() * 12 + date.month() as i32 - 1 + months;
+    let year = total_months / 12;
+    let month = (total_months % 12 + 1) as u32;
+    if eom {
+        last_day_of_month(year, month)
+    } else {
+        NaiveDate::from_ymd_opt(year, month, day)
+            .unwrap_or_else(|| last_day_of_month(year, month))
+    }
+}
+
 /// Previous coupon date on or before settlement.
 ///
 /// Steps backwards from maturity by `months_per_period` until the candidate
-/// is ≤ settlement.
+/// is ≤ settlement.  Uses EOM convention if maturity is end-of-month.
 pub fn prev_coupon_date(settlement: NaiveDate, maturity: NaiveDate, frequency: u32) -> NaiveDate {
     let mpp = months_per_period(frequency);
+    let eom = maturity == last_day_of_month(maturity.year(), maturity.month());
+    let day = maturity.day();
     let mut candidate = maturity;
     while candidate > settlement {
-        candidate = add_months(candidate, -mpp);
+        candidate = add_months_coupon(candidate, -mpp, eom, day);
     }
     candidate
 }
@@ -216,7 +246,9 @@ pub fn prev_coupon_date(settlement: NaiveDate, maturity: NaiveDate, frequency: u
 pub fn next_coupon_date(settlement: NaiveDate, maturity: NaiveDate, frequency: u32) -> NaiveDate {
     let pcd = prev_coupon_date(settlement, maturity, frequency);
     let mpp = months_per_period(frequency);
-    add_months(pcd, mpp)
+    let eom = maturity == last_day_of_month(maturity.year(), maturity.month());
+    let day = maturity.day();
+    add_months_coupon(pcd, mpp, eom, day)
 }
 
 // ---------------------------------------------------------------------------
@@ -246,6 +278,10 @@ pub fn accrint_fn(args: &[Value]) -> Value {
         Ok(n) => n,
         Err(e) => return e,
     };
+    // Text par value must return #VALUE! (text coercion not allowed for par)
+    if matches!(args[4], Value::Text(_)) {
+        return Value::Error(ErrorKind::Value);
+    }
     let par = match to_number(args[4].clone()) {
         Ok(n) => n,
         Err(e) => return e,
@@ -281,8 +317,11 @@ pub fn accrint_fn(args: &[Value]) -> Value {
         None => return Value::Error(ErrorKind::Value),
     };
 
-    if settlement <= issue {
+    if settlement < issue {
         return Value::Error(ErrorKind::Num);
+    }
+    if settlement == issue {
+        return Value::Number(0.0);
     }
 
     // ACCRINT sums over coupon periods from issue to settlement.
@@ -295,8 +334,12 @@ pub fn accrint_fn(args: &[Value]) -> Value {
     // for the numerator A, which matches `days_30_360_eu`.
     let mpp = months_per_period(frequency);
     let mut result = 0.0;
+    // Use EOM-aware date stepping: if the issue date is end-of-month,
+    // all coupon dates should also be end-of-month.
+    let loop_eom = issue == last_day_of_month(issue.year(), issue.month());
+    let loop_day = issue.day();
     let mut pcd = issue;
-    let mut ncd = add_months(pcd, mpp);
+    let mut ncd = add_months_coupon(pcd, mpp, loop_eom, loop_day);
 
     loop {
         let period_start = if pcd < issue { issue } else { pcd };
@@ -307,7 +350,7 @@ pub fn accrint_fn(args: &[Value]) -> Value {
                 break;
             }
             pcd = ncd;
-            ncd = add_months(pcd, mpp);
+            ncd = add_months_coupon(pcd, mpp, loop_eom, loop_day);
             continue;
         }
 
@@ -323,6 +366,15 @@ pub fn accrint_fn(args: &[Value]) -> Value {
             days_between(period_start, period_end, basis) as f64
         };
         let e = coupon_period_days(pcd, ncd, frequency, basis);
+        // basis=2 (Actual/360): cap a at e so A/E never exceeds 1 for a full coupon period.
+        let a = if basis == 2 { a.min(e) } else { a };
+        // basis=3 (Actual/365): Google Sheets excludes Feb 29 from the numerator
+        // (every year is treated as exactly 365 days). Subtract leap days in [period_start, period_end).
+        let a = if basis == 3 && !(is_last && period_end == ncd) {
+            a - count_feb29(period_start, period_end) as f64
+        } else {
+            a
+        };
 
         if e > 0.0 {
             result += par * (rate / frequency as f64) * (a / e);
@@ -332,7 +384,7 @@ pub fn accrint_fn(args: &[Value]) -> Value {
             break;
         }
         pcd = ncd;
-        ncd = add_months(pcd, mpp);
+        ncd = add_months_coupon(pcd, mpp, loop_eom, loop_day);
     }
 
     if !result.is_finite() {
@@ -390,8 +442,11 @@ pub fn accrintm_fn(args: &[Value]) -> Value {
         None => return Value::Error(ErrorKind::Value),
     };
 
-    if settlement <= issue {
+    if settlement < issue {
         return Value::Error(ErrorKind::Num);
+    }
+    if settlement == issue {
+        return Value::Number(0.0);
     }
 
     let yf = yearfrac(issue, settlement, basis);
@@ -488,7 +543,7 @@ pub fn coupncd_fn(args: &[Value]) -> Value {
         Err(e) => return e,
     };
     let ncd = next_coupon_date(settlement, maturity, frequency);
-    Value::Number(date_to_serial(ncd))
+    Value::Date(date_to_serial(ncd))
 }
 
 // ---------------------------------------------------------------------------
@@ -506,13 +561,15 @@ pub fn coupnum_fn(args: &[Value]) -> Value {
         Err(e) => return e,
     };
     let mpp = months_per_period(frequency);
-    // Count from NCD to maturity
+    // Count from NCD to maturity using EOM-aware stepping keyed on maturity
     let ncd = next_coupon_date(settlement, maturity, frequency);
+    let mat_eom = maturity == last_day_of_month(maturity.year(), maturity.month());
+    let mat_day = maturity.day();
     // Number of coupon periods from ncd to maturity
     let mut count = 1u32;
     let mut cur = ncd;
     while cur < maturity {
-        let next = add_months(cur, mpp);
+        let next = add_months_coupon(cur, mpp, mat_eom, mat_day);
         if next > maturity {
             break;
         }
@@ -537,7 +594,7 @@ pub fn couppcd_fn(args: &[Value]) -> Value {
         Err(e) => return e,
     };
     let pcd = prev_coupon_date(settlement, maturity, frequency);
-    Value::Number(date_to_serial(pcd))
+    Value::Date(date_to_serial(pcd))
 }
 
 // ---------------------------------------------------------------------------
@@ -786,9 +843,11 @@ pub fn price_calc(
     let n = {
         let mut count = 1i32;
         let mpp = months_per_period(frequency);
+        let mat_eom = maturity == last_day_of_month(maturity.year(), maturity.month());
+        let mat_day = maturity.day();
         let mut cur = ncd;
         while cur < maturity {
-            let next = add_months(cur, mpp);
+            let next = add_months_coupon(cur, mpp, mat_eom, mat_day);
             if next > maturity {
                 break;
             }

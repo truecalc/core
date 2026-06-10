@@ -145,11 +145,24 @@ pub fn ppmt_fn(args: &[Value]) -> Value {
 /// `CUMIPMT(rate, nper, pv, start_period, end_period, type)`
 ///
 /// Cumulative interest paid between start and end period (inclusive).
+/// Parse a number value, also accepting a percent string like "10%" → 0.1.
+fn coerce_percent_or_number(v: Value) -> Result<f64, Value> {
+    if let Value::Text(ref s) = v {
+        let trimmed = s.trim();
+        if let Some(without_pct) = trimmed.strip_suffix('%') {
+            return without_pct.trim().parse::<f64>()
+                .map(|n| n / 100.0)
+                .map_err(|_| Value::Error(ErrorKind::Value));
+        }
+    }
+    to_number(v)
+}
+
 pub fn cumipmt_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 6, 6) {
         return err;
     }
-    let rate   = match to_number(args[0].clone()) { Ok(n) => n, Err(e) => return e };
+    let rate   = match coerce_percent_or_number(args[0].clone()) { Ok(n) => n, Err(e) => return e };
     let nper   = match to_number(args[1].clone()) { Ok(n) => n, Err(e) => return e };
     let pv     = match to_number(args[2].clone()) { Ok(n) => n, Err(e) => return e };
     let start  = match to_number(args[3].clone()) { Ok(n) => n, Err(e) => return e };
@@ -301,7 +314,12 @@ pub fn syd_fn(args: &[Value]) -> Value {
         return err;
     }
     let cost    = match to_number(args[0].clone()) { Ok(n) => n, Err(e) => return e };
+    // GS: if salvage is a text string whose numeric value is negative, return #NUM!
+    let salvage_is_text = matches!(args[1], Value::Text(_));
     let salvage = match to_number(args[1].clone()) { Ok(n) => n, Err(e) => return e };
+    if salvage_is_text && salvage < 0.0 {
+        return Value::Error(ErrorKind::Num);
+    }
     let life    = match to_number(args[2].clone()) { Ok(n) => n, Err(e) => return e };
     let per     = match to_number(args[3].clone()) { Ok(n) => n, Err(e) => return e };
 
@@ -806,10 +824,11 @@ pub fn mduration_fn(args: &[Value]) -> Value {
 }
 
 fn duration_calc(args: &[Value], _modified: bool) -> Result<f64, Value> {
+    use chrono::Datelike;
     use crate::eval::functions::date::serial::serial_to_date;
     use crate::eval::functions::financial::bonds::{
         coupon_period_days, days_between, months_per_period, next_coupon_date,
-        prev_coupon_date, add_months, validate_basis, validate_frequency,
+        prev_coupon_date, add_months_coupon, last_day_of_month, validate_basis, validate_frequency,
     };
 
     let settlement_s = to_number(args[0].clone())?;
@@ -842,8 +861,10 @@ fn duration_calc(args: &[Value], _modified: bool) -> Result<f64, Value> {
     let days_to_ncd = days_between(settlement, ncd, basis) as f64;
     let dsc_e = days_to_ncd / period_days;
 
-    // Count coupons
+    // Count coupons using EOM-aware stepping keyed on maturity
     let mpp = months_per_period(frequency);
+    let mat_eom = maturity == last_day_of_month(maturity.year(), maturity.month());
+    let mat_day = maturity.day();
     let mut coupon_dates: Vec<f64> = Vec::new();
     let mut t = dsc_e; // fractional periods from settlement to first coupon
     let mut cur = ncd;
@@ -852,7 +873,7 @@ fn duration_calc(args: &[Value], _modified: bool) -> Result<f64, Value> {
         if cur >= maturity {
             break;
         }
-        cur = add_months(cur, mpp);
+        cur = add_months_coupon(cur, mpp, mat_eom, mat_day);
         t += 1.0;
         if t > 1000.0 { break; } // safety
     }
@@ -895,6 +916,10 @@ fn flatten_array(v: Value) -> Result<Vec<f64>, Value> {
                         for sub in flatten_array(Value::Array(inner))? {
                             out.push(sub);
                         }
+                    }
+                    // Empty string in an array literal is an error (GS: #VALUE!)
+                    Value::Text(ref s) if s.is_empty() => {
+                        return Err(Value::Error(ErrorKind::Value));
                     }
                     other => out.push(to_number(other)?),
                 }

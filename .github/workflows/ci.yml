@@ -86,6 +86,7 @@ jobs:
         run: |
           gh run download \
             --repo "$GITHUB_REPOSITORY" \
+            --branch main \
             --name conformance-report \
             --dir baseline/ \
             2>/dev/null || echo "No baseline found (first run or main has no artifact)"

@@ -485,7 +485,7 @@ conformance_tsv_test!(database_conformance,    "database.tsv");
 conformance_tsv_test!(array_conformance,       "array.tsv");
 conformance_tsv_test!(filter_conformance,             "filter.tsv");
 conformance_tsv_test!(web_conformance,         "web.tsv");
-conformance_tsv_test_report!(financial_conformance,   "financial.tsv");
+conformance_tsv_test!(financial_conformance,         "financial.tsv");
 
 /// P1.5 workbook fixtures — cross-sheet refs, named ranges, date-typed scalars
 /// (pipeline-generated, core issue #527; registered via PR #562).
