@@ -1,6 +1,6 @@
 use crate::eval::functions::check_arity;
 use crate::types::{ErrorKind, Value};
-use super::percentile_inc::collect_numbers;
+use super::percentile_inc::collect_numbers_checked;
 
 /// `PERCENTILE.EXC(array, k)` — exclusive percentile, k strictly in (0,1).
 /// Uses index = k*(n+1)-1 formula for interpolation.
@@ -15,7 +15,10 @@ pub fn percentile_exc_fn(args: &[Value]) -> Value {
     if k <= 0.0 || k >= 1.0 {
         return Value::Error(ErrorKind::Num);
     }
-    let mut nums = collect_numbers(&args[0]);
+    let mut nums = match collect_numbers_checked(&args[0]) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
     if nums.is_empty() {
         return Value::Error(ErrorKind::Num);
     }

@@ -7,20 +7,25 @@ pub fn small_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 2, 2) {
         return err;
     }
-    let mut nums = collect_numbers(&args[0]);
+    let nums = match collect_numbers_checked(&args[0]) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
     if nums.is_empty() {
         return Value::Error(ErrorKind::Num);
     }
     let k = match &args[1] {
         Value::Number(n) => {
-            let k = *n;
-            if k < 1.0 || k != k.floor() {
+            let k = n.trunc();
+            if k < 1.0 {
                 return Value::Error(ErrorKind::Num);
             }
             k as usize
         }
+        Value::Bool(b) => if *b { 1usize } else { return Value::Error(ErrorKind::Num); },
         _ => return Value::Error(ErrorKind::Num),
     };
+    let mut nums = nums;
     if k > nums.len() {
         return Value::Error(ErrorKind::Num);
     }
@@ -29,13 +34,22 @@ pub fn small_fn(args: &[Value]) -> Value {
     Value::Number(nums[k - 1])
 }
 
-fn collect_numbers(v: &Value) -> Vec<f64> {
+fn collect_numbers_checked(v: &Value) -> Result<Vec<f64>, Value> {
     match v {
-        Value::Array(arr) => arr.iter().filter_map(|x| {
-            if let Value::Number(n) = x { Some(*n) } else { None }
-        }).collect(),
-        Value::Number(n) => vec![*n],
-        _ => vec![],
+        Value::Array(arr) => {
+            let mut nums = Vec::new();
+            for x in arr {
+                match x {
+                    Value::Number(n) => nums.push(*n),
+                    Value::Error(e) => return Err(Value::Error(e.clone())),
+                    _ => {}
+                }
+            }
+            Ok(nums)
+        }
+        Value::Number(n) => Ok(vec![*n]),
+        Value::Error(e) => Err(Value::Error(e.clone())),
+        _ => Ok(vec![]),
     }
 }
 

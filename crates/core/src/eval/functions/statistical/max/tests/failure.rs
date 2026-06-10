@@ -2,11 +2,11 @@ use super::super::*;
 use crate::types::{ErrorKind, Value};
 
 #[test]
-fn max_ignores_error_values() {
-    // The eager dispatcher strips errors; max_fn itself skips them too
+fn max_propagates_error_values() {
+    // Direct errors propagate through max_fn (eager dispatch would handle real formulas)
     assert_eq!(
         max_fn(&[Value::Number(3.0), Value::Error(ErrorKind::Value), Value::Number(5.0)]),
-        Value::Number(5.0)
+        Value::Error(ErrorKind::Value)
     );
 }
 
