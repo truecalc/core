@@ -22,6 +22,7 @@ fn parse_expected(value: &str, expected_type: &str) -> Option<Value> {
             _       => None,
         },
         "error" => parse_error_string(value).map(Value::Error),
+        "date" => value.parse::<f64>().ok().map(Value::Number),
         "string" | "array" => Some(Value::Text(value.to_string())),
         _ => Some(Value::Text(value.to_string())),
     }
