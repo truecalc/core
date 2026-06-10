@@ -69,6 +69,33 @@ fn outermost_function_name_cases() {
 }
 
 #[test]
+fn self_contained_classification() {
+    assert!(is_self_contained("=SUM(1,2,3)"));
+    assert!(is_self_contained(
+        "=VLOOKUP(\"b\",{\"a\",1;\"b\",2},2,FALSE)"
+    ));
+    assert!(is_self_contained("=LOG10(100)")); // function name ending in digit
+    assert!(is_self_contained("=ATAN2(1,1)"));
+    assert!(!is_self_contained("=SUM(Data!A1:A3)")); // sheet ref
+    assert!(!is_self_contained("=SUM(A1:A3)")); // cell range
+    assert!(!is_self_contained("=A1+B2")); // cell refs
+    assert!(!is_self_contained("=SUM(INDIRECT(\"A1\"))"));
+}
+
+#[test]
+fn self_contained_examples_preferred() {
+    let mut entries = build_registry();
+    attach_examples(&mut entries, &fixtures_dir()).expect("attach");
+    let sum = entries.iter().find(|e| e.name == "SUM").expect("SUM");
+    // SUM has self-contained fixtures, so its first example must be runnable.
+    assert!(
+        is_self_contained(&sum.examples[0].formula),
+        "SUM first example should be self-contained, got {}",
+        sum.examples[0].formula
+    );
+}
+
+#[test]
 fn examples_attached_from_fixtures() {
     let mut entries = build_registry();
     attach_examples(&mut entries, &fixtures_dir()).expect("attach examples");

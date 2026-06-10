@@ -355,16 +355,16 @@
     "description": "Arithmetic mean of arguments",
     "examples": [
       {
-        "formula": "=AVERAGE(Data!A1:A3)",
-        "result": "20"
-      },
-      {
         "formula": "=AVERAGE(PRICES)",
         "result": "20"
       },
       {
         "formula": "=AVERAGE(1,2,3,4,5,6,7,8,9,10,4,26)",
         "result": "7.083333333333333"
+      },
+      {
+        "formula": "=AVERAGE(1,2,3,4,5,7,8,9,10,11,12)",
+        "result": "6.545454545454546"
       }
     ]
   },
@@ -988,16 +988,16 @@
     "description": "Returns the number of columns in an array or range",
     "examples": [
       {
+        "formula": "=COLUMNS(GRID)",
+        "result": "2"
+      },
+      {
         "formula": "=COLUMNS(INDIRECT(\"A1:A5\"))",
         "result": "1"
       },
       {
         "formula": "=COLUMNS(INDIRECT(\"A1:C1\"))",
         "result": "3"
-      },
-      {
-        "formula": "=COLUMNS(INDIRECT(\"A1:E5\"))",
-        "result": "5"
       }
     ]
   },
@@ -2495,8 +2495,8 @@
         "result": "21"
       },
       {
-        "formula": "=FIND(\"!\",\"Hello!\")",
-        "result": "6"
+        "formula": "=FIND(\"H\",\"Hello World\")",
+        "result": "1"
       }
     ]
   },
@@ -3807,12 +3807,12 @@
         "result": "11"
       },
       {
-        "formula": "=LEN(\"Hello, World!\")",
-        "result": "13"
-      },
-      {
         "formula": "=LEN(\"\")",
         "result": "0"
+      },
+      {
+        "formula": "=LEN(\"熊本\")",
+        "result": "2"
       }
     ]
   },
@@ -5545,16 +5545,16 @@
     "description": "Returns the number of rows in an array or range",
     "examples": [
       {
+        "formula": "=ROWS(PRICES)",
+        "result": "3"
+      },
+      {
         "formula": "=ROWS(INDIRECT(\"A1\"))",
         "result": "1"
       },
       {
         "formula": "=ROWS(INDIRECT(\"A1:A5\"))",
         "result": "5"
-      },
-      {
-        "formula": "=ROWS(INDIRECT(\"A1:A10\"))",
-        "result": "10"
       }
     ]
   },
@@ -6112,16 +6112,16 @@
     "description": "Sum of arguments",
     "examples": [
       {
-        "formula": "=SUM(INDIRECT(\"A1\"))",
-        "result": "0"
-      },
-      {
-        "formula": "=SUM(Data!A1:A3)",
+        "formula": "=SUM(PRICES)",
         "result": "60"
       },
       {
-        "formula": "=SUM(Data!A1:B3)",
-        "result": "125"
+        "formula": "=SUM(GRID)",
+        "result": "10"
+      },
+      {
+        "formula": "=SUM(QUOTED_VALS)",
+        "result": "300"
       }
     ]
   },

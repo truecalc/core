@@ -72,6 +72,45 @@ pub fn outermost_function_name(formula: &str) -> Option<String> {
     None
 }
 
+/// A formula is "self-contained" if it has no cell or sheet references — it can
+/// be evaluated by the stateless engine and run in the docs Try-It widget.
+/// Heuristic: rejects sheet refs (`!`), the INDIRECT family, and A1-style cell
+/// references / ranges (one or more letters immediately followed by a digit,
+/// e.g. `A1`, `BC12`). Inline array literals like `{1,2;3,4}` stay self-contained.
+pub fn is_self_contained(formula: &str) -> bool {
+    if formula.contains('!') || formula.to_uppercase().contains("INDIRECT") {
+        return false;
+    }
+    // reject an A1-style cell ref: a run of ASCII letters directly followed by a digit
+    let bytes = formula.as_bytes();
+    for i in 0..bytes.len() {
+        if bytes[i].is_ascii_digit() && i > 0 && bytes[i - 1].is_ascii_alphabetic() {
+            // walk back over the letter-run preceding this digit
+            let mut j = i - 1;
+            while j > 0 && bytes[j - 1].is_ascii_alphabetic() {
+                j -= 1;
+            }
+            // the char before the letter-run must not be alphanumeric, otherwise
+            // this is part of a larger token (e.g. an identifier or named range)
+            let prev_ok = j == 0 || !bytes[j - 1].is_ascii_alphanumeric();
+            // a cell ref's column is 1..=3 letters; longer runs are not cell refs
+            let letter_run = i - j;
+            // scan forward over the digit-run; if it is immediately followed by `(`
+            // then letters+digits form a function name (e.g. LOG10, ATAN2), not a
+            // cell ref — skip it.
+            let mut k = i;
+            while k < bytes.len() && bytes[k].is_ascii_digit() {
+                k += 1;
+            }
+            let is_function_name = k < bytes.len() && bytes[k] == b'(';
+            if prev_ok && !is_function_name && (1..=3).contains(&letter_run) {
+                return false;
+            }
+        }
+    }
+    true
+}
+
 /// Whether a fixture row is a good headline example: validated, scalar-typed,
 /// non-empty, and from a clean category (not an error/edge case).
 fn is_headline_row(test_category: &str, expected_type: &str, expected_value: &str) -> bool {
@@ -114,7 +153,9 @@ pub fn attach_examples(entries: &mut [FunctionEntry], fixtures_dir: &Path) -> Re
                 continue;
             };
             let bucket = by_fn.entry(fname).or_default();
-            if bucket.len() < MAX_EXAMPLES && !bucket.iter().any(|e| e.formula == formula) {
+            // Collect ALL matching headline rows (deduped by formula); we rank and
+            // truncate below so self-contained examples can win the headline slot.
+            if !bucket.iter().any(|e| e.formula == formula) {
                 bucket.push(Example {
                     formula,
                     result: expected_value,
@@ -124,7 +165,11 @@ pub fn attach_examples(entries: &mut [FunctionEntry], fixtures_dir: &Path) -> Re
     }
 
     for entry in entries.iter_mut() {
-        if let Some(examples) = by_fn.remove(&entry.name) {
+        if let Some(mut examples) = by_fn.remove(&entry.name) {
+            // Prefer self-contained (widget-runnable) examples for the headline,
+            // preserving original file order within each group (stable sort).
+            examples.sort_by_key(|e| !is_self_contained(&e.formula));
+            examples.truncate(MAX_EXAMPLES);
             entry.examples = examples;
         }
     }
