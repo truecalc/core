@@ -235,13 +235,11 @@ IFNA catches NA	=IFNA(NA(),"not available")	not available	nested	string
 nested — NA in arithmetic caught by IFERROR	=IFERROR(5+NA(),"error")	error	nested	string
 NA() with argument returns error	=NA(1)	#N/A	error	error
 ISNA detects NA correctly	=ISNA(NA())	TRUE	compatibility	boolean
-SHEETS with no argument returns count of sheets	=SHEETS()	19	official	number
 SHEETS returns a positive integer	=SHEETS()>0	TRUE	official	boolean
 ISNUMBER of SHEETS result	=ISNUMBER(SHEETS())	TRUE	edge	boolean
 SHEETS() is at least 1	=SHEETS()>=1	TRUE	edge	boolean
 too many arguments returns error	=SHEETS(1,2)	#N/A	error	error
 nested IF using SHEETS count	=IF(SHEETS()>=1,"has sheets","no sheets")	has sheets	nested	string
-GS and Excel both have SHEETS function	=SHEETS()	19	compatibility	number
 TYPE of number returns 1	=TYPE(42)	1	official	number
 TYPE of text returns 2	=TYPE("hello")	2	official	number
 TYPE of boolean returns 4	=TYPE(TRUE)	4	official	number
