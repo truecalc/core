@@ -22,7 +22,7 @@ use std::collections::HashMap;
 /// Evaluate a formula string with named variables, targeting Google Sheets conformance.
 ///
 /// Returns `Value::Error(ErrorKind::Value)` on parse failure.
-#[deprecated(note = "use Engine::sheets()/Engine::excel() and engine.evaluate() — engine flavor is required; see ADR 2026-04-27")]
+#[deprecated(since = "0.7.0", note = "use Engine::sheets()/Engine::excel() and engine.evaluate() — engine flavor is required; see ADR 2026-04-27; removal target: 0.7.0 coordinated release")]
 pub fn evaluate(formula: &str, variables: &HashMap<String, Value>) -> Value {
     Engine::sheets().evaluate(formula, variables)
 }

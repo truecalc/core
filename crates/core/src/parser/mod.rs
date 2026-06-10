@@ -452,7 +452,7 @@ fn is_cell_ref(name: &str) -> bool {
 ///
 /// The formula must start with `=`. Returns a [`ParseError`] if the input
 /// is not a valid formula.
-#[deprecated(note = "use Engine::sheets()/Engine::excel() and engine.parse() — engine flavor is required; see ADR 2026-04-27")]
+#[deprecated(since = "0.7.0", note = "use Engine::sheets()/Engine::excel() and engine.parse() — engine flavor is required; see ADR 2026-04-27; removal target: 0.7.0 coordinated release")]
 pub fn parse(formula: &str) -> Result<Expr, ParseError> {
     parse_formula(formula)
 }
@@ -485,7 +485,7 @@ pub(crate) fn parse_formula(formula: &str) -> Result<Expr, ParseError> {
 }
 
 /// Validate that a formula string is syntactically correct without returning the AST.
-#[deprecated(note = "use Engine::sheets()/Engine::excel() and engine.validate() — engine flavor is required; see ADR 2026-04-27")]
+#[deprecated(since = "0.7.0", note = "use Engine::sheets()/Engine::excel() and engine.validate() — engine flavor is required; see ADR 2026-04-27; removal target: 0.7.0 coordinated release")]
 pub fn validate(formula: &str) -> Result<(), ParseError> {
     parse_formula(formula).map(|_| ())
 }
