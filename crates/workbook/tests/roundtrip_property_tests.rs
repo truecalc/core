@@ -2,12 +2,17 @@
 //! (`to_json ∘ from_json = id`), hash stability across round-trips, and a
 //! generator of structurally valid workbooks. Schema-validation of the golden
 //! files lives in `schema_validation_tests.rs`.
+//!
+//! P4.1 addition: `recalc ∘ from_json ∘ to_json ≡ recalc` — recalc results
+//! must be identical before and after a JSON round-trip.
 
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 use proptest::prelude::*;
-use truecalc_workbook::{Cell, EngineFlavor, NamedRange, Value, Workbook, Worksheet};
+use truecalc_workbook::{
+    Address, Cell, CellInput, EngineFlavor, NamedRange, RecalcContext, Value, Workbook, Worksheet,
+};
 
 fn hash_of<T: Hash>(t: &T) -> u64 {
     let mut h = DefaultHasher::new();
@@ -167,6 +172,40 @@ fn workbook_strategy() -> impl Strategy<Value = Workbook> {
         })
 }
 
+/// Fixed recalc context used across all recalc-after-roundtrip tests.
+fn recalc_ctx() -> RecalcContext {
+    RecalcContext::new(1_780_878_600_000, "Etc/GMT", 0).unwrap()
+}
+
+/// Build a small workbook with real inter-cell formulas so `recalc` has
+/// non-trivial work to do. `n` is the number of cells in column A of a single
+/// sheet; `shape` drives which operator and which earlier rows each formula
+/// references (construction mirrors `recalc_incremental_property_tests`).
+fn formula_workbook(n: usize, shape: &[(u8, usize, usize)]) -> Workbook {
+    let mut wb = Workbook::new(EngineFlavor::Sheets);
+    wb.add_sheet(Worksheet::new("S")).unwrap();
+    wb.set(
+        "S",
+        Address::new(1, 1).unwrap(),
+        CellInput::Literal(Value::Number(1.0)),
+    )
+    .unwrap();
+    for i in 1..n {
+        let row = (i + 1) as u32;
+        let (op, p, q) = shape[i % shape.len()];
+        let p = (p % i) + 1;
+        let q = (q % i) + 1;
+        let formula = match op % 3 {
+            0 => format!("=A{}+A{}", p, q),
+            1 => format!("=A{}*2", p),
+            _ => format!("=SUM(A{}:A{})", p.min(q), p.max(q)),
+        };
+        wb.set("S", Address::new(row, 1).unwrap(), CellInput::Formula(formula))
+            .unwrap();
+    }
+    wb
+}
+
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(512))]
 
@@ -206,5 +245,36 @@ proptest! {
         prop_assert_eq!(&once, &twice);
         let parsed2 = Workbook::from_json(twice.as_bytes()).expect("re-parse");
         prop_assert_eq!(twice, parsed2.to_json().expect("third serialize"));
+    }
+
+    /// P4.1: `recalc ∘ from_json ∘ to_json ≡ recalc`.
+    ///
+    /// Given any formula workbook, running `recalc` on the original and on a
+    /// copy that went through a JSON round-trip must produce byte-identical
+    /// grids. This verifies that serialization preserves all formula state
+    /// required for correct re-evaluation.
+    #[test]
+    fn recalc_after_roundtrip_equals_recalc_on_original(
+        n in 2usize..10,
+        shape in proptest::collection::vec((0u8..6, 0usize..20, 0usize..20), 4..10),
+    ) {
+        let ctx = recalc_ctx();
+        let mut original = formula_workbook(n, &shape);
+
+        // Serialize before recalc so the deserialized copy has the same
+        // pre-recalc state as the original.
+        let json = original.to_json().expect("serialize");
+        let mut from_rt = Workbook::from_json(json.as_bytes()).expect("deserialize");
+
+        // Recalc both with the same context.
+        original.recalc(&ctx);
+        from_rt.recalc(&ctx);
+
+        prop_assert_eq!(
+            original.to_json().expect("re-serialize original"),
+            from_rt.to_json().expect("re-serialize roundtrip"),
+            "recalc grids diverged after JSON round-trip (n={})",
+            n,
+        );
     }
 }
