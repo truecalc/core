@@ -57,25 +57,24 @@ fn alias_does_not_appear_in_metadata() {
 }
 
 #[test]
-fn context_limited_functions_return_name_error() {
+fn context_limited_functions_return_errors() {
     use std::collections::HashMap;
     use truecalc_core::{Value, ErrorKind};
-    // These functions require a cell grid — they should not be registered
-    // in the standalone evaluator. Callers should get #NAME? not #N/A.
-    let cases = [
-        "OFFSET({1,2,3},0,1)",
-        "FORMULATEXT(SUM(1,2))",
-        "GETPIVOTDATA(\"Sales\",{1})",
-    ];
-    for formula in cases {
-        let result = evaluate(formula, &HashMap::new());
-        assert_eq!(
-            result,
-            Value::Error(ErrorKind::Name),
-            "expected #NAME? for context-limited function in: {}",
-            formula
-        );
-    }
+    // FORMULATEXT has no formula text to retrieve → #N/A
+    // GETPIVOTDATA with 2+ args has no pivot table → #REF!
+    // GETPIVOTDATA with < 2 args → #N/A
+    // OFFSET is now registered and returns a tagged text value (no grid available)
+    let result = evaluate("FORMULATEXT(SUM(1,2))", &HashMap::new());
+    assert_eq!(result, Value::Error(ErrorKind::NA),
+        "FORMULATEXT should return #N/A when no formula text is available");
+
+    let result2 = evaluate("GETPIVOTDATA(\"Sales\",{1})", &HashMap::new());
+    assert_eq!(result2, Value::Error(ErrorKind::Ref),
+        "GETPIVOTDATA with 2+ args should return #REF! (no pivot table)");
+
+    let result3 = evaluate("GETPIVOTDATA(\"Sales\")", &HashMap::new());
+    assert_eq!(result3, Value::Error(ErrorKind::NA),
+        "GETPIVOTDATA with < 2 args should return #N/A");
 }
 
 #[test]

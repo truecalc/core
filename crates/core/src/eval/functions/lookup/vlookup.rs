@@ -1,6 +1,6 @@
 use crate::eval::functions::check_arity;
 use crate::types::{ErrorKind, Value};
-use super::array_utils::{flatten_to_rows, values_equal, value_compare};
+use super::array_utils::{flatten_to_rows, values_equal, value_compare, wildcard_match_value, has_wildcards};
 
 /// `VLOOKUP(search_key, range, index, [is_sorted])`
 /// Searches the first column of range, returns value from the `index` column (1-based).
@@ -13,7 +13,11 @@ pub fn vlookup_fn(args: &[Value]) -> Value {
     let search_key = &args[0];
     let range = &args[1];
     let col_index = match &args[2] {
-        Value::Number(n) => n.trunc() as usize,
+        Value::Number(n) => {
+            let idx = n.trunc() as i64;
+            if idx < 1 { return Value::Error(ErrorKind::Value); }
+            idx as usize
+        }
         _ => return Value::Error(ErrorKind::Value),
     };
     let is_sorted = if args.len() == 4 {
@@ -25,10 +29,6 @@ pub fn vlookup_fn(args: &[Value]) -> Value {
     } else {
         true
     };
-
-    if col_index < 1 {
-        return Value::Error(ErrorKind::Value);
-    }
 
     let rows = flatten_to_rows(range);
     if rows.is_empty() {
@@ -60,10 +60,15 @@ pub fn vlookup_fn(args: &[Value]) -> Value {
             }
         }
     } else {
-        // Exact match
+        // Exact match — supports wildcards in search_key
         for row in &rows {
             if row.is_empty() { continue; }
-            if values_equal(&row[0], search_key) {
+            let matched = if has_wildcards(search_key) {
+                wildcard_match_value(search_key, &row[0])
+            } else {
+                values_equal(&row[0], search_key)
+            };
+            if matched {
                 if col_index > row.len() {
                     return Value::Error(ErrorKind::Ref);
                 }
@@ -84,7 +89,11 @@ pub fn hlookup_fn(args: &[Value]) -> Value {
     let search_key = &args[0];
     let range = &args[1];
     let row_index = match &args[2] {
-        Value::Number(n) => n.trunc() as usize,
+        Value::Number(n) => {
+            let idx = n.trunc() as i64;
+            if idx < 1 { return Value::Error(ErrorKind::Value); }
+            idx as usize
+        }
         _ => return Value::Error(ErrorKind::Value),
     };
     let is_sorted = if args.len() == 4 {
@@ -96,10 +105,6 @@ pub fn hlookup_fn(args: &[Value]) -> Value {
     } else {
         true
     };
-
-    if row_index < 1 {
-        return Value::Error(ErrorKind::Value);
-    }
 
     let rows = flatten_to_rows(range);
     if rows.is_empty() {
@@ -134,10 +139,15 @@ pub fn hlookup_fn(args: &[Value]) -> Value {
             }
         }
     } else {
-        // Exact match in first row
+        // Exact match in first row — supports wildcards
         let mut found_col: Option<usize> = None;
         for (i, cell) in first_row.iter().enumerate() {
-            if values_equal(cell, search_key) {
+            let matched = if has_wildcards(search_key) {
+                wildcard_match_value(search_key, cell)
+            } else {
+                values_equal(cell, search_key)
+            };
+            if matched {
                 found_col = Some(i);
                 break;
             }

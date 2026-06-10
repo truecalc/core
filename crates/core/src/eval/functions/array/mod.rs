@@ -97,92 +97,6 @@ pub(crate) fn columns_fn(args: &[Value]) -> Value {
     Value::Number(cols as f64)
 }
 
-// ── INDEX ─────────────────────────────────────────────────────────────────────
-// INDEX(array, row, [col]) — 1-based indices
-
-fn index_fn(args: &[Value]) -> Value {
-    if let Some(e) = check_arity(args, 1, 3) {
-        return e;
-    }
-    let grid = to_2d(&args[0]);
-    let nrows = grid.len();
-    let ncols = grid.first().map(|r| r.len()).unwrap_or(0);
-
-    let row_idx = if args.len() >= 2 {
-        match to_f64(&args[1]) {
-            Some(n) => {
-                let r = n as isize;
-                if r < 0 {
-                    (nrows as isize + r + 1) as usize
-                } else {
-                    r as usize
-                }
-            }
-            None => return Value::Error(ErrorKind::Value),
-        }
-    } else {
-        0 // 0 means return whole row/col
-    };
-
-    let col_idx = if args.len() >= 3 {
-        match to_f64(&args[2]) {
-            Some(n) => {
-                let c = n as isize;
-                if c < 0 {
-                    (ncols as isize + c + 1) as usize
-                } else {
-                    c as usize
-                }
-            }
-            None => return Value::Error(ErrorKind::Value),
-        }
-    } else {
-        0 // 0 means return whole column
-    };
-
-    // Single element
-    if row_idx > 0 && col_idx > 0 {
-        if row_idx > nrows || col_idx > ncols {
-            return Value::Error(ErrorKind::Ref);
-        }
-        return grid[row_idx - 1][col_idx - 1].clone();
-    }
-
-    // Return whole row (col_idx == 0, row_idx > 0)
-    if row_idx > 0 && col_idx == 0 {
-        // For a 1D row vector (1 row, N cols), treat row_idx as col index
-        if nrows == 1 && ncols > 1 {
-            if row_idx > ncols {
-                return Value::Error(ErrorKind::Ref);
-            }
-            return grid[0][row_idx - 1].clone();
-        }
-        if row_idx > nrows {
-            return Value::Error(ErrorKind::Ref);
-        }
-        let row = grid[row_idx - 1].clone();
-        if row.len() == 1 {
-            return row.into_iter().next().unwrap();
-        }
-        return Value::Array(row);
-    }
-
-    // Return whole column (row_idx == 0, col_idx > 0)
-    if row_idx == 0 && col_idx > 0 {
-        if col_idx > ncols {
-            return Value::Error(ErrorKind::Ref);
-        }
-        let col: Vec<Value> = grid.iter().map(|r| r[col_idx - 1].clone()).collect();
-        if col.len() == 1 {
-            return col.into_iter().next().unwrap();
-        }
-        return from_2d(col.into_iter().map(|v| vec![v]).collect());
-    }
-
-    // Both zero → return full array
-    args[0].clone()
-}
-
 // ── TRANSPOSE ─────────────────────────────────────────────────────────────────
 
 pub(crate) fn transpose_fn(args: &[Value]) -> Value {
@@ -1517,11 +1431,6 @@ pub fn register_array(registry: &mut Registry) {
         category: "array",
         signature: "COLUMNS(array)",
         description: "Returns the number of columns in an array or range",
-    });
-    registry.register_eager("INDEX", index_fn, FunctionMeta {
-        category: "array",
-        signature: "INDEX(array, row, [col])",
-        description: "Returns the value at the given row and column of an array",
     });
     registry.register_eager("TRANSPOSE", transpose_fn, FunctionMeta {
         category: "array",
