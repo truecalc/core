@@ -1,0 +1,21 @@
+{
+  "id": "cycle_and_downstream",
+  "category": "cycles",
+  "description": "A two-cell circular dependency (A1->A2->A1) and a cell downstream of the cycle (B1=A1+1). Records Sheets' circular-dependency error semantics for every cell on the cycle and its downstream propagation.",
+  "workbook": {
+    "engine": "sheets",
+    "sheets": [
+      {
+        "name": "S",
+        "cells": {
+          "A1": "=A2",
+          "A2": "=A1",
+          "B1": "=A1+1",
+          "C1": "=A3+1",
+          "A3": "=A3"
+        }
+      }
+    ],
+    "names": []
+  }
+}
