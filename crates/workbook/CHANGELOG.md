@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2](https://github.com/truecalc/core/compare/truecalc-workbook-v1.0.0...truecalc-workbook-v1.0.2) - 2026-06-10
+
+### Other
+
+- release v1.0.1
+- rustdoc, READMEs, cookbook, migration guide ([#548](https://github.com/truecalc/core/pull/548))
+
 ## [1.0.1](https://github.com/truecalc/core/compare/truecalc-workbook-v1.0.0...truecalc-workbook-v1.0.1) - 2026-06-10
 
 ### Other

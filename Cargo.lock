@@ -2309,7 +2309,7 @@ dependencies = [
 
 [[package]]
 name = "truecalc-core"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "calamine",
  "chrono",
@@ -2324,7 +2324,7 @@ dependencies = [
 
 [[package]]
 name = "truecalc-mcp"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -2334,7 +2334,7 @@ dependencies = [
 
 [[package]]
 name = "truecalc-wasm"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "serde",
  "serde-wasm-bindgen",
@@ -2347,7 +2347,7 @@ dependencies = [
 
 [[package]]
 name = "truecalc-wasm-workbook"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -2359,7 +2359,7 @@ dependencies = [
 
 [[package]]
 name = "truecalc-workbook"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "chrono",
  "chrono-tz",
@@ -2934,7 +2934,7 @@ dependencies = [
 
 [[package]]
 name = "workbook-budget"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "truecalc-workbook",
 ]
