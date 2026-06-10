@@ -23,8 +23,8 @@ fn large_empty_array_returns_num_error() {
 }
 
 #[test]
-fn large_fractional_k_returns_num_error() {
-    // k=1.5 is not an integer → #NUM!
+fn large_fractional_k_truncated() {
+    // k=1.5 is truncated to 1 → 1st largest of [1.0, 2.0] = 2.0
     let arr = Value::Array(vec![Value::Number(1.0), Value::Number(2.0)]);
-    assert_eq!(large_fn(&[arr, Value::Number(1.5)]), Value::Error(ErrorKind::Num));
+    assert_eq!(large_fn(&[arr, Value::Number(1.5)]), Value::Number(2.0));
 }

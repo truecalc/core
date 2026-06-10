@@ -2,11 +2,11 @@ use super::super::*;
 use crate::types::{ErrorKind, Value};
 
 #[test]
-fn min_ignores_error_values() {
-    // The eager dispatcher strips errors; min_fn itself skips them too
+fn min_propagates_error_values() {
+    // Direct errors propagate through min_fn (eager dispatch would handle real formulas)
     assert_eq!(
         min_fn(&[Value::Number(3.0), Value::Error(ErrorKind::Value), Value::Number(5.0)]),
-        Value::Number(3.0)
+        Value::Error(ErrorKind::Value)
     );
 }
 

@@ -1,22 +1,25 @@
 use crate::types::{ErrorKind, Value};
 
-/// Collect numeric values from args (flattening Arrays). Returns sorted Vec<f64>.
-fn collect_nums(args: &[Value]) -> Vec<f64> {
+/// Collect numeric values from args (flattening Arrays), propagating errors.
+fn collect_nums(args: &[Value]) -> Result<Vec<f64>, Value> {
     let mut nums: Vec<f64> = Vec::new();
     for arg in args {
         match arg {
             Value::Number(n) => nums.push(*n),
             Value::Array(arr) => {
                 for v in arr {
-                    if let Value::Number(n) = v {
-                        nums.push(*n);
+                    match v {
+                        Value::Number(n) => nums.push(*n),
+                        Value::Error(e) => return Err(Value::Error(e.clone())),
+                        _ => {}
                     }
                 }
             }
+            Value::Error(e) => return Err(Value::Error(e.clone())),
             _ => {}
         }
     }
-    nums
+    Ok(nums)
 }
 
 /// Find the most frequent value. If tie, return the smallest. If all unique or no values: `#N/A`.
@@ -59,10 +62,12 @@ pub fn mode_single(nums: &[f64]) -> Value {
 
 /// `MODE(value1, ...)` — most frequently occurring value.
 /// If tie, returns smallest. If all unique or no values: `#N/A`.
-/// Flattens `Value::Array` args. Ignores Text, Bool, Empty.
+/// Flattens `Value::Array` args. Ignores Text, Bool, Empty. Propagates errors.
 pub fn mode_fn(args: &[Value]) -> Value {
-    let nums = collect_nums(args);
-    mode_single(&nums)
+    match collect_nums(args) {
+        Ok(nums) => mode_single(&nums),
+        Err(e) => e,
+    }
 }
 
 #[cfg(test)]

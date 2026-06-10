@@ -1,5 +1,5 @@
 use super::super::*;
-use crate::types::Value;
+use crate::types::{ErrorKind, Value};
 
 #[test]
 fn var_all_same_values_returns_zero() {
@@ -10,13 +10,13 @@ fn var_all_same_values_returns_zero() {
 }
 
 #[test]
-fn var_ignores_bool_and_text() {
-    // Text/bool ignored; [2, 6] → mean=4, sample var=8
+fn var_direct_text_returns_value_error() {
+    // Direct non-parseable text → #VALUE!
     let result = var_fn(&[
         Value::Number(2.0),
         Value::Number(6.0),
         Value::Bool(true),
         Value::Text("x".to_string()),
     ]);
-    assert_eq!(result, Value::Number(8.0));
+    assert_eq!(result, Value::Error(ErrorKind::Value));
 }

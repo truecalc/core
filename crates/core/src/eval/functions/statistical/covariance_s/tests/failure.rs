@@ -36,8 +36,8 @@ fn covariance_s_single_point_returns_num() {
 }
 
 #[test]
-fn covariance_s_empty_arrays_returns_num() {
+fn covariance_s_empty_arrays_returns_ref() {
     let arr1 = Value::Array(vec![]);
     let arr2 = Value::Array(vec![]);
-    assert_eq!(covariance_s_fn(&[arr1, arr2]), Value::Error(ErrorKind::Num));
+    assert_eq!(covariance_s_fn(&[arr1, arr2]), Value::Error(ErrorKind::Ref));
 }

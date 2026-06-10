@@ -12,6 +12,11 @@ pub fn percentrank_exc_fn(args: &[Value]) -> Value {
     // args[0] = array, args[1] = x, args[2] = significance (optional)
     let x = match &args[1] {
         Value::Number(n) => *n,
+        Value::Bool(b) => if *b { 1.0 } else { 0.0 },
+        Value::Text(s) => match s.trim().parse::<f64>() {
+            Ok(v) if v.is_finite() => v,
+            _ => return Value::Error(ErrorKind::NA),
+        },
         _ => return Value::Error(ErrorKind::NA),
     };
     let sig = args.get(2).map(|v| match v {
@@ -34,6 +39,10 @@ pub fn percentrank_exc_fn(args: &[Value]) -> Value {
     }
 
     let n = nums.len();
+    // Single-element edge case: x equals the only element → 1.0
+    if n == 1 && nums[0] == x {
+        return Value::Number(round_to_sig(1.0, sig));
+    }
     let result = percentrank_exc_calc(&nums, x, n);
     Value::Number(round_to_sig(result, sig))
 }

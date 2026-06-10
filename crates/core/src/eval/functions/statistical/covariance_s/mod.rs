@@ -1,18 +1,15 @@
 use crate::types::{ErrorKind, Value};
-use super::stat_helpers::collect_nums;
+use super::stat_helpers::collect_paired;
 
 /// `COVARIANCE.S(array1, array2)` — sample covariance of two arrays.
-/// Requires exactly 2 args of equal length ≥2. Returns `#N/A` if lengths differ.
-/// Returns `#DIV/0!` if n < 2.
 pub fn covariance_s_fn(args: &[Value]) -> Value {
     if args.len() != 2 {
         return Value::Error(ErrorKind::NA);
     }
-    let xs = collect_nums(std::slice::from_ref(&args[0]));
-    let ys = collect_nums(std::slice::from_ref(&args[1]));
-    if xs.len() != ys.len() {
-        return Value::Error(ErrorKind::NA);
-    }
+    let (xs, ys) = match collect_paired(&args[0], &args[1]) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
     let n = xs.len();
     if n < 2 {
         return Value::Error(ErrorKind::Num);

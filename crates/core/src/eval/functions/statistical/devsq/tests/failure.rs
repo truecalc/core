@@ -16,6 +16,7 @@ fn devsq_non_numeric_text_returns_value_error() {
 }
 
 #[test]
-fn devsq_empty_only_returns_num_error() {
-    assert_eq!(devsq_fn(&[Value::Empty]), Value::Error(ErrorKind::Num));
+fn devsq_empty_only_returns_zero() {
+    // Empty is skipped → no numbers → devsq of empty set = 0
+    assert_eq!(devsq_fn(&[Value::Empty]), Value::Number(0.0));
 }

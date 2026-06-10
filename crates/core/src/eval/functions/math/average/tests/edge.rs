@@ -10,11 +10,11 @@ fn average_negatives() {
 }
 
 #[test]
-fn average_empty_treated_as_zero() {
-    // Empty coerces to 0.0, count still increments
+fn average_empty_skipped() {
+    // Empty is skipped; only Number(4.0) counted → average = 4.0
     assert_eq!(
         average_fn(&[Value::Empty, Value::Number(4.0)]),
-        Value::Number(2.0)
+        Value::Number(4.0)
     );
 }
 

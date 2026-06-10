@@ -4,10 +4,22 @@ use crate::types::{ErrorKind, Value};
 /// Flattens `Value::Array` args. Ignores Text, Bool, Empty.
 /// All values must be > 0, else `#NUM!`. Requires at least 1 value.
 pub fn harmean_fn(args: &[Value]) -> Value {
+    if args.is_empty() {
+        return Value::Error(ErrorKind::NA);
+    }
     let mut nums: Vec<f64> = Vec::new();
     for arg in args {
         match arg {
             Value::Number(n) => nums.push(*n),
+            Value::Bool(b) => nums.push(if *b { 1.0 } else { 0.0 }),
+            Value::Text(s) => {
+                let trimmed = s.trim();
+                match trimmed.parse::<f64>() {
+                    Ok(v) if v.is_finite() => nums.push(v),
+                    _ => return Value::Error(ErrorKind::Value),
+                }
+            }
+            Value::Empty => {}
             Value::Array(arr) => {
                 for v in arr {
                     if let Value::Number(n) = v {
@@ -15,11 +27,9 @@ pub fn harmean_fn(args: &[Value]) -> Value {
                     }
                 }
             }
+            Value::Error(e) => return Value::Error(e.clone()),
             _ => {}
         }
-    }
-    if args.is_empty() {
-        return Value::Error(ErrorKind::NA);
     }
     if nums.is_empty() {
         return Value::Error(ErrorKind::Num);

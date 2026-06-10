@@ -106,7 +106,7 @@ fn count_array_variable_counts_numbers() {
 
 #[test]
 fn count_array_variable_skips_non_numeric() {
-    // COUNT with mixed array — only numbers are counted
+    // COUNT with mixed array — only Numbers counted (Bool skipped in array context)
     let vars: HashMap<_, _> = [(
         "A".to_string(),
         Value::Array(vec![
@@ -118,8 +118,7 @@ fn count_array_variable_skips_non_numeric() {
         ]),
     )]
     .into();
-    // COUNT counts Numbers and Bools and numeric text
-    assert_eq!(run("=COUNT(A)", vars), Value::Number(3.0));
+    assert_eq!(run("=COUNT(A)", vars), Value::Number(2.0));
 }
 
 #[test]

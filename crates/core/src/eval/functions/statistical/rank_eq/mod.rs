@@ -10,11 +10,16 @@ pub fn rank_eq_fn(args: &[Value]) -> Value {
     }
     let x = match &args[0] {
         Value::Number(n) => *n,
+        Value::Bool(b) => if *b { 1.0 } else { 0.0 },
         _ => return Value::Error(ErrorKind::NA),
     };
-    let nums = collect_numbers(&args[1]);
+    let nums = match collect_numbers_checked(&args[1]) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
     let ascending = args.get(2).map(|v| match v {
         Value::Number(n) => *n != 0.0,
+        Value::Bool(b) => *b,
         _ => false,
     }).unwrap_or(false);
 
@@ -30,13 +35,22 @@ pub fn rank_eq_fn(args: &[Value]) -> Value {
     Value::Number(rank as f64)
 }
 
-fn collect_numbers(v: &Value) -> Vec<f64> {
+fn collect_numbers_checked(v: &Value) -> Result<Vec<f64>, Value> {
     match v {
-        Value::Array(arr) => arr.iter().filter_map(|x| {
-            if let Value::Number(n) = x { Some(*n) } else { None }
-        }).collect(),
-        Value::Number(n) => vec![*n],
-        _ => vec![],
+        Value::Array(arr) => {
+            let mut nums = Vec::new();
+            for x in arr {
+                match x {
+                    Value::Number(n) => nums.push(*n),
+                    Value::Error(e) => return Err(Value::Error(e.clone())),
+                    _ => {}
+                }
+            }
+            Ok(nums)
+        }
+        Value::Number(n) => Ok(vec![*n]),
+        Value::Error(e) => Err(Value::Error(e.clone())),
+        _ => Ok(vec![]),
     }
 }
 

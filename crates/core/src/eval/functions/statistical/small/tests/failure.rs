@@ -23,8 +23,8 @@ fn small_empty_array_returns_num_error() {
 }
 
 #[test]
-fn small_fractional_k_returns_num_error() {
-    // k=1.5 is not an integer → #NUM!
+fn small_fractional_k_truncated() {
+    // k=1.5 is truncated to 1 → 1st smallest of [1.0, 2.0] = 1.0
     let arr = Value::Array(vec![Value::Number(1.0), Value::Number(2.0)]);
-    assert_eq!(small_fn(&[arr, Value::Number(1.5)]), Value::Error(ErrorKind::Num));
+    assert_eq!(small_fn(&[arr, Value::Number(1.5)]), Value::Number(1.0));
 }
