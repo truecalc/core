@@ -76,6 +76,9 @@ fn self_contained_classification() {
     ));
     assert!(is_self_contained("=LOG10(100)")); // function name ending in digit
     assert!(is_self_contained("=ATAN2(1,1)"));
+    assert!(is_self_contained("=BIN2DEC(1100100)")); // digit mid-identifier, not a cell ref
+    assert!(is_self_contained("=DEC2HEX(255)"));
+    assert!(is_self_contained("=SUMX2MY2({1,2},{3,4})"));
     assert!(!is_self_contained("=SUM(Data!A1:A3)")); // sheet ref
     assert!(!is_self_contained("=SUM(A1:A3)")); // cell range
     assert!(!is_self_contained("=A1+B2")); // cell refs

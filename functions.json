@@ -3011,16 +3011,16 @@
     "description": "Convert hexadecimal to decimal",
     "examples": [
       {
-        "formula": "=HEX2DEC(\"F3\")",
-        "result": "243"
-      },
-      {
         "formula": "=HEX2DEC(\"100\")",
         "result": "256"
       },
       {
         "formula": "=HEX2DEC(\"199\")",
         "result": "409"
+      },
+      {
+        "formula": "=HEX2DEC(\"F3\")",
+        "result": "243"
       }
     ]
   },
