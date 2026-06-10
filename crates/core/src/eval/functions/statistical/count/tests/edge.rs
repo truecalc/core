@@ -121,6 +121,26 @@ fn count_array_variable_skips_non_numeric() {
     assert_eq!(run("=COUNT(A)", vars), Value::Number(2.0));
 }
 
+/// Regression for #584: COUNT over a range/variable skips booleans exactly
+/// like array-literal context (both paths use count_in_array).
+#[test]
+fn count_range_variable_skips_bool_and_text() {
+    // Mirrors Data!A1:D3 from workbook conformance: [10, 5, "hello", true, 20, 20, ...] → 6
+    let vars: HashMap<_, _> = [(
+        "R".to_string(),
+        Value::Array(vec![
+            Value::Number(10.0),
+            Value::Number(5.0),
+            Value::Text("hello".to_string()),
+            Value::Bool(true),
+            Value::Number(20.0),
+            Value::Number(20.0),
+        ]),
+    )]
+    .into();
+    assert_eq!(run("=COUNT(R)", vars), Value::Number(4.0));
+}
+
 #[test]
 fn counta_array_variable_counts_non_empty() {
     // COUNTA with a variable holding an array → recursively counts non-empty

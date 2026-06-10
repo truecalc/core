@@ -334,21 +334,13 @@ fn values_match(actual: &Value, expected: &Value) -> bool {
     }
 }
 
-/// Rows out of scope for this seeded runner. Two reasons:
-///
-/// - shape-dependent: `ROWS`/`COLUMNS` need a 2-D range the flat resolver shim
-///   does not synthesize (the real P1.3/P3.x resolver returns shaped ranges;
-///   this conformance shim deliberately stays minimal).
-/// - known engine deviation: `COUNT` over a range counts the boolean cell,
-///   while the pipeline observed Google Sheets skipping it (`workbook.tsv` row
-///   `=COUNT(Data!A1:D3)` => 6, engine => 7). This is a real engine bug —
-///   COUNT's array-literal path already skips booleans (e.g.
-///   `=COUNT({TRUE,FALSE,1,2})` => 2 in the corpus) but its range path does
-///   not — tracked in #584, not something to self-confirm here.
+/// Rows out of scope for this seeded runner: `ROWS`/`COLUMNS` need a 2-D range
+/// the flat resolver shim does not synthesize (the real P1.3/P3.x resolver
+/// returns shaped ranges; this conformance shim deliberately stays minimal).
 ///
 /// Excluding these keeps the blocking assertion honest: it covers only rows the
 /// engine + sidecar fully support, and never masks a regression in them.
-const OUT_OF_SCOPE_FORMULAS: &[&str] = &["=ROWS(PRICES)", "=COLUMNS(GRID)", "=COUNT(Data!A1:D3)"];
+const OUT_OF_SCOPE_FORMULAS: &[&str] = &["=ROWS(PRICES)", "=COLUMNS(GRID)"];
 
 /// Route a workbook.tsv row to the scenario whose inputs it reads, or None
 /// (out of scope — e.g. date-type rows need no inputs).
