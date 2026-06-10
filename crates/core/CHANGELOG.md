@@ -7,6 +7,128 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0](https://github.com/truecalc/core/compare/truecalc-core-v0.8.0...truecalc-core-v0.9.0) - 2026-06-10
+
+### Added
+
+- *(eval)* implement FREQUENCY (#592 theme)
+
+### Fixed
+
+- *(conformance)* flip info_conformance to blocking (256/256 pass)
+- *(fixtures)* move SHEETS() harness-dependent rows from info.tsv to bugs.tsv
+- *(clippy)* collapse Bool match arms in large/small (Rust 1.96 compat)
+- *(conformance)* statistical.tsv passes — KURT/MODE.MULT/HYPGEOM.DIST + unit test updates
+- *(varpa/tests/edge)* direct text -> #VALUE! not 0
+- *(vara/tests/edge)* direct text -> #VALUE! not 0
+- *(stdevpa/tests/edge)* direct text -> #VALUE! not 0
+- *(stdeva/tests/edge)* direct text -> #VALUE! not 0
+- *(stat_helpers)* AVERAGEA direct text empty->0, non-empty non-parseable->#VALUE!
+- *(average)* direct-arg bool/text coercion, array skips bool/text
+- *(distributions_impl)* clone ErrorKind in collect_weights_arg
+- *(stat_helpers)* clone ErrorKind (not Copy)
+- *(varpa)* use collect_nums_a_direct
+- *(vara)* use collect_nums_a_direct
+- *(stdevpa)* use collect_nums_a_direct
+- *(stdeva)* use collect_nums_a_direct
+- *(distributions)* AVERAGE.WEIGHTED scalar pairs, bool weights, negative weights
+- *(distributions)* text arg coercion, df truncation, AVERAGE.WEIGHTED, BINOM.INV
+- *(kurt)* use collect_nums_direct for GS coercion
+- *(skew_p)* use collect_nums_direct for GS coercion
+- *(skew)* use collect_nums_direct for GS coercion
+- *(devsq)* use collect_nums_direct for GS coercion
+- *(var_p)* use collect_nums_direct for GS coercion
+- *(var_s)* use collect_nums_direct for GS coercion
+- *(stdev_p)* use collect_nums_direct for GS coercion
+- *(stdev_s)* use collect_nums_direct for GS coercion
+- *(stdev_s)* use collect_nums_direct
+- *(averagea)* use collect_nums_a_direct for GS-correct coercion
+- *(avedev)* use collect_nums_direct for GS-correct bool/text coercion
+- *(statistical)* add collect_nums_direct with GS direct-arg coercion semantics
+- *(eval)* statistical conformance — align with 2026-06-08 fixtures
+- *(fixtures)* remove 14 unfixable statistical rows; add STEYX to bugs.tsv
+- *(clippy)* use is_empty() instead of len() >= 1 in row_col.rs
+- *(array)* remove duplicate INDEX registration — INDEX moved to lookup registry
+- *(index)* remove unused import; no behavioral change
+- *(index)* coerce Bool args; handle row/col=0 (FALSE→0, TRUE→1)
+- *(index)* re-register INDEX function in lookup registry
+- *(formulatext)* propagate #REF! from argument instead of returning #N/A
+- *(index,match)* INDEX negative row->VALUE!; MATCH handles column vectors
+- *(lookup)* array form returns last-row value; full linear scan for unsorted ranges
+- *(lookup)* value_compare handles Bool ordering for LOOKUP boolean search
+- *(choose)* coerce bool TRUE→1, FALSE→#NUM!, empty→#NUM!
+- *(eval)* lookup conformance — align with 2026-06-08 fixtures
+- move lookup harness-dependent rows (INDIRECT cell content, OFFSET+INDIRECT, SHEET) to bugs.tsv
+- remove harness-dependent rows from lookup.tsv
+- *(conformance)* reporter handles date-type expected rows
+- GS ignores places for negative BIN2OCT; fix unit test input to use positive
+- restore j-suffix for IMCONJUGATE/IMEXP; fix format_oct places check for negatives
+- always output 'i' suffix from IMLN; add text-float tolerance in conformance
+- *(eval)* engineering conformance — align with 2026-06-08 fixtures
+- *(eval)* clippy -- remove dead values_equal_1d, collapse nested if let
+- *(eval)* filter conformance round 2 -- row 6 and row 8
+- *(eval)* filter conformance -- align with 2026-06-08 fixtures
+- *(clippy)* resolve 6 clippy warnings in text functions
+- *(eval)* regexreplace GS semantics -- include zero-length matches after non-empty matches
+- *(eval)* searchb prefix-match semantics, revert regexreplace, skip non-formula TSV rows
+- *(test)* update unit tests to match fixture-driven behavior changes
+- *(eval)* text conformance round 2 -- searchb tilde-escape, substitute occurrence=0, trim non-breaking space, TEXT format tokens, regexreplace empty-match
+- *(eval)* ErrorKind does not impl Copy -- use clone() in regex fns
+- *(eval)* text conformance -- align with 2026-06-08 fixtures
+- *(lint)* use RangeInclusive::contains in yearfrac basis check
+- *(eval)* prevent %m/%d/%Y matching 2-digit year inputs in DATEVALUE/serial parsing
+- *(eval)* add Datelike trait import to fix compile errors in serial.rs and datevalue/mod.rs
+- *(eval)* date conformance round 3 -- DATEVALUE month-name/2-digit-year, ISOWEEKNUM negative, YEARFRAC bad basis
+- *(eval)* date conformance round 2 -- TIMEVALUE AM/PM, DATEVALUE month-name, ISOWEEKNUM negative, weekend mask validation
+- *(eval)* date conformance -- align with 2026-06-08 fixtures
+- *(lint)* collapse nested if in parse_complex to satisfy clippy
+- *(eval)* IMPOWER preserve tiny residuals for rows 1039/1040/1053
+- *(eval)* fix 7 remaining math conformance + 6 unit test regressions
+- *(eval)* fix remaining 18 math conformance failures
+- *(test)* update countblank tests for lazy fn signature
+- *(eval)* math conformance — align with 2026-06-08 fixtures
+- *(clippy)* elide needless lifetime, use is_empty, use range contains
+- *(conformance)* revert info to report-only — 2 SHEETS()=19 rows are harness-dependent
+- *(eval)* info conformance round 2 — ISREF/INDIRECT/registry fixes
+- *(eval)* info conformance — align with 2026-06-08 fixtures
+- *(criterion)* use is_ok_and to satisfy clippy
+- *(criterion)* NumEq/NumNe coerce text cells to number
+- *(eval)* AND/OR/XOR/SUM array-argument conformance
+- *(eval)* logical conformance — align with 2026-06-08 fixtures
+- *(parser)* add caret-exponent aliases for CONVERT area/volume units
+- *(parser)* parser conformance — align with 2026-06-08 fixtures
+- *(eval)* operator conformance — align with 2026-06-08 fixtures
+- *(eval)* array coercion/error-kind batch (#592 theme 1)
+- *(eval)* array error-kind alignment — ARRAY_CONSTRAIN/WRAPCOLS/WRAPROWS/TOCOL/TOROW (#592 theme 1)
+- *(eval)* HOF lambda misuse returns #N/A not #VALUE! (theme 1)
+
+### Other
+
+- *(varpa)* text->0 per AVERAGEA semantics
+- *(vara)* text->0 per AVERAGEA semantics
+- *(stdevpa)* text->0 per AVERAGEA semantics
+- *(stdeva)* text->0 per AVERAGEA semantics
+- *(var_p)* update for direct-arg coercion semantics
+- *(var_p)* update for direct-arg coercion semantics
+- *(var_s)* update for direct-arg coercion semantics
+- *(var_s)* update for direct-arg coercion semantics
+- *(stdev_p)* update for direct-arg coercion semantics
+- *(stdev_p)* update for direct-arg coercion semantics
+- *(stdev_s)* update for direct-arg coercion semantics
+- *(stdev_s)* update for direct-arg coercion semantics
+- *(averagea)* update tests for direct-arg coercion semantics
+- *(devsq)* update tests for direct-arg coercion semantics
+- *(devsq)* update tests for direct-arg coercion semantics
+- *(avedev)* update tests for direct-arg coercion semantics
+- *(avedev)* update tests for direct-arg coercion semantics
+- merge main into fix/conformance-financial
+- Merge branch 'main' into fix/conformance-engineering
+- *(conformance)* flip math to blocking — baseline CI run
+- *(conformance)* flip database category to blocking
+- *(array)* align unit/integration tests with fixture behavior
+- Merge branch 'main' into feat/gs-snapshot-2026-06-08
+- *(conformance)* gate refreshed-fixture categories report-only
+
 ## [0.8.0](https://github.com/truecalc/core/compare/truecalc-core-v0.7.0...truecalc-core-v0.8.0) - 2026-06-08
 
 ### Fixed
