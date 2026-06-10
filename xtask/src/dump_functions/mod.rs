@@ -96,14 +96,15 @@ pub fn is_self_contained(formula: &str) -> bool {
             // a cell ref's column is 1..=3 letters; longer runs are not cell refs
             let letter_run = i - j;
             // scan forward over the digit-run; if it is immediately followed by `(`
-            // then letters+digits form a function name (e.g. LOG10, ATAN2), not a
-            // cell ref — skip it.
+            // or another letter, then letters+digits form an identifier (a function
+            // name like LOG10, ATAN2, or BIN2DEC), not a cell ref — skip it.
             let mut k = i;
             while k < bytes.len() && bytes[k].is_ascii_digit() {
                 k += 1;
             }
-            let is_function_name = k < bytes.len() && bytes[k] == b'(';
-            if prev_ok && !is_function_name && (1..=3).contains(&letter_run) {
+            let is_identifier =
+                k < bytes.len() && (bytes[k] == b'(' || bytes[k].is_ascii_alphabetic());
+            if prev_ok && !is_identifier && (1..=3).contains(&letter_run) {
                 return false;
             }
         }
