@@ -22,7 +22,8 @@ pub fn small_fn(args: &[Value]) -> Value {
             }
             k as usize
         }
-        Value::Bool(b) => if *b { 1usize } else { return Value::Error(ErrorKind::Num); },
+        Value::Bool(true) => 1usize,
+        Value::Bool(false) => return Value::Error(ErrorKind::Num),
         _ => return Value::Error(ErrorKind::Num),
     };
     let mut nums = nums;
