@@ -2934,7 +2934,7 @@ dependencies = [
 
 [[package]]
 name = "workbook-budget"
-version = "0.9.0"
+version = "1.0.0"
 dependencies = [
  "truecalc-workbook",
 ]
