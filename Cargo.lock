@@ -2933,6 +2933,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "workbook-budget"
+version = "1.0.0"
+dependencies = [
+ "truecalc-workbook",
+]
+
+[[package]]
 name = "writeable"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2948,6 +2955,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "truecalc-core",
 ]
 
 [[package]]

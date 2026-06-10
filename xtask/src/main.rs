@@ -1,3 +1,4 @@
+mod dump_functions;
 mod gen_array_filter;
 mod gen_database;
 mod gen_logical_info;
@@ -67,6 +68,15 @@ enum Commands {
         #[arg(long)]
         category: Option<String>,
     },
+    /// Emit functions.json from the registry + fixture examples
+    DumpFunctions {
+        /// Output path (default: <workspace>/functions.json)
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Fixtures dir (default: <workspace>/crates/core/tests/fixtures/google_sheets)
+        #[arg(long)]
+        fixtures: Option<PathBuf>,
+    },
 }
 
 fn main() -> Result<()> {
@@ -94,6 +104,15 @@ fn main() -> Result<()> {
             let web_app_url = std::env::var("GAS_URL")
                 .context("GAS_URL env var not set (set it to the Apps Script web app URL)")?;
             run_gs_evaluate(platform.to_platform(), category.as_deref(), all, &web_app_url)?;
+        }
+        Commands::DumpFunctions { out, fixtures } => {
+            let workspace = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .expect("xtask has a parent workspace dir");
+            let out = out.unwrap_or_else(|| workspace.join("functions.json"));
+            let fixtures = fixtures
+                .unwrap_or_else(|| workspace.join("crates/core/tests/fixtures/google_sheets"));
+            dump_functions::run(&out, &fixtures)?;
         }
     }
 

@@ -1,4 +1,69 @@
-// truecalc-core: spreadsheet formula parser and evaluator
+//! Spreadsheet formula parser and evaluator for Google Sheets and Excel
+//! conformance.
+//!
+//! # Quick start
+//!
+//! ```rust
+//! use std::collections::HashMap;
+//! use truecalc_core::{Engine, Value};
+//!
+//! let engine = Engine::sheets();
+//!
+//! let mut vars = HashMap::new();
+//! vars.insert("A1".to_string(), Value::Number(10.0));
+//! vars.insert("A2".to_string(), Value::Number(20.0));
+//! vars.insert("A3".to_string(), Value::Number(30.0));
+//!
+//! let result = engine.evaluate("=SUM(A1,A2,A3)", &vars);
+//! assert_eq!(result, Value::Number(60.0));
+//! ```
+//!
+//! # Engine flavors
+//!
+//! The engine flavor is **required and immutable**: create one engine per
+//! evaluation context and reuse it.
+//!
+//! | Constructor | Target conformance |
+//! |---|---|
+//! | [`Engine::sheets()`] | Google Sheets |
+//! | [`Engine::excel()`] | Excel (parse/validate only; evaluation pending) |
+//!
+//! # Evaluation modes
+//!
+//! - **Variable map** — [`Engine::evaluate`]: references are looked up in a
+//!   `HashMap<String, Value>`. Suitable for ad-hoc formula evaluation outside a
+//!   workbook.
+//! - **Resolver** — [`Engine::evaluate_with_resolver`]: every cell, range, and
+//!   name reference is resolved through a [`Resolver`] implementation. This is
+//!   the workbook layer's entry point; see `truecalc-workbook`.
+//! - **Pinned clock** — [`Engine::evaluate_at`] / [`Engine::evaluate_with_resolver_at`]:
+//!   volatile functions (`NOW`, `TODAY`) are pinned to a fixed spreadsheet serial,
+//!   producing deterministic results.
+//!
+//! # Migration from 0.6.x
+//!
+//! The free `evaluate()` function and `Engine::google_sheets()` constructor were
+//! deprecated in 0.7.0. Update call sites as follows:
+//!
+//! ```rust
+//! // Before (0.6.x):
+//! // use truecalc_core::evaluate;
+//! // let result = evaluate("=SUM(A1,A2)", &vars);
+//!
+//! // After (0.7+):
+//! use std::collections::HashMap;
+//! use truecalc_core::{Engine, Value};
+//! let vars: HashMap<String, Value> = HashMap::new();
+//! let result = Engine::sheets().evaluate("=SUM(A1,A2)", &vars);
+//! ```
+//!
+//! See [`MIGRATION.md`](https://github.com/truecalc/core/blob/main/crates/core/MIGRATION.md)
+//! for the full migration guide.
+//!
+//! # Related crates
+//!
+//! - [`truecalc-workbook`](https://docs.rs/truecalc-workbook): full workbook
+//!   layer — engine-locked workbook, worksheet, cell mutation, and recalc.
 
 pub mod display;
 pub mod engine;
