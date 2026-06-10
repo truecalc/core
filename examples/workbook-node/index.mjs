@@ -6,9 +6,18 @@
 // Run against the published package (after npm install):
 //   node examples/workbook-node/index.mjs
 
-const pkgPath = process.env.WASM_PKG_PATH || '@truecalc/workbook';
-const { default: init, JsWorkbook } = await import(pkgPath);
-await init();
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+// When using a local build, resolve the path against CWD (not the file's dir)
+// and pass wasm bytes directly to avoid fetch() failure on file:// URLs.
+const wasmPkgJs = process.env.WASM_PKG_PATH
+  ? resolve(process.cwd(), process.env.WASM_PKG_PATH)
+  : null;
+const pkgSpecifier = wasmPkgJs ? pathToFileURL(wasmPkgJs).href : '@truecalc/workbook';
+const { default: init, JsWorkbook } = await import(pkgSpecifier);
+await init(wasmPkgJs ? readFileSync(wasmPkgJs.replace(/\.js$/, '_bg.wasm')) : undefined);
 
 // ── Example 1: basic formulas on a single sheet ──────────────────────────────
 
