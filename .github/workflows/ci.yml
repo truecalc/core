@@ -290,6 +290,39 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  examples:
+    name: npm examples (Node LTS)
+    runs-on: ubuntu-latest
+    needs: ci
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-pack
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+
+      - name: Add wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Build WASM workbook
+        run: wasm-pack build crates/wasm-workbook --target web
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run workbook-node example
+        run: WASM_PKG_PATH=./crates/wasm-workbook/pkg/truecalc_wasm_workbook.js node examples/workbook-node/index.mjs
+
   macos-golden:
     name: macOS golden byte-identity (truecalc-workbook)
     runs-on: macos-latest
