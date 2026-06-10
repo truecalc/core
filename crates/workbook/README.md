@@ -6,13 +6,109 @@
 
 Workbook layer for the [truecalc](https://github.com/truecalc/core) spreadsheet engine: engine-locked workbook, worksheet, and cell value types with a canonical JSON serialization contract.
 
-Status: under active development (workbook v1, schema version `"1"`). APIs may change until the first published release.
+## Install
+
+```toml
+[dependencies]
+truecalc-workbook = "0.9"
+```
+
+Or via cargo:
+
+```sh
+cargo add truecalc-workbook
+```
+
+## Quick start
+
+```rust
+use truecalc_workbook::{Address, CellInput, EngineFlavor, RecalcContext, Value, Workbook, Worksheet};
+
+// Create a workbook locked to Google Sheets semantics.
+let mut wb = Workbook::new(EngineFlavor::Sheets);
+
+// Add a sheet and write some cells.
+wb.add_sheet(Worksheet::new("Budget")).unwrap();
+let a1 = Address::from_a1("A1").unwrap();
+let a2 = Address::from_a1("A2").unwrap();
+let a3 = Address::from_a1("A3").unwrap();
+wb.set("Budget", a1, CellInput::Literal(Value::Number(1000.0))).unwrap();
+wb.set("Budget", a2, CellInput::Literal(Value::Number(500.0))).unwrap();
+wb.set("Budget", a3, CellInput::Formula("=SUM(A1:A2)".to_string())).unwrap();
+
+// Recalculate to evaluate all formulas.
+// RecalcContext::new(unix_ms, iana_tz, rng_seed)
+let ctx = RecalcContext::new(1_780_000_000_000, "Etc/GMT", 0).unwrap();
+let _changes = wb.recalc(&ctx);
+
+// Read back the computed result.
+assert_eq!(wb.get("Budget", a3).unwrap().value(), &Value::Number(1500.0));
+```
 
 ## Design
 
-- A `Workbook` is a **value object** — no hidden state, no callbacks. `Clone + PartialEq + Hash + Serialize + Deserialize`.
-- The **engine flavor** (`sheets` | `excel`) is required at creation and immutable for the workbook's lifetime.
-- The **JSON schema is the cross-surface contract**: canonical serialization (RFC 8785 / JCS) produces byte-identical output across Rust, WASM, MCP, and REST surfaces.
+- A `Workbook` is a **value object** — `Clone + PartialEq + Hash`, no hidden state, no
+  callbacks. Mutate via [`Workbook::set`] / [`Workbook::clear`], then drive recalc.
+
+- The **engine flavor** (`sheets` | `excel`) is required at creation and immutable for the
+  workbook's lifetime. It controls formula semantics and the date serial system.
+
+- **[`RecalcContext`]** pins volatile functions (`NOW`, `TODAY`) to a fixed UTC instant +
+  IANA timezone via the vendored `chrono-tz` database (not the host OS tz tables).
+  Same workbook + same context ⇒ byte-identical recomputed grid.
+
+- **[`CellInput`]** distinguishes `Literal(value)` from `Formula("=...".to_string())`.
+  Formula syntax is validated against the locked engine at `set` time.
+
+## Recalc modes
+
+- [`Workbook::recalc`] — full recalc, evaluates every formula cell in topological order.
+- [`Workbook::recalc_incremental`] — incremental recalc, recomputes only the transitive
+  dependents of the edited cells (plus all volatile cells). Produces the same result as
+  full recalc.
+
+Both return an ordered list of [`Change`] values describing every cell that changed.
+
+## JSON serialization
+
+[`Workbook::to_json`] / [`Workbook::from_json`] implement the canonical RFC 8785 / JCS
+serialization boundary — byte-identical output across Rust, WASM, MCP, and REST surfaces.
+The JSON schema is the cross-surface contract; see `schema/` for the JSON Schema spec.
+
+### Schema summary
+
+```json
+{
+  "version": "1",
+  "engine": "sheets",
+  "names": [],
+  "sheets": [
+    {
+      "name": "Budget",
+      "cells": {
+        "A1": { "value": 1000.0 },
+        "A3": { "formula": "=SUM(A1:A2)", "value": 1500.0 }
+      }
+    }
+  ]
+}
+```
+
+Key schema invariants:
+- `engine` is `"sheets"` or `"excel"` — required, immutable.
+- `version` is the string `"1"` — compared by exact match.
+- Cells without a formula have only `value`; formula cells store `formula` + last `value`.
+- Named ranges are validated against existing sheets at deserialize time.
+
+## Cookbook example
+
+See [`examples/workbook-budget/`](../../examples/workbook-budget/) for a worked example
+that creates a budget workbook, sets income and expense formulas, recalcs, and prints the
+results.
+
+## Related crates
+
+- [`truecalc-core`](https://crates.io/crates/truecalc-core): the formula parser and evaluator.
 
 ## License
 
