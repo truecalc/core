@@ -225,6 +225,68 @@ jobs:
       - name: Build WASM
         run: wasm-pack build crates/wasm --target web
 
+  bench:
+    name: Criterion benchmarks + regression gate
+    needs: ci
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run benchmarks
+        continue-on-error: true
+        run: |
+          cargo bench -p truecalc-workbook --bench workbook_perf -- --output-format bencher 2>&1 | tee /tmp/bench_output.txt
+
+      - name: Check perf regressions
+        run: python3 .github/scripts/check_perf_regression.py < /tmp/bench_output.txt
+
+      - name: Generate perf summary
+        run: python3 .github/scripts/gen_perf_summary.py < /tmp/bench_output.txt > /tmp/perf-summary.json
+
+      - name: Upload perf-summary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-summary
+          path: /tmp/perf-summary.json
+          retention-days: 30
+
+  publish-perf:
+    name: Publish perf-summary to gh-pages
+    needs: bench
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download perf-summary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: perf-summary
+          path: /tmp/perf-summary
+
+      - name: Publish perf-summary.json to gh-pages
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages 2>/dev/null || true
+          git checkout gh-pages 2>/dev/null || git checkout --orphan gh-pages
+          cp /tmp/perf-summary/perf-summary.json perf-summary.json
+          git add perf-summary.json
+          git diff --cached --quiet || git commit -m "chore: update perf-summary.json [skip ci]"
+          git push --force origin gh-pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   macos-golden:
     name: macOS golden byte-identity (truecalc-workbook)
     runs-on: macos-latest

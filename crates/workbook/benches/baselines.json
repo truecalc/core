@@ -1,0 +1,13 @@
+{
+  "recorded_at": "2026-06-10",
+  "note": "Initial baseline; 25% regression threshold.",
+  "benchmarks": {
+    "full_recalc/chain/100":             { "mean_ns": 19335500, "threshold_pct": 25 },
+    "full_recalc/chain/1000":            { "mean_ns": 204053541, "threshold_pct": 25 },
+    "full_recalc/chain/5000":            { "mean_ns": 1024031416, "threshold_pct": 25 },
+    "incremental_recalc/edit_root/100":  { "mean_ns": 547343, "threshold_pct": 25 },
+    "incremental_recalc/edit_root/1000": { "mean_ns": 3124049, "threshold_pct": 25 },
+    "from_json/500rows":                 { "mean_ns": 970256, "threshold_pct": 25 },
+    "to_json/500rows":                   { "mean_ns": 722179, "threshold_pct": 25 }
+  }
+}
