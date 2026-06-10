@@ -31,7 +31,11 @@ try {
   process.exit(1);
 }
 
-await init();
+// Pass wasm bytes directly — avoids fetch() which fails for file:// URLs in Node.js.
+const wasmBytes = readFileSync(
+  resolve(repoRoot, "crates/wasm-workbook/pkg/truecalc_wasm_workbook_bg.wasm")
+);
+await init(wasmBytes);
 
 // --------------------------------------------------------------------------
 // Helper: normalize JSON to a canonical string (no whitespace differences).
