@@ -15,7 +15,7 @@ use crate::types::{ErrorKind, ParseError, Value};
 ///   historical Lotus 1-2-3 leap-year bug (serial 60 = the fictitious
 ///   1900-02-29). Conversion helpers live in
 ///   `eval::functions::date::serial`; Excel evaluation itself is still
-///   stubbed (`evaluate` returns `#N/A`).
+///   stubbed (`evaluate` returns `#UNSUPPORTED!`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
@@ -39,7 +39,7 @@ impl Engine {
     ///
     /// Excel evaluation semantics are not implemented yet (they land in a
     /// later phase): [`Engine::evaluate`] returns
-    /// `Value::Error(ErrorKind::NA)` for every formula. [`Engine::parse`]
+    /// `Value::Error(ErrorKind::Unsupported)` for every formula. [`Engine::parse`]
     /// and [`Engine::validate`] work.
     pub fn excel() -> Self {
         Self { flavor: EngineFlavor::Excel, registry: Registry::new() }
@@ -125,7 +125,7 @@ impl Engine {
     /// [`Resolver`].
     ///
     /// The engine flavor stays explicit: `Engine::excel().evaluate_with_resolver`
-    /// returns `#N/A` until Excel evaluation lands, exactly like
+    /// returns `#UNSUPPORTED!` until Excel evaluation lands, exactly like
     /// [`Engine::evaluate`].
     ///
     /// ```
@@ -169,7 +169,7 @@ impl Engine {
             }
         }
         if self.flavor == EngineFlavor::Excel {
-            return Value::Error(ErrorKind::NA);
+            return Value::Error(ErrorKind::Unsupported);
         }
         match parse_formula(formula) {
             Err(_) => Value::Error(ErrorKind::Value),
@@ -190,7 +190,7 @@ impl Engine {
     ) -> Value {
         if self.flavor == EngineFlavor::Excel {
             // Excel evaluation semantics are not implemented yet.
-            return Value::Error(ErrorKind::NA);
+            return Value::Error(ErrorKind::Unsupported);
         }
         match parse_formula(formula) {
             Err(_) => Value::Error(ErrorKind::Value),

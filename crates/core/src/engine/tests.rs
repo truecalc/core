@@ -54,9 +54,27 @@ fn excel_parses_and_validates() {
 #[test]
 fn excel_evaluate_returns_unsupported_error() {
     // Excel evaluation semantics are not implemented yet — evaluate must
-    // return a clear error rather than silently using Sheets semantics.
+    // return a clear Unsupported error (not #N/A) so callers can distinguish
+    // "Excel eval not implemented" from a legitimate N/A result.
     let engine = Engine::excel();
     let result = engine.evaluate("=SUM(1,2)", &HashMap::new());
+    assert_eq!(result, Value::Error(ErrorKind::Unsupported));
+}
+
+#[test]
+fn excel_evaluate_is_not_na() {
+    // ErrorKind::Unsupported must be distinct from ErrorKind::NA.
+    let engine = Engine::excel();
+    let result = engine.evaluate("=1+1", &HashMap::new());
+    assert_ne!(result, Value::Error(ErrorKind::NA));
+    assert_eq!(result, Value::Error(ErrorKind::Unsupported));
+}
+
+#[test]
+fn sheets_na_formula_is_still_na() {
+    // Engine::sheets() evaluating =NA() must still return ErrorKind::NA.
+    let engine = Engine::sheets();
+    let result = engine.evaluate("=NA()", &HashMap::new());
     assert_eq!(result, Value::Error(ErrorKind::NA));
 }
 
