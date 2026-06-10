@@ -126,6 +126,38 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
 
+      - name: Generate conformance-summary.json
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: python
+        run: |
+          import json, re, datetime, subprocess
+          with open("target/conformance-report.json") as f:
+              report = json.load(f)
+          cargo_toml = open("Cargo.toml").read()
+          version = re.search(r'^version\s*=\s*"([^"]+)"', cargo_toml, re.MULTILINE).group(1)
+          git_sha = subprocess.check_output(["git", "rev-parse", "--short=7", "HEAD"]).decode().strip()
+          blocking_categories = {
+              "math", "logical", "info", "statistical", "operator", "text",
+              "date", "engineering", "lookup", "parser", "database", "array",
+              "filter", "web", "financial",
+          }
+          categories = [
+              {"name": name, "passed": stats["passed"], "total": stats["total"],
+               "blocking": name in blocking_categories}
+              for name, stats in sorted(report.get("by_category", {}).items())
+          ]
+          summary = {
+              "generated": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "version": version,
+              "git_sha": git_sha,
+              "categories": categories,
+              "overall": {"passed": report["passed"], "total": report["total"]},
+          }
+          with open("/tmp/conformance-summary.json", "w") as f:
+              json.dump(summary, f, indent=2)
+              f.write("\n")
+          print(f"conformance-summary.json: {report['passed']}/{report['total']} passed, {len(categories)} categories")
+
       - name: Publish conformance report to gh-pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
@@ -167,7 +199,8 @@ jobs:
           cp /tmp/conformance.html index.html
           rm -rf coverage && cp -r /tmp/coverage-html coverage
           touch .nojekyll
-          git add conformance-badge.json coverage-badge.json index.html .nojekyll coverage/
+          cp /tmp/conformance-summary.json conformance-summary.json
+          git add conformance-badge.json coverage-badge.json index.html .nojekyll coverage/ conformance-summary.json
           git diff --cached --quiet || git commit -m "chore: update conformance + coverage report [skip ci]"
           git push --force origin gh-pages
         env:
