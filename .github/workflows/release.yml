@@ -65,6 +65,10 @@ jobs:
       - name: Build WASM workbook
         run: wasm-pack build crates/wasm-workbook --target web
 
+      - name: Set npm package name
+        run: node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('package.json')); p.name='@truecalc/workbook'; fs.writeFileSync('package.json', JSON.stringify(p, null, 2)+'\n')"
+        working-directory: crates/wasm-workbook/pkg
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
