@@ -54,7 +54,8 @@ pub fn to_string_val(v: Value) -> Result<String, Value> {
 /// - `Text("TRUE"/"FALSE")` → true/false (case-insensitive, Excel/GS compatible)
 /// - `Text` (other) → `Value::Error(ErrorKind::Value)`
 /// - `Error` → propagated as `Err`
-/// - `Empty`, `Array` → `Value::Error(ErrorKind::Value)`
+/// - `Empty` → `Value::Error(ErrorKind::Value)`
+/// - `Array` → collapse to top-left (anchor-cell view) and recurse
 pub fn to_bool(v: Value) -> Result<bool, Value> {
     match v {
         Value::Bool(b)   => Ok(b),
@@ -65,7 +66,26 @@ pub fn to_bool(v: Value) -> Result<bool, Value> {
             "FALSE" => Ok(false),
             _       => Err(Value::Error(ErrorKind::Value)),
         },
-        Value::Empty | Value::Array(_) => Err(Value::Error(ErrorKind::Value)),
+        Value::Empty => Err(Value::Error(ErrorKind::Value)),
+        // Array condition: use the top-left (anchor) element — same as the
+        // unspilled-array collapse the workbook layer applies.
+        Value::Array(mut elems) => {
+            if elems.is_empty() {
+                return Err(Value::Error(ErrorKind::Value));
+            }
+            let mut top = elems.swap_remove(0);
+            loop {
+                match top {
+                    Value::Array(mut inner) => {
+                        if inner.is_empty() {
+                            return Err(Value::Error(ErrorKind::Value));
+                        }
+                        top = inner.swap_remove(0);
+                    }
+                    other => return to_bool(other),
+                }
+            }
+        }
     }
 }
 

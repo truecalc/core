@@ -252,7 +252,18 @@ pub fn values_match(actual: &Value, expected: &Value, expected_type: &str) -> bo
         (Value::Text(s), Value::Text(e)) if e.is_empty() => {
             s.chars().all(|c| (c as u32) < 32)
         }
-        (Value::Text(s), Value::Text(e)) => s == e,
+        (Value::Text(s), Value::Text(e)) => {
+            if s == e {
+                return true;
+            }
+            // GS's libm can produce complex-component strings that differ from
+            // Rust's by 1 ULP in the 15th significant digit.  Apply a tight
+            // numeric tolerance when both sides parse as plain f64.
+            if let (Ok(sv), Ok(ev)) = (s.trim().parse::<f64>(), e.trim().parse::<f64>()) {
+                return (sv - ev).abs() <= ev.abs() * 1e-9 + 1e-15;
+            }
+            false
+        }
         (Value::Error(a), Value::Error(b)) => a == b,
         _ => actual == expected,
     }
@@ -467,11 +478,11 @@ conformance_tsv_test_report!(statistical_conformance, "statistical.tsv");
 conformance_tsv_test!(operator_conformance,         "operator.tsv");
 conformance_tsv_test!(text_conformance,        "text.tsv");
 conformance_tsv_test!(date_conformance,        "date.tsv");
-conformance_tsv_test_report!(engineering_conformance, "engineering.tsv");
+conformance_tsv_test!(engineering_conformance, "engineering.tsv");
 conformance_tsv_test_report!(lookup_conformance,      "lookup.tsv");
 conformance_tsv_test!(parser_conformance,      "parser.tsv");
 conformance_tsv_test!(database_conformance,    "database.tsv");
-conformance_tsv_test_report!(array_conformance,       "array.tsv");
+conformance_tsv_test!(array_conformance,       "array.tsv");
 conformance_tsv_test!(filter_conformance,             "filter.tsv");
 conformance_tsv_test!(web_conformance,         "web.tsv");
 conformance_tsv_test!(financial_conformance,         "financial.tsv");

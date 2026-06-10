@@ -16,23 +16,20 @@ pub fn bitrshift_fn(args: &[Value]) -> Value {
         Ok(n) => n,
         Err(e) => return e,
     };
-    if number < 0.0 || number > MAX_BIT as f64 {
+    if number < 0.0 || number > MAX_BIT as f64 || number.fract() != 0.0 {
         return Value::Error(ErrorKind::Num);
     }
     let num = number as u64;
-    let shift_amount = shift as i64;
+    let shift_amount = shift.trunc() as i64;
+    // GS: |shift| > 53 returns #NUM!
+    if shift_amount.abs() > 53 {
+        return Value::Error(ErrorKind::Num);
+    }
     let result = if shift_amount >= 0 {
         let s = shift_amount as u32;
-        if s >= 64 {
-            0
-        } else {
-            num >> s
-        }
+        num >> s
     } else {
         let s = (-shift_amount) as u32;
-        if s >= 48 {
-            return Value::Error(ErrorKind::Num);
-        }
         num.checked_shl(s).unwrap_or(u64::MAX)
     };
     if result > MAX_BIT {
