@@ -369,8 +369,8 @@ fn evaluate_with_resolver_at_rejects_non_finite_now() {
 }
 
 #[test]
-fn excel_evaluate_with_resolver_is_na() {
+fn excel_evaluate_with_resolver_is_unsupported() {
     let mut r = ModelResolver::new();
     let v = Engine::excel().evaluate_with_resolver("=Data!A1", &mut r);
-    assert_eq!(v, Value::Error(ErrorKind::NA));
+    assert_eq!(v, Value::Error(ErrorKind::Unsupported));
 }

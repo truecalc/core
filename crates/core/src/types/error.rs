@@ -9,6 +9,10 @@ pub enum ErrorKind {
     Num,
     NA,
     Null,
+    /// Returned by engine operations not yet implemented for this engine flavor.
+    /// Distinct from #N/A so callers can distinguish "Excel eval not implemented"
+    /// from a legitimate N/A result (=NA() or a failed lookup).
+    Unsupported,
 }
 
 impl fmt::Display for ErrorKind {
@@ -21,6 +25,7 @@ impl fmt::Display for ErrorKind {
             ErrorKind::Num       => "#NUM!",
             ErrorKind::NA        => "#N/A",
             ErrorKind::Null      => "#NULL!",
+            ErrorKind::Unsupported => "#UNSUPPORTED!",
         };
         write!(f, "{}", s)
     }
