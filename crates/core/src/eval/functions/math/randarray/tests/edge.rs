@@ -1,13 +1,11 @@
-use super::super::randarray_fn;
+use crate::Engine;
 use crate::types::Value;
-
-fn n(v: f64) -> Value {
-    Value::Number(v)
-}
+use std::collections::HashMap;
 
 #[test]
 fn one_by_one_array_returns_single_nested_value() {
-    let result = randarray_fn(&[n(1.0), n(1.0)]);
+    let eng = Engine::sheets();
+    let result = eng.evaluate("=RANDARRAY(1, 1)", &HashMap::new());
     if let Value::Array(outer) = result {
         assert_eq!(outer.len(), 1);
         if let Value::Array(inner) = &outer[0] {
@@ -23,7 +21,8 @@ fn one_by_one_array_returns_single_nested_value() {
 
 #[test]
 fn fractional_rows_truncates_to_integer() {
-    let result = randarray_fn(&[n(2.9)]);
+    let eng = Engine::sheets();
+    let result = eng.evaluate("=RANDARRAY(2.9)", &HashMap::new());
     if let Value::Array(outer) = result {
         assert_eq!(outer.len(), 2);
     } else {

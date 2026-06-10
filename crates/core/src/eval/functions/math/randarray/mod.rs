@@ -1,45 +1,24 @@
 use crate::eval::coercion::to_number;
-use crate::eval::functions::check_arity;
+use crate::eval::evaluate_expr;
+use crate::eval::functions::{check_arity_len, EvalCtx};
+use crate::parser::ast::Expr;
 use crate::types::{ErrorKind, Value};
-
-/// LCG PRNG seeded from system time (Numerical Recipes constants).
-/// Returns successive values by stepping the state forward on each call.
-fn lcg_sequence(count: usize) -> Vec<f64> {
-    let seed = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos() as u64)
-        .unwrap_or(12345);
-    // Mix in a higher-entropy seed using the full nanosecond count
-    let mut state = seed
-        .wrapping_mul(6_364_136_223_846_793_005)
-        .wrapping_add(1_442_695_040_888_963_407);
-    let mut out = Vec::with_capacity(count);
-    for _ in 0..count {
-        state = state
-            .wrapping_mul(6_364_136_223_846_793_005)
-            .wrapping_add(1_442_695_040_888_963_407);
-        // Use upper 32 bits for better quality
-        let val = (state >> 32) as u32;
-        out.push((val as f64) / (u32::MAX as f64 + 1.0));
-    }
-    out
-}
 
 /// `RANDARRAY([rows], [cols], [min], [max], [integer])`
 ///
 /// Returns an array of random numbers.
 /// With no args: returns a single random number (equivalent to RAND()).
 /// With rows/cols: returns a nested 2D array (rows × cols).
-pub fn randarray_fn(args: &[Value]) -> Value {
+/// Uses a per-cell PRF key when available; falls back to SystemTime.
+pub fn randarray_lazy(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     if args.is_empty() {
-        // No args: return single random number
-        let vals = lcg_sequence(1);
-        return Value::Number(vals[0]);
+        return Value::Number(ctx.ctx.draw_rand(0));
     }
-    if let Some(err) = check_arity(args, 1, 5) {
+    if let Some(err) = check_arity_len(args.len(), 1, 5) {
         return err;
     }
-    let rows = match to_number(args[0].clone()) {
+    let rows_val = evaluate_expr(&args[0], ctx);
+    let rows = match to_number(rows_val) {
         Err(e) => return e,
         Ok(v) => v,
     };
@@ -48,7 +27,8 @@ pub fn randarray_fn(args: &[Value]) -> Value {
     }
     let rows = rows as usize;
     let cols = if args.len() >= 2 {
-        match to_number(args[1].clone()) {
+        let cv = evaluate_expr(&args[1], ctx);
+        match to_number(cv) {
             Err(e) => return e,
             Ok(v) => {
                 if v <= 0.0 {
@@ -60,17 +40,10 @@ pub fn randarray_fn(args: &[Value]) -> Value {
     } else {
         1
     };
-
     let total = rows * cols;
-    let nums = lcg_sequence(total);
-    // Always return nested 2D array so ROWS/COLUMNS work correctly
+    let nums = ctx.ctx.draw_rand_n(total);
     let outer: Vec<Value> = (0..rows)
-        .map(|r| {
-            let row: Vec<Value> = (0..cols)
-                .map(|c| Value::Number(nums[r * cols + c]))
-                .collect();
-            Value::Array(row)
-        })
+        .map(|r| Value::Array((0..cols).map(|c| Value::Number(nums[r * cols + c])).collect()))
         .collect();
     Value::Array(outer)
 }

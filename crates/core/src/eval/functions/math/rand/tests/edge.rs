@@ -1,9 +1,11 @@
-use super::super::*;
+use crate::Engine;
 use crate::types::Value;
+use std::collections::HashMap;
 
 #[test]
 fn rand_result_is_finite() {
-    let result = rand_fn(&[]);
+    let eng = Engine::sheets();
+    let result = eng.evaluate("=RAND()", &HashMap::new());
     if let Value::Number(n) = result {
         assert!(n.is_finite());
     } else {
@@ -13,7 +15,8 @@ fn rand_result_is_finite() {
 
 #[test]
 fn randbetween_negative_range() {
-    let result = randbetween_fn(&[Value::Number(-5.0), Value::Number(-1.0)]);
+    let eng = Engine::sheets();
+    let result = eng.evaluate("=RANDBETWEEN(-5, -1)", &HashMap::new());
     if let Value::Number(n) = result {
         assert!(n >= -5.0 && n <= -1.0);
         assert_eq!(n, n.floor());
@@ -24,6 +27,7 @@ fn randbetween_negative_range() {
 
 #[test]
 fn randbetween_zero_range() {
-    let result = randbetween_fn(&[Value::Number(0.0), Value::Number(0.0)]);
+    let eng = Engine::sheets();
+    let result = eng.evaluate("=RANDBETWEEN(0, 0)", &HashMap::new());
     assert_eq!(result, Value::Number(0.0));
 }

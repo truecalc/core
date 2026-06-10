@@ -1,20 +1,21 @@
-use super::super::*;
+use crate::Engine;
 use crate::types::{ErrorKind, Value};
+use std::collections::HashMap;
 
 #[test]
 fn rand_with_args_returns_value_error() {
-    assert_eq!(rand_fn(&[Value::Number(1.0)]), Value::Error(ErrorKind::NA));
+    let eng = Engine::sheets();
+    assert_eq!(eng.evaluate("=RAND(1)", &HashMap::new()), Value::Error(ErrorKind::NA));
 }
 
 #[test]
 fn randbetween_no_args_returns_value_error() {
-    assert_eq!(randbetween_fn(&[]), Value::Error(ErrorKind::NA));
+    let eng = Engine::sheets();
+    assert_eq!(eng.evaluate("=RANDBETWEEN()", &HashMap::new()), Value::Error(ErrorKind::NA));
 }
 
 #[test]
 fn randbetween_low_greater_than_high_returns_num_error() {
-    assert_eq!(
-        randbetween_fn(&[Value::Number(10.0), Value::Number(1.0)]),
-        Value::Error(ErrorKind::Num)
-    );
+    let eng = Engine::sheets();
+    assert_eq!(eng.evaluate("=RANDBETWEEN(10, 1)", &HashMap::new()), Value::Error(ErrorKind::Num));
 }

@@ -182,6 +182,36 @@ impl Engine {
         }
     }
 
+    /// Like [`Engine::evaluate_with_resolver_at`] but also injects a per-cell
+    /// RNG key. `rng_cell` is `(seed, sheet_index, row, col)`; when `None`
+    /// this degrades to the non-deterministic SystemTime fallback in RAND.
+    pub fn evaluate_with_resolver_at_keyed(
+        &self,
+        formula: &str,
+        resolver: &mut dyn Resolver,
+        now_serial: Option<f64>,
+        rng_cell: Option<(u64, u32, u32, u32)>,
+    ) -> Value {
+        if let Some(n) = now_serial {
+            if !n.is_finite() {
+                return Value::Error(ErrorKind::Num);
+            }
+        }
+        if self.flavor == EngineFlavor::Excel {
+            return Value::Error(ErrorKind::NA);
+        }
+        match parse_formula(formula) {
+            Err(_) => Value::Error(ErrorKind::Value),
+            Ok(expr) => {
+                let mut ctx = Context::empty();
+                ctx.now_serial = now_serial;
+                ctx.rng_cell = rng_cell;
+                let mut eval_ctx = EvalCtx::with_resolver(ctx, &self.registry, resolver);
+                evaluate_expr(&expr, &mut eval_ctx)
+            }
+        }
+    }
+
     fn evaluate_inner(
         &self,
         formula: &str,
