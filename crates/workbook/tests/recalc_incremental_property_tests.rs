@@ -5,6 +5,9 @@
 //! a clone, and an incremental recalc from the edited cell on the live workbook
 //! — and assert the two grids are byte-identical (canonical JSON). Volatile
 //! cells are exercised separately (they are always-dirty by design).
+//!
+//! P4.1 extension: also covers multi-sheet workbooks with cross-sheet
+//! references and workbooks with named ranges used in formulas.
 
 use proptest::prelude::*;
 use truecalc_workbook::{
@@ -213,4 +216,153 @@ fn volatile_cells_are_always_dirty_in_incremental_recalc() {
         wb.get("S", addr(2, 1)).unwrap().value(),
         &Value::Date(46182.0)
     );
+}
+
+/// Build a two-sheet workbook where "Calc" has formula cells that reference
+/// literals on "Data". The dependency graph crosses sheet boundaries, so
+/// incremental recalc must propagate edits to "Data" into "Calc" cells.
+///
+/// Layout (both sheets use column A, rows 1..=n):
+///   Data!A1..An   — literal numbers (seeded from `vals`)
+///   Calc!A1..Am   — formulas: Ak references Data!A(k % n + 1) with an op
+fn build_cross_sheet_grid(n: usize, m: usize, vals: &[u8], ops: &[u8]) -> Workbook {
+    let mut wb = Workbook::new(EngineFlavor::Sheets);
+    wb.add_sheet(Worksheet::new("Data")).unwrap();
+    wb.add_sheet(Worksheet::new("Calc")).unwrap();
+    for i in 0..n {
+        let row = (i + 1) as u32;
+        wb.set(
+            "Data",
+            addr(row, 1),
+            CellInput::Literal(Value::Number((vals[i % vals.len()] as f64) + 1.0)),
+        )
+        .unwrap();
+    }
+    for k in 0..m {
+        let row = (k + 1) as u32;
+        let src_row = (k % n) + 1;
+        let formula = match ops[k % ops.len()] % 3 {
+            0 => format!("=Data!A{}+{}", src_row, k + 1),
+            1 => format!("=Data!A{}*2", src_row),
+            _ => format!("=Data!A{}", src_row),
+        };
+        wb.set("Calc", addr(row, 1), CellInput::Formula(formula))
+            .unwrap();
+    }
+    wb
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(60))]
+
+    /// `incremental ≡ full` over multi-sheet workbooks with cross-sheet refs.
+    ///
+    /// Edits land on "Data" sheet literals; the "Calc" sheet formulas that
+    /// reference the changed cells must be recomputed by incremental recalc
+    /// exactly as they would be by a full recalc (P4.1 / #538).
+    #[test]
+    fn incremental_equals_full_multi_sheet_cross_refs(
+        n in 2usize..6,
+        m in 2usize..8,
+        vals in proptest::collection::vec(0u8..50, 2..6),
+        ops  in proptest::collection::vec(0u8..3, 2..8),
+        edits in proptest::collection::vec((0usize..6, 0i64..30), 1..5),
+    ) {
+        let mut live = build_cross_sheet_grid(n, m, &vals, &ops);
+        live.recalc(&ctx());
+
+        for (cell_i, new_val) in edits {
+            let row = ((cell_i % n) + 1) as u32;
+            let a = addr(row, 1);
+            live.set("Data", a, CellInput::Literal(Value::Number(new_val as f64 + 1.0)))
+                .unwrap();
+
+            let mut full = live.clone();
+            full.recalc(&ctx());
+            live.recalc_incremental(&ctx(), &[("Data".to_string(), a)]);
+
+            prop_assert_eq!(
+                live.to_json().unwrap(),
+                full.to_json().unwrap(),
+                "incremental and full diverged after editing Data!{}",
+                a.to_a1()
+            );
+        }
+    }
+}
+
+/// Build a workbook with named ranges used in "Calc" formulas.
+///
+/// Sheet "Data" holds literals in A1..An. Two named ranges are defined:
+///   `InputA` → Data!A1  (scalar)
+///   `InputB` → Data!A2  (scalar, or A1 when n==1)
+/// Sheet "Calc" has formulas that use these names; editing "Data" cells
+/// must propagate through the named-range dependency edges in incremental
+/// recalc.
+fn build_named_range_grid(n: usize, vals: &[u8]) -> Workbook {
+    let mut wb = Workbook::new(EngineFlavor::Sheets);
+    wb.add_sheet(Worksheet::new("Data")).unwrap();
+    wb.add_sheet(Worksheet::new("Calc")).unwrap();
+    for i in 0..n {
+        let row = (i + 1) as u32;
+        wb.set(
+            "Data",
+            addr(row, 1),
+            CellInput::Literal(Value::Number((vals[i % vals.len()] as f64) + 1.0)),
+        )
+        .unwrap();
+    }
+    // Named ranges pointing at two distinct Data rows (or the same if n==1).
+    wb.define_name("InputA", "Data!A1").unwrap();
+    let b_row = if n >= 2 { 2 } else { 1 };
+    wb.define_name("InputB", &format!("Data!A{}", b_row))
+        .unwrap();
+    // Calc sheet uses the names.
+    wb.set("Calc", addr(1, 1), CellInput::Formula("=InputA+1".into()))
+        .unwrap();
+    wb.set("Calc", addr(2, 1), CellInput::Formula("=InputB*2".into()))
+        .unwrap();
+    wb.set(
+        "Calc",
+        addr(3, 1),
+        CellInput::Formula("=InputA+InputB".into()),
+    )
+    .unwrap();
+    wb
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(60))]
+
+    /// `incremental ≡ full` over workbooks where formulas use named ranges.
+    ///
+    /// Edits to the named-range target cells must propagate to dependent
+    /// formulas via the named-range dependency edges (P4.1 / #538).
+    #[test]
+    fn incremental_equals_full_with_named_ranges(
+        n in 1usize..5,
+        vals in proptest::collection::vec(0u8..50, 1..5),
+        edits in proptest::collection::vec((0usize..5, 0i64..30), 1..5),
+    ) {
+        let mut live = build_named_range_grid(n, &vals);
+        live.recalc(&ctx());
+
+        for (cell_i, new_val) in edits {
+            let row = ((cell_i % n) + 1) as u32;
+            let a = addr(row, 1);
+            live.set("Data", a, CellInput::Literal(Value::Number(new_val as f64 + 1.0)))
+                .unwrap();
+
+            let mut full = live.clone();
+            full.recalc(&ctx());
+            live.recalc_incremental(&ctx(), &[("Data".to_string(), a)]);
+
+            prop_assert_eq!(
+                live.to_json().unwrap(),
+                full.to_json().unwrap(),
+                "incremental and full diverged after editing Data!{}",
+                a.to_a1()
+            );
+        }
+    }
 }
