@@ -17,7 +17,7 @@ pub fn sin_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(v) => v,
     };
-    let result = n.sin();
+    let result = libm::sin(n);
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);
     }
@@ -32,7 +32,7 @@ pub fn cos_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(v) => v,
     };
-    let result = n.cos();
+    let result = libm::cos(n);
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);
     }
@@ -47,7 +47,7 @@ pub fn tan_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(v) => v,
     };
-    let result = n.tan();
+    let result = libm::tan(n);
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);
     }
@@ -64,7 +64,7 @@ pub fn acos_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(v) => v,
     };
-    let result = n.acos();
+    let result = libm::acos(n);
     if result.is_nan() {
         return Value::Error(ErrorKind::Num);
     }
@@ -79,7 +79,7 @@ pub fn asin_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(v) => v,
     };
-    let result = n.asin();
+    let result = libm::asin(n);
     if result.is_nan() {
         return Value::Error(ErrorKind::Num);
     }
@@ -94,7 +94,7 @@ pub fn atan_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(v) => v,
     };
-    Value::Number(n.atan())
+    Value::Number(libm::atan(n))
 }
 
 pub fn atan2_fn(args: &[Value]) -> Value {
@@ -113,7 +113,7 @@ pub fn atan2_fn(args: &[Value]) -> Value {
     if n_x == 0.0 && n_y == 0.0 {
         return Value::Error(ErrorKind::DivByZero);
     }
-    Value::Number(n_y.atan2(n_x))
+    Value::Number(libm::atan2(n_y, n_x))
 }
 
 pub fn degrees_fn(args: &[Value]) -> Value {
@@ -152,7 +152,7 @@ pub fn sinh_fn(args: &[Value]) -> Value {
     if n.abs() >= 710.0 {
         return Value::Error(ErrorKind::Num);
     }
-    let result = n.sinh();
+    let result = libm::sinh(n);
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);
     }
@@ -167,7 +167,7 @@ pub fn cosh_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(v) => v,
     };
-    let result = n.cosh();
+    let result = libm::cosh(n);
     // GS/Excel max representable value ≈ 9.99e307; anything larger → #NUM!
     if !result.is_finite() || result > 9.99e307 {
         return Value::Error(ErrorKind::Num);
@@ -183,7 +183,7 @@ pub fn tanh_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(v) => v,
     };
-    Value::Number(n.tanh())
+    Value::Number(libm::tanh(n))
 }
 
 pub fn acosh_fn(args: &[Value]) -> Value {
@@ -194,7 +194,7 @@ pub fn acosh_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(v) => v,
     };
-    let result = n.acosh();
+    let result = libm::acosh(n);
     if result.is_nan() {
         return Value::Error(ErrorKind::Num);
     }
@@ -209,7 +209,7 @@ pub fn asinh_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(v) => v,
     };
-    Value::Number(n.asinh())
+    Value::Number(libm::asinh(n))
 }
 
 pub fn atanh_fn(args: &[Value]) -> Value {
@@ -220,7 +220,7 @@ pub fn atanh_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(v) => v,
     };
-    let result = n.atanh();
+    let result = libm::atanh(n);
     if !result.is_finite() || result.is_nan() {
         return Value::Error(ErrorKind::Num);
     }
@@ -237,7 +237,7 @@ pub fn cot_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(v) => v,
     };
-    let tan = n.tan();
+    let tan = libm::tan(n);
     if tan == 0.0 || !tan.is_finite() {
         return Value::Error(ErrorKind::DivByZero);
     }
@@ -255,7 +255,7 @@ pub fn coth_fn(args: &[Value]) -> Value {
     if n == 0.0 {
         return Value::Error(ErrorKind::DivByZero);
     }
-    let tanh = n.tanh();
+    let tanh = libm::tanh(n);
     if tanh == 0.0 || !tanh.is_finite() {
         return Value::Error(ErrorKind::DivByZero);
     }
@@ -274,7 +274,7 @@ pub fn csc_fn(args: &[Value]) -> Value {
     if n.abs() >= 1e14 {
         return Value::Error(ErrorKind::Num);
     }
-    let sin = n.sin();
+    let sin = libm::sin(n);
     if sin == 0.0 || !sin.is_finite() {
         return Value::Error(ErrorKind::DivByZero);
     }
@@ -292,7 +292,7 @@ pub fn csch_fn(args: &[Value]) -> Value {
     if n == 0.0 {
         return Value::Error(ErrorKind::DivByZero);
     }
-    let sinh = n.sinh();
+    let sinh = libm::sinh(n);
     if !sinh.is_finite() {
         // overflow for large |x| -> #NUM!
         return Value::Error(ErrorKind::Num);
@@ -311,7 +311,7 @@ pub fn sec_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(v) => v,
     };
-    let cos = n.cos();
+    let cos = libm::cos(n);
     if cos == 0.0 || !cos.is_finite() {
         return Value::Error(ErrorKind::DivByZero);
     }
@@ -327,7 +327,7 @@ pub fn sech_fn(args: &[Value]) -> Value {
         Ok(v) => v,
     };
     // cosh is always >= 1, so no div-by-zero possible
-    let cosh = n.cosh();
+    let cosh = libm::cosh(n);
     if !cosh.is_finite() {
         return Value::Error(ErrorKind::Num);
     }
@@ -343,7 +343,7 @@ pub fn acot_fn(args: &[Value]) -> Value {
         Ok(v) => v,
     };
     // ACOT(x) = atan(1/x); matches Google Sheets behavior
-    Value::Number((1.0 / n).atan())
+    Value::Number(libm::atan(1.0 / n))
 }
 
 pub fn acoth_fn(args: &[Value]) -> Value {
@@ -358,7 +358,7 @@ pub fn acoth_fn(args: &[Value]) -> Value {
     if n.abs() <= 1.0 {
         return Value::Error(ErrorKind::Num);
     }
-    let result = (1.0 / n).atanh();
+    let result = libm::atanh(1.0 / n);
     if !result.is_finite() || result.is_nan() {
         return Value::Error(ErrorKind::Num);
     }

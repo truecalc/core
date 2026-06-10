@@ -16,11 +16,11 @@ impl Complex {
     }
 
     fn abs(self) -> f64 {
-        (self.re * self.re + self.im * self.im).sqrt()
+        libm::sqrt(self.re * self.re + self.im * self.im)
     }
 
     fn arg(self) -> f64 {
-        self.im.atan2(self.re)
+        libm::atan2(self.im, self.re)
     }
 
     fn mul(self, rhs: Self) -> Self {
@@ -44,13 +44,13 @@ impl Complex {
             return None; // 0^negative
         }
         let theta = self.arg();
-        let ln_r = r.ln();
+        let ln_r = libm::log(r);
         // ln(c) = ln_r + i*theta
         // n * ln(c) = (n.re*ln_r - n.im*theta) + i*(n.im*ln_r + n.re*theta)
         let exp_re = n.re * ln_r - n.im * theta;
         let exp_im = n.im * ln_r + n.re * theta;
-        let scale = exp_re.exp();
-        Some(Complex::new(scale * exp_im.cos(), scale * exp_im.sin()))
+        let scale = libm::exp(exp_re);
+        Some(Complex::new(scale * libm::cos(exp_im), scale * libm::sin(exp_im)))
     }
 
     fn sqrt(self) -> Self {
@@ -70,12 +70,12 @@ impl Complex {
         if self.im == 0.0 && self.re < 0.0 {
             // Polar/trig form preserves the cos(pi/2) residual GS shows.
             let theta = self.arg(); // = pi
-            let sqrt_r = r.sqrt();
-            return Complex::new(sqrt_r * (theta / 2.0).cos(), sqrt_r * (theta / 2.0).sin());
+            let sqrt_r = libm::sqrt(r);
+            return Complex::new(sqrt_r * libm::cos(theta / 2.0), sqrt_r * libm::sin(theta / 2.0));
         }
         // Algebraic form: sqrt((|z|+re)/2) + i*sign(im)*sqrt((|z|-re)/2)
-        let re_out = ((r + self.re) / 2.0).sqrt();
-        let im_out = ((r - self.re) / 2.0).sqrt();
+        let re_out = libm::sqrt((r + self.re) / 2.0);
+        let im_out = libm::sqrt((r - self.re) / 2.0);
         let im_out = if self.im < 0.0 { -im_out } else { im_out };
         Complex::new(re_out, im_out)
     }
@@ -85,7 +85,7 @@ impl Complex {
         if r == 0.0 {
             return None;
         }
-        Some(Complex::new(r.ln(), self.arg()))
+        Some(Complex::new(libm::log(r), self.arg()))
     }
 }
 
@@ -548,7 +548,7 @@ pub fn imlog10_fn(args: &[Value]) -> Value {
         Ok(c) => match c.ln() {
             None => Value::Error(ErrorKind::DivByZero),
             Some(result) => {
-                let ln10 = 10.0f64.ln();
+                let ln10 = libm::log(10.0f64);
                 format_complex(Complex::new(result.re / ln10, result.im / ln10), 'i')
             }
         },
@@ -565,7 +565,7 @@ pub fn imlog2_fn(args: &[Value]) -> Value {
         Ok(c) => match c.ln() {
             None => Value::Error(ErrorKind::DivByZero),
             Some(result) => {
-                let ln2 = 2.0f64.ln();
+                let ln2 = libm::log(2.0f64);
                 format_complex(Complex::new(result.re / ln2, result.im / ln2), 'i')
             }
         },
@@ -591,7 +591,7 @@ pub fn imlog_fn(args: &[Value]) -> Value {
     match c.ln() {
         None => Value::Error(ErrorKind::DivByZero),
         Some(result) => {
-            let ln_base = base.ln();
+            let ln_base = libm::log(base);
             format_complex(Complex::new(result.re / ln_base, result.im / ln_base), 'i')
         }
     }
@@ -608,8 +608,8 @@ pub fn imexp_fn(args: &[Value]) -> Value {
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
         Ok(c) => {
-            let scale = c.re.exp();
-            format_complex(Complex::new(scale * c.im.cos(), scale * c.im.sin()), suffix)
+            let scale = libm::exp(c.re);
+            format_complex(Complex::new(scale * libm::cos(c.im), scale * libm::sin(c.im)), suffix)
         }
     }
 }
@@ -682,8 +682,8 @@ pub fn imsin_fn(args: &[Value]) -> Value {
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
         Ok(c) => {
-            let re = c.re.sin() * c.im.cosh();
-            let im = c.re.cos() * c.im.sinh();
+            let re = libm::sin(c.re) * libm::cosh(c.im);
+            let im = libm::cos(c.re) * libm::sinh(c.im);
             format_complex(Complex::new(re, im), suffix)
         }
     }
@@ -698,8 +698,8 @@ pub fn imcos_fn(args: &[Value]) -> Value {
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
         Ok(c) => {
-            let re = c.re.cos() * c.im.cosh();
-            let im = -(c.re.sin() * c.im.sinh());
+            let re = libm::cos(c.re) * libm::cosh(c.im);
+            let im = -(libm::sin(c.re) * libm::sinh(c.im));
             format_complex(Complex::new(re, im), suffix)
         }
     }
@@ -718,12 +718,12 @@ pub fn imtan_fn(args: &[Value]) -> Value {
         Ok(c) => {
             let a2 = 2.0 * c.re;
             let b2 = 2.0 * c.im;
-            let denom = a2.cos() + b2.cosh();
+            let denom = libm::cos(a2) + libm::cosh(b2);
             if denom == 0.0 {
                 return Value::Error(ErrorKind::DivByZero);
             }
-            let re = a2.sin() / denom;
-            let im = b2.sinh() / denom;
+            let re = libm::sin(a2) / denom;
+            let im = libm::sinh(b2) / denom;
             format_complex(Complex::new(re, im), suffix)
         }
     }
@@ -742,12 +742,12 @@ pub fn imcot_fn(args: &[Value]) -> Value {
         Ok(c) => {
             let a2 = 2.0 * c.re;
             let b2 = 2.0 * c.im;
-            let denom = b2.cosh() - a2.cos();
+            let denom = libm::cosh(b2) - libm::cos(a2);
             if denom == 0.0 {
                 return Value::Error(ErrorKind::DivByZero);
             }
-            let re = a2.sin() / denom;
-            let im = -(b2.sinh() / denom);
+            let re = libm::sin(a2) / denom;
+            let im = -(libm::sinh(b2) / denom);
             format_complex(Complex::new(re, im), suffix)
         }
     }
@@ -762,8 +762,8 @@ pub fn imcsc_fn(args: &[Value]) -> Value {
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
         Ok(c) => {
-            let sin_re = c.re.sin() * c.im.cosh();
-            let sin_im = c.re.cos() * c.im.sinh();
+            let sin_re = libm::sin(c.re) * libm::cosh(c.im);
+            let sin_im = libm::cos(c.re) * libm::sinh(c.im);
             let denom = sin_re * sin_re + sin_im * sin_im;
             if denom == 0.0 {
                 return Value::Error(ErrorKind::Num);
@@ -784,8 +784,8 @@ pub fn imsec_fn(args: &[Value]) -> Value {
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
         Ok(c) => {
-            let cos_re = c.re.cos() * c.im.cosh();
-            let cos_im = -(c.re.sin() * c.im.sinh());
+            let cos_re = libm::cos(c.re) * libm::cosh(c.im);
+            let cos_im = -(libm::sin(c.re) * libm::sinh(c.im));
             let denom = cos_re * cos_re + cos_im * cos_im;
             if denom == 0.0 {
                 return Value::Error(ErrorKind::DivByZero);
@@ -808,8 +808,8 @@ pub fn imsinh_fn(args: &[Value]) -> Value {
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
         Ok(c) => {
-            let re = c.re.sinh() * c.im.cos();
-            let im = c.re.cosh() * c.im.sin();
+            let re = libm::sinh(c.re) * libm::cos(c.im);
+            let im = libm::cosh(c.re) * libm::sin(c.im);
             format_complex(Complex::new(re, im), suffix)
         }
     }
@@ -824,8 +824,8 @@ pub fn imcosh_fn(args: &[Value]) -> Value {
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
         Ok(c) => {
-            let re = c.re.cosh() * c.im.cos();
-            let im = c.re.sinh() * c.im.sin();
+            let re = libm::cosh(c.re) * libm::cos(c.im);
+            let im = libm::sinh(c.re) * libm::sin(c.im);
             format_complex(Complex::new(re, im), suffix)
         }
     }
@@ -844,12 +844,12 @@ pub fn imtanh_fn(args: &[Value]) -> Value {
         Ok(c) => {
             let a2 = 2.0 * c.re;
             let b2 = 2.0 * c.im;
-            let denom = a2.cosh() + b2.cos();
+            let denom = libm::cosh(a2) + libm::cos(b2);
             if denom == 0.0 {
                 return Value::Error(ErrorKind::DivByZero);
             }
-            let re = a2.sinh() / denom;
-            let im = b2.sin() / denom;
+            let re = libm::sinh(a2) / denom;
+            let im = libm::sin(b2) / denom;
             if im == 0.0 {
                 return Value::Text(format_num(re));
             }
@@ -871,12 +871,12 @@ pub fn imcoth_fn(args: &[Value]) -> Value {
         Ok(c) => {
             let a2 = 2.0 * c.re;
             let b2 = 2.0 * c.im;
-            let denom = a2.cosh() - b2.cos();
+            let denom = libm::cosh(a2) - libm::cos(b2);
             if denom == 0.0 {
                 return Value::Error(ErrorKind::DivByZero);
             }
-            let re = a2.sinh() / denom;
-            let im = -(b2.sin() / denom);
+            let re = libm::sinh(a2) / denom;
+            let im = -(libm::sin(b2) / denom);
             if im == 0.0 {
                 return Value::Text(format_num(re));
             }
@@ -894,8 +894,8 @@ pub fn imcsch_fn(args: &[Value]) -> Value {
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
         Ok(c) => {
-            let sinh_re = c.re.sinh() * c.im.cos();
-            let sinh_im = c.re.cosh() * c.im.sin();
+            let sinh_re = libm::sinh(c.re) * libm::cos(c.im);
+            let sinh_im = libm::cosh(c.re) * libm::sin(c.im);
             let denom = sinh_re * sinh_re + sinh_im * sinh_im;
             if denom == 0.0 {
                 return Value::Error(ErrorKind::DivByZero);
@@ -916,8 +916,8 @@ pub fn imsech_fn(args: &[Value]) -> Value {
     match value_to_complex(args[0].clone()) {
         Err(e) => e,
         Ok(c) => {
-            let cosh_re = c.re.cosh() * c.im.cos();
-            let cosh_im = c.re.sinh() * c.im.sin();
+            let cosh_re = libm::cosh(c.re) * libm::cos(c.im);
+            let cosh_im = libm::sinh(c.re) * libm::sin(c.im);
             let denom = cosh_re * cosh_re + cosh_im * cosh_im;
             if denom == 0.0 {
                 return Value::Error(ErrorKind::DivByZero);

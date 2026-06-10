@@ -229,7 +229,7 @@ fn eval_binary(op: &BinaryOp, lv: Value, rv: Value) -> Value {
                     }
                     ln / rn
                 }
-                BinaryOp::Pow => ln.powf(rn),
+                BinaryOp::Pow => libm::pow(ln, rn),
                 // Safety: outer match arm covers exactly Add|Sub|Mul|Div|Pow; Concat and comparison ops are handled separately.
                 _ => unreachable!(),
             };

@@ -874,9 +874,9 @@ pub fn price_calc(
     }
 
     // Dirty price = redemption / (1+yld/f)^(n-1+dsc_e) + sum of coupon PVs
-    let mut dirty = redemption / (1.0 + yld_f).powf(n - 1.0 + dsc_e);
+    let mut dirty = redemption / libm::pow(1.0 + yld_f, n - 1.0 + dsc_e);
     for k in 1..=(n as i32) {
-        dirty += coupon / (1.0 + yld_f).powf(k as f64 - 1.0 + dsc_e);
+        dirty += coupon / libm::pow(1.0 + yld_f, k as f64 - 1.0 + dsc_e);
     }
 
     // Clean price = dirty price − accrued interest
@@ -1258,7 +1258,7 @@ pub fn tbilleq_fn(args: &[Value]) -> Value {
         if inside < 0.0 {
             return Value::Error(ErrorKind::Num);
         }
-        (-d + inside.sqrt()) / (d - 0.5)
+        (-d + libm::sqrt(inside)) / (d - 0.5)
     };
 
     if !result.is_finite() {

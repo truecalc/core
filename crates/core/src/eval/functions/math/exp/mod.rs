@@ -10,7 +10,7 @@ pub fn exp_fn(args: &[Value]) -> Value {
         Err(e) => return e,
         Ok(v) => v,
     };
-    let result = n.exp();
+    let result = libm::exp(n);
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);
     }

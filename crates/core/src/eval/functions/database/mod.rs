@@ -309,7 +309,7 @@ pub fn dstdev_fn(args: &[Value]) -> Value {
             }
             let mean = nums.iter().sum::<f64>() / n as f64;
             let var = nums.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n - 1) as f64;
-            Value::Number(var.sqrt())
+            Value::Number(libm::sqrt(var))
         }
     }
 }
@@ -329,7 +329,7 @@ pub fn dstdevp_fn(args: &[Value]) -> Value {
             }
             let mean = nums.iter().sum::<f64>() / n as f64;
             let var = nums.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n as f64;
-            Value::Number(var.sqrt())
+            Value::Number(libm::sqrt(var))
         }
     }
 }

@@ -28,14 +28,14 @@ pub fn log_fn(args: &[Value]) -> Value {
         }
         // Use dedicated methods to avoid FP round-trip errors (LOG(1000,10) must be 3.0).
         if (base - 10.0).abs() < f64::EPSILON {
-            n.log10()
+            libm::log10(n)
         } else if (base - std::f64::consts::E).abs() < f64::EPSILON {
-            n.ln()
+            libm::log(n)
         } else {
-            n.log(base)
+            libm::log(n) / libm::log(base)
         }
     } else {
-        n.log10()
+        libm::log10(n)
     };
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);
@@ -55,7 +55,7 @@ pub fn log10_fn(args: &[Value]) -> Value {
     if n <= 0.0 {
         return Value::Error(ErrorKind::Num);
     }
-    let result = n.log10();
+    let result = libm::log10(n);
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);
     }
@@ -74,7 +74,7 @@ pub fn ln_fn(args: &[Value]) -> Value {
     if n <= 0.0 {
         return Value::Error(ErrorKind::Num);
     }
-    let result = n.ln();
+    let result = libm::log(n);
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);
     }

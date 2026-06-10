@@ -24,7 +24,7 @@ pub fn pv_fn(args: &[Value]) -> Value {
     let result = if rate == 0.0 {
         -(pmt * nper + fv)
     } else {
-        let factor = (1.0 + rate).powf(-nper);
+        let factor = libm::pow(1.0 + rate, -nper);
         -(pmt * (1.0 + rate * typ) * (1.0 - factor) / rate + fv * factor)
     };
 

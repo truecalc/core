@@ -46,7 +46,7 @@ pub fn seriessum_fn(args: &[Value]) -> Value {
     let mut total = 0.0_f64;
     for (i, &coeff) in coeffs.iter().enumerate() {
         let power = n + (i as f64) * m;
-        let term = coeff * x.powf(power);
+        let term = coeff * libm::pow(x, power);
         if !term.is_finite() {
             return Value::Error(ErrorKind::Num);
         }

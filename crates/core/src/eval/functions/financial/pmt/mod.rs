@@ -28,7 +28,7 @@ pub fn pmt_fn(args: &[Value]) -> Value {
     let result = if rate == 0.0 {
         -(pv + fv) / nper
     } else {
-        let factor = (1.0 + rate).powf(nper);
+        let factor = libm::pow(1.0 + rate, nper);
         let denom = factor - 1.0;
         if denom == 0.0 {
             return Value::Error(ErrorKind::Num);

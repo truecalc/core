@@ -158,11 +158,11 @@ fn rate_f_and_df(r: f64, nper: f64, pmt: f64, pv: f64, fv: f64, typ: f64) -> (f6
         let df = pv * nper + pmt * nper * (nper - 1.0) / 2.0;
         return (f, df);
     }
-    let factor = (1.0 + r).powf(nper);
+    let factor = libm::pow(1.0 + r, nper);
     let annuity = pmt * (1.0 + r * typ) * (factor - 1.0) / r;
     let f = pv * factor + annuity + fv;
 
-    let dfactor = nper * (1.0 + r).powf(nper - 1.0);
+    let dfactor = nper * libm::pow(1.0 + r, nper - 1.0);
     let dann = pmt * (typ * (factor - 1.0) / r
         + (1.0 + r * typ) * (dfactor * r - (factor - 1.0)) / (r * r));
     let df = pv * dfactor + dann;

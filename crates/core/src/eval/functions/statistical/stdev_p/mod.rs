@@ -8,7 +8,7 @@ pub fn stdev_p_fn(args: &[Value]) -> Value {
     let nums = match collect_nums_direct(args) { Ok(v) => v, Err(e) => return e };
     match pop_variance(&nums) {
         Value::Number(v) => {
-            let s = v.sqrt();
+            let s = libm::sqrt(v);
             if s.is_finite() { Value::Number(s) } else { Value::Error(ErrorKind::Num) }
         }
         other => other,

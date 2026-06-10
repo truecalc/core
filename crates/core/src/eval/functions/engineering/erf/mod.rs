@@ -17,7 +17,7 @@ pub(crate) fn erfc(x: f64) -> f64 {
             term *= -x2 * (2 * n - 1) as f64 / (n as f64 * (2 * n + 1) as f64);
             total += term;
         }
-        return 1.0 - (2.0 / std::f64::consts::PI.sqrt()) * total;
+        return 1.0 - (2.0 / libm::sqrt(std::f64::consts::PI)) * total;
     }
     // Continued fraction for x >= 1: erfc(x) = exp(-x^2)/sqrt(pi) * 1/CF
     // Evaluate from the tail inward (50 terms)
@@ -25,7 +25,7 @@ pub(crate) fn erfc(x: f64) -> f64 {
     for k in (1u32..=50).rev() {
         cf = (k as f64 * 0.5) / (x + cf);
     }
-    (-x * x).exp() / (std::f64::consts::PI.sqrt() * (x + cf))
+    libm::exp(-x * x) / (libm::sqrt(std::f64::consts::PI) * (x + cf))
 }
 
 /// Error function: erf(x) = 1 - erfc(x).
