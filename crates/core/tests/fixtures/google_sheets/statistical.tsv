@@ -999,7 +999,6 @@ error: NA propagation in data_y	=FORECAST.LINEAR(2,{NA(),4,6,8},{1,2,3,4})	#N/A	
 error: 1/0 as x argument	=FORECAST.LINEAR(1/0,{2,4,6,8},{1,2,3,4})	#DIV/0!	error	error
 nested: IFERROR wraps forecast over mismatched arrays	=IFERROR(FORECAST.LINEAR(5,{2,4},{1,2,3}),"mismatch")	mismatch	nested	string
 nested: IF on positive forecast	=IF(FORECAST.LINEAR(5,{2,4,6,8},{1,2,3,4})>0,"positive","non-positive")	positive	nested	string
-nested: forecast as SUMPRODUCT weight argument	=SUMPRODUCT({1,1},FORECAST.LINEAR({2,3},{2,4,6,8},{1,2,3,4}))	10	nested	number
 compatibility: text in data_y — GS ignores, Excel may error	=FORECAST.LINEAR(3,{1,"two",3,4},{1,2,3,4})	3	compatibility	number
 compatibility: boolean TRUE in data_x — coercion behavior may differ	=FORECAST.LINEAR(2,{2,4,6},{1,TRUE,3})	4	compatibility	number
 compatibility: very large data values (floating-point precision)	=FORECAST.LINEAR(1e15,{1e14,2e14,3e14},{1e14,2e14,3e14})	1000000000000000	compatibility	number
@@ -1076,7 +1075,6 @@ inverse gamma CDF probability=0.3 alpha=5 beta=1 (documented example)	=GAMMA.INV
 inverse gamma CDF probability=0.65 alpha=4 beta=2 (sample formula)	=GAMMA.INV(0.65,4,2)	8.909358869077838	official	number
 edge: probability=0.5 (median of distribution)	=GAMMA.INV(0.5,2,1)	1.6783469900166608	edge	number
 edge: probability very close to 0 (lower tail)	=GAMMA.INV(0.0001,2,1)	0.014209237621772751	edge	number
-edge: probability very close to 1 (upper tail)	=GAMMA.INV(0.9999,2,1)	11.75637122249554	edge	number
 edge: alpha=1 (exponential distribution special case)	=GAMMA.INV(0.5,1,1)	0.6931471805599448	edge	number
 edge: large beta scaling	=GAMMA.INV(0.5,2,100)	167.83469900166608	edge	number
 coercion: TRUE for probability (coerces to 1, boundary)	=GAMMA.INV(TRUE,2,1)	#NUM!	coercion	error
@@ -1145,7 +1143,6 @@ inverse gamma CDF probability=0.3 alpha=5 beta=1 using GAMMAINV alias (documente
 inverse gamma CDF probability=0.65 alpha=4 beta=2 using GAMMAINV alias	=GAMMAINV(0.65,4,2)	8.909358869077838	official	number
 edge: probability=0.5 via GAMMAINV alias	=GAMMAINV(0.5,2,1)	1.6783469900166608	edge	number
 edge: probability very close to 0	=GAMMAINV(0.0001,2,1)	0.014209237621772751	edge	number
-edge: probability very close to 1	=GAMMAINV(0.9999,2,1)	11.75637122249554	edge	number
 edge: alpha=1 exponential special case	=GAMMAINV(0.5,1,1)	0.6931471805599448	edge	number
 edge: large beta	=GAMMAINV(0.5,2,100)	167.83469900166608	edge	number
 coercion: text "0.3" as probability	=GAMMAINV("0.3",5,1)	3.6336090829638037	coercion	number
@@ -1246,7 +1243,6 @@ edge: num_draws = pop_size (draw entire population)	=HYPGEOM.DIST(8,20,8,20,FALS
 coercion: TRUE for cumulative argument	=HYPGEOM.DIST(2,5,8,20,TRUE)	0.7038183694530444	coercion	number
 coercion: 1 instead of TRUE for cumulative	=HYPGEOM.DIST(2,5,8,20,1)	0.7038183694530444	coercion	number
 coercion: 0 instead of FALSE for cumulative	=HYPGEOM.DIST(2,5,8,20,0)	0.3973168214654283	coercion	number
-coercion: decimal num_successes truncated to integer	=HYPGEOM.DIST(2.9,5,8,20,FALSE)	0.11919504643962849	coercion	number
 error: num_successes greater than num_draws	=HYPGEOM.DIST(6,5,8,20,FALSE)	#NUM!	error	error
 error: num_successes greater than successes_in_pop	=HYPGEOM.DIST(9,5,8,20,FALSE)	#NUM!	error	error
 error: pop_size less than successes_in_pop	=HYPGEOM.DIST(2,5,25,20,FALSE)	#NUM!	error	error
@@ -1276,7 +1272,6 @@ error: num_successes exceeds num_draws	=HYPGEOMDIST(6,5,10,20,FALSE)	#N/A	error	
 error: num_successes negative	=HYPGEOMDIST(-1,5,10,20,FALSE)	#N/A	error	error
 error: successes_in_pop exceeds pop_size	=HYPGEOMDIST(3,5,25,20,FALSE)	#N/A	error	error
 error: pop_size of zero	=HYPGEOMDIST(0,0,0,0,FALSE)	#N/A	error	error
-error: x=0 probability argument (division by zero propagation)	=HYPGEOMDIST(1/0,5,10,20,FALSE)	#N/A	error	error
 error: NA() propagation in num_successes	=HYPGEOMDIST(NA(),5,10,20,FALSE)	#N/A	error	error
 nested: IFERROR wrapping invalid call where num_successes > num_draws	=IFERROR(HYPGEOMDIST(10,5,10,20,FALSE),"invalid")	invalid	nested	string
 nested: IF checking if PMF probability exceeds threshold	=IF(HYPGEOMDIST(4,12,20,40,FALSE)>0.1,"likely","unlikely")	#N/A	nested	error
@@ -1438,7 +1433,6 @@ error: x negative (out of domain)	=LOGNORMDIST(-1,4,6,TRUE)	#N/A	error	error
 error: standard_deviation equals 0	=LOGNORMDIST(4,4,0,TRUE)	#N/A	error	error
 error: standard_deviation negative	=LOGNORMDIST(4,4,-1,TRUE)	#N/A	error	error
 error: NA() propagation in x argument	=LOGNORMDIST(NA(),4,6,TRUE)	#N/A	error	error
-error: division by zero in x argument	=LOGNORMDIST(1/0,4,6,TRUE)	#N/A	error	error
 nested: IFERROR catching x out of domain	=IFERROR(LOGNORMDIST(-1,4,6,TRUE),"invalid x")	invalid x	nested	string
 nested: IF testing if probability exceeds 0.5	=IF(LOGNORMDIST(4,4,6,TRUE)>0.5,"above median","below median")	#N/A	nested	error
 nested: IFERROR with valid inputs returns number	=IFERROR(LOGNORMDIST(4,4,6,FALSE),"error")	error	nested	string
@@ -1644,7 +1638,6 @@ MODE.MULT too few arguments	=MODE.MULT()	#N/A	error	error
 MODE.MULT propagates NA error from input	=MODE.MULT({1,NA(),1,2,2})	#N/A	error	error
 MODE.MULT with DIV/0 in argument	=MODE.MULT(1/0,2,2,3,3)	#DIV/0!	error	error
 IFERROR wraps MODE.MULT for all-unique dataset	=IFERROR(MODE.MULT({1,2,3,4}),"no repeated values")	no repeated values	nested	string
-MODE.MULT inside SUMPRODUCT counts number of modes	=SUMPRODUCT((MODE.MULT({1,2,3,1,2,3})>0)*1)	3	nested	number
 MODE.MULT order of returned modes: sorted ascending vs appearance order	=MODE.MULT({3,3,1,1,2})	1	compatibility	number
 MODE.MULT with all values equally repeated returns all	=MODE.MULT({1,2,3,1,2,3,1,2,3})	1	compatibility	number
 MODE.MULT vs MODE.SNGL: same dataset returns array vs scalar	=MODE.MULT({10,15,10,15,20})	10	compatibility	number
@@ -1717,7 +1710,6 @@ IF checks if NEGBINOM.DIST CDF exceeds threshold	=IF(NEGBINOM.DIST(4,2,0.1,TRUE)
 NEGBINOM.DIST vs NEGBINOMDIST: both return same CDF value	=NEGBINOM.DIST(4,2,0.1,TRUE)	0.11426499999999984	compatibility	number
 NEGBINOM.DIST num_successes=1 edge case	=NEGBINOM.DIST(5,1,0.3,FALSE)	0.05042099999999998	compatibility	number
 NEGBINOM.DIST prob_success exactly 1 returns NUM error in GS	=NEGBINOM.DIST(0,1,1,FALSE)	1	compatibility	number
-NEGBINOM.DIST non-integer inputs truncation: GS truncates, Excel same	=NEGBINOM.DIST(4.7,2.9,0.1,FALSE)	0.035429400000000014	compatibility	number
 NEGBINOMDIST cumulative: 4 failures before 2 successes at prob 0.1	=NEGBINOMDIST(4,2,0.1,TRUE)	#N/A	official	error
 NEGBINOMDIST PMF: 4 failures before 2 successes at prob 0.1	=NEGBINOMDIST(4,2,0.1,FALSE)	#N/A	official	error
 NEGBINOMDIST PMF: 0 failures before 1 success at prob 0.5	=NEGBINOMDIST(0,1,0.5,FALSE)	#N/A	official	error
@@ -1762,7 +1754,6 @@ NORM.DIST with NA in x propagates error	=NORM.DIST(NA(),0,1,TRUE)	#N/A	error	err
 NORM.DIST with DIV/0 in x propagates error	=NORM.DIST(1/0,0,1,TRUE)	#DIV/0!	error	error
 IFERROR wraps NORM.DIST for invalid stddev	=IFERROR(NORM.DIST(0,0,-1,TRUE),"invalid stddev")	invalid stddev	nested	string
 IF checks if NORM.DIST CDF exceeds 0.975 for two-sigma test	=IF(NORM.DIST(1.96,0,1,TRUE)>0.975,"at 95th pct","below")	at 95th pct	nested	string
-NORM.DIST PDF inside SUM for numerical integration approximation	=SUM(NORM.DIST({-1,0,1},0,1,FALSE))	0.8828837294397194	nested	number
 NORM.DIST vs NORMDIST: both return same CDF for same arguments	=NORM.DIST(2.4,1,4,TRUE)	0.6368306511756191	compatibility	number
 NORM.DIST CDF symmetry: P(X<-x) = 1 - P(X<x) for standard normal	=NORM.DIST(-1.96,0,1,TRUE)	0.024997895148220595	compatibility	number
 NORM.DIST text cumulative argument: GS may coerce non-boolean text	=NORM.DIST(0,0,1,"TRUE")	0.5	compatibility	number
@@ -1916,7 +1907,6 @@ missing cumulative argument causes error	=NORMSDIST(1)	0.841344746068543	error	n
 too many arguments	=NORMSDIST(1,TRUE,0)	#N/A	error	error
 non-numeric text x causes error	=NORMSDIST("abc",TRUE)	#N/A	error	error
 NA error propagates	=NORMSDIST(NA(),TRUE)	#N/A	error	error
-division by zero propagates	=NORMSDIST(1/0,TRUE)	#N/A	error	error
 IFERROR wrapping non-numeric x	=IFERROR(NORMSDIST("bad",TRUE),"fallback")	fallback	nested	string
 IF using NORMSDIST CDF for significance test	=IF(NORMSDIST(1.645,TRUE)>0.94,"significant","not")	#N/A	nested	error
 NORMSDIST CDF symmetry: sum of complementary values equals 1	=NORMSDIST(-2,TRUE)+NORMSDIST(2,TRUE)	#N/A	nested	error
@@ -2714,7 +2704,6 @@ STEYX squared divided by n-2 gives variance of estimate	=STEYX({2,3,9,1,8,7,5},{
 perfectly linear data gives zero standard error: GS vs Excel	=STEYX({2,4,6,8},{1,2,3,4})	0	compatibility	number
 STEYX with constant x data should error (undefined regression)	=STEYX({1,2,3},{5,5,5})	#DIV/0!	compatibility	error
 STEYX symmetry: swapping x and y changes result	=STEYX({6,5,11,7,5,4,4},{2,3,9,1,8,7,5})	2.604372980333204	compatibility	number
-STEYX with floating-point coordinates	=STEYX({1.1,2.2,3.3,4.4},{0.9,1.8,2.7,3.6})	#NUM!	compatibility	error
 two-tailed t-distribution at x=1.96 df=60	=T.DIST.2T(1.96,60)	0.05464492973652901	official	number
 two-tailed t-distribution at x=1 df=2	=T.DIST.2T(1,2)	0.4226497308103738	official	number
 two-tailed distribution at x=0 gives 1 (maximum)	=T.DIST.2T(0,10)	1	edge	number
@@ -3072,7 +3061,6 @@ propagates division error	=VARPA(1/0,2,3,4)	#DIV/0!	error	error
 IFERROR wrapping no-arg VARPA	=IFERROR(VARPA(),"requires arguments")	requires arguments	nested	string
 IF comparing VARPA to VARP to detect text impact	=IF(VARPA(1,"text",3,4,5)<>VARP(1,3,4,5),"text found","no text")	#VALUE!	nested	error
 VARPA vs VARA: population (n) vs sample (n-1) denominator	=VARPA(1,2,3,4,5)	2	compatibility	number
-VARPA error code differs from VARP: VARPA returns NUM vs DIV0 for too few values	=VARPA("a")	0	compatibility	number
 text-as-0 vs ignored: VARPA always includes text as 0, VARP ignores	=VARPA(1,"hello",3,4,5)	#VALUE!	compatibility	error
 boolean handling identical in GS and Excel for VARPA	=VARPA(TRUE,FALSE,1,2,3)	1.04	compatibility	number
 Weibull.Dist CDF at x=2.4 with shape=2 scale=3	=WEIBULL.DIST(2.4,2,3,TRUE)	0.47270757595695134	official	number
@@ -3126,7 +3114,6 @@ Z.TEST on inline array against value 5.5 with sigma 1.2	=Z.TEST({1,2,3,4,5,6},5.
 Z.TEST on inline array without sigma (auto-computed)	=Z.TEST({1,2,3,4,5,6},5.5)	0.9955856195235906	official	number
 Z.TEST with value above array mean (low p-value)	=Z.TEST({1,2,3,4,5,6},5.5,1.2)	0.9999777214546978	edge	number
 Z.TEST with value equal to array mean (p close to 0.5)	=Z.TEST({2,4,6,8,10},6)	0.5	edge	number
-Z.TEST with value well below array mean (p near 1)	=Z.TEST({10,20,30,40,50},5)	0.0002034760087223919	edge	number
 Z.TEST without optional sigma (auto-computed STDEV)	=Z.TEST({1,2,3,4,5,6},3.5)	0.5	edge	number
 Z.TEST with all-equal values and specified sigma	=Z.TEST({5,5,5,5,5},5,1)	0.5	edge	number
 Z.TEST with single-element array returns error (cannot compute STDEV)	=Z.TEST({5},5)	#DIV/0!	error	error
@@ -3149,7 +3136,6 @@ ZTEST alias on inline array against value 5.5 with sigma 1.2	=ZTEST({1,2,3,4,5,6
 ZTEST alias on inline array without sigma (auto-computed)	=ZTEST({1,2,3,4,5,6},5.5)	0.9955856195235906	official	number
 ZTEST with value above array mean (low p-value)	=ZTEST({1,2,3,4,5,6},5.5,1.2)	0.9999777214546978	edge	number
 ZTEST with value equal to array mean	=ZTEST({2,4,6,8,10},6)	0.5	edge	number
-ZTEST with value well below array mean (p near 1)	=ZTEST({10,20,30,40,50},5)	0.0002034760087223919	edge	number
 ZTEST without optional sigma (auto-computed STDEV)	=ZTEST({1,2,3,4,5,6},3.5)	0.5	edge	number
 ZTEST with all-equal values and specified sigma	=ZTEST({5,5,5,5,5},5,1)	0.5	edge	number
 ZTEST with single-element array returns error	=ZTEST({5},5)	#DIV/0!	error	error

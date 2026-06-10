@@ -2632,3 +2632,4 @@ SHEET returns current sheet number	=SHEET()	14	official	number
 SHEET() returns current sheet number	=SHEET()	14	edge	number
 SHEET result used in arithmetic	=SHEET()*1	14	nested	number
 SHEET inside IF	=IF(SHEET()=1,"first sheet","other")	other	nested	string
+STEYX with floating-point coordinates	=STEYX({1.1,2.2,3.3,4.4},{0.9,1.8,2.7,3.6})	#NUM!	compatibility	error
