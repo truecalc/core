@@ -1,0 +1,29 @@
+{
+  "id": "recalc_after_edit",
+  "category": "recalc-after-edit",
+  "description": "An initial workbook with a dependency chain, then an edit script: set Data!A1, retarget a named range, set a downstream cell to a formula, and clear a cell. Each step records the full recalced grid.",
+  "workbook": {
+    "engine": "sheets",
+    "sheets": [
+      {
+        "name": "Data",
+        "cells": { "A1": 10, "A2": 20, "B1": "=A1+A2" }
+      },
+      {
+        "name": "Calc",
+        "cells": {
+          "A1": "=Data!B1*2",
+          "A2": "=Rate",
+          "A3": "=Data!A1"
+        }
+      }
+    ],
+    "names": [ { "name": "Rate", "ref": "Data!A1" } ]
+  },
+  "edits": [
+    { "sheet": "Data", "cell": "A1", "input": 99 },
+    { "defineName": { "name": "Rate", "ref": "Data!A2" } },
+    { "sheet": "Calc", "cell": "A4", "input": "=Data!A1+Data!A2" },
+    { "sheet": "Data", "cell": "A2", "clear": true }
+  ]
+}

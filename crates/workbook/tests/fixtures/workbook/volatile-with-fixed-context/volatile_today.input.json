@@ -1,0 +1,21 @@
+{
+  "id": "volatile_today",
+  "category": "volatile-with-fixed-context",
+  "description": "Volatile date functions (TODAY/NOW) evaluated under the pinned en_US / Etc/GMT context. The recorded serials are only meaningful together with meta.evaluatedAt from the same run.",
+  "workbook": {
+    "engine": "sheets",
+    "sheets": [
+      {
+        "name": "S",
+        "cells": {
+          "A1": "=TODAY()",
+          "A2": "=ISDATE(TODAY())",
+          "A3": "=TODAY()-TODAY()",
+          "A4": "=N(TODAY())",
+          "A5": "=YEAR(TODAY())"
+        }
+      }
+    ],
+    "names": []
+  }
+}

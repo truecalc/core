@@ -1,0 +1,41 @@
+{
+  "id": "cross_sheet_basic",
+  "category": "cross-sheet",
+  "description": "Cross-sheet references: a Calc sheet reads cells and ranges on a Data sheet (incl. a quoted-name sheet), and a missing-sheet ref produces #REF!.",
+  "workbook": {
+    "engine": "sheets",
+    "sheets": [
+      {
+        "name": "Data",
+        "cells": {
+          "A1": 10,
+          "A2": 20,
+          "A3": 30,
+          "B1": "=A1*2",
+          "C1": "hello",
+          "D1": true
+        }
+      },
+      {
+        "name": "Quoted Name",
+        "cells": { "A1": 100, "A2": 200, "A3": 300 }
+      },
+      {
+        "name": "Calc",
+        "cells": {
+          "A1": "=Data!A1",
+          "A2": "=Data!A1+Data!B1",
+          "A3": "=SUM(Data!A1:A3)",
+          "A4": "=AVERAGE(Data!A1:A3)",
+          "A5": "='Quoted Name'!A1",
+          "A6": "=SUM('Quoted Name'!A1:A3)",
+          "A7": "=Data!C1",
+          "A8": "=Data!D1",
+          "A9": "=IF(Data!A1>5,\"big\",\"small\")",
+          "A10": "=MissingSheet!A1"
+        }
+      }
+    ],
+    "names": []
+  }
+}

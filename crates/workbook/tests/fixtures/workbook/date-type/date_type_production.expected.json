@@ -1,0 +1,68 @@
+{
+  "id": "date_type_production",
+  "engine": "sheets",
+  "meta": {
+    "locale": "en_US",
+    "timezone": "Etc/GMT",
+    "evaluatedAt": "2026-06-08T18:44:54.307Z"
+  },
+  "steps": [
+    {
+      "label": "initial",
+      "grid": {
+        "S": {
+          "A1": {
+            "value": "46180",
+            "type": "date",
+            "serial": 46180
+          },
+          "A2": {
+            "value": "46181",
+            "type": "date",
+            "serial": 46181
+          },
+          "A3": {
+            "value": "6",
+            "type": "number",
+            "serial": null
+          },
+          "A4": {
+            "value": "46180",
+            "type": "number",
+            "serial": null
+          },
+          "A5": {
+            "value": "2026-06-07",
+            "type": "string",
+            "serial": null
+          },
+          "A6": {
+            "value": "46203",
+            "type": "date",
+            "serial": 46203
+          },
+          "A7": {
+            "value": "46180",
+            "type": "number",
+            "serial": null
+          },
+          "A8": {
+            "value": "TRUE",
+            "type": "boolean",
+            "serial": null
+          },
+          "B1": {
+            "value": "46180",
+            "type": "date",
+            "serial": 46180
+          },
+          "B2": {
+            "value": "46180",
+            "type": "date",
+            "serial": 46180
+          }
+        }
+      }
+    }
+  ]
+}

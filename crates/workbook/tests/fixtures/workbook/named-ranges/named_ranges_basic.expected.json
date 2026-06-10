@@ -1,0 +1,122 @@
+{
+  "id": "named_ranges_basic",
+  "engine": "sheets",
+  "meta": {
+    "locale": "en_US",
+    "timezone": "Etc/GMT",
+    "evaluatedAt": "2026-06-08T18:45:02.054Z"
+  },
+  "steps": [
+    {
+      "label": "initial",
+      "grid": {
+        "Calc": {
+          "A1": {
+            "value": "0.0825",
+            "type": "number",
+            "serial": null
+          },
+          "A2": {
+            "value": "8.25",
+            "type": "number",
+            "serial": null
+          },
+          "A3": {
+            "value": "60",
+            "type": "number",
+            "serial": null
+          },
+          "A4": {
+            "value": "20",
+            "type": "number",
+            "serial": null
+          },
+          "A5": {
+            "value": "30",
+            "type": "number",
+            "serial": null
+          },
+          "A6": {
+            "value": "10",
+            "type": "number",
+            "serial": null
+          },
+          "A7": {
+            "value": "2",
+            "type": "number",
+            "serial": null
+          },
+          "A8": {
+            "value": "300",
+            "type": "number",
+            "serial": null
+          },
+          "A9": {
+            "value": "20",
+            "type": "number",
+            "serial": null
+          },
+          "A10": {
+            "value": "#NAME?",
+            "type": "error",
+            "serial": null
+          }
+        },
+        "Data": {
+          "A1": {
+            "value": "0.0825",
+            "type": "number",
+            "serial": null
+          },
+          "B1": {
+            "value": "10",
+            "type": "number",
+            "serial": null
+          },
+          "B2": {
+            "value": "20",
+            "type": "number",
+            "serial": null
+          },
+          "B3": {
+            "value": "30",
+            "type": "number",
+            "serial": null
+          },
+          "C1": {
+            "value": "1",
+            "type": "number",
+            "serial": null
+          },
+          "C2": {
+            "value": "2",
+            "type": "number",
+            "serial": null
+          },
+          "D1": {
+            "value": "3",
+            "type": "number",
+            "serial": null
+          },
+          "D2": {
+            "value": "4",
+            "type": "number",
+            "serial": null
+          }
+        },
+        "Quoted Name": {
+          "A1": {
+            "value": "100",
+            "type": "number",
+            "serial": null
+          },
+          "A2": {
+            "value": "200",
+            "type": "number",
+            "serial": null
+          }
+        }
+      }
+    }
+  ]
+}
