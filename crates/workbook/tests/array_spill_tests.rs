@@ -277,6 +277,24 @@ fn replacing_a_spill_anchor_with_a_scalar_clears_the_whole_spill() {
     assert!(wb.resolved("Sheet1", a1("B1")).is_none());
 }
 
+#[test]
+fn sum_over_range_overlapping_spill_does_not_double_count() {
+    // Regression for issue #594: A1 spills {10,20,30} into A1:C1. A SUM over
+    // A1:C1 must return 60 (10+20+30), not 110 (10+20+30+20+30 — double-count
+    // from the anchor returning the full array while spilled cells also contribute).
+    let mut wb = wb();
+    wb.set("Sheet1", a1("A1"), CellInput::Formula("={10,20,30}".into()))
+        .unwrap();
+    wb.set("Sheet1", a1("E1"), CellInput::Formula("=SUM(A1:C1)".into()))
+        .unwrap();
+    wb.recalc(&ctx());
+    assert_eq!(
+        wb.get("Sheet1", a1("E1")).unwrap().value(),
+        &num(60.0),
+        "SUM(A1:C1) over a 1x3 spill anchor must return 60, not 110"
+    );
+}
+
 /// 1-based column index to A1 letters (mirrors the address module's encoding).
 fn col_to_letters(mut col: u32) -> String {
     let mut out = Vec::new();
