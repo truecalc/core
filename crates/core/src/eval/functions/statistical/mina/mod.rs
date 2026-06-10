@@ -12,17 +12,33 @@ pub fn mina_fn(args: &[Value]) -> Value {
     }
     let mut result: Option<f64> = None;
     for arg in args {
-        let n = match arg {
-            Value::Number(n) => *n,
-            Value::Bool(b)   => if *b { 1.0 } else { 0.0 },
-            Value::Text(_)   => return Value::Error(ErrorKind::Value),
-            Value::Empty     => continue,
-            _                => continue,
-        };
-        result = Some(match result {
-            None      => n,
-            Some(cur) => cur.min(n),
-        });
+        match arg {
+            Value::Number(n) => {
+                result = Some(result.map_or(*n, |cur: f64| cur.min(*n)));
+            }
+            Value::Bool(b) => {
+                let n = if *b { 1.0 } else { 0.0 };
+                result = Some(result.map_or(n, |cur: f64| cur.min(n)));
+            }
+            Value::Text(_) => return Value::Error(ErrorKind::Value),
+            Value::Empty => {}
+            Value::Array(inner) => {
+                // In array context: Numbers included, Bool→1/0, Text→0, Empty→skip
+                for v in inner {
+                    let n = match v {
+                        Value::Number(n) => *n,
+                        Value::Bool(b) => if *b { 1.0 } else { 0.0 },
+                        Value::Text(_) => 0.0,
+                        Value::Empty => continue,
+                        Value::Error(e) => return Value::Error(e.clone()),
+                        _ => continue,
+                    };
+                    result = Some(result.map_or(n, |cur: f64| cur.min(n)));
+                }
+            }
+            Value::Error(e) => return Value::Error(e.clone()),
+            _ => {}
+        }
     }
     match result {
         Some(n) => Value::Number(n),

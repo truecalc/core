@@ -28,8 +28,8 @@ fn covariance_p_unequal_lengths_returns_na() {
 }
 
 #[test]
-fn covariance_p_empty_arrays_returns_div_zero() {
+fn covariance_p_empty_arrays_returns_ref() {
     let arr1 = Value::Array(vec![]);
     let arr2 = Value::Array(vec![]);
-    assert_eq!(covariance_p_fn(&[arr1, arr2]), Value::Error(ErrorKind::DivByZero));
+    assert_eq!(covariance_p_fn(&[arr1, arr2]), Value::Error(ErrorKind::Ref));
 }

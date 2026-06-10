@@ -15,9 +15,9 @@ fn all_empty_returns_div_zero() {
 }
 
 #[test]
-fn direct_text_arg_returns_value_error() {
+fn direct_error_propagates() {
     assert_eq!(
-        averagea_fn(&[Value::Text("text".to_string()), Value::Number(1.0)]),
-        Value::Error(ErrorKind::Value)
+        averagea_fn(&[Value::Error(crate::types::ErrorKind::Value)]),
+        Value::Error(crate::types::ErrorKind::Value)
     );
 }

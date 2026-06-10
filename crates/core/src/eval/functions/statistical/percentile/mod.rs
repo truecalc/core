@@ -1,6 +1,6 @@
 use crate::eval::functions::check_arity;
 use crate::types::{ErrorKind, Value};
-use super::percentile_inc::{percentile_inc_calc, collect_numbers};
+use super::percentile_inc::{percentile_inc_calc, collect_numbers_checked};
 
 /// `PERCENTILE(array, k)` — k-th percentile (inclusive, same as PERCENTILE.INC).
 pub fn percentile_fn(args: &[Value]) -> Value {
@@ -14,7 +14,10 @@ pub fn percentile_fn(args: &[Value]) -> Value {
     if !(0.0..=1.0).contains(&k) {
         return Value::Error(ErrorKind::Num);
     }
-    let mut nums = collect_numbers(&args[0]);
+    let mut nums = match collect_numbers_checked(&args[0]) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
     if nums.is_empty() {
         return Value::Error(ErrorKind::Num);
     }

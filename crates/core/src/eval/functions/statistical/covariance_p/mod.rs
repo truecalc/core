@@ -1,21 +1,18 @@
 use crate::types::{ErrorKind, Value};
-use super::stat_helpers::collect_nums;
+use super::stat_helpers::collect_paired;
 
 /// `COVARIANCE.P(array1, array2)` — population covariance of two arrays.
-/// Requires exactly 2 args of equal non-zero length. Returns `#N/A` if lengths differ.
-/// Returns `#DIV/0!` if arrays are empty.
 pub fn covariance_p_fn(args: &[Value]) -> Value {
     if args.len() != 2 {
         return Value::Error(ErrorKind::NA);
     }
-    let xs = collect_nums(std::slice::from_ref(&args[0]));
-    let ys = collect_nums(std::slice::from_ref(&args[1]));
-    if xs.len() != ys.len() {
-        return Value::Error(ErrorKind::NA);
-    }
+    let (xs, ys) = match collect_paired(&args[0], &args[1]) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
     let n = xs.len();
     if n == 0 {
-        return Value::Error(ErrorKind::DivByZero);
+        return Value::Error(ErrorKind::Ref);
     }
     let mean_x = xs.iter().sum::<f64>() / n as f64;
     let mean_y = ys.iter().sum::<f64>() / n as f64;

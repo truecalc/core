@@ -20,7 +20,7 @@ pub fn counta_fn(args: &[Value]) -> Value {
 
 // ── Lazy versions (registered) ────────────────────────────────────────────────
 
-/// Lazy COUNT: counts Numbers, Booleans, and numeric Text; ignores errors/empty.
+/// Lazy COUNT: in direct args counts Numbers, Bool, numeric Text; in arrays counts only Numbers.
 /// Returns #N/A when called with no arguments.
 pub fn count_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     if args.is_empty() {
@@ -28,21 +28,33 @@ pub fn count_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     }
     let mut n = 0usize;
     for arg in args {
-        count_numeric(&evaluate_expr(arg, ctx), &mut n);
+        count_direct(&evaluate_expr(arg, ctx), &mut n);
     }
     Value::Number(n as f64)
 }
 
-fn count_numeric(v: &Value, n: &mut usize) {
+fn count_direct(v: &Value, n: &mut usize) {
     match v {
         Value::Array(elems) => {
             for elem in elems {
-                count_numeric(elem, n);
+                count_in_array(elem, n);
             }
         }
         Value::Number(_) => *n += 1,
         Value::Bool(_) => *n += 1,
         Value::Text(s) if s.parse::<f64>().is_ok() => *n += 1,
+        _ => {}
+    }
+}
+
+fn count_in_array(v: &Value, n: &mut usize) {
+    match v {
+        Value::Array(elems) => {
+            for elem in elems {
+                count_in_array(elem, n);
+            }
+        }
+        Value::Number(_) => *n += 1,
         _ => {}
     }
 }

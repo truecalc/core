@@ -1,22 +1,15 @@
 use crate::types::{ErrorKind, Value};
-use super::stat_helpers::collect_nums;
+use super::stat_helpers::collect_nums_direct;
 use super::var_p::pop_variance;
 
-/// `STDEV.P(value1, ...)` — population standard deviation: sqrt(population variance).
-/// Requires n≥1. Returns `#DIV/0!` if no numeric values.
+/// `STDEV.P(value1, ...)` — population standard deviation.
 pub fn stdev_p_fn(args: &[Value]) -> Value {
-    if args.is_empty() {
-        return Value::Error(ErrorKind::NA);
-    }
-    let nums = collect_nums(args);
+    if args.is_empty() { return Value::Error(ErrorKind::NA); }
+    let nums = match collect_nums_direct(args) { Ok(v) => v, Err(e) => return e };
     match pop_variance(&nums) {
         Value::Number(v) => {
             let s = v.sqrt();
-            if !s.is_finite() {
-                Value::Error(ErrorKind::Num)
-            } else {
-                Value::Number(s)
-            }
+            if s.is_finite() { Value::Number(s) } else { Value::Error(ErrorKind::Num) }
         }
         other => other,
     }

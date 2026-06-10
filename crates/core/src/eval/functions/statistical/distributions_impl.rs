@@ -5,7 +5,7 @@
 #![allow(clippy::manual_range_contains)]
 
 use crate::types::{ErrorKind, Value};
-use super::stat_helpers::collect_nums;
+use super::stat_helpers::{collect_nums, collect_paired};
 use super::distributions as d;
 
 // ---------------------------------------------------------------------------
@@ -15,11 +15,15 @@ fn as_bool(v: &Value) -> Option<bool> {
     match v {
         Value::Bool(b) => Some(*b),
         Value::Number(n) => Some(*n != 0.0),
-        Value::Text(s) => match s.to_uppercase().as_str() {
-            "TRUE" => Some(true),
-            "FALSE" => Some(false),
-            _ => None,
-        },
+        Value::Text(s) => {
+            let t = s.trim();
+            if t.is_empty() { return Some(false); }
+            match t.to_uppercase().as_str() {
+                "TRUE" => Some(true),
+                "FALSE" => Some(false),
+                _ => None,
+            }
+        }
         _ => None,
     }
 }
@@ -28,49 +32,107 @@ fn as_f64(v: &Value) -> Option<f64> {
     match v {
         Value::Number(n) => Some(*n),
         Value::Bool(b) => Some(if *b { 1.0 } else { 0.0 }),
+        Value::Text(s) => {
+            let t = s.trim();
+            if t.is_empty() { return Some(0.0); }
+            t.parse::<f64>().ok().filter(|n| n.is_finite())
+        }
         _ => None,
     }
 }
+
 
 // ---------------------------------------------------------------------------
 // AVERAGE.WEIGHTED
 // ---------------------------------------------------------------------------
 pub fn average_weighted_fn(args: &[Value]) -> Value {
+    // AVERAGE.WEIGHTED(values1, weights1, [values2, weights2, ...])
+    // Args come in value/weight pairs. Bool weights -> #VALUE!. Negative weights -> #VALUE!.
+    // Mismatched sizes -> #VALUE!.
     if args.len() < 2 {
         return Value::Error(ErrorKind::NA);
     }
-    let values = collect_nums(std::slice::from_ref(&args[0]));
-    let weights = collect_nums(std::slice::from_ref(&args[1]));
-    if values.is_empty() || values.len() != weights.len() {
+    if !args.len().is_multiple_of(2) {
         return Value::Error(ErrorKind::NA);
     }
-    let total_weight: f64 = weights.iter().sum();
+    let mut weighted_sum = 0.0_f64;
+    let mut total_weight = 0.0_f64;
+    let mut i = 0;
+    while i + 1 < args.len() {
+        let val_arg = &args[i];
+        let wt_arg = &args[i + 1];
+        let vals = collect_nums(std::slice::from_ref(val_arg));
+        let wts = match collect_weights_arg(wt_arg) {
+            Ok(v) => v,
+            Err(e) => return e,
+        };
+        if vals.len() != wts.len() {
+            return Value::Error(ErrorKind::Value);
+        }
+        for &w in &wts {
+            if w < 0.0 {
+                return Value::Error(ErrorKind::Value);
+            }
+        }
+        for (&v, &w) in vals.iter().zip(wts.iter()) {
+            weighted_sum += v * w;
+            total_weight += w;
+        }
+        i += 2;
+    }
     if total_weight == 0.0 {
         return Value::Error(ErrorKind::DivByZero);
     }
-    let weighted_sum: f64 = values.iter().zip(weights.iter()).map(|(v, w)| v * w).sum();
     Value::Number(weighted_sum / total_weight)
+}
+
+fn collect_weights_arg(arg: &Value) -> Result<Vec<f64>, Value> {
+    match arg {
+        Value::Number(n) => Ok(vec![*n]),
+        Value::Date(n) => Ok(vec![*n]),
+        Value::Bool(_) => Err(Value::Error(ErrorKind::Value)),
+        Value::Text(s) => match s.trim().parse::<f64>() {
+            Ok(v) if v.is_finite() => Ok(vec![v]),
+            _ => Err(Value::Error(ErrorKind::Value)),
+        },
+        Value::Empty => Ok(vec![]),
+        Value::Error(e) => Err(Value::Error(e.clone())),
+        Value::Array(inner) => {
+            let mut out = Vec::new();
+            for item in inner {
+                match item {
+                    Value::Number(n) => out.push(*n),
+                    Value::Date(n) => out.push(*n),
+                    Value::Bool(_) => return Err(Value::Error(ErrorKind::Value)),
+                    Value::Text(_) | Value::Empty => {}
+                    Value::Error(e) => return Err(Value::Error(e.clone())),
+                    Value::Array(_) => {}
+                }
+            }
+            Ok(out)
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
 // NORM.S.DIST / NORMSDIST
 // ---------------------------------------------------------------------------
 pub fn norm_s_dist_fn(args: &[Value]) -> Value {
-    if args.is_empty() {
+    if args.is_empty() || args.len() > 2 {
         return Value::Error(ErrorKind::NA);
     }
     let x = match as_f64(&args[0]) {
         Some(v) => v,
         None => return Value::Error(ErrorKind::Value),
     };
-    // Second arg: cumulative (optional, default TRUE for NORMSDIST compatibility)
+    // cumulative defaults to TRUE when omitted (1-arg form)
     let cumulative = if args.len() >= 2 {
         match as_bool(&args[1]) {
             Some(b) => b,
             None => return Value::Error(ErrorKind::Value),
         }
     } else {
-        true // NORMSDIST legacy form has only one arg
+        true
     };
     if cumulative {
         Value::Number(d::norm_s_cdf(x))
@@ -79,9 +141,12 @@ pub fn norm_s_dist_fn(args: &[Value]) -> Value {
     }
 }
 
-// NORMSDIST (legacy, always cumulative)
+// NORMSDIST (legacy, always cumulative, exactly 1 arg)
 pub fn normsdist_fn(args: &[Value]) -> Value {
     if args.is_empty() {
+        return Value::Error(ErrorKind::NA);
+    }
+    if args.len() > 1 {
         return Value::Error(ErrorKind::NA);
     }
     let x = match as_f64(&args[0]) {
@@ -96,6 +161,9 @@ pub fn normsdist_fn(args: &[Value]) -> Value {
 // ---------------------------------------------------------------------------
 pub fn norm_s_inv_fn(args: &[Value]) -> Value {
     if args.is_empty() {
+        return Value::Error(ErrorKind::NA);
+    }
+    if args.len() > 1 {
         return Value::Error(ErrorKind::NA);
     }
     let p = match as_f64(&args[0]) {
@@ -170,6 +238,9 @@ pub fn gauss_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);
     }
+    if args.len() > 1 {
+        return Value::Error(ErrorKind::NA);
+    }
     let x = match as_f64(&args[0]) {
         Some(v) => v,
         None => return Value::Error(ErrorKind::Value),
@@ -184,6 +255,9 @@ pub fn phi_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);
     }
+    if args.len() > 1 {
+        return Value::Error(ErrorKind::NA);
+    }
     let x = match as_f64(&args[0]) {
         Some(v) => v,
         None => return Value::Error(ErrorKind::Value),
@@ -196,6 +270,9 @@ pub fn phi_fn(args: &[Value]) -> Value {
 // ---------------------------------------------------------------------------
 pub fn standardize_fn(args: &[Value]) -> Value {
     if args.len() < 3 {
+        return Value::Error(ErrorKind::NA);
+    }
+    if args.len() > 3 {
         return Value::Error(ErrorKind::NA);
     }
     let x = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
@@ -216,7 +293,7 @@ pub fn confidence_fn(args: &[Value]) -> Value {
     }
     let alpha = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
     let stdev = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let size = match as_f64(&args[2]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let size = match as_f64(&args[2]) { Some(v) => v.trunc(), None => return Value::Error(ErrorKind::Value) };
     if alpha <= 0.0 || alpha >= 1.0 || stdev <= 0.0 || size < 1.0 {
         return Value::Error(ErrorKind::Num);
     }
@@ -233,7 +310,7 @@ pub fn confidence_t_fn(args: &[Value]) -> Value {
     }
     let alpha = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
     let stdev = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let size = match as_f64(&args[2]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let size = match as_f64(&args[2]) { Some(v) => v.trunc(), None => return Value::Error(ErrorKind::Value) };
     if alpha <= 0.0 || alpha >= 1.0 || stdev <= 0.0 || size < 2.0 {
         return Value::Error(ErrorKind::Num);
     }
@@ -249,13 +326,15 @@ pub fn confidence_t_fn(args: &[Value]) -> Value {
 // CORREL / PEARSON
 // ---------------------------------------------------------------------------
 fn correl_impl(args: &[Value]) -> Value {
-    if args.len() < 2 {
+    if args.len() < 2 || args.len() > 2 {
         return Value::Error(ErrorKind::NA);
     }
-    let xs = collect_nums(std::slice::from_ref(&args[0]));
-    let ys = collect_nums(std::slice::from_ref(&args[1]));
-    if xs.len() != ys.len() || xs.len() < 2 {
-        return Value::Error(ErrorKind::NA);
+    let (xs, ys) = match collect_paired(&args[0], &args[1]) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
+    if xs.len() < 2 {
+        return Value::Error(ErrorKind::DivByZero);
     }
     match d::pearson_corr(&xs, &ys) {
         Some(r) => {
@@ -281,11 +360,11 @@ pub fn pearson_fn(args: &[Value]) -> Value {
 // Linear regression: SLOPE, INTERCEPT, RSQ, FORECAST, FORECAST.LINEAR, STEYX
 // ---------------------------------------------------------------------------
 fn get_two_arrays(args: &[Value]) -> Result<(Vec<f64>, Vec<f64>), Value> {
-    if args.len() < 2 {
+    if args.len() < 2 || args.len() > 2 {
         return Err(Value::Error(ErrorKind::NA));
     }
-    let ys = collect_nums(std::slice::from_ref(&args[0]));
-    let xs = collect_nums(std::slice::from_ref(&args[1]));
+    // args[0] = known_y, args[1] = known_x; paired deletion semantics
+    let (xs, ys) = collect_paired(&args[1], &args[0])?;
     Ok((xs, ys))
 }
 
@@ -294,7 +373,7 @@ pub fn slope_fn(args: &[Value]) -> Value {
         Ok(v) => v,
         Err(e) => return e,
     };
-    if xs.len() != ys.len() || xs.is_empty() {
+    if xs.is_empty() {
         return Value::Error(ErrorKind::NA);
     }
     match d::linear_regression(&xs, &ys) {
@@ -308,7 +387,7 @@ pub fn intercept_fn(args: &[Value]) -> Value {
         Ok(v) => v,
         Err(e) => return e,
     };
-    if xs.len() != ys.len() || xs.is_empty() {
+    if xs.is_empty() {
         return Value::Error(ErrorKind::NA);
     }
     match d::linear_regression(&xs, &ys) {
@@ -318,14 +397,18 @@ pub fn intercept_fn(args: &[Value]) -> Value {
 }
 
 pub fn rsq_fn(args: &[Value]) -> Value {
-    if args.len() < 2 {
+    if args.len() < 2 || args.len() > 2 {
         return Value::Error(ErrorKind::NA);
     }
-    // RSQ takes (known_y, known_x)
-    let ys = collect_nums(std::slice::from_ref(&args[0]));
-    let xs = collect_nums(std::slice::from_ref(&args[1]));
-    if xs.len() != ys.len() || xs.len() < 2 {
+    let (xs, ys) = match collect_paired(&args[1], &args[0]) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
+    if xs.is_empty() {
         return Value::Error(ErrorKind::NA);
+    }
+    if xs.len() < 2 {
+        return Value::Error(ErrorKind::DivByZero);
     }
     match d::pearson_corr(&xs, &ys) {
         Some(r) => {
@@ -347,10 +430,12 @@ fn forecast_impl(args: &[Value]) -> Value {
         Some(v) => v,
         None => return Value::Error(ErrorKind::Value),
     };
-    let ys = collect_nums(std::slice::from_ref(&args[1]));
-    let xs = collect_nums(std::slice::from_ref(&args[2]));
-    if xs.len() != ys.len() || xs.is_empty() {
-        return Value::Error(ErrorKind::NA);
+    let (xs, ys) = match collect_paired(&args[2], &args[1]) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
+    if xs.is_empty() {
+        return Value::Error(ErrorKind::DivByZero);
     }
     match d::linear_regression(&xs, &ys) {
         Some((slope, intercept)) => Value::Number(slope * x + intercept),
@@ -372,8 +457,11 @@ pub fn steyx_fn(args: &[Value]) -> Value {
         Err(e) => return e,
     };
     let n = xs.len();
-    if n != ys.len() || n < 3 {
+    if n == 0 {
         return Value::Error(ErrorKind::NA);
+    }
+    if n < 3 {
+        return Value::Error(ErrorKind::DivByZero);
     }
     let nf = n as f64;
     let mean_x = xs.iter().sum::<f64>() / nf;
@@ -384,11 +472,12 @@ pub fn steyx_fn(args: &[Value]) -> Value {
     if ss_xx == 0.0 {
         return Value::Error(ErrorKind::DivByZero);
     }
-    let se2 = (ss_yy - ss_xy * ss_xy / ss_xx) / (nf - 2.0);
-    if se2 < 0.0 {
-        return Value::Number(0.0);
+    let sse = ss_yy - ss_xy * ss_xy / ss_xx;
+    let se2 = sse / (nf - 2.0);
+    if se2 < -1e-10 {
+        return Value::Error(ErrorKind::Num);
     }
-    Value::Number(se2.sqrt())
+    Value::Number(se2.max(0.0).sqrt())
 }
 
 // ---------------------------------------------------------------------------
@@ -399,12 +488,13 @@ pub fn chisq_dist_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let x = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df_raw = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df = df_raw.trunc();
     let cumulative = match as_bool(&args[2]) {
         Some(b) => b,
         None => return Value::Error(ErrorKind::Value),
     };
-    if x < 0.0 || df < 1.0 {
+    if x < 0.0 || df < 1.0 || df > 1e10 {
         return Value::Error(ErrorKind::Num);
     }
     if cumulative {
@@ -420,8 +510,9 @@ pub fn chisq_dist_rt_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let x = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    if x < 0.0 || df < 1.0 {
+    let df_raw = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df = df_raw.trunc();
+    if x < 0.0 || df < 1.0 || df > 1e10 {
         return Value::Error(ErrorKind::Num);
     }
     Value::Number(1.0 - d::chisq_cdf(x, df))
@@ -433,8 +524,9 @@ pub fn chidist_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let x = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    if x < 0.0 || df < 1.0 {
+    let df_raw = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df = df_raw.trunc();
+    if x < 0.0 || df < 1.0 || df > 1e10 {
         return Value::Error(ErrorKind::Num);
     }
     Value::Number(1.0 - d::chisq_cdf(x, df))
@@ -448,8 +540,8 @@ pub fn chisq_inv_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let p = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    if p < 0.0 || p > 1.0 || df < 1.0 {
+    let df = match as_f64(&args[1]) { Some(v) => v.trunc(), None => return Value::Error(ErrorKind::Value) };
+    if p < 0.0 || p > 1.0 || df < 1.0 || df > 1e10 {
         return Value::Error(ErrorKind::Num);
     }
     let v = d::chisq_inv(p, df);
@@ -466,8 +558,9 @@ pub fn chisq_inv_rt_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let p = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    if p < 0.0 || p > 1.0 || df < 1.0 {
+    let df_raw = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df = df_raw.trunc();
+    if p < 0.0 || p > 1.0 || df < 1.0 || df > 1e10 {
         return Value::Error(ErrorKind::Num);
     }
     let v = d::chisq_inv(1.0 - p, df);
@@ -486,27 +579,102 @@ pub fn chiinv_fn(args: &[Value]) -> Value {
 // ---------------------------------------------------------------------------
 // CHISQ.TEST / CHITEST
 // ---------------------------------------------------------------------------
+fn flatten_values_for_chisq(v: &Value) -> Vec<Value> {
+    match v {
+        Value::Array(inner) => {
+            let mut out = Vec::new();
+            flatten_chisq_into(inner, &mut out);
+            out
+        }
+        other => vec![other.clone()],
+    }
+}
+
+fn flatten_chisq_into(arr: &[Value], out: &mut Vec<Value>) {
+    for v in arr {
+        match v {
+            Value::Array(inner) => flatten_chisq_into(inner, out),
+            other => out.push(other.clone()),
+        }
+    }
+}
+
+fn chisq_array_dims(v: &Value) -> (usize, usize) {
+    match v {
+        Value::Array(outer) => {
+            if outer.is_empty() { return (0, 0); }
+            let is_2d = outer.iter().any(|e| matches!(e, Value::Array(_)));
+            if is_2d {
+                let rows = outer.len();
+                let cols = outer.iter().map(|r| if let Value::Array(c) = r { c.len() } else { 1 }).max().unwrap_or(0);
+                (rows, cols)
+            } else {
+                (1, outer.len())
+            }
+        }
+        _ => (1, 1),
+    }
+}
+
 fn chisq_test_impl(args: &[Value]) -> Value {
-    if args.len() < 2 {
+    if args.len() < 2 || args.len() > 2 {
         return Value::Error(ErrorKind::NA);
     }
-    let observed = collect_nums(std::slice::from_ref(&args[0]));
-    let expected = collect_nums(std::slice::from_ref(&args[1]));
-    if observed.len() != expected.len() || observed.is_empty() {
+
+    let obs_flat = flatten_values_for_chisq(&args[0]);
+    let exp_flat = flatten_values_for_chisq(&args[1]);
+
+    if obs_flat.len() != exp_flat.len() {
         return Value::Error(ErrorKind::NA);
     }
-    // Chi-squared statistic
-    let chi2: f64 = observed.iter().zip(expected.iter())
-        .map(|(o, e)| {
-            if *e == 0.0 { 0.0 } else { (o - e).powi(2) / e }
-        })
-        .sum();
-    let df = (observed.len() - 1) as f64;
-    if df <= 0.0 {
+
+    // Compute df based on array dimensions
+    let (obs_rows, obs_cols) = chisq_array_dims(&args[0]);
+    let df = if obs_rows > 1 && obs_cols > 1 {
+        // 2D contingency: df = (rows-1)*(cols-1)
+        ((obs_rows - 1) * (obs_cols - 1)) as f64
+    } else {
+        // 1D vector: df = max(1, n_valid-1) computed after filtering
+        0.0 // placeholder; will compute after filtering
+    };
+    let is_2d = obs_rows > 1 && obs_cols > 1;
+
+    // Filter pairs: Error propagates; non-numeric in either → skip pair
+    let mut chi2 = 0.0_f64;
+    let mut n_valid = 0usize;
+    for (o_val, e_val) in obs_flat.iter().zip(exp_flat.iter()) {
+        if let Value::Error(e) = o_val { return Value::Error(e.clone()); }
+        if let Value::Error(e) = e_val { return Value::Error(e.clone()); }
+        let o = match o_val {
+            Value::Number(n) => *n,
+            _ => continue, // skip non-numeric observed
+        };
+        let e = match e_val {
+            Value::Number(n) => *n,
+            _ => continue, // skip non-numeric expected
+        };
+        if e < 0.0 {
+            return Value::Error(ErrorKind::Num);
+        }
+        if e == 0.0 {
+            return Value::Error(ErrorKind::DivByZero);
+        }
+        chi2 += (o - e).powi(2) / e;
+        n_valid += 1;
+    }
+
+    let effective_df = if is_2d {
+        df
+    } else {
+        // 1D: df = max(1, n_valid-1)
+        (n_valid.saturating_sub(1)).max(1) as f64
+    };
+
+    if effective_df <= 0.0 || n_valid == 0 {
         return Value::Error(ErrorKind::DivByZero);
     }
-    // Return right-tail p-value
-    Value::Number(1.0 - d::chisq_cdf(chi2, df))
+
+    Value::Number(1.0 - d::chisq_cdf(chi2, effective_df))
 }
 
 pub fn chisq_test_fn(args: &[Value]) -> Value {
@@ -525,7 +693,7 @@ pub fn t_dist_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let x = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df = match as_f64(&args[1]) { Some(v) => v.trunc(), None => return Value::Error(ErrorKind::Value) };
     let cumulative = match as_bool(&args[2]) {
         Some(b) => b,
         None => return Value::Error(ErrorKind::Value),
@@ -542,11 +710,11 @@ pub fn t_dist_fn(args: &[Value]) -> Value {
 
 // T.DIST.RT (right tail)
 pub fn t_dist_rt_fn(args: &[Value]) -> Value {
-    if args.len() < 2 {
+    if args.len() < 2 || args.len() > 2 {
         return Value::Error(ErrorKind::NA);
     }
     let x = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df = match as_f64(&args[1]) { Some(v) => v.trunc(), None => return Value::Error(ErrorKind::Value) };
     if df < 1.0 {
         return Value::Error(ErrorKind::Num);
     }
@@ -559,7 +727,7 @@ pub fn t_dist_2t_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let x = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df = match as_f64(&args[1]) { Some(v) => v.trunc(), None => return Value::Error(ErrorKind::Value) };
     if df < 1.0 || x < 0.0 {
         return Value::Error(ErrorKind::Num);
     }
@@ -572,7 +740,8 @@ pub fn tdist_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let x = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df_raw = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df = df_raw.trunc();
     let tails = match as_f64(&args[2]) { Some(v) => v as i64, None => return Value::Error(ErrorKind::Value) };
     if df < 1.0 || x < 0.0 {
         return Value::Error(ErrorKind::Num);
@@ -594,7 +763,7 @@ pub fn t_inv_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let p = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df = match as_f64(&args[1]) { Some(v) => v.trunc(), None => return Value::Error(ErrorKind::Value) };
     if p <= 0.0 || p >= 1.0 || df < 1.0 {
         return Value::Error(ErrorKind::Num);
     }
@@ -612,7 +781,7 @@ pub fn t_inv_2t_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let p = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df = match as_f64(&args[1]) { Some(v) => v.trunc(), None => return Value::Error(ErrorKind::Value) };
     if p <= 0.0 || p > 1.0 || df < 1.0 {
         return Value::Error(ErrorKind::Num);
     }
@@ -637,10 +806,25 @@ fn t_test_impl(args: &[Value]) -> Value {
     if args.len() < 4 {
         return Value::Error(ErrorKind::NA);
     }
+    // Propagate errors from data arrays before collecting numbers
+    for arg in &args[0..2] {
+        if let Value::Error(e) = arg { return Value::Error(e.clone()); }
+        if let Value::Array(inner) = arg {
+            for v in inner { if let Value::Error(e) = v { return Value::Error(e.clone()); } }
+        }
+    }
     let arr1 = collect_nums(std::slice::from_ref(&args[0]));
     let arr2 = collect_nums(std::slice::from_ref(&args[1]));
-    let tails = match as_f64(&args[2]) { Some(v) => v as i64, None => return Value::Error(ErrorKind::Value) };
-    let typ = match as_f64(&args[3]) { Some(v) => v as i64, None => return Value::Error(ErrorKind::Value) };
+    let tails = match as_f64(&args[2]) { Some(v) => v.trunc() as i64, None => return Value::Error(ErrorKind::Value) };
+    let typ = match as_f64(&args[3]) { Some(v) => v.trunc() as i64, None => return Value::Error(ErrorKind::Value) };
+
+    // Validate tails and type early before computing
+    if tails != 1 && tails != 2 {
+        return Value::Error(ErrorKind::Num);
+    }
+    if typ < 1 || typ > 3 {
+        return Value::Error(ErrorKind::Num);
+    }
 
     if arr1.is_empty() || arr2.is_empty() {
         return Value::Error(ErrorKind::NA);
@@ -657,13 +841,7 @@ fn t_test_impl(args: &[Value]) -> Value {
             let mean_d = diffs.iter().sum::<f64>() / n;
             let var_d = diffs.iter().map(|d| (d - mean_d).powi(2)).sum::<f64>() / (n - 1.0);
             if var_d == 0.0 {
-                // Zero variance: all differences are identical.
-                // If mean_d == 0 all pairs are equal → p = 1; else t = ±∞ → p = 0.
-                return if mean_d == 0.0 {
-                    Value::Number(1.0)
-                } else {
-                    Value::Number(0.0)
-                };
+                return Value::Error(ErrorKind::DivByZero);
             }
             let t = mean_d / (var_d / n).sqrt();
             (t, n - 1.0)
@@ -740,13 +918,13 @@ pub fn f_dist_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let x = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df1 = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df2 = match as_f64(&args[2]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df1 = match as_f64(&args[1]) { Some(v) => v.trunc(), None => return Value::Error(ErrorKind::Value) };
+    let df2 = match as_f64(&args[2]) { Some(v) => v.trunc(), None => return Value::Error(ErrorKind::Value) };
     let cumulative = match as_bool(&args[3]) {
         Some(b) => b,
         None => return Value::Error(ErrorKind::Value),
     };
-    if x < 0.0 || df1 < 1.0 || df2 < 1.0 {
+    if x < 0.0 || df1 < 1.0 || df2 < 1.0 || df1 > 1e10 || df2 > 1e10 {
         return Value::Error(ErrorKind::Num);
     }
     if cumulative {
@@ -762,9 +940,9 @@ pub fn f_dist_rt_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let x = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df1 = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df2 = match as_f64(&args[2]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    if x < 0.0 || df1 < 1.0 || df2 < 1.0 {
+    let df1 = match as_f64(&args[1]) { Some(v) => v.trunc(), None => return Value::Error(ErrorKind::Value) };
+    let df2 = match as_f64(&args[2]) { Some(v) => v.trunc(), None => return Value::Error(ErrorKind::Value) };
+    if x < 0.0 || df1 < 1.0 || df2 < 1.0 || df1 > 1e10 || df2 > 1e10 {
         return Value::Error(ErrorKind::Num);
     }
     Value::Number(1.0 - d::f_cdf(x, df1, df2))
@@ -783,8 +961,8 @@ pub fn f_inv_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let p = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df1 = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df2 = match as_f64(&args[2]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df1 = match as_f64(&args[1]) { Some(v) => v.trunc(), None => return Value::Error(ErrorKind::Value) };
+    let df2 = match as_f64(&args[2]) { Some(v) => v.trunc(), None => return Value::Error(ErrorKind::Value) };
     if p < 0.0 || p > 1.0 || df1 < 1.0 || df2 < 1.0 {
         return Value::Error(ErrorKind::Num);
     }
@@ -802,8 +980,8 @@ pub fn f_inv_rt_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let p = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df1 = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let df2 = match as_f64(&args[2]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let df1 = match as_f64(&args[1]) { Some(v) => v.trunc(), None => return Value::Error(ErrorKind::Value) };
+    let df2 = match as_f64(&args[2]) { Some(v) => v.trunc(), None => return Value::Error(ErrorKind::Value) };
     if p < 0.0 || p > 1.0 || df1 < 1.0 || df2 < 1.0 {
         return Value::Error(ErrorKind::Num);
     }
@@ -824,8 +1002,18 @@ pub fn finv_fn(args: &[Value]) -> Value {
 // F.TEST / FTEST
 // ---------------------------------------------------------------------------
 fn f_test_impl(args: &[Value]) -> Value {
-    if args.len() < 2 {
+    if args.len() < 2 || args.len() > 2 {
         return Value::Error(ErrorKind::NA);
+    }
+    // Propagate errors from arrays before collecting numbers
+    if let Value::Error(e) = &args[0] { return Value::Error(e.clone()); }
+    if let Value::Error(e) = &args[1] { return Value::Error(e.clone()); }
+    // Check for NA/error within arrays
+    if let Value::Array(inner) = &args[0] {
+        for v in inner { if let Value::Error(e) = v { return Value::Error(e.clone()); } }
+    }
+    if let Value::Array(inner) = &args[1] {
+        for v in inner { if let Value::Error(e) = v { return Value::Error(e.clone()); } }
     }
     let arr1 = collect_nums(std::slice::from_ref(&args[0]));
     let arr2 = collect_nums(std::slice::from_ref(&args[1]));
@@ -838,7 +1026,7 @@ fn f_test_impl(args: &[Value]) -> Value {
     let mean2 = arr2.iter().sum::<f64>() / n2;
     let var1 = arr1.iter().map(|x| (x - mean1).powi(2)).sum::<f64>() / (n1 - 1.0);
     let var2 = arr2.iter().map(|x| (x - mean2).powi(2)).sum::<f64>() / (n2 - 1.0);
-    if var2 == 0.0 {
+    if var1 == 0.0 || var2 == 0.0 {
         return Value::Error(ErrorKind::DivByZero);
     }
     let f = var1 / var2;
@@ -897,10 +1085,18 @@ pub fn gamma_dist_fn(args: &[Value]) -> Value {
     if x < 0.0 || alpha <= 0.0 || beta <= 0.0 {
         return Value::Error(ErrorKind::Num);
     }
+    // PDF at x=0 with alpha<1 → +infinity → GS returns Num
+    if !cumulative && x == 0.0 && alpha < 1.0 {
+        return Value::Error(ErrorKind::Num);
+    }
     if cumulative {
         Value::Number(d::gamma_dist_cdf(x, alpha, beta))
     } else {
-        Value::Number(d::gamma_dist_pdf(x, alpha, beta))
+        let pdf = d::gamma_dist_pdf(x, alpha, beta);
+        if !pdf.is_finite() {
+            return Value::Error(ErrorKind::Num);
+        }
+        Value::Number(pdf)
     }
 }
 
@@ -929,15 +1125,20 @@ pub fn gamma_inv_fn(args: &[Value]) -> Value {
 // BETA.DIST / BETADIST
 // ---------------------------------------------------------------------------
 pub fn beta_dist_fn(args: &[Value]) -> Value {
-    if args.len() < 4 {
+    if args.len() < 3 {
         return Value::Error(ErrorKind::NA);
     }
     let x = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
     let alpha = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
     let beta = match as_f64(&args[2]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let cumulative = match as_bool(&args[3]) {
-        Some(b) => b,
-        None => return Value::Error(ErrorKind::Value),
+    // cumulative defaults to TRUE when not provided (3-arg form)
+    let cumulative = if args.len() >= 4 {
+        match as_bool(&args[3]) {
+            Some(b) => b,
+            None => return Value::Error(ErrorKind::Value),
+        }
+    } else {
+        true
     };
     // Optional lo/hi bounds (args[4] and args[5])
     let lo = if args.len() >= 5 {
@@ -1058,10 +1259,17 @@ pub fn binom_inv_fn(args: &[Value]) -> Value {
     if args.len() < 3 {
         return Value::Error(ErrorKind::NA);
     }
+    if args.len() > 3 {
+        return Value::Error(ErrorKind::NA);
+    }
     let n_f = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
     let p = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
     let alpha = match as_f64(&args[2]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
     if n_f < 0.0 || p < 0.0 || p > 1.0 || alpha <= 0.0 || alpha >= 1.0 {
+        return Value::Error(ErrorKind::Num);
+    }
+    // GS returns #NUM! for degenerate p=0 or p=1
+    if p == 0.0 || p == 1.0 {
         return Value::Error(ErrorKind::Num);
     }
     let n = n_f as u64;
@@ -1127,12 +1335,18 @@ fn negbinom_impl(args: &[Value]) -> Value {
 }
 
 pub fn negbinom_dist_fn(args: &[Value]) -> Value {
+    if args.len() == 3 {
+        // 3-arg form: cumulative defaults to FALSE (PMF)
+        let mut extended = args.to_vec();
+        extended.push(Value::Bool(false));
+        return negbinom_impl(&extended);
+    }
     negbinom_impl(args)
 }
 
 pub fn negbinomdist_fn(args: &[Value]) -> Value {
-    // Legacy: 3 args, no cumulative (always PMF)
-    if args.len() < 3 {
+    // Legacy: exactly 3 args, no cumulative (always PMF)
+    if args.len() < 3 || args.len() > 3 {
         return Value::Error(ErrorKind::NA);
     }
     let x_f = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
@@ -1173,7 +1387,7 @@ fn hypgeom_impl(args: &[Value], has_cumulative: bool) -> Value {
     let n = n_f as u64;
     let k = k_f as u64;
     let pop = pop_f as u64;
-    if x > n || x > k || n > pop || k > pop || n > k {
+    if x > n || x > k || n > pop || k > pop {
         return Value::Error(ErrorKind::Num);
     }
     if cumulative {
@@ -1188,6 +1402,10 @@ pub fn hypgeom_dist_fn(args: &[Value]) -> Value {
 }
 
 pub fn hypgeomdist_fn(args: &[Value]) -> Value {
+    // Legacy: exactly 4 args (no cumulative parameter)
+    if args.len() != 4 {
+        return Value::Error(ErrorKind::NA);
+    }
     hypgeom_impl(args, false)
 }
 
@@ -1284,7 +1502,7 @@ pub fn lognorm_dist_fn(args: &[Value]) -> Value {
 
 // LOGNORMDIST (legacy: 3 args, always CDF)
 pub fn lognormdist_fn(args: &[Value]) -> Value {
-    if args.len() < 3 {
+    if args.len() < 3 || args.len() > 3 {
         return Value::Error(ErrorKind::NA);
     }
     let x = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
@@ -1343,7 +1561,12 @@ pub fn fisher_inv_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);
     }
-    let y = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    // If arg is an array, use the first element
+    let first = match &args[0] {
+        Value::Array(inner) => inner.first().cloned().unwrap_or(Value::Error(ErrorKind::NA)),
+        other => other.clone(),
+    };
+    let y = match as_f64(&first) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
     Value::Number(d::fisher_inv(y))
 }
 
@@ -1377,7 +1600,7 @@ pub fn permutationa_fn(args: &[Value]) -> Value {
     }
     let n = match as_f64(&args[0]) { Some(v) => v as i64, None => return Value::Error(ErrorKind::Value) };
     let k = match as_f64(&args[1]) { Some(v) => v as i64, None => return Value::Error(ErrorKind::Value) };
-    if n < 0 || k <= 0 {
+    if n <= 0 || k <= 0 {
         return Value::Error(ErrorKind::Num);
     }
     let v = (n as f64).powi(k as i32);
@@ -1395,14 +1618,49 @@ pub fn prob_fn(args: &[Value]) -> Value {
     if args.len() < 3 {
         return Value::Error(ErrorKind::NA);
     }
-    let xs = collect_nums(std::slice::from_ref(&args[0]));
-    let probs = collect_nums(std::slice::from_ref(&args[1]));
+    // xs: only Numbers allowed (Bool/text → Error(Value))
+    let xs: Vec<f64> = {
+        let mut out = Vec::new();
+        let vals = match &args[0] {
+            Value::Array(inner) => inner.as_slice(),
+            other => std::slice::from_ref(other),
+        };
+        for v in vals {
+            match v {
+                Value::Number(n) => out.push(*n),
+                Value::Error(e) => return Value::Error(e.clone()),
+                _ => return Value::Error(ErrorKind::Value),
+            }
+        }
+        out
+    };
+    // probs: only Numbers in [0,1] allowed
+    let probs: Vec<f64> = {
+        let mut out = Vec::new();
+        let vals = match &args[1] {
+            Value::Array(inner) => inner.as_slice(),
+            other => std::slice::from_ref(other),
+        };
+        for v in vals {
+            match v {
+                Value::Number(n) => out.push(*n),
+                Value::Error(e) => return Value::Error(e.clone()),
+                _ => return Value::Error(ErrorKind::Value),
+            }
+        }
+        out
+    };
     let lo = match as_f64(&args[2]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
     let hi = if args.len() >= 4 {
         match as_f64(&args[3]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) }
     } else { lo };
     if xs.len() != probs.len() || xs.is_empty() {
         return Value::Error(ErrorKind::NA);
+    }
+    // Validate sum ≈ 1 (individual probs may be negative per GS behavior)
+    let prob_sum: f64 = probs.iter().sum();
+    if (prob_sum - 1.0).abs() > 1e-10 {
+        return Value::Error(ErrorKind::Value);
     }
     // Sum probabilities for values in [lo, hi]
     let total: f64 = xs.iter().zip(probs.iter())
@@ -1419,6 +1677,11 @@ fn z_test_impl(args: &[Value]) -> Value {
     if args.len() < 2 {
         return Value::Error(ErrorKind::NA);
     }
+    // Propagate errors from data array
+    if let Value::Error(e) = &args[0] { return Value::Error(e.clone()); }
+    if let Value::Array(inner) = &args[0] {
+        for v in inner { if let Value::Error(e) = v { return Value::Error(e.clone()); } }
+    }
     let data = collect_nums(std::slice::from_ref(&args[0]));
     let mu0 = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
     let n = data.len() as f64;
@@ -1428,7 +1691,8 @@ fn z_test_impl(args: &[Value]) -> Value {
     let sigma = if args.len() >= 3 {
         match as_f64(&args[2]) {
             Some(v) => {
-                if v <= 0.0 { return Value::Error(ErrorKind::Num); }
+                if v < 0.0 { return Value::Number(0.5); }
+                if v == 0.0 { return Value::Error(ErrorKind::Num); }
                 v
             }
             None => return Value::Error(ErrorKind::Value),
@@ -1442,6 +1706,9 @@ fn z_test_impl(args: &[Value]) -> Value {
     };
     let mean = data.iter().sum::<f64>() / n;
     let z = (mean - mu0) / (sigma / n.sqrt());
+    if !z.is_finite() {
+        return Value::Error(ErrorKind::Num);
+    }
     // One-tailed right-tail p-value
     Value::Number(1.0 - d::norm_s_cdf(z))
 }
@@ -1458,33 +1725,48 @@ pub fn ztest_fn(args: &[Value]) -> Value {
 // MARGINOFERROR
 // ---------------------------------------------------------------------------
 pub fn marginoferror_fn(args: &[Value]) -> Value {
-    if args.len() < 3 {
+    // MARGINOFERROR(data, confidence) — takes data range + confidence level,
+    // computes sample stdev, then t-interval margin: t * s / sqrt(n)
+    if args.len() < 2 {
         return Value::Error(ErrorKind::NA);
     }
-    let alpha = match as_f64(&args[0]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let sd    = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    let n     = match as_f64(&args[2]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
-    if alpha <= 0.0 || alpha >= 1.0 || sd <= 0.0 || n <= 0.0 {
+    let data = collect_nums(std::slice::from_ref(&args[0]));
+    let confidence = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };
+    let n = data.len() as f64;
+    if n < 2.0 {
+        return Value::Error(ErrorKind::DivByZero);
+    }
+    if confidence <= 0.0 || confidence >= 1.0 {
         return Value::Error(ErrorKind::Num);
     }
-    let z = d::norm_inv(1.0 - alpha / 2.0, 0.0, 1.0);
-    if !z.is_finite() {
+    let mean = data.iter().sum::<f64>() / n;
+    let var = data.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n - 1.0);
+    if var == 0.0 {
         return Value::Error(ErrorKind::Num);
     }
-    Value::Number(z * sd / n.sqrt())
+    let s = var.sqrt();
+    let df = n - 1.0;
+    let alpha = 1.0 - confidence;
+    let t = d::t_inv(1.0 - alpha / 2.0, df);
+    if !t.is_finite() {
+        return Value::Error(ErrorKind::Num);
+    }
+    Value::Number(t * s / n.sqrt())
 }
 
 // ---------------------------------------------------------------------------
 // COVAR (legacy, population covariance)
 // ---------------------------------------------------------------------------
 pub fn covar_fn(args: &[Value]) -> Value {
-    if args.len() < 2 {
+    if args.len() < 2 || args.len() > 2 {
         return Value::Error(ErrorKind::NA);
     }
-    let xs = collect_nums(std::slice::from_ref(&args[0]));
-    let ys = collect_nums(std::slice::from_ref(&args[1]));
-    if xs.len() != ys.len() || xs.is_empty() {
-        return Value::Error(ErrorKind::NA);
+    let (xs, ys) = match collect_paired(&args[0], &args[1]) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
+    if xs.is_empty() {
+        return Value::Error(ErrorKind::DivByZero);
     }
     let n = xs.len() as f64;
     let mean_x = xs.iter().sum::<f64>() / n;

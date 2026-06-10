@@ -20,7 +20,8 @@ fn quartile_inc_empty_array_returns_num_error() {
 }
 
 #[test]
-fn quartile_inc_fractional_quart_returns_num_error() {
+fn quartile_inc_fractional_quart_truncated() {
+    // quart=1.5 truncated to 1 → QUARTILE.INC([1,2], 1) = 1.25
     let arr = Value::Array(vec![Value::Number(1.0), Value::Number(2.0)]);
-    assert_eq!(quartile_inc_fn(&[arr, Value::Number(1.5)]), Value::Error(ErrorKind::Num));
+    assert_eq!(quartile_inc_fn(&[arr, Value::Number(1.5)]), Value::Number(1.25));
 }

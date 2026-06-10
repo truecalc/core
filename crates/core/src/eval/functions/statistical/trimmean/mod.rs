@@ -11,6 +11,10 @@ pub fn trimmean_fn(args: &[Value]) -> Value {
     }
     let percent = match &args[1] {
         Value::Number(p) => *p,
+        Value::Text(s) => match s.trim().parse::<f64>() {
+            Ok(v) if v.is_finite() => v,
+            _ => return Value::Error(ErrorKind::Value),
+        },
         _ => return Value::Error(ErrorKind::Value),
     };
     if !(0.0..1.0).contains(&percent) {
@@ -20,10 +24,13 @@ pub fn trimmean_fn(args: &[Value]) -> Value {
     let mut nums: Vec<f64> = Vec::new();
     match &args[0] {
         Value::Number(n) => nums.push(*n),
+        Value::Error(e) => return Value::Error(e.clone()),
         Value::Array(arr) => {
             for v in arr {
-                if let Value::Number(n) = v {
-                    nums.push(*n);
+                match v {
+                    Value::Number(n) => nums.push(*n),
+                    Value::Error(e) => return Value::Error(e.clone()),
+                    _ => {}
                 }
             }
         }
