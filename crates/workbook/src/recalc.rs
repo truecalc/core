@@ -1062,7 +1062,24 @@ impl GridResolver<'_> {
         for r in r0..=r1 {
             for c in c0..=c1 {
                 match Address::new(r, c) {
-                    Some(a) => cells.push(self.cell_value(sheet_folded, a)),
+                    Some(a) => {
+                        let v = self.cell_value(sheet_folded, a);
+                        // A spill anchor stores the full array; its individual
+                        // elements are visited when the range iteration reaches
+                        // the spilled positions (which resolve via spilled_value).
+                        // Use only the [0][0] element here to avoid double-counting.
+                        let scalar = match v {
+                            CoreValue::Array(ref rows) => match rows.first() {
+                                Some(CoreValue::Array(ref cols)) => {
+                                    cols.first().cloned().unwrap_or(CoreValue::Empty)
+                                }
+                                Some(other) => other.clone(),
+                                None => CoreValue::Empty,
+                            },
+                            other => other,
+                        };
+                        cells.push(scalar);
+                    }
                     None => cells.push(CoreValue::Error(ErrorKind::Ref)),
                 }
             }
