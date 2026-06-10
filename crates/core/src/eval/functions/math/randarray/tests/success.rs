@@ -1,13 +1,11 @@
-use super::super::randarray_fn;
+use crate::Engine;
 use crate::types::Value;
-
-fn n(v: f64) -> Value {
-    Value::Number(v)
-}
+use std::collections::HashMap;
 
 #[test]
 fn no_args_returns_single_number_in_0_1() {
-    let result = randarray_fn(&[]);
+    let eng = Engine::sheets();
+    let result = eng.evaluate("=RANDARRAY()", &HashMap::new());
     assert!(
         matches!(result, Value::Number(_)),
         "expected Number, got {:?}",
@@ -20,7 +18,8 @@ fn no_args_returns_single_number_in_0_1() {
 
 #[test]
 fn one_arg_rows_returns_nested_2d_array() {
-    let result = randarray_fn(&[n(3.0)]);
+    let eng = Engine::sheets();
+    let result = eng.evaluate("=RANDARRAY(3)", &HashMap::new());
     assert!(matches!(result, Value::Array(_)));
     if let Value::Array(outer) = result {
         assert_eq!(outer.len(), 3);
@@ -36,7 +35,8 @@ fn one_arg_rows_returns_nested_2d_array() {
 
 #[test]
 fn two_args_rows_cols_returns_correct_shape() {
-    let result = randarray_fn(&[n(2.0), n(4.0)]);
+    let eng = Engine::sheets();
+    let result = eng.evaluate("=RANDARRAY(2, 4)", &HashMap::new());
     if let Value::Array(outer) = result {
         assert_eq!(outer.len(), 2, "expected 2 rows");
         for row in &outer {
@@ -53,7 +53,8 @@ fn two_args_rows_cols_returns_correct_shape() {
 
 #[test]
 fn values_are_numbers() {
-    let result = randarray_fn(&[n(2.0), n(2.0)]);
+    let eng = Engine::sheets();
+    let result = eng.evaluate("=RANDARRAY(2, 2)", &HashMap::new());
     if let Value::Array(outer) = result {
         for row in &outer {
             if let Value::Array(inner) = row {

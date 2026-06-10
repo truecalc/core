@@ -68,8 +68,8 @@ pub fn register_math(registry: &mut Registry) {
     registry.register_eager("FLOOR.MATH",      ceiling_floor_math::floor_math_fn,            FunctionMeta { category: "math", signature: "FLOOR.MATH(number, [significance], [mode])",   description: "Round down to nearest multiple; handles negative numbers via mode" });
     registry.register_eager("FLOOR.PRECISE",   ceiling_floor_math::floor_precise_fn,         FunctionMeta { category: "math", signature: "FLOOR.PRECISE(number, [significance])",        description: "Round down to nearest multiple; sign of significance ignored" });
     registry.register_eager("ISO.CEILING",     ceiling_floor_math::iso_ceiling_fn,           FunctionMeta { category: "math", signature: "ISO.CEILING(number, [significance])",          description: "ISO standard ceiling; identical to CEILING.PRECISE" });
-    registry.register_eager("RAND",       rand::rand_fn,                FunctionMeta { category: "math",        signature: "RAND()",                                description: "Random number between 0 and 1" });
-    registry.register_eager("RANDBETWEEN",rand::randbetween_fn,         FunctionMeta { category: "math",        signature: "RANDBETWEEN(low, high)",                description: "Random integer between two values" });
+    registry.register_lazy("RAND",        rand::rand_lazy,              FunctionMeta { category: "math",        signature: "RAND()",                                description: "Random number between 0 and 1" });
+    registry.register_lazy("RANDBETWEEN", rand::randbetween_lazy,       FunctionMeta { category: "math",        signature: "RANDBETWEEN(low, high)",                description: "Random integer between two values" });
     registry.register_eager("PI",         trig::pi_fn,                  FunctionMeta { category: "math",        signature: "PI()",                                  description: "The value of pi (3.14159...)" });
     registry.register_eager("SIN",        trig::sin_fn,                 FunctionMeta { category: "math",        signature: "SIN(angle)",                            description: "Sine of an angle in radians" });
     registry.register_eager("COS",        trig::cos_fn,                 FunctionMeta { category: "math",        signature: "COS(angle)",                            description: "Cosine of an angle in radians" });
@@ -122,7 +122,7 @@ pub fn register_math(registry: &mut Registry) {
     registry.register_eager("ISODD",  iseven_isodd::isodd_fn,  FunctionMeta { category: "math", signature: "ISODD(number)",                            description: "Returns TRUE if number is odd" });
     registry.register_eager("MUNIT",     munit::munit_fn,       FunctionMeta { category: "math", signature: "MUNIT(dimension)",                           description: "Returns identity matrix of given dimension" });
     registry.register_eager("SEQUENCE",  sequence::sequence_fn, FunctionMeta { category: "math", signature: "SEQUENCE(rows, [cols], [start], [step])",    description: "Generate a sequence of numbers" });
-    registry.register_eager("RANDARRAY", randarray::randarray_fn, FunctionMeta { category: "math", signature: "RANDARRAY([rows], [cols])",                description: "Array of random numbers" });
+    registry.register_lazy("RANDARRAY",  randarray::randarray_lazy, FunctionMeta { category: "math", signature: "RANDARRAY([rows], [cols])",                description: "Array of random numbers" });
     registry.register_eager("SUBTOTAL",  subtotal::subtotal_fn, FunctionMeta { category: "math", signature: "SUBTOTAL(function_code, ref1, ...)",         description: "Apply function to a list (not supported with arrays)" });
 
     // Special functions

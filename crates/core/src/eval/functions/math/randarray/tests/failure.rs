@@ -1,35 +1,37 @@
-use super::super::randarray_fn;
+use crate::Engine;
 use crate::types::{ErrorKind, Value};
-
-fn n(v: f64) -> Value {
-    Value::Number(v)
-}
+use std::collections::HashMap;
 
 #[test]
 fn zero_rows_returns_num_error() {
-    assert_eq!(randarray_fn(&[n(0.0)]), Value::Error(ErrorKind::Num));
+    let eng = Engine::sheets();
+    assert_eq!(eng.evaluate("=RANDARRAY(0)", &HashMap::new()), Value::Error(ErrorKind::Num));
 }
 
 #[test]
 fn negative_rows_returns_num_error() {
-    assert_eq!(randarray_fn(&[n(-1.0)]), Value::Error(ErrorKind::Num));
+    let eng = Engine::sheets();
+    assert_eq!(eng.evaluate("=RANDARRAY(-1)", &HashMap::new()), Value::Error(ErrorKind::Num));
 }
 
 #[test]
 fn zero_cols_returns_num_error() {
-    assert_eq!(randarray_fn(&[n(2.0), n(0.0)]), Value::Error(ErrorKind::Num));
+    let eng = Engine::sheets();
+    assert_eq!(eng.evaluate("=RANDARRAY(2, 0)", &HashMap::new()), Value::Error(ErrorKind::Num));
 }
 
 #[test]
 fn negative_cols_returns_num_error() {
-    assert_eq!(
-        randarray_fn(&[n(2.0), n(-3.0)]),
-        Value::Error(ErrorKind::Num)
-    );
+    let eng = Engine::sheets();
+    assert_eq!(eng.evaluate("=RANDARRAY(2, -3)", &HashMap::new()), Value::Error(ErrorKind::Num));
 }
 
 #[test]
 fn too_many_args_returns_na() {
-    let args = vec![n(1.0); 6];
-    assert_eq!(randarray_fn(&args), Value::Error(ErrorKind::NA));
+    let eng = Engine::sheets();
+    // 6 arguments exceed the max of 5
+    assert_eq!(
+        eng.evaluate("=RANDARRAY(1, 1, 0, 1, TRUE, EXTRA)", &HashMap::new()),
+        Value::Error(ErrorKind::NA)
+    );
 }

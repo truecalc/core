@@ -1,9 +1,11 @@
-use super::super::*;
+use crate::Engine;
 use crate::types::Value;
+use std::collections::HashMap;
 
 #[test]
 fn rand_returns_number_in_range() {
-    let result = rand_fn(&[]);
+    let eng = Engine::sheets();
+    let result = eng.evaluate("=RAND()", &HashMap::new());
     if let Value::Number(n) = result {
         assert!(n >= 0.0 && n < 1.0, "RAND() must be in [0, 1), got {}", n);
     } else {
@@ -13,7 +15,8 @@ fn rand_returns_number_in_range() {
 
 #[test]
 fn randbetween_returns_number_in_range() {
-    let result = randbetween_fn(&[Value::Number(1.0), Value::Number(10.0)]);
+    let eng = Engine::sheets();
+    let result = eng.evaluate("=RANDBETWEEN(1, 10)", &HashMap::new());
     if let Value::Number(n) = result {
         assert!(n >= 1.0 && n <= 10.0, "RANDBETWEEN must be in [1,10], got {}", n);
         assert_eq!(n, n.floor(), "RANDBETWEEN must return an integer");
@@ -24,6 +27,7 @@ fn randbetween_returns_number_in_range() {
 
 #[test]
 fn randbetween_same_low_high() {
-    let result = randbetween_fn(&[Value::Number(5.0), Value::Number(5.0)]);
+    let eng = Engine::sheets();
+    let result = eng.evaluate("=RANDBETWEEN(5, 5)", &HashMap::new());
     assert_eq!(result, Value::Number(5.0));
 }

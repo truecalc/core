@@ -12,6 +12,9 @@ pub struct Context {
     /// fraction = time of day). `None` ⇒ the functions read the ambient
     /// local clock. Set via [`crate::Engine::evaluate_at`] (P1.4, issue #526).
     pub now_serial: Option<f64>,
+    /// Per-cell RNG key for deterministic draws: (seed, sheet_index, row, col).
+    /// Set by the workbook recalc loop; None for bare Engine::evaluate calls.
+    pub rng_cell: Option<(u64, u32, u32, u32)>,
 }
 
 impl Context {
@@ -21,12 +24,12 @@ impl Context {
         let normalized = vars.into_iter()
             .map(|(k, v)| (k.to_uppercase(), v))
             .collect();
-        Self { vars: normalized, now_serial: None }
+        Self { vars: normalized, now_serial: None, rng_cell: None }
     }
 
     /// Create an empty `Context` with no variable bindings.
     pub fn empty() -> Self {
-        Self { vars: HashMap::new(), now_serial: None }
+        Self { vars: HashMap::new(), now_serial: None, rng_cell: None }
     }
 
     /// Look up a variable by name (case-insensitive). Returns `Value::Empty` if not found.
@@ -53,6 +56,46 @@ impl Context {
     /// Remove a binding. Used to restore context after lambda/let evaluation.
     pub fn remove(&mut self, name: &str) {
         self.vars.remove(&name.to_uppercase());
+    }
+
+    /// SplitMix64-based PRF: draw a value in [0,1) for the given draw index.
+    /// Uses the per-cell key when available; falls back to SystemTime for
+    /// bare Engine::evaluate calls (non-deterministic).
+    pub fn draw_rand(&self, draw_index: u32) -> f64 {
+        if let Some((seed, si, r, c)) = self.rng_cell {
+            let key = self.splitmix_chain(seed, si, r, c, draw_index);
+            // Use upper 32 bits for [0,1)
+            (key >> 32) as f64 / (u32::MAX as f64 + 1.0)
+        } else {
+            // Non-deterministic fallback for bare Engine::evaluate.
+            // Mix draw_index into the time seed so RANDARRAY cells differ.
+            let s = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos() as u64)
+                .unwrap_or(12345);
+            let key = Self::mix64(s ^ Self::mix64(draw_index as u64));
+            (key >> 32) as f64 / (u32::MAX as f64 + 1.0)
+        }
+    }
+
+    /// Draw `count` values in [0,1), each using its own draw_index.
+    pub fn draw_rand_n(&self, count: usize) -> Vec<f64> {
+        (0..count as u32).map(|i| self.draw_rand(i)).collect()
+    }
+
+    fn splitmix_chain(&self, seed: u64, si: u32, r: u32, c: u32, draw: u32) -> u64 {
+        let mut h = seed;
+        for part in [si as u64, r as u64, c as u64, draw as u64] {
+            h = Self::mix64(h ^ Self::mix64(part));
+        }
+        h
+    }
+
+    fn mix64(mut x: u64) -> u64 {
+        x = x.wrapping_add(0x9e3779b97f4a7c15);
+        x = (x ^ (x >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
+        x = (x ^ (x >> 27)).wrapping_mul(0x94d049bb133111eb);
+        x ^ (x >> 31)
     }
 }
 

@@ -335,6 +335,7 @@ impl Workbook {
         to_eval: BTreeSet<CellRef>,
     ) -> Vec<Change> {
         let now_serial = ctx.now_serial();
+        let rng_seed = ctx.rng_seed();
 
         // Cells on a cycle short-circuit to the circular error; the rest are
         // evaluated in topological order. `topological_order` returns the full
@@ -399,6 +400,7 @@ impl Workbook {
                 let raw = self.eval_formula_cell(
                     cell,
                     now_serial,
+                    rng_seed,
                     &next_values,
                     &next_spills,
                     &new_values,
@@ -439,6 +441,7 @@ impl Workbook {
         &self,
         cell: &CellRef,
         now_serial: Option<f64>,
+        rng_seed: u64,
         new_values: &BTreeMap<CellRef, Value>,
         spills: &BTreeMap<CellRef, SpillRect>,
         prev_values: &BTreeMap<CellRef, Value>,
@@ -454,6 +457,13 @@ impl Workbook {
             EngineFlavor::Sheets => Engine::sheets(),
             EngineFlavor::Excel => Engine::excel(),
         };
+        let folder = CaseMapperBorrowed::new();
+        let sheet_index = self
+            .sheets()
+            .iter()
+            .position(|ws| simple_fold(&folder, ws.name()) == cell.sheet)
+            .unwrap_or(0) as u32;
+        let rng_cell = Some((rng_seed, sheet_index, cell.addr.row, cell.addr.column));
         let mut resolver = GridResolver {
             workbook: self,
             own_sheet: &cell.sheet,
@@ -464,7 +474,12 @@ impl Workbook {
             cycle,
             recomputed,
         };
-        let core = engine.evaluate_with_resolver_at(&formula, &mut resolver, now_serial);
+        let core = engine.evaluate_with_resolver_at_keyed(
+            &formula,
+            &mut resolver,
+            now_serial,
+            rng_cell,
+        );
         core_to_workbook(core)
     }
 
