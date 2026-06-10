@@ -21,7 +21,7 @@
 //!   test_category   basic / edge / coercion / error / nested
 //!   expected_type   number / string / boolean / error / array / date
 //!
-//! The test evaluates the formula with `truecalc_core::evaluate` and compares
+//! The test evaluates the formula with `Engine::sheets().evaluate` and compares
 //! against the canonical value.  Number comparisons allow 1e-4 relative tolerance.
 
 use truecalc_core::{ErrorKind, Value};

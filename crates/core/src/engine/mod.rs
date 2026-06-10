@@ -46,7 +46,7 @@ impl Engine {
     }
 
     /// Deprecated alias for [`Engine::sheets`].
-    #[deprecated(note = "use Engine::sheets() — engine flavor is required; see ADR 2026-04-27")]
+    #[deprecated(since = "0.7.0", note = "use Engine::sheets() — engine flavor is required; see ADR 2026-04-27; removal target: 0.7.0 coordinated release")]
     pub fn google_sheets() -> Self {
         Self::sheets()
     }
