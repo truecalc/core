@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2](https://github.com/truecalc/core/compare/truecalc-mcp-v1.0.1...truecalc-mcp-v1.0.2) - 2026-06-10
+
+### Other
+
+- update Cargo.lock dependencies
+
 ## [0.9.0](https://github.com/truecalc/core/compare/truecalc-mcp-v0.8.0...truecalc-mcp-v0.9.0) - 2026-06-10
 
 ### Other
