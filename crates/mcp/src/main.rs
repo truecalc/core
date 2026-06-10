@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::io::{self, BufRead, Write};
 
 use truecalc_core::{Engine, Expr, Registry, Value};
+use truecalc_workbook::{Address, CellInput, EngineFlavor as WbEngine, RecalcContext, Value as WbValue, Workbook};
 use serde_json::{json, Value as JsonValue};
 
 // ─── Conformance ─────────────────────────────────────────────────────────────
@@ -37,12 +38,63 @@ fn parse_conformance_arg(args: &[String]) -> String {
     "google-sheets".to_string()
 }
 
+// ─── Session store ────────────────────────────────────────────────────────────
+
+const MAX_WORKBOOKS: usize = 32;
+const MAX_TOTAL_BYTES: usize = 256 * 1024 * 1024;
+
+struct SessionStore {
+    workbooks: std::collections::HashMap<String, Workbook>,
+    total_json_bytes: usize,
+    next_id: u64,
+}
+
+impl SessionStore {
+    fn new() -> Self {
+        Self { workbooks: std::collections::HashMap::new(), total_json_bytes: 0, next_id: 0 }
+    }
+
+    fn allocate_id(&mut self) -> String {
+        let id = format!("wb_{}", self.next_id);
+        self.next_id += 1;
+        id
+    }
+
+    fn create(&mut self, engine: WbEngine) -> Result<String, String> {
+        if self.workbooks.len() >= MAX_WORKBOOKS {
+            return Err(format!("session limit reached: max {} workbooks per process", MAX_WORKBOOKS));
+        }
+        let id = self.allocate_id();
+        self.workbooks.insert(id.clone(), Workbook::new(engine));
+        Ok(id)
+    }
+
+    fn import(&mut self, json: &str) -> Result<String, String> {
+        if self.workbooks.len() >= MAX_WORKBOOKS {
+            return Err(format!("session limit reached: max {} workbooks per process", MAX_WORKBOOKS));
+        }
+        if self.total_json_bytes.saturating_add(json.len()) > MAX_TOTAL_BYTES {
+            return Err(format!("memory limit would be exceeded: aggregate session size capped at {} MiB", MAX_TOTAL_BYTES / (1024 * 1024)));
+        }
+        let wb = Workbook::from_json(json.as_bytes()).map_err(|e| e.to_string())?;
+        let id = self.allocate_id();
+        self.total_json_bytes = self.total_json_bytes.saturating_add(json.len());
+        self.workbooks.insert(id.clone(), wb);
+        Ok(id)
+    }
+
+    fn get_mut(&mut self, id: &str) -> Option<&mut Workbook> {
+        self.workbooks.get_mut(id)
+    }
+}
+
 // ─── Entry point ─────────────────────────────────────────────────────────────
 
 fn main() {
     let cli_args: Vec<String> = std::env::args().collect();
     let default_conformance = parse_conformance_arg(&cli_args);
     let engines = Engines::new();
+    let mut session_store = SessionStore::new();
 
     let stdin = io::stdin();
     let stdout = io::stdout();
@@ -86,7 +138,7 @@ fn main() {
             continue;
         }
 
-        let response = handle_request(&request, &default_conformance, &engines);
+        let response = handle_request(&request, &default_conformance, &engines, &mut session_store);
         let mut response_str = serde_json::to_string(&response).expect("serialisation error");
         response_str.push('\n');
         out.write_all(response_str.as_bytes()).expect("stdout write error");
@@ -94,7 +146,7 @@ fn main() {
     }
 }
 
-fn handle_request(req: &JsonValue, default_conformance: &str, engines: &Engines) -> JsonValue {
+fn handle_request(req: &JsonValue, default_conformance: &str, engines: &Engines, store: &mut SessionStore) -> JsonValue {
     let id = &req["id"];
     let method = req["method"].as_str().unwrap_or("");
     let params = &req["params"];
@@ -119,7 +171,7 @@ fn handle_request(req: &JsonValue, default_conformance: &str, engines: &Engines)
         "tools/call" => {
             let name = params["name"].as_str().unwrap_or("");
             let args = &params["arguments"];
-            let result = dispatch_tool(name, args, default_conformance, engines);
+            let result = dispatch_tool(name, args, default_conformance, engines, store);
             let is_error = result.get("error").is_some();
             let mut tool_result = json!({
                 "content": [{ "type": "text", "text": serde_json::to_string(&result).expect("result serialisation is infallible") }]
@@ -144,7 +196,7 @@ fn handle_request(req: &JsonValue, default_conformance: &str, engines: &Engines)
 
 // ─── Tool dispatch ────────────────────────────────────────────────────────────
 
-fn dispatch_tool(name: &str, args: &JsonValue, default_conformance: &str, engines: &Engines) -> JsonValue {
+fn dispatch_tool(name: &str, args: &JsonValue, default_conformance: &str, engines: &Engines, store: &mut SessionStore) -> JsonValue {
     match name {
         "evaluate" => tool_evaluate(args, default_conformance, engines),
         "validate" => tool_validate(args, engines),
@@ -152,6 +204,12 @@ fn dispatch_tool(name: &str, args: &JsonValue, default_conformance: &str, engine
         "batch_evaluate" => tool_batch_evaluate(args, default_conformance, engines),
         "list_functions" => tool_list_functions(),
         "get_stats" => tool_get_stats(),
+        "workbook_create" => tool_workbook_create(args, store),
+        "workbook_set" => tool_workbook_set(args, store),
+        "workbook_get" => tool_workbook_get(args, store),
+        "workbook_recalc" => tool_workbook_recalc(args, store),
+        "workbook_export" => tool_workbook_export(args, store),
+        "workbook_import" => tool_workbook_import(args, store),
         _ => json!({ "error": format!("Unknown tool: {}", name) }),
     }
 }
@@ -265,7 +323,179 @@ fn tool_get_stats() -> JsonValue {
     })
 }
 
+// ─── Workbook tools ───────────────────────────────────────────────────────────
+
+fn tool_workbook_create(args: &JsonValue, store: &mut SessionStore) -> JsonValue {
+    let engine_str = match args["engine"].as_str() {
+        Some(e) => e,
+        None => return json!({ "error": "missing engine" }),
+    };
+    let engine = match engine_str {
+        "sheets" => WbEngine::Sheets,
+        "excel" => WbEngine::Excel,
+        other => return json!({ "error": format!("unknown engine: {}", other) }),
+    };
+    match store.create(engine) {
+        Ok(id) => json!({ "workbook_id": id }),
+        Err(e) => json!({ "error": e }),
+    }
+}
+
+fn tool_workbook_set(args: &JsonValue, store: &mut SessionStore) -> JsonValue {
+    let workbook_id = match args["workbook_id"].as_str() {
+        Some(id) => id,
+        None => return json!({ "error": "missing workbook_id" }),
+    };
+    let sheet = match args["sheet"].as_str() {
+        Some(s) => s,
+        None => return json!({ "error": "missing sheet" }),
+    };
+    let cell = match args["cell"].as_str() {
+        Some(c) => c,
+        None => return json!({ "error": "missing cell" }),
+    };
+    let value = match args["value"].as_str() {
+        Some(v) => v,
+        None => return json!({ "error": "missing value" }),
+    };
+
+    let wb = match store.get_mut(workbook_id) {
+        Some(wb) => wb,
+        None => return json!({ "error": format!("workbook not found: {}", workbook_id) }),
+    };
+
+    let addr = match Address::from_a1(&cell.to_uppercase()) {
+        Some(a) => a,
+        None => return json!({ "error": format!("invalid cell address: {}", cell) }),
+    };
+
+    let input = if value.starts_with('=') {
+        CellInput::Formula(value.to_owned())
+    } else if value == "TRUE" || value == "true" {
+        CellInput::Literal(WbValue::Boolean(true))
+    } else if value == "FALSE" || value == "false" {
+        CellInput::Literal(WbValue::Boolean(false))
+    } else if let Ok(n) = value.parse::<f64>() {
+        CellInput::Literal(WbValue::Number(n))
+    } else {
+        CellInput::Literal(WbValue::Text(value.to_owned()))
+    };
+
+    match wb.set(sheet, addr, input) {
+        Ok(_) => json!({ "ok": true }),
+        Err(e) => json!({ "error": e.to_string() }),
+    }
+}
+
+fn tool_workbook_get(args: &JsonValue, store: &mut SessionStore) -> JsonValue {
+    let workbook_id = match args["workbook_id"].as_str() {
+        Some(id) => id,
+        None => return json!({ "error": "missing workbook_id" }),
+    };
+    let sheet = match args["sheet"].as_str() {
+        Some(s) => s,
+        None => return json!({ "error": "missing sheet" }),
+    };
+    let cell = match args["cell"].as_str() {
+        Some(c) => c,
+        None => return json!({ "error": "missing cell" }),
+    };
+
+    let wb = match store.get_mut(workbook_id) {
+        Some(wb) => wb,
+        None => return json!({ "error": format!("workbook not found: {}", workbook_id) }),
+    };
+
+    let addr = match Address::from_a1(&cell.to_uppercase()) {
+        Some(a) => a,
+        None => return json!({ "error": format!("invalid cell address: {}", cell) }),
+    };
+
+    match wb.resolved(sheet, addr) {
+        Some(resolved) => wb_value_to_json(&resolved.value),
+        None => json!({ "error": "cell is empty or not found" }),
+    }
+}
+
+fn tool_workbook_recalc(args: &JsonValue, store: &mut SessionStore) -> JsonValue {
+    let workbook_id = match args["workbook_id"].as_str() {
+        Some(id) => id,
+        None => return json!({ "error": "missing workbook_id" }),
+    };
+
+    let timestamp_ms = args["timestamp_ms"].as_i64().unwrap_or(0);
+    let timezone = args["timezone"].as_str().unwrap_or("UTC");
+    let rng_seed = args["rng_seed"].as_u64().unwrap_or(0);
+
+    let ctx = match RecalcContext::new(timestamp_ms, timezone, rng_seed) {
+        Some(c) => c,
+        None => return json!({ "error": format!("unknown timezone: {}", timezone) }),
+    };
+
+    let wb = match store.get_mut(workbook_id) {
+        Some(wb) => wb,
+        None => return json!({ "error": format!("workbook not found: {}", workbook_id) }),
+    };
+
+    let changes = wb.recalc(&ctx);
+    let change_list: Vec<JsonValue> = changes
+        .iter()
+        .map(|c| json!({
+            "sheet": c.sheet,
+            "cell": c.addr.to_a1(),
+            "before": wb_value_to_json(&c.old),
+            "after": wb_value_to_json(&c.new),
+        }))
+        .collect();
+    json!({ "changes": change_list })
+}
+
+fn tool_workbook_export(args: &JsonValue, store: &mut SessionStore) -> JsonValue {
+    let workbook_id = match args["workbook_id"].as_str() {
+        Some(id) => id,
+        None => return json!({ "error": "missing workbook_id" }),
+    };
+
+    let wb = match store.get_mut(workbook_id) {
+        Some(wb) => wb,
+        None => return json!({ "error": format!("workbook not found: {}", workbook_id) }),
+    };
+
+    wb.to_json()
+        .map(|s| json!({ "json": s }))
+        .unwrap_or_else(|e| json!({ "error": e.to_string() }))
+}
+
+fn tool_workbook_import(args: &JsonValue, store: &mut SessionStore) -> JsonValue {
+    let json_str = match args["json"].as_str() {
+        Some(s) => s,
+        None => return json!({ "error": "missing json" }),
+    };
+
+    match store.import(json_str) {
+        Ok(id) => json!({ "workbook_id": id }),
+        Err(e) => json!({ "error": e }),
+    }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+fn wb_value_to_json(v: &WbValue) -> JsonValue {
+    match v {
+        WbValue::Number(n) => json!({ "type": "number", "value": n }),
+        WbValue::Text(s) => json!({ "type": "text", "value": s }),
+        WbValue::Boolean(b) => json!({ "type": "boolean", "value": b }),
+        WbValue::Error(e) => json!({ "type": "error", "error": e }),
+        WbValue::Empty => json!({ "type": "empty", "value": null }),
+        WbValue::Date(d) => json!({ "type": "date", "value": d }),
+        WbValue::Array(rows) => {
+            let arr: Vec<Vec<JsonValue>> = rows.iter()
+                .map(|r| r.iter().map(wb_value_to_json).collect())
+                .collect();
+            json!({ "type": "array", "value": arr })
+        }
+    }
+}
 
 fn parse_variables(vars_json: &JsonValue) -> HashMap<String, Value> {
     let mut map = HashMap::new();
@@ -381,7 +611,80 @@ fn tools_list() -> JsonValue {
             "name": "get_stats",
             "description": "Return the total number of supported functions, the library version, and a per-category breakdown.",
             "inputSchema": { "type": "object", "properties": {} }
+        },
+        {
+            "name": "workbook_create",
+            "description": "Create a new in-memory workbook. Engine is locked at creation.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "engine": { "type": "string", "enum": ["sheets", "excel"], "description": "Spreadsheet dialect" }
+                },
+                "required": ["engine"]
+            }
+        },
+        {
+            "name": "workbook_set",
+            "description": "Write a value or formula to a cell in an existing workbook sheet.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "workbook_id": { "type": "string", "description": "Workbook session ID" },
+                    "sheet": { "type": "string", "description": "Sheet name" },
+                    "cell": { "type": "string", "description": "Cell address in A1 notation" },
+                    "value": { "type": "string", "description": "Cell value; prefix with '=' for a formula" }
+                },
+                "required": ["workbook_id", "sheet", "cell", "value"]
+            }
+        },
+        {
+            "name": "workbook_get",
+            "description": "Read the effective value of a cell (resolves spills).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "workbook_id": { "type": "string" },
+                    "sheet": { "type": "string" },
+                    "cell": { "type": "string", "description": "Cell address in A1 notation" }
+                },
+                "required": ["workbook_id", "sheet", "cell"]
+            }
+        },
+        {
+            "name": "workbook_recalc",
+            "description": "Recalculate all formula cells and return the list of changed cells.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "workbook_id": { "type": "string" },
+                    "timestamp_ms": { "type": "integer", "description": "UTC epoch milliseconds for NOW()/TODAY() (default: 0)" },
+                    "timezone": { "type": "string", "description": "IANA timezone name (default: UTC)" },
+                    "rng_seed": { "type": "integer", "description": "RNG seed for RAND() etc. (default: 0)" }
+                },
+                "required": ["workbook_id"]
+            }
+        },
+        {
+            "name": "workbook_export",
+            "description": "Export a workbook session as canonical JSON.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "workbook_id": { "type": "string" }
+                },
+                "required": ["workbook_id"]
+            }
+        },
+        {
+            "name": "workbook_import",
+            "description": "Import a workbook from canonical JSON and return a new session ID.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "json": { "type": "string", "description": "Canonical workbook JSON" }
+                },
+                "required": ["json"]
+            }
         }
     ])
 }
-

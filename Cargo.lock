@@ -2314,6 +2314,7 @@ dependencies = [
  "calamine",
  "chrono",
  "csv",
+ "libm",
  "nom",
  "proptest",
  "regex-lite",
@@ -2328,6 +2329,7 @@ dependencies = [
  "serde",
  "serde_json",
  "truecalc-core",
+ "truecalc-workbook",
 ]
 
 [[package]]
@@ -2338,6 +2340,18 @@ dependencies = [
  "serde-wasm-bindgen",
  "serde_json",
  "truecalc-core",
+ "tsify-next",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+]
+
+[[package]]
+name = "truecalc-wasm-workbook"
+version = "0.9.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "truecalc-workbook",
  "tsify-next",
  "wasm-bindgen",
  "wasm-bindgen-test",
