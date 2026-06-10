@@ -2955,6 +2955,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "truecalc-core",
 ]
 
 [[package]]
