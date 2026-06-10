@@ -1038,13 +1038,13 @@ fn logest_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::Value);
     }
     // Take log of y values
-    let log_y: Vec<f64> = y_vals.iter().map(|&y| y.ln()).collect();
+    let log_y: Vec<f64> = y_vals.iter().map(|&y| libm::log(y)).collect();
     if log_y.iter().any(|v| v.is_nan() || v.is_infinite()) {
         return Value::Error(ErrorKind::Num);
     }
     let (log_base, log_intercept) = simple_linear_regression(&xs, &log_y);
-    let base = log_base.exp();
-    let intercept = log_intercept.exp();
+    let base = libm::exp(log_base);
+    let intercept = libm::exp(log_intercept);
     Value::Array(vec![Value::Number(base), Value::Number(intercept)])
 }
 
@@ -1122,7 +1122,7 @@ fn growth_fn(args: &[Value]) -> Value {
     if y_vals.len() != n {
         return Value::Error(ErrorKind::Value);
     }
-    let log_y: Vec<f64> = y_vals.iter().map(|&y| y.ln()).collect();
+    let log_y: Vec<f64> = y_vals.iter().map(|&y| libm::log(y)).collect();
     if log_y.iter().any(|v| v.is_nan() || v.is_infinite()) {
         return Value::Error(ErrorKind::Num);
     }
@@ -1154,7 +1154,7 @@ fn growth_fn(args: &[Value]) -> Value {
     };
     let result: Vec<Value> = new_xs
         .iter()
-        .map(|&x| Value::Number((log_base * x + log_intercept).exp()))
+        .map(|&x| Value::Number(libm::exp(log_base * x + log_intercept)))
         .collect();
     Value::Array(result)
 }

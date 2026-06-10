@@ -206,7 +206,7 @@ pub fn pow_fn(args: &[Value]) -> Value {
         Ok(v) => v,
         Err(e) => return e,
     };
-    let result = base.powf(exp);
+    let result = libm::pow(base, exp);
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);
     }

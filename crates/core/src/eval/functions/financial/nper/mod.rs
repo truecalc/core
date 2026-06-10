@@ -37,7 +37,7 @@ pub fn nper_fn(args: &[Value]) -> Value {
         if ratio <= 0.0 {
             return Value::Error(ErrorKind::Num);
         }
-        ratio.ln() / (1.0 + rate).ln()
+        libm::log(ratio) / libm::log(1.0 + rate)
     };
 
     if !result.is_finite() {

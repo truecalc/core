@@ -298,7 +298,7 @@ pub fn confidence_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::Num);
     }
     let z = d::norm_s_inv(1.0 - alpha / 2.0);
-    Value::Number(z * stdev / size.sqrt())
+    Value::Number(z * stdev / libm::sqrt(size))
 }
 
 // ---------------------------------------------------------------------------
@@ -319,7 +319,7 @@ pub fn confidence_t_fn(args: &[Value]) -> Value {
     if !t.is_finite() {
         return Value::Error(ErrorKind::Num);
     }
-    Value::Number(t * stdev / size.sqrt())
+    Value::Number(t * stdev / libm::sqrt(size))
 }
 
 // ---------------------------------------------------------------------------
@@ -477,7 +477,7 @@ pub fn steyx_fn(args: &[Value]) -> Value {
     if se2 < -1e-10 {
         return Value::Error(ErrorKind::Num);
     }
-    Value::Number(se2.max(0.0).sqrt())
+    Value::Number(libm::sqrt(se2.max(0.0)))
 }
 
 // ---------------------------------------------------------------------------
@@ -843,7 +843,7 @@ fn t_test_impl(args: &[Value]) -> Value {
             if var_d == 0.0 {
                 return Value::Error(ErrorKind::DivByZero);
             }
-            let t = mean_d / (var_d / n).sqrt();
+            let t = mean_d / libm::sqrt(var_d / n);
             (t, n - 1.0)
         }
         2 => {
@@ -861,7 +861,7 @@ fn t_test_impl(args: &[Value]) -> Value {
             if sp2 == 0.0 {
                 return Value::Error(ErrorKind::DivByZero);
             }
-            let t = (mean1 - mean2) / (sp2 * (1.0 / n1 + 1.0 / n2)).sqrt();
+            let t = (mean1 - mean2) / libm::sqrt(sp2 * (1.0 / n1 + 1.0 / n2));
             (t, n1 + n2 - 2.0)
         }
         3 => {
@@ -881,7 +881,7 @@ fn t_test_impl(args: &[Value]) -> Value {
             if denom == 0.0 {
                 return Value::Error(ErrorKind::DivByZero);
             }
-            let t = (mean1 - mean2) / denom.sqrt();
+            let t = (mean1 - mean2) / libm::sqrt(denom);
             let df_welch = (s1 + s2).powi(2) / (s1.powi(2) / (n1 - 1.0) + s2.powi(2) / (n2 - 1.0));
             (t, df_welch)
         }
@@ -1243,10 +1243,9 @@ pub fn binom_dist_fn(args: &[Value]) -> Value {
         } else if p == 1.0 {
             if k == n { 1.0 } else { 0.0 }
         } else {
-            (d::binom_coeff_ln_pub(n, k)
-                + (k as f64) * p.ln()
-                + ((n - k) as f64) * (1.0 - p).ln())
-            .exp()
+            libm::exp(d::binom_coeff_ln_pub(n, k)
+                + (k as f64) * libm::log(p)
+                + ((n - k) as f64) * libm::log(1.0 - p))
         };
         Value::Number(pmf)
     }
@@ -1702,10 +1701,10 @@ fn z_test_impl(args: &[Value]) -> Value {
         let mean = data.iter().sum::<f64>() / n;
         let var = data.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n - 1.0);
         if n < 2.0 { return Value::Error(ErrorKind::DivByZero); }
-        var.sqrt()
+        libm::sqrt(var)
     };
     let mean = data.iter().sum::<f64>() / n;
-    let z = (mean - mu0) / (sigma / n.sqrt());
+    let z = (mean - mu0) / (sigma / libm::sqrt(n));
     if !z.is_finite() {
         return Value::Error(ErrorKind::Num);
     }
@@ -1744,14 +1743,14 @@ pub fn marginoferror_fn(args: &[Value]) -> Value {
     if var == 0.0 {
         return Value::Error(ErrorKind::Num);
     }
-    let s = var.sqrt();
+    let s = libm::sqrt(var);
     let df = n - 1.0;
     let alpha = 1.0 - confidence;
     let t = d::t_inv(1.0 - alpha / 2.0, df);
     if !t.is_finite() {
         return Value::Error(ErrorKind::Num);
     }
-    Value::Number(t * s / n.sqrt())
+    Value::Number(t * s / libm::sqrt(n))
 }
 
 // ---------------------------------------------------------------------------

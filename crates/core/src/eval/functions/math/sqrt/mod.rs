@@ -13,7 +13,7 @@ pub fn sqrt_fn(args: &[Value]) -> Value {
     if n < 0.0 {
         return Value::Error(ErrorKind::Num);
     }
-    let result = n.sqrt();
+    let result = libm::sqrt(n);
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);
     }

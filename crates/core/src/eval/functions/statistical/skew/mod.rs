@@ -10,7 +10,7 @@ pub fn skew_fn(args: &[Value]) -> Value {
     if n < 3 { return Value::Error(ErrorKind::DivByZero); }
     let mean = nums.iter().sum::<f64>() / n as f64;
     let variance = nums.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / (n - 1) as f64;
-    let s = variance.sqrt();
+    let s = libm::sqrt(variance);
     if s == 0.0 { return Value::Error(ErrorKind::DivByZero); }
     let nf = n as f64;
     let sum3 = nums.iter().map(|&x| ((x - mean) / s).powi(3)).sum::<f64>();

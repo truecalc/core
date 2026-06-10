@@ -15,7 +15,7 @@ fn erf(x: f64) -> f64 {
             + t * (1.421413741
                 + t * (-1.453152027
                     + t * 1.061405429))));
-    1.0 - poly * (-x * x).exp()
+    1.0 - poly * libm::exp(-x * x)
 }
 
 fn erfc_precise(x: f64) -> f64 {
@@ -104,7 +104,7 @@ fn gammaln(x: f64) -> f64 {
         ser += c / xp;
     }
     use std::f64::consts::PI;
-    (2.0 * PI).sqrt().ln() + ser.ln() + (x + 0.5) * t.ln() - t
+    libm::log(libm::sqrt(2.0 * PI)) + libm::log(ser) + (x + 0.5) * libm::log(t) - t
 }
 
 /// `GAMMALN(x)` — natural log of the gamma function.

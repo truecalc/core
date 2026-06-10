@@ -26,7 +26,7 @@ fn pmt_calc(rate: f64, nper: f64, pv: f64, fv: f64, typ: f64) -> f64 {
     if rate == 0.0 {
         return -(pv + fv) / nper;
     }
-    let factor = (1.0 + rate).powf(nper);
+    let factor = libm::pow(1.0 + rate, nper);
     let denom = factor - 1.0;
     if denom == 0.0 {
         return f64::NAN;
@@ -77,7 +77,7 @@ fn ipmt_calc(rate: f64, per: f64, nper: f64, pv: f64, fv: f64, typ: f64) -> f64 
         // B = pv*(1+r)^(per-1) + pmt * ((1+r)^(per-1) - 1) / r
         let pmt = pmt_calc(rate, nper, pv, fv, 0.0);
         let k = per - 1.0;
-        let factor_k = (1.0 + rate).powf(k);
+        let factor_k = libm::pow(1.0 + rate, k);
         let bal = pv * factor_k + pmt * (factor_k - 1.0) / rate;
         -(bal * rate)
     } else {
@@ -89,7 +89,7 @@ fn ipmt_calc(rate: f64, per: f64, nper: f64, pv: f64, fv: f64, typ: f64) -> f64 
         // Balance at start of period (per-1) before payment:
         // B = pv*(1+r)^(per-2) + pmt1*(1+r)*((1+r)^(per-2)-1)/r
         let k = per - 2.0;
-        let factor_k = (1.0 + rate).powf(k);
+        let factor_k = libm::pow(1.0 + rate, k);
         let bal_before = pv * factor_k + pmt1 * (1.0 + rate) * (factor_k - 1.0) / rate;
         // Balance after payment at start of period (per-1):
         let bal_after = bal_before + pmt1;
@@ -420,7 +420,7 @@ pub fn db_fn(args: &[Value]) -> Value {
 
     // Rate = 1 - (salvage/cost)^(1/life), rounded to 3 decimal places
     let rate = {
-        let r = 1.0 - (salvage / cost).powf(1.0 / life);
+        let r = 1.0 - libm::pow(salvage / cost, 1.0 / life);
         (r * 1000.0).round() / 1000.0
     };
 
@@ -721,7 +721,7 @@ pub fn nominal_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::Num);
     }
 
-    let result = npery as f64 * ((1.0 + effect).powf(1.0 / npery as f64) - 1.0);
+    let result = npery as f64 * (libm::pow(1.0 + effect, 1.0 / npery as f64) - 1.0);
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);
     }
@@ -747,7 +747,7 @@ pub fn pduration_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::Num);
     }
 
-    let result = (fv / pv).ln() / (1.0 + rate).ln();
+    let result = libm::log(fv / pv) / libm::log(1.0 + rate);
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);
     }
@@ -779,7 +779,7 @@ pub fn rri_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::DivByZero);
     }
 
-    let result = (fv / pv).powf(1.0 / nper) - 1.0;
+    let result = libm::pow(fv / pv, 1.0 / nper) - 1.0;
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);
     }
@@ -889,7 +889,7 @@ fn duration_calc(args: &[Value], _modified: bool) -> Result<f64, Value> {
         } else {
             coupon_per_period
         };
-        let pv_cf = cf / (1.0 + yld_per_period).powf(t_i);
+        let pv_cf = cf / libm::pow(1.0 + yld_per_period, t_i);
         price += pv_cf;
         weighted += t_i * pv_cf;
     }
@@ -1043,7 +1043,7 @@ pub fn mirr_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::DivByZero);
     }
 
-    let result = (-fv_pos / npv_neg).powf(1.0 / (n as f64 - 1.0)) - 1.0;
+    let result = libm::pow(-fv_pos / npv_neg, 1.0 / (n as f64 - 1.0)) - 1.0;
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);
     }
@@ -1077,7 +1077,7 @@ pub fn xnpv_fn(args: &[Value]) -> Value {
         if t < 0.0 {
             return Value::Error(ErrorKind::Num);
         }
-        let denom = (1.0 + rate).powf(t);
+        let denom = libm::pow(1.0 + rate, t);
         if !denom.is_finite() || denom == 0.0 {
             return Value::Error(ErrorKind::Num);
         }
@@ -1122,11 +1122,11 @@ pub fn xirr_fn(args: &[Value]) -> Value {
     let times: Vec<f64> = date_serials.iter().map(|&ds| (ds - d0) / 365.0).collect();
 
     let xnpv_at = |r: f64| -> f64 {
-        values.iter().zip(times.iter()).map(|(&cf, &t)| cf / (1.0 + r).powf(t)).sum()
+        values.iter().zip(times.iter()).map(|(&cf, &t)| cf / libm::pow(1.0 + r, t)).sum()
     };
     let dxnpv_at = |r: f64| -> f64 {
         values.iter().zip(times.iter())
-            .map(|(&cf, &t)| -t * cf / (1.0 + r).powf(t + 1.0))
+            .map(|(&cf, &t)| -t * cf / libm::pow(1.0 + r, t + 1.0))
             .sum()
     };
 

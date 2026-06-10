@@ -113,7 +113,7 @@ fn apply_format(n: f64, fmt: &str) -> String {
             let (mantissa, exponent) = if abs_n == 0.0 {
                 (0.0_f64, 0_i32)
             } else {
-                let exp = abs_n.log10().floor() as i32;
+                let exp = libm::log10(abs_n).floor() as i32;
                 (abs_n / 10f64.powi(exp), exp)
             };
             let sign = if n < 0.0 { "-" } else { "" };

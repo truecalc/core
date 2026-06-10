@@ -14,7 +14,7 @@ pub fn sqrtpi_fn(args: &[Value]) -> Value {
     if n < 0.0 {
         return Value::Error(ErrorKind::Num);
     }
-    Value::Number((n * std::f64::consts::PI).sqrt())
+    Value::Number(libm::sqrt(n * std::f64::consts::PI))
 }
 
 #[cfg(test)]

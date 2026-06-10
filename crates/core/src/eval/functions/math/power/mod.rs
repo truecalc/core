@@ -21,14 +21,14 @@ pub fn power_fn(args: &[Value]) -> Value {
         let inv = 1.0 / exp;
         let inv_round = inv.round();
         if (inv - inv_round).abs() < 1e-9 && (inv_round.abs() as i64) % 2 == 1 {
-            let mag = base.abs().powf(exp);
+            let mag = libm::pow(base.abs(), exp);
             -mag
         } else {
             // non-real result -> #NUM!
             return Value::Error(ErrorKind::Num);
         }
     } else {
-        base.powf(exp)
+        libm::pow(base, exp)
     };
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);

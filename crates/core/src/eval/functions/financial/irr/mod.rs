@@ -66,7 +66,7 @@ fn irr_brent(cfs: &[f64]) -> Option<f64> {
     let npv = |r: f64| -> f64 {
         cfs.iter()
             .enumerate()
-            .fold(0.0, |acc, (t, &cf)| acc + cf / (1.0 + r).powf(t as f64))
+            .fold(0.0, |acc, (t, &cf)| acc + cf / libm::pow(1.0 + r, t as f64))
     };
 
     // Scan for a sign change across a wide range that covers negative and
@@ -216,9 +216,9 @@ fn npv_and_derivative(cfs: &[f64], rate: f64) -> (f64, f64) {
     let mut dnpv = 0.0;
     for (i, &cf) in cfs.iter().enumerate() {
         let t = i as f64;
-        let denom = (1.0 + rate).powf(t);
+        let denom = libm::pow(1.0 + rate, t);
         npv  += cf / denom;
-        dnpv -= t * cf / ((1.0 + rate).powf(t + 1.0));
+        dnpv -= t * cf / libm::pow(1.0 + rate, t + 1.0);
     }
     (npv, dnpv)
 }

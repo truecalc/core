@@ -39,9 +39,9 @@ pub fn geomean_fn(args: &[Value]) -> Value {
         if x <= 0.0 {
             return Value::Error(ErrorKind::Num);
         }
-        log_sum += x.ln();
+        log_sum += libm::log(x);
     }
-    let result = (log_sum / nums.len() as f64).exp();
+    let result = libm::exp(log_sum / nums.len() as f64);
     if !result.is_finite() {
         return Value::Error(ErrorKind::Num);
     }
