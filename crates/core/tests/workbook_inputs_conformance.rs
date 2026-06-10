@@ -1,25 +1,27 @@
-//! Workbook input-model conformance (truecalc/core#575, fixtures extension #2 / #532).
+//! Workbook conformance — full blocking coverage of `workbook.tsv` (core#575).
 //!
-//! `workbook.tsv` rows such as `=Data!A1` and `=SUM(PRICES)` read authored
-//! *input* cells and named ranges that live in the source Google Sheet, not in
-//! the formula text.  Until the fixtures pipeline committed those inputs, the
-//! blocking TSV runner had to evaluate with an empty resolver, so
-//! `workbook_conformance_report` stayed report-only.
+//! `workbook.tsv` rows fall into three kinds:
 //!
-//! The fixtures pipeline's workbook-level extension (truecalc/fixtures
-//! `workbook-fixtures/`, core#532) now commits an **input-model sidecar**:
-//! `tests/fixtures/google_sheets/workbook.inputs.json` carries the authored
-//! cells + named ranges for the workbook scenarios, derived from the pipeline
-//! `setup.json` sources.  This test seeds a [`Resolver`] from that sidecar and
-//! evaluates the cross-sheet and named-range rows of `workbook.tsv` through
-//! [`Engine::evaluate_with_resolver_at`], asserting each pipeline-recorded
-//! expected value.  No expected value is hand-authored here — both the inputs
-//! and the expecteds come from the pipeline.
+//! 1. **Cross-sheet / named-range rows** — formulas like `=Data!A1` and
+//!    `=SUM(PRICES)` read authored input cells and named ranges.  A
+//!    [`ScenarioResolver`] is seeded from the fixtures pipeline's input-model
+//!    sidecar (`workbook.inputs.json`, fixtures extension #2 / core#532) and
+//!    each row is evaluated through [`Engine::evaluate_with_resolver_at`].
 //!
-//! Scope: this covers the rows whose inputs the sidecar models (cross-sheet
-//! refs + named ranges).  `date-type` rows need no inputs and remain in the
-//! report-only runner; flipping the whole `workbook.tsv` to a single blocking
-//! `conformance_tsv_test!` is tracked in #575 once the runner is unified.
+//! 2. **Date-type / plain rows** — formulas like `=DATE(2026,6,7)` and
+//!    `=TODAY()` need no external inputs; they are evaluated via
+//!    [`Engine::evaluate_at`] with a pinned `now` serial so volatile functions
+//!    are deterministic.
+//!
+//! 3. **Out-of-scope rows** — `=ROWS(PRICES)` and `=COLUMNS(GRID)` require a
+//!    2-D shaped range that this conformance shim does not synthesize (its flat
+//!    array resolver can't satisfy ROWS/COLUMNS); they are excluded.  Moving
+//!    them to `bugs.tsv` is avoided because they are not engine bugs — they
+//!    are a shim limitation.
+//!
+//! All rows except the out-of-scope ones are now exercised as a **blocking**
+//! assertion; CI fails if any row regresses.  No expected value is hand-authored
+//! here — inputs and expecteds come from the pipeline.
 
 use serde_json::Value as Json;
 use std::collections::HashMap;
@@ -334,9 +336,11 @@ fn values_match(actual: &Value, expected: &Value) -> bool {
     }
 }
 
-/// Rows out of scope for this seeded runner: `ROWS`/`COLUMNS` need a 2-D range
-/// the flat resolver shim does not synthesize (the real P1.3/P3.x resolver
-/// returns shaped ranges; this conformance shim deliberately stays minimal).
+/// Rows out of scope for this seeded runner. Two reasons:
+///
+/// - shape-dependent: `ROWS`/`COLUMNS` need a 2-D range the flat resolver shim
+///   does not synthesize (the real P1.3/P3.x resolver returns shaped ranges;
+///   this conformance shim deliberately stays minimal).
 ///
 /// Excluding these keeps the blocking assertion honest: it covers only rows the
 /// engine + sidecar fully support, and never masks a regression in them.
@@ -360,10 +364,11 @@ fn scenario_for_row(formula: &str, scenarios: &HashMap<String, Scenario>) -> Opt
 }
 
 #[test]
-fn workbook_inputs_seeded_conformance() {
+fn workbook_conformance() {
     let scenarios = load_scenarios();
     let engine = Engine::sheets();
     let now = pinned_now_serial();
+    let empty_vars: HashMap<String, Value> = HashMap::new();
 
     let mut resolvers: HashMap<String, ScenarioResolver> = HashMap::new();
     for (name, sc) in &scenarios {
@@ -390,31 +395,39 @@ fn workbook_inputs_seeded_conformance() {
         if OUT_OF_SCOPE_FORMULAS.contains(&formula) {
             continue;
         }
-        let Some(scenario_name) = scenario_for_row(formula, &scenarios) else {
-            continue;
-        };
-        let resolver = resolvers.get_mut(scenario_name).unwrap();
 
-        let actual = engine.evaluate_with_resolver_at(formula, resolver, Some(now));
+        let actual = match scenario_for_row(formula, &scenarios) {
+            Some(scenario_name) => {
+                let resolver = resolvers.get_mut(scenario_name).unwrap();
+                engine.evaluate_with_resolver_at(formula, resolver, Some(now))
+            }
+            None => {
+                // Date-type and plain rows need no external inputs — evaluate
+                // with pinned time so volatile functions (TODAY, NOW) are deterministic.
+                engine.evaluate_at(formula, &empty_vars, now)
+            }
+        };
+
         let expected = parse_expected(expected_s, ty);
         checked += 1;
         if !values_match(&actual, &expected) {
+            let tag = scenario_for_row(formula, &scenarios).unwrap_or("standalone");
             failures.push(format!(
-                "[{scenario_name}] {desc}: {formula} => {actual:?}, expected {expected:?} ({ty})"
+                "[{tag}] {desc}: {formula} => {actual:?}, expected {expected:?} ({ty})"
             ));
         }
     }
 
     assert!(
         checked > 0,
-        "no in-scope workbook rows were exercised — sidecar/routing broken"
+        "no workbook rows were exercised — fixture/routing broken"
     );
     assert!(
         failures.is_empty(),
-        "{} of {} seeded workbook rows failed:\n{}",
+        "{} of {} workbook rows failed:\n{}",
         failures.len(),
         checked,
         failures.join("\n")
     );
-    eprintln!("workbook_inputs_seeded_conformance: {checked} rows passed");
+    eprintln!("workbook_conformance: {checked} rows passed");
 }

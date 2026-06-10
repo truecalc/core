@@ -487,26 +487,10 @@ conformance_tsv_test!(filter_conformance,             "filter.tsv");
 conformance_tsv_test!(web_conformance,         "web.tsv");
 conformance_tsv_test!(financial_conformance,         "financial.tsv");
 
-/// P1.5 workbook fixtures — cross-sheet refs, named ranges, date-typed scalars
-/// (pipeline-generated, core issue #527; registered via PR #562).
-///
-/// Report-only (non-blocking). The language pieces are now in place — P1.2
-/// reference grammar (#524) and P1.3 resolver (#525) resolve cross-sheet/named
-/// refs, and P1.4 (#526) adds `date`-typed row handling and volatile-row
-/// pinning via `Engine::evaluate_at` (see `pinned_now_serial`).  This whole-file
-/// runner stays report-only because it evaluates with an empty variable map and
-/// no resolver.  The fixtures pipeline now commits the authored *input* model
-/// (`workbook.inputs.json`, fixtures extension #2 / #532), and the cross-sheet
-/// + named-range rows are exercised as a **blocking** test in
-/// `tests/workbook_inputs_conformance.rs`, which seeds a `Resolver` from that
-/// sidecar and evaluates each row via `Engine::evaluate_with_resolver_at` (no
-/// expected value hand-authored).  Unifying the whole `workbook.tsv` into a
-/// single blocking `conformance_tsv_test!` (incl. the date-type rows) is
-/// tracked in #575.
-#[test]
-fn workbook_conformance_report() {
-    run_tsv_fixture_report(&fixture("workbook.tsv"));
-}
+// workbook.tsv is fully covered by the blocking `workbook_conformance` test in
+// `tests/workbook_inputs_conformance.rs` (core#575): cross-sheet/named-range
+// rows via sidecar resolver, date-type/plain rows via `evaluate_at` with pinned
+// time.  No report-only runner is needed here.
 
 /// Known-bug regression baseline.
 ///
