@@ -598,6 +598,15 @@ fn every_registered_function_has_conformance_coverage() {
     .iter()
     .copied()
     .collect();
+    // Timezone functions are truecalc-only extensions with no Google Sheets
+    // equivalent, so they cannot have Sheets conformance rows. Their correctness
+    // is covered by unit tests against IANA ground truth instead.
+    let truecalc_only: std::collections::HashSet<String> = registry
+        .get_metadata()
+        .iter()
+        .filter(|e| e.meta.category == "timezone")
+        .map(|e| e.name.to_uppercase())
+        .collect();
 
     let gdir = fixture_dir();
     let vars: HashMap<String, Value> = HashMap::new();
@@ -682,6 +691,7 @@ fn every_registered_function_has_conformance_coverage() {
         let upper = name.to_uppercase();
         if volatile.contains(upper.as_str())
             || context_limited.contains(upper.as_str())
+            || truecalc_only.contains(&upper)
             || covered.contains(&upper)
             || acknowledged.contains(&upper)
         {

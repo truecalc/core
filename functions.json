@@ -3712,6 +3712,13 @@
     "examples": []
   },
   {
+    "name": "ISZONED",
+    "category": "timezone",
+    "syntax": "ISZONED(value)",
+    "description": "TRUE if the value is a zone-aware instant",
+    "examples": []
+  },
+  {
     "name": "JOIN",
     "category": "text",
     "syntax": "JOIN(delimiter, value1, ...)",
@@ -6763,6 +6770,55 @@
         "result": "4"
       }
     ]
+  },
+  {
+    "name": "TZCONVERT",
+    "category": "timezone",
+    "syntax": "TZCONVERT(zoned,target_zone)",
+    "description": "Same instant shown as the local time in another zone",
+    "examples": []
+  },
+  {
+    "name": "TZDATETIME",
+    "category": "timezone",
+    "syntax": "TZDATETIME(year,month,day,hour,minute,second,zone,[policy])",
+    "description": "Builds a zone-aware instant from a wall-clock time in a zone",
+    "examples": []
+  },
+  {
+    "name": "TZDBVERSION",
+    "category": "timezone",
+    "syntax": "TZDBVERSION()",
+    "description": "IANA time-zone database version the engine is using",
+    "examples": []
+  },
+  {
+    "name": "TZOFFSET",
+    "category": "timezone",
+    "syntax": "TZOFFSET(zoned)",
+    "description": "Offset from UTC in minutes at this instant (DST-resolved)",
+    "examples": []
+  },
+  {
+    "name": "TZSERIAL",
+    "category": "timezone",
+    "syntax": "TZSERIAL(zoned)",
+    "description": "Drops the zone, returning the wall-clock time as a plain date serial",
+    "examples": []
+  },
+  {
+    "name": "TZSTRING",
+    "category": "timezone",
+    "syntax": "TZSTRING(zoned)",
+    "description": "Canonical RFC-9557 string for a zone-aware instant",
+    "examples": []
+  },
+  {
+    "name": "TZVALID",
+    "category": "timezone",
+    "syntax": "TZVALID(zone)",
+    "description": "TRUE if the text is a valid IANA zone name or fixed offset",
+    "examples": []
   },
   {
     "name": "UNICHAR",

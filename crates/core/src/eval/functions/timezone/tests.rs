@@ -1,0 +1,134 @@
+use super::*;
+use crate::types::{ErrorKind, Value};
+
+fn num(n: f64) -> Value {
+    Value::Number(n)
+}
+fn txt(s: &str) -> Value {
+    Value::Text(s.to_string())
+}
+
+/// Build `TZDATETIME(y,m,d,h,mi,s,zone[,policy])`.
+fn dt(args: &[Value]) -> Value {
+    tzdatetime_fn(args)
+}
+
+#[test]
+fn tzdatetime_builds_berlin_summer() {
+    let v = dt(&[num(2026.0), num(7.0), num(14.0), num(11.0), num(0.0), num(0.0), txt("Europe/Berlin")]);
+    match v {
+        Value::Zoned(z) => {
+            assert_eq!(z.offset_minutes(), 120);
+            assert_eq!(z.to_rfc9557(), "2026-07-14T11:00:00+02:00[Europe/Berlin]");
+        }
+        other => panic!("expected Zoned, got {other:?}"),
+    }
+}
+
+#[test]
+fn tzdatetime_gap_rejected_by_default() {
+    // 2026-03-29 02:30 Berlin is in the spring-forward gap.
+    let v = dt(&[num(2026.0), num(3.0), num(29.0), num(2.0), num(30.0), num(0.0), txt("Europe/Berlin")]);
+    assert_eq!(v, Value::Error(ErrorKind::Value));
+}
+
+#[test]
+fn tzdatetime_gap_compatible_resolves() {
+    let v = dt(&[num(2026.0), num(3.0), num(29.0), num(2.0), num(30.0), num(0.0), txt("Europe/Berlin"), txt("compatible")]);
+    match v {
+        Value::Zoned(z) => assert_eq!(z.offset_minutes(), 120),
+        other => panic!("expected Zoned, got {other:?}"),
+    }
+}
+
+#[test]
+fn tzdatetime_invalid_policy_is_value_error() {
+    let v = dt(&[num(2026.0), num(1.0), num(1.0), num(0.0), num(0.0), num(0.0), txt("UTC"), txt("nonsense")]);
+    assert_eq!(v, Value::Error(ErrorKind::Value));
+}
+
+#[test]
+fn tzdatetime_invalid_zone_is_value_error() {
+    let v = dt(&[num(2026.0), num(1.0), num(1.0), num(0.0), num(0.0), num(0.0), txt("Mars/Olympus")]);
+    assert_eq!(v, Value::Error(ErrorKind::Value));
+}
+
+#[test]
+fn tzdatetime_invalid_calendar_is_value_error() {
+    let v = dt(&[num(2026.0), num(13.0), num(1.0), num(0.0), num(0.0), num(0.0), txt("UTC")]);
+    assert_eq!(v, Value::Error(ErrorKind::Value));
+}
+
+#[test]
+fn tzconvert_preserves_instant_changes_label() {
+    let berlin = dt(&[num(2026.0), num(7.0), num(14.0), num(11.0), num(0.0), num(0.0), txt("Europe/Berlin")]);
+    let tokyo = tzconvert_fn(&[berlin.clone(), txt("Asia/Tokyo")]);
+    match (&berlin, &tokyo) {
+        (Value::Zoned(b), Value::Zoned(t)) => {
+            assert_eq!(b.utc_nanos, t.utc_nanos); // same instant
+            assert_eq!(t.offset_minutes(), 540); // Tokyo +09:00, no DST
+        }
+        _ => panic!("expected two Zoned values"),
+    }
+    assert_eq!(
+        tzstring_fn(&[tokyo]),
+        Value::Text("2026-07-14T18:00:00+09:00[Asia/Tokyo]".to_string())
+    );
+}
+
+#[test]
+fn tzoffset_and_tzstring_winter() {
+    let z = dt(&[num(2026.0), num(1.0), num(14.0), num(9.0), num(0.0), num(0.0), txt("Europe/Berlin")]);
+    assert_eq!(tzoffset_fn(&[z.clone()]), Value::Number(60.0)); // CET
+    assert_eq!(
+        tzstring_fn(&[z]),
+        Value::Text("2026-01-14T09:00:00+01:00[Europe/Berlin]".to_string())
+    );
+}
+
+#[test]
+fn tzserial_drops_zone_to_wallclock() {
+    let z = dt(&[num(2026.0), num(7.0), num(14.0), num(12.0), num(0.0), num(0.0), txt("Europe/Berlin")]);
+    match tzserial_fn(&[z]) {
+        // Wall clock 12:00 -> fractional day 0.5.
+        Value::Date(s) => assert_eq!(s.fract(), 0.5),
+        other => panic!("expected Date, got {other:?}"),
+    }
+}
+
+#[test]
+fn tzvalid_classifies_zones() {
+    assert_eq!(tzvalid_fn(&[txt("Europe/Berlin")]), Value::Bool(true));
+    assert_eq!(tzvalid_fn(&[txt("+05:30")]), Value::Bool(true));
+    assert_eq!(tzvalid_fn(&[txt("UTC")]), Value::Bool(true));
+    assert_eq!(tzvalid_fn(&[txt("Not/AZone")]), Value::Bool(false));
+    assert_eq!(tzvalid_fn(&[num(1.0)]), Value::Bool(false));
+}
+
+#[test]
+fn iszoned_predicate() {
+    let z = dt(&[num(2026.0), num(1.0), num(1.0), num(0.0), num(0.0), num(0.0), txt("UTC")]);
+    assert_eq!(iszoned_fn(&[z]), Value::Bool(true));
+    assert_eq!(iszoned_fn(&[num(1.0)]), Value::Bool(false));
+    assert_eq!(iszoned_fn(&[txt("UTC")]), Value::Bool(false));
+}
+
+#[test]
+fn tzdbversion_returns_text() {
+    assert!(matches!(tzdbversion_fn(&[]), Value::Text(_)));
+}
+
+#[test]
+fn introspection_rejects_non_zoned() {
+    assert_eq!(tzoffset_fn(&[num(1.0)]), Value::Error(ErrorKind::Value));
+    assert_eq!(tzstring_fn(&[txt("x")]), Value::Error(ErrorKind::Value));
+    assert_eq!(tzserial_fn(&[num(1.0)]), Value::Error(ErrorKind::Value));
+    assert_eq!(tzconvert_fn(&[num(1.0), txt("UTC")]), Value::Error(ErrorKind::Value));
+}
+
+#[test]
+fn wrong_arity_returns_na() {
+    assert_eq!(tzoffset_fn(&[]), Value::Error(ErrorKind::NA));
+    assert_eq!(tzdbversion_fn(&[num(1.0)]), Value::Error(ErrorKind::NA));
+    assert_eq!(tzdatetime_fn(&[num(2026.0)]), Value::Error(ErrorKind::NA));
+}
