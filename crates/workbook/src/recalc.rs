@@ -146,6 +146,14 @@ impl RecalcContext {
         Some(days + secs / 86_400.0)
     }
 
+    /// The pinned "now" as an absolute UTC instant in nanoseconds, for the
+    /// zone-aware `TZNOW`. Derived from the same `timestamp_ms` as
+    /// [`now_serial`](Self::now_serial), so `NOW()` and `TZNOW()` share one
+    /// deterministic clock.
+    pub fn now_utc_nanos(&self) -> Option<i64> {
+        self.timestamp_ms.checked_mul(1_000_000)
+    }
+
     /// The ADR's per-draw RNG key `prf(rng_seed, sheet_index, row, col,
     /// draw_index)`, a deterministic, order-independent mixing of the cell
     /// identity into the seed.
@@ -335,6 +343,7 @@ impl Workbook {
         to_eval: BTreeSet<CellRef>,
     ) -> Vec<Change> {
         let now_serial = ctx.now_serial();
+        let now_utc_nanos = ctx.now_utc_nanos();
         let rng_seed = ctx.rng_seed();
 
         // Cells on a cycle short-circuit to the circular error; the rest are
@@ -400,6 +409,7 @@ impl Workbook {
                 let raw = self.eval_formula_cell(
                     cell,
                     now_serial,
+                    now_utc_nanos,
                     rng_seed,
                     &next_values,
                     &next_spills,
@@ -441,6 +451,7 @@ impl Workbook {
         &self,
         cell: &CellRef,
         now_serial: Option<f64>,
+        now_utc_nanos: Option<i64>,
         rng_seed: u64,
         new_values: &BTreeMap<CellRef, Value>,
         spills: &BTreeMap<CellRef, SpillRect>,
@@ -478,6 +489,7 @@ impl Workbook {
             &formula,
             &mut resolver,
             now_serial,
+            now_utc_nanos,
             rng_cell,
         );
         core_to_workbook(core)

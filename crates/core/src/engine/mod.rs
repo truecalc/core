@@ -190,6 +190,7 @@ impl Engine {
         formula: &str,
         resolver: &mut dyn Resolver,
         now_serial: Option<f64>,
+        now_utc_nanos: Option<i64>,
         rng_cell: Option<(u64, u32, u32, u32)>,
     ) -> Value {
         if let Some(n) = now_serial {
@@ -205,6 +206,7 @@ impl Engine {
             Ok(expr) => {
                 let mut ctx = Context::empty();
                 ctx.now_serial = now_serial;
+                ctx.now_utc_nanos = now_utc_nanos;
                 ctx.rng_cell = rng_cell;
                 let mut eval_ctx = EvalCtx::with_resolver(ctx, &self.registry, resolver);
                 evaluate_expr(&expr, &mut eval_ctx)

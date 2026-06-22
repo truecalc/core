@@ -2,13 +2,15 @@
 //! display [`Value::Zoned`] instants. The naive<->zoned boundary is always an
 //! explicit call here: `TZDATETIME`/`TZLOCALIZE` up, `TZSERIAL` down.
 
-use chrono::{Datelike, Duration, Months, NaiveDate, NaiveDateTime, Timelike};
+use chrono::{Datelike, Duration, Months, NaiveDate, NaiveDateTime, Timelike, Utc};
 
 use crate::eval::coercion::to_number;
+use crate::eval::evaluate_expr;
 use crate::eval::functions::date::serial::{
     date_to_serial, serial_to_date, serial_to_time, time_to_serial,
 };
-use crate::eval::functions::{check_arity, FunctionMeta, Registry};
+use crate::eval::functions::{check_arity, check_arity_len, EvalCtx, FunctionMeta, Registry};
+use crate::parser::ast::Expr;
 use crate::types::zoned::{parse_rfc9557, parse_zone, AmbiguousPolicy};
 use crate::types::{ErrorKind, Value, ZoneId, ZonedInstant};
 
@@ -33,6 +35,9 @@ pub fn register_timezone(registry: &mut Registry) {
     registry.register_eager("TZPART", tzpart_fn, FunctionMeta { category: "timezone", signature: "TZPART(zoned,unit)", description: "Local wall-clock field: year|month|day|hour|minute|second|weekday" });
     registry.register_eager("TZDIFF", tzdiff_fn, FunctionMeta { category: "timezone", signature: "TZDIFF(zoned_a,zoned_b,[unit])", description: "Elapsed time from b to a on the absolute timeline (DST-immune)" });
     registry.register_eager("TZADD", tzadd_fn, FunctionMeta { category: "timezone", signature: "TZADD(zoned,amount,unit,[policy])", description: "Adds time: seconds/minutes/hours are absolute, days/weeks/months/years are DST-aware calendar units" });
+    registry.register_lazy("TZNOW", tznow_fn, FunctionMeta { category: "timezone", signature: "TZNOW(zone)", description: "The current moment stamped with the given zone (volatile; pinned during recalc)" });
+    registry.register_eager("TZINWINDOW", tzinwindow_fn, FunctionMeta { category: "timezone", signature: "TZINWINDOW(zoned,start_local,end_local,[days_mask])", description: "TRUE if the local time-of-day falls in [start,end); days_mask is 7 chars Sun..Sat" });
+    registry.register_eager("TZCANONICAL", tzcanonical_fn, FunctionMeta { category: "timezone", signature: "TZCANONICAL(zone)", description: "Validates and normalizes a zone name (best-effort; IANA links are not resolved)" });
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -399,6 +404,97 @@ pub fn tzadd_fn(args: &[Value]) -> Value {
                 None => Value::Error(ErrorKind::Value),
             }
         }
+        _ => Value::Error(ErrorKind::Value),
+    }
+}
+
+/// `TZNOW(zone)` — the current instant stamped with `zone`. Volatile and lazy:
+/// it reads the pinned UTC instant from the context (set during recalc), falling
+/// back to the ambient UTC clock when unpinned.
+pub fn tznow_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
+    if let Some(e) = check_arity_len(args.len(), 1, 1) {
+        return e;
+    }
+    let zone_val = evaluate_expr(&args[0], ctx);
+    let zone = match &zone_val {
+        Value::Text(s) => match parse_zone(s) {
+            Some(z) => z,
+            None => return Value::Error(ErrorKind::Value),
+        },
+        Value::Error(_) => return zone_val,
+        _ => return Value::Error(ErrorKind::Value),
+    };
+    let nanos = match ctx.ctx.now_utc_nanos {
+        Some(n) => n,
+        None => match Utc::now().timestamp_nanos_opt() {
+            Some(n) => n,
+            None => return Value::Error(ErrorKind::Num),
+        },
+    };
+    zoned(ZonedInstant::from_instant(nanos, zone))
+}
+
+/// `TZINWINDOW(zoned, start_local, end_local, [days_mask])` — is the local
+/// time-of-day within `[start, end)`? `start`/`end` are time-of-day fractions
+/// (0..1, e.g. `TIME(9,0,0)`). An overnight window (`start > end`) wraps past
+/// midnight. Optional `days_mask` is 7 characters, index 0 = Sunday, '1' = the
+/// day counts.
+pub fn tzinwindow_fn(args: &[Value]) -> Value {
+    if let Some(e) = check_arity(args, 3, 4) {
+        return e;
+    }
+    let zi = match arg_zoned(&args[0]) {
+        Ok(z) => z,
+        Err(e) => return e,
+    };
+    let start = match to_number(args[1].clone()) {
+        Ok(n) => n,
+        Err(e) => return e,
+    };
+    let end = match to_number(args[2].clone()) {
+        Ok(n) => n,
+        Err(e) => return e,
+    };
+    let local = zi.local();
+    if let Some(mask_arg) = args.get(3) {
+        let mask = match mask_arg {
+            Value::Text(s) => s,
+            _ => return Value::Error(ErrorKind::Value),
+        };
+        let idx = local.weekday().num_days_from_sunday() as usize;
+        match mask.chars().nth(idx) {
+            Some('1') => {}
+            Some(_) => return Value::Bool(false),
+            None => return Value::Error(ErrorKind::Value),
+        }
+    }
+    let frac = local.time().num_seconds_from_midnight() as f64 / 86_400.0;
+    let inside = if start <= end {
+        frac >= start && frac < end
+    } else {
+        // Overnight window wraps past midnight.
+        frac >= start || frac < end
+    };
+    Value::Bool(inside)
+}
+
+/// `TZCANONICAL(zone)` — validate and normalize a zone name. Best-effort: a
+/// valid IANA name or fixed offset is returned in canonical form, but chrono-tz
+/// keeps backward-compat links (e.g. `US/Pacific`) as distinct names, so links
+/// are not resolved to their target.
+pub fn tzcanonical_fn(args: &[Value]) -> Value {
+    if let Some(e) = check_arity(args, 1, 1) {
+        return e;
+    }
+    match &args[0] {
+        Value::Text(s) => match parse_zone(s) {
+            Some(ZoneId::Iana(tz)) => Value::Text(tz.name().to_string()),
+            Some(ZoneId::Fixed(m)) => {
+                let a = m.abs();
+                Value::Text(format!("{}{:02}:{:02}", if m < 0 { '-' } else { '+' }, a / 60, a % 60))
+            }
+            None => Value::Error(ErrorKind::Value),
+        },
         _ => Value::Error(ErrorKind::Value),
     }
 }
