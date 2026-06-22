@@ -6772,6 +6772,13 @@
     ]
   },
   {
+    "name": "TZABBR",
+    "category": "timezone",
+    "syntax": "TZABBR(zoned)",
+    "description": "Zone abbreviation at this instant (e.g. CEST), display only",
+    "examples": []
+  },
+  {
     "name": "TZCONVERT",
     "category": "timezone",
     "syntax": "TZCONVERT(zoned,target_zone)",
@@ -6793,10 +6800,52 @@
     "examples": []
   },
   {
+    "name": "TZFROMEPOCH",
+    "category": "timezone",
+    "syntax": "TZFROMEPOCH(unix_seconds,zone)",
+    "description": "Builds a zone-aware instant from a Unix timestamp",
+    "examples": []
+  },
+  {
+    "name": "TZISDST",
+    "category": "timezone",
+    "syntax": "TZISDST(zoned)",
+    "description": "TRUE if daylight-saving is in effect at this instant",
+    "examples": []
+  },
+  {
+    "name": "TZLOCALIZE",
+    "category": "timezone",
+    "syntax": "TZLOCALIZE(date_serial,zone,[policy])",
+    "description": "Interprets a plain date/time serial as a wall-clock reading in a zone",
+    "examples": []
+  },
+  {
     "name": "TZOFFSET",
     "category": "timezone",
     "syntax": "TZOFFSET(zoned)",
     "description": "Offset from UTC in minutes at this instant (DST-resolved)",
+    "examples": []
+  },
+  {
+    "name": "TZOFFSETDIFF",
+    "category": "timezone",
+    "syntax": "TZOFFSETDIFF(zoned_a,zoned_b)",
+    "description": "Signed difference in minutes between two zones' offsets",
+    "examples": []
+  },
+  {
+    "name": "TZPARSE",
+    "category": "timezone",
+    "syntax": "TZPARSE(text,[zone])",
+    "description": "Parses an ISO/RFC-9557 timestamp into a zone-aware instant",
+    "examples": []
+  },
+  {
+    "name": "TZPART",
+    "category": "timezone",
+    "syntax": "TZPART(zoned,unit)",
+    "description": "Local wall-clock field: year|month|day|hour|minute|second|weekday",
     "examples": []
   },
   {

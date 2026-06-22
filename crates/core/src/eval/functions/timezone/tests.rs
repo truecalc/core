@@ -132,3 +132,96 @@ fn wrong_arity_returns_na() {
     assert_eq!(tzdbversion_fn(&[num(1.0)]), Value::Error(ErrorKind::NA));
     assert_eq!(tzdatetime_fn(&[num(2026.0)]), Value::Error(ErrorKind::NA));
 }
+
+// ── Batch 2: alt construction, introspection, extraction ──────────────────────
+
+#[test]
+fn tzlocalize_round_trips_with_tzserial() {
+    let z = dt(&[num(2026.0), num(7.0), num(14.0), num(11.0), num(0.0), num(0.0), txt("Europe/Berlin")]);
+    let serial = match tzserial_fn(&[z.clone()]) {
+        Value::Date(s) => s,
+        other => panic!("expected Date, got {other:?}"),
+    };
+    let z2 = tzlocalize_fn(&[Value::Date(serial), txt("Europe/Berlin")]);
+    match (&z, &z2) {
+        (Value::Zoned(a), Value::Zoned(b)) => assert_eq!(a.utc_nanos, b.utc_nanos),
+        _ => panic!("expected two Zoned values"),
+    }
+}
+
+#[test]
+fn tzlocalize_invalid_zone_is_value_error() {
+    assert_eq!(tzlocalize_fn(&[num(46000.0), txt("Mars/Olympus")]), Value::Error(ErrorKind::Value));
+}
+
+#[test]
+fn tzfromepoch_unix_zero_in_new_york() {
+    // Unix 0 = 1970-01-01T00:00:00Z = 1969-12-31 19:00 EST.
+    let z = tzfromepoch_fn(&[num(0.0), txt("America/New_York")]);
+    assert_eq!(tzoffset_fn(&[z.clone()]), Value::Number(-300.0));
+    assert_eq!(
+        tzstring_fn(&[z]),
+        Value::Text("1969-12-31T19:00:00-05:00[America/New_York]".to_string())
+    );
+}
+
+#[test]
+fn tzparse_handles_rfc9557_naive_and_offset_only() {
+    // Bracketed RFC-9557.
+    assert_eq!(
+        tzoffset_fn(&[tzparse_fn(&[txt("2026-07-14T11:00:00+02:00[Europe/Berlin]")])]),
+        Value::Number(120.0)
+    );
+    // Naive datetime + explicit zone.
+    assert_eq!(
+        tzstring_fn(&[tzparse_fn(&[txt("2026-07-14 11:00:00"), txt("Europe/Berlin")])]),
+        Value::Text("2026-07-14T11:00:00+02:00[Europe/Berlin]".to_string())
+    );
+    // Offset-only -> fixed zone.
+    assert_eq!(
+        tzoffset_fn(&[tzparse_fn(&[txt("2026-01-01T12:00:00+05:30")])]),
+        Value::Number(330.0)
+    );
+    // Naive without a zone, and garbage, are errors.
+    assert_eq!(tzparse_fn(&[txt("2026-07-14 11:00:00")]), Value::Error(ErrorKind::Value));
+    assert_eq!(tzparse_fn(&[txt("garbage")]), Value::Error(ErrorKind::Value));
+}
+
+#[test]
+fn tzisdst_and_tzabbr_track_dst() {
+    let summer = dt(&[num(2026.0), num(7.0), num(14.0), num(11.0), num(0.0), num(0.0), txt("Europe/Berlin")]);
+    let winter = dt(&[num(2026.0), num(1.0), num(14.0), num(9.0), num(0.0), num(0.0), txt("Europe/Berlin")]);
+    assert_eq!(tzisdst_fn(&[summer.clone()]), Value::Bool(true));
+    assert_eq!(tzisdst_fn(&[winter.clone()]), Value::Bool(false));
+    assert_eq!(tzabbr_fn(&[summer]), Value::Text("CEST".to_string()));
+    assert_eq!(tzabbr_fn(&[winter]), Value::Text("CET".to_string()));
+}
+
+#[test]
+fn tzoffsetdiff_between_zones() {
+    let berlin = dt(&[num(2026.0), num(7.0), num(14.0), num(11.0), num(0.0), num(0.0), txt("Europe/Berlin")]);
+    let tokyo = tzconvert_fn(&[berlin.clone(), txt("Asia/Tokyo")]);
+    // Tokyo +540, Berlin +120 -> +420.
+    assert_eq!(tzoffsetdiff_fn(&[tokyo, berlin]), Value::Number(420.0));
+}
+
+#[test]
+fn tzpart_extracts_local_fields() {
+    let z = dt(&[num(2026.0), num(7.0), num(14.0), num(11.0), num(30.0), num(45.0), txt("Europe/Berlin")]);
+    assert_eq!(tzpart_fn(&[z.clone(), txt("year")]), Value::Number(2026.0));
+    assert_eq!(tzpart_fn(&[z.clone(), txt("month")]), Value::Number(7.0));
+    assert_eq!(tzpart_fn(&[z.clone(), txt("hour")]), Value::Number(11.0));
+    assert_eq!(tzpart_fn(&[z.clone(), txt("minute")]), Value::Number(30.0));
+    assert_eq!(tzpart_fn(&[z.clone(), txt("second")]), Value::Number(45.0));
+    // 2026-07-14 is a Tuesday -> Sunday=1 convention gives 3.
+    assert_eq!(tzpart_fn(&[z.clone(), txt("weekday")]), Value::Number(3.0));
+    assert_eq!(tzpart_fn(&[z, txt("bogus")]), Value::Error(ErrorKind::Value));
+}
+
+#[test]
+fn batch2_rejects_non_zoned() {
+    assert_eq!(tzisdst_fn(&[num(1.0)]), Value::Error(ErrorKind::Value));
+    assert_eq!(tzabbr_fn(&[num(1.0)]), Value::Error(ErrorKind::Value));
+    assert_eq!(tzpart_fn(&[num(1.0), txt("year")]), Value::Error(ErrorKind::Value));
+    assert_eq!(tzoffsetdiff_fn(&[num(1.0), num(2.0)]), Value::Error(ErrorKind::Value));
+}
