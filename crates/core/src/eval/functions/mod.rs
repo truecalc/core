@@ -11,6 +11,7 @@ pub mod operator;
 pub mod parser;
 pub mod statistical;
 pub mod text;
+pub mod timezone;
 pub mod web;
 
 use std::collections::HashMap;
@@ -125,6 +126,7 @@ impl Registry {
         database::register_database(&mut r);
         lookup::register_lookup(&mut r);
         web::register_web(&mut r);
+        timezone::register_timezone(&mut r);
         r
     }
 
