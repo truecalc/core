@@ -116,6 +116,14 @@ The files under `crates/core/tests/fixtures/google_sheets/` are the source of tr
 - **Conflict resolution on fixture files**: always take the `--ours` side (current main) and manually re-apply only your intended additions. Never let a rebase silently restore deleted rows.
 - **bugs.tsv** is the only file where adding rows without pipeline verification is acceptable — it acknowledges known failures, not correct values.
 
+## 10. Public Repo Hygiene — No Private References
+
+**This is a public repository. Keep private resources out of public-facing artifacts.**
+
+- Do not name private/internal TrueCalc repositories or reference their file paths (design specs, plans, internal docs) in issues, PR titles/bodies, commit messages, code comments, or published documentation.
+- Make public artifacts self-contained: inline the relevant decision or summary rather than linking to an internal document.
+- Before posting any issue/PR/commit, scan the text for internal repo names and paths and replace them with an inline summary.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
