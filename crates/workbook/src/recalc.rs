@@ -1135,6 +1135,7 @@ fn core_to_workbook(v: CoreValue) -> Value {
         CoreValue::Error(e) => Value::Error(e.to_string()),
         CoreValue::Empty => Value::Empty,
         CoreValue::Date(n) => Value::Date(n),
+        CoreValue::Zoned(z) => Value::Zoned(z),
         CoreValue::Array(elems) => core_array_to_workbook(elems),
     }
 }
@@ -1175,6 +1176,7 @@ fn workbook_to_core(v: &Value) -> CoreValue {
         Value::Error(code) => CoreValue::Error(error_kind_from_code(code)),
         Value::Empty => CoreValue::Empty,
         Value::Date(n) => CoreValue::Date(*n),
+        Value::Zoned(z) => CoreValue::Zoned(z.clone()),
         Value::Array(rows) => CoreValue::Array(
             rows.iter()
                 .map(|row| CoreValue::Array(row.iter().map(workbook_to_core).collect()))

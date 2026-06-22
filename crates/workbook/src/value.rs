@@ -3,6 +3,8 @@ use std::hash::{Hash, Hasher};
 use serde::de::Error as _;
 use serde::ser::{Error as _, SerializeMap};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use truecalc_core::types::zoned::parse_rfc9557;
+use truecalc_core::types::ZonedInstant;
 
 /// An evaluated cell value — one of the seven types of schema spec §6.
 ///
@@ -40,6 +42,9 @@ pub enum Value {
     /// A date as a serial number (fractional part = time of day). The epoch
     /// is implied by the workbook's engine flavor, never stored per-value.
     Date(f64),
+    /// A zone-aware instant (Model B). Serialized as its canonical, self-
+    /// describing RFC-9557 string, e.g. `2026-07-14T11:00:00+02:00[Europe/Berlin]`.
+    Zoned(Box<ZonedInstant>),
 }
 
 /// Bit pattern of a finite f64 with `-0.0` normalized to `0.0`, so that
@@ -61,6 +66,9 @@ impl Hash for Value {
             Value::Text(s) => s.hash(state),
             Value::Boolean(b) => b.hash(state),
             Value::Error(code) => code.hash(state),
+            // Hash the canonical RFC-9557 form: structurally equal instants
+            // (same utc_nanos + zone) produce the same string, agreeing with `==`.
+            Value::Zoned(z) => z.to_rfc9557().hash(state),
             Value::Empty => {}
             Value::Array(rows) => {
                 rows.len().hash(state);
@@ -97,6 +105,12 @@ impl Serialize for Value {
         match self {
             Value::Number(n) => serialize_tagged_number("number", *n, serializer),
             Value::Date(n) => serialize_tagged_number("date", *n, serializer),
+            Value::Zoned(z) => {
+                let mut map = serializer.serialize_map(Some(2))?;
+                map.serialize_entry("type", "zoned")?;
+                map.serialize_entry("value", &z.to_rfc9557())?;
+                map.end()
+            }
             Value::Text(s) => {
                 let mut map = serializer.serialize_map(Some(2))?;
                 map.serialize_entry("type", "text")?;
@@ -185,6 +199,12 @@ fn parse_value(raw: &serde_json::Value) -> Result<Value, String> {
     match kind {
         "number" => Ok(Value::Number(parse_finite_f64(payload, kind)?)),
         "date" => Ok(Value::Date(parse_finite_f64(payload, kind)?)),
+        "zoned" => match payload.as_str() {
+            Some(s) => parse_rfc9557(s)
+                .map(|zi| Value::Zoned(Box::new(zi)))
+                .ok_or_else(|| format!("a zoned value must be a valid RFC-9557 string, got {s:?}")),
+            None => Err("a zoned value must be a JSON string".to_string()),
+        },
         "text" => match payload.as_str() {
             Some(s) => Ok(Value::Text(s.to_owned())),
             None => Err("a text value must be a JSON string".to_string()),
