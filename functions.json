@@ -6786,10 +6786,24 @@
     "examples": []
   },
   {
+    "name": "TZBOARD",
+    "category": "timezone",
+    "syntax": "TZBOARD(anchor,zones,[base])",
+    "description": "Technical world-clock board: one row per zone {zone,local,offset,delta,rollover,abbrev,dst}",
+    "examples": []
+  },
+  {
     "name": "TZCANONICAL",
     "category": "timezone",
     "syntax": "TZCANONICAL(zone)",
     "description": "Validates and normalizes a zone name (best-effort; IANA links are not resolved)",
+    "examples": []
+  },
+  {
+    "name": "TZCOMPARETEXT",
+    "category": "timezone",
+    "syntax": "TZCOMPARETEXT(anchor,zones,[base])",
+    "description": "Alias of TZWORLDCLOCK",
     "examples": []
   },
   {
@@ -6849,6 +6863,13 @@
     "examples": []
   },
   {
+    "name": "TZLOCALSTATUS",
+    "category": "timezone",
+    "syntax": "TZLOCALSTATUS(year,month,day,hour,minute,zone)",
+    "description": "Classifies a local time as unique, gap (nonexistent) or fold (ambiguous)",
+    "examples": []
+  },
+  {
     "name": "TZNOW",
     "category": "timezone",
     "syntax": "TZNOW(zone)",
@@ -6898,10 +6919,31 @@
     "examples": []
   },
   {
+    "name": "TZTABLE",
+    "category": "timezone",
+    "syntax": "TZTABLE(anchor,zones,[base])",
+    "description": "Alias of TZBOARD",
+    "examples": []
+  },
+  {
+    "name": "TZTEXT",
+    "category": "timezone",
+    "syntax": "TZTEXT(zoned,[format])",
+    "description": "Human-friendly local string; optional strftime format",
+    "examples": []
+  },
+  {
     "name": "TZVALID",
     "category": "timezone",
     "syntax": "TZVALID(zone)",
     "description": "TRUE if the text is a valid IANA zone name or fixed offset",
+    "examples": []
+  },
+  {
+    "name": "TZWORLDCLOCK",
+    "category": "timezone",
+    "syntax": "TZWORLDCLOCK(anchor,zones,[base])",
+    "description": "Friendly one-line summary comparing the time across N zones",
     "examples": []
   },
   {
