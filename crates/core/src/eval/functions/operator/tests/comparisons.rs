@@ -132,3 +132,31 @@ fn percent_wrong_arity_returns_na() { assert_eq!(unary_percent_fn(&[n(1.0), n(2.
 
 #[test]
 fn percent_non_numeric_returns_error() { assert_eq!(unary_percent_fn(&[t("abc")]), Value::Error(ErrorKind::Value)); }
+
+// ── Date comparison (issue #671 — =DATE=DATE returned FALSE) ───────────────────
+
+fn d(v: f64) -> Value { Value::Date(v) }
+
+#[test]
+fn eq_equal_dates() { assert_eq!(eq_fn(&[d(43831.0), d(43831.0)]), b(true)); }
+
+#[test]
+fn eq_unequal_dates() { assert_eq!(eq_fn(&[d(43831.0), d(43832.0)]), b(false)); }
+
+#[test]
+fn ne_equal_dates() { assert_eq!(ne_fn(&[d(43831.0), d(43831.0)]), b(false)); }
+
+#[test]
+fn eq_date_equals_serial_number() {
+    // Google Sheets treats a date as its serial number.
+    assert_eq!(eq_fn(&[d(43831.0), n(43831.0)]), b(true));
+}
+
+#[test]
+fn lt_dates() { assert_eq!(lt_fn(&[d(43831.0), d(43832.0)]), b(true)); }
+
+#[test]
+fn gt_dates() { assert_eq!(gt_fn(&[d(43832.0), d(43831.0)]), b(true)); }
+
+#[test]
+fn gte_equal_dates() { assert_eq!(gte_fn(&[d(43831.0), d(43831.0)]), b(true)); }
