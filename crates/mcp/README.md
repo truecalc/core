@@ -6,7 +6,13 @@
 
 MCP server that exposes [truecalc](https://crates.io/crates/truecalc-core) spreadsheet formula evaluation as tools for AI assistants.
 
-Plug it into Claude Desktop (or any MCP-compatible client) and your AI can evaluate, validate, and explain Excel-compatible formulas without writing any code.
+484 spreadsheet functions — evaluate, validate, and explain formulas without writing any code. Ground-truth conformance against real Google Sheets. Backed by the same engine used in the [Rust crate](https://crates.io/crates/truecalc-core) and [npm package](https://www.npmjs.com/package/@truecalc/core).
+
+```json
+// Tool: evaluate
+{ "formula": "SUM(A1, B1)", "variables": { "A1": 100, "B1": 200 } }
+// => { "value": 300, "type": "number" }
+```
 
 ## Install
 
@@ -87,6 +93,10 @@ Covers math, logical, text, financial, and statistical categories. For the full 
 
 - [`truecalc-core`](https://crates.io/crates/truecalc-core) — the underlying formula engine (Rust library)
 - [`@truecalc/core`](https://www.npmjs.com/package/@truecalc/core) — WebAssembly package for JavaScript/TypeScript
+
+## Documentation
+
+[docs.truecalc.app](https://docs.truecalc.app)
 
 ## License
 
