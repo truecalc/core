@@ -25,6 +25,9 @@ pub fn to_number(v: Value) -> Result<f64, Value> {
         }
         Value::Error(_)  => Err(v),
         Value::Array(_)  => Err(Value::Error(ErrorKind::Value)),
+        // Zoned instants have no naive numeric value; force an explicit TZSERIAL
+        // downcast rather than silently mixing naive/aware time.
+        Value::Zoned(_)  => Err(Value::Error(ErrorKind::Value)),
     }
 }
 
@@ -44,6 +47,8 @@ pub fn to_string_val(v: Value) -> Result<String, Value> {
         Value::Empty    => Ok(String::new()),
         Value::Error(_) => Err(v),
         Value::Array(_) => Err(Value::Error(ErrorKind::Value)),
+        // Self-describing canonical RFC-9557 form so concatenation is lossless.
+        Value::Zoned(z) => Ok(z.to_rfc9557()),
     }
 }
 
@@ -67,6 +72,8 @@ pub fn to_bool(v: Value) -> Result<bool, Value> {
             _       => Err(Value::Error(ErrorKind::Value)),
         },
         Value::Empty => Err(Value::Error(ErrorKind::Value)),
+        // A zoned instant has no truthiness.
+        Value::Zoned(_) => Err(Value::Error(ErrorKind::Value)),
         // Array condition: use the top-left (anchor) element — same as the
         // unspilled-array collapse the workbook layer applies.
         Value::Array(mut elems) => {

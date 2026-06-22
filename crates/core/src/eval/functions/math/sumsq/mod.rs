@@ -44,6 +44,8 @@ fn sumsq_value(v: &Value, in_array: bool) -> Result<f64, Value> {
             if let Ok(n) = s.trim().parse::<f64>() { Ok(n * n) }
             else { Err(Value::Error(crate::types::ErrorKind::Value)) }
         }
+        Value::Zoned(_) if in_array => Ok(0.0), // skipped in array context
+        Value::Zoned(_) => Err(Value::Error(crate::types::ErrorKind::Value)),
         Value::Error(_) => Err(v.clone()),
         Value::Date(n) => Ok(n * n),
     }

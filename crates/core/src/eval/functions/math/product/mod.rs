@@ -39,6 +39,7 @@ fn product_array_value(v: &Value) -> Result<f64, Value> {
             Ok(p)
         }
         Value::Bool(_) | Value::Text(_) | Value::Empty => Ok(1.0),
+        Value::Zoned(_) => Ok(1.0),
         Value::Error(_) => Err(v.clone()),
         Value::Number(n) | Value::Date(n) => Ok(*n),
     }

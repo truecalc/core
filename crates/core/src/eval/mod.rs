@@ -165,7 +165,7 @@ fn eval_apply(func: &Expr, call_args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
 // Number < Text < Bool  (Empty counts as Number)
 fn type_rank(v: &Value) -> u8 {
     match v {
-        Value::Number(_) | Value::Date(_) | Value::Empty => 0,
+        Value::Number(_) | Value::Date(_) | Value::Empty | Value::Zoned(_) => 0,
         Value::Text(_)                  => 1,
         Value::Bool(_)                  => 2,
         // Error and Array cannot reach compare_values through the normal eval path
@@ -257,6 +257,11 @@ fn eval_binary(op: &BinaryOp, lv: Value, rv: Value) -> Value {
             // Error propagation: left side first.
             if let Value::Error(_) = &lv { return lv; }
             if let Value::Error(_) = &rv { return rv; }
+            // Mixed naive/aware comparison is rejected (a zoned instant cannot be
+            // ordered against a naive value).
+            if matches!(&lv, Value::Zoned(_)) ^ matches!(&rv, Value::Zoned(_)) {
+                return Value::Error(ErrorKind::Value);
+            }
 
             let result = compare_values(op, &lv, &rv);
             Value::Bool(result)
@@ -271,6 +276,9 @@ fn compare_values(op: &BinaryOp, lv: &Value, rv: &Value) -> bool {
         (Value::Date(a),   Value::Date(b))   => apply_cmp(op, a.partial_cmp(b)),
         (Value::Date(a),   Value::Number(b)) => apply_cmp(op, a.partial_cmp(b)),
         (Value::Number(a), Value::Date(b))   => apply_cmp(op, a.partial_cmp(b)),
+        // Zoned instants compare on the absolute instant only (same moment in a
+        // different zone compares equal). Cross-type Zoned is rejected in eval_binary.
+        (Value::Zoned(a),  Value::Zoned(b))  => apply_cmp(op, Some(a.utc_nanos.cmp(&b.utc_nanos))),
         (Value::Text(a),   Value::Text(b))   => apply_cmp(op, Some(a.cmp(b))),
         (Value::Bool(a),   Value::Bool(b))   => apply_cmp(op, Some(a.cmp(b))),
         (Value::Empty,     Value::Empty)     => apply_cmp(op, Some(std::cmp::Ordering::Equal)),

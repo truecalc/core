@@ -160,3 +160,36 @@ fn gt_dates() { assert_eq!(gt_fn(&[d(43832.0), d(43831.0)]), b(true)); }
 
 #[test]
 fn gte_equal_dates() { assert_eq!(gte_fn(&[d(43831.0), d(43831.0)]), b(true)); }
+
+// ── Zoned comparison (Model B: equality/ordering on the instant only) ─────────
+
+use crate::types::{ZoneId, ZonedInstant};
+
+fn z_utc(nanos: i64) -> Value {
+    Value::Zoned(Box::new(ZonedInstant::from_instant(nanos, ZoneId::Iana(chrono_tz::Tz::UTC))))
+}
+fn z_berlin(nanos: i64) -> Value {
+    Value::Zoned(Box::new(ZonedInstant::from_instant(nanos, ZoneId::Iana(chrono_tz::Europe::Berlin))))
+}
+
+#[test]
+fn eq_zoned_same_instant_different_zone() {
+    // Engine `=` compares the absolute instant, ignoring the zone label.
+    assert_eq!(eq_fn(&[z_utc(0), z_berlin(0)]), b(true));
+}
+
+#[test]
+fn eq_zoned_different_instant() { assert_eq!(eq_fn(&[z_utc(0), z_utc(1)]), b(false)); }
+
+#[test]
+fn lt_zoned_by_instant() { assert_eq!(lt_fn(&[z_utc(0), z_utc(1)]), b(true)); }
+
+#[test]
+fn eq_zoned_vs_number_is_value_error() {
+    assert_eq!(eq_fn(&[z_utc(0), n(0.0)]), Value::Error(ErrorKind::Value));
+}
+
+#[test]
+fn gt_zoned_vs_text_is_value_error() {
+    assert_eq!(gt_fn(&[z_utc(0), t("x")]), Value::Error(ErrorKind::Value));
+}
