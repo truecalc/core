@@ -110,10 +110,10 @@ pub fn divide_fn(args: &[Value]) -> Value {
 
 // ── Issue #52 — Comparison aliases ────────────────────────────────────────────
 
-/// Type rank for cross-type ordered comparisons: Number < Text < Bool
+/// Type rank for cross-type ordered comparisons: Number/Date < Text < Bool
 fn type_rank(v: &Value) -> u8 {
     match v {
-        Value::Number(_) | Value::Empty => 0,
+        Value::Number(_) | Value::Date(_) | Value::Empty => 0,
         Value::Text(_) => 1,
         Value::Bool(_) => 2,
         _ => 255,
@@ -124,7 +124,8 @@ fn type_rank(v: &Value) -> u8 {
 /// Returns Some(Ordering) when both values are the same type, None for cross-type.
 fn compare_values(a: &Value, b: &Value) -> std::cmp::Ordering {
     match (a, b) {
-        (Value::Number(x), Value::Number(y)) => x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal),
+        (Value::Number(x) | Value::Date(x), Value::Number(y) | Value::Date(y)) =>
+            x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal),
         (Value::Text(x), Value::Text(y)) => x.to_lowercase().cmp(&y.to_lowercase()),
         (Value::Bool(x), Value::Bool(y)) => x.cmp(y),
         _ => type_rank(a).cmp(&type_rank(b)),
@@ -135,7 +136,7 @@ fn compare_values(a: &Value, b: &Value) -> std::cmp::Ordering {
 fn same_type(a: &Value, b: &Value) -> bool {
     matches!(
         (a, b),
-        (Value::Number(_), Value::Number(_))
+        (Value::Number(_) | Value::Date(_), Value::Number(_) | Value::Date(_))
             | (Value::Text(_), Value::Text(_))
             | (Value::Bool(_), Value::Bool(_))
             | (Value::Empty, Value::Empty)
