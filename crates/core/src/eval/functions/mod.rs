@@ -225,7 +225,7 @@ impl Registry {
     /// Volatile functions — outputs change on every evaluation.
     /// Excluded from conformance fixtures; covered by property tests instead.
     pub const VOLATILE_FUNCTIONS: &'static [&'static str] = &[
-        "RAND", "RANDARRAY", "NOW", "TODAY", "RANDBETWEEN",
+        "RAND", "RANDARRAY", "NOW", "TODAY", "RANDBETWEEN", "TZNOW",
     ];
 }
 

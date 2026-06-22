@@ -6786,6 +6786,13 @@
     "examples": []
   },
   {
+    "name": "TZCANONICAL",
+    "category": "timezone",
+    "syntax": "TZCANONICAL(zone)",
+    "description": "Validates and normalizes a zone name (best-effort; IANA links are not resolved)",
+    "examples": []
+  },
+  {
     "name": "TZCONVERT",
     "category": "timezone",
     "syntax": "TZCONVERT(zoned,target_zone)",
@@ -6821,6 +6828,13 @@
     "examples": []
   },
   {
+    "name": "TZINWINDOW",
+    "category": "timezone",
+    "syntax": "TZINWINDOW(zoned,start_local,end_local,[days_mask])",
+    "description": "TRUE if the local time-of-day falls in [start,end); days_mask is 7 chars Sun..Sat",
+    "examples": []
+  },
+  {
     "name": "TZISDST",
     "category": "timezone",
     "syntax": "TZISDST(zoned)",
@@ -6832,6 +6846,13 @@
     "category": "timezone",
     "syntax": "TZLOCALIZE(date_serial,zone,[policy])",
     "description": "Interprets a plain date/time serial as a wall-clock reading in a zone",
+    "examples": []
+  },
+  {
+    "name": "TZNOW",
+    "category": "timezone",
+    "syntax": "TZNOW(zone)",
+    "description": "The current moment stamped with the given zone (volatile; pinned during recalc)",
     "examples": []
   },
   {

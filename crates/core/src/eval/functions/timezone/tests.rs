@@ -300,3 +300,75 @@ fn arithmetic_error_cases() {
     assert_eq!(tzdiff_fn(&[z, num(1.0)]), Value::Error(ErrorKind::Value));
     assert_eq!(tzdiff_fn(&[num(1.0), num(2.0)]), Value::Error(ErrorKind::Value));
 }
+
+// ── Batch 4: TZNOW, TZINWINDOW, TZCANONICAL ───────────────────────────────────
+
+/// Call the lazy `TZNOW` with a pinned (or absent) UTC instant.
+fn tznow(zone: &str, now_utc_nanos: Option<i64>) -> Value {
+    use crate::eval::functions::{EvalCtx, Registry};
+    use crate::eval::Context;
+    use crate::parser::ast::{Expr, Span};
+    let registry = Registry::new();
+    let mut ctx = Context::empty();
+    ctx.now_utc_nanos = now_utc_nanos;
+    let mut eval_ctx = EvalCtx::new(ctx, &registry);
+    tznow_fn(&[Expr::Text(zone.to_string(), Span::new(0, 0))], &mut eval_ctx)
+}
+
+#[test]
+fn tznow_uses_pinned_utc_instant() {
+    // Pinned to the Unix epoch.
+    assert_eq!(
+        tzstring_fn(&[tznow("UTC", Some(0))]),
+        Value::Text("1970-01-01T00:00:00+00:00[UTC]".to_string())
+    );
+    assert_eq!(tzoffset_fn(&[tznow("America/New_York", Some(0))]), Value::Number(-300.0));
+}
+
+#[test]
+fn tznow_ambient_when_unpinned_is_zoned() {
+    assert!(matches!(tznow("UTC", None), Value::Zoned(_)));
+}
+
+#[test]
+fn tznow_invalid_zone_is_value_error() {
+    assert_eq!(tznow("Mars/Olympus", Some(0)), Value::Error(ErrorKind::Value));
+}
+
+#[test]
+fn tzinwindow_business_hours() {
+    // 09:00 = 0.375, 18:00 = 0.75.
+    let day = dt(&[num(2026.0), num(7.0), num(14.0), num(11.0), num(0.0), num(0.0), txt("Europe/Berlin")]);
+    let evening = dt(&[num(2026.0), num(7.0), num(14.0), num(20.0), num(0.0), num(0.0), txt("Europe/Berlin")]);
+    assert_eq!(tzinwindow_fn(&[day, num(0.375), num(0.75)]), Value::Bool(true));
+    assert_eq!(tzinwindow_fn(&[evening, num(0.375), num(0.75)]), Value::Bool(false));
+}
+
+#[test]
+fn tzinwindow_overnight_wraps_past_midnight() {
+    let z = dt(&[num(2026.0), num(7.0), num(14.0), num(2.0), num(0.0), num(0.0), txt("UTC")]);
+    // 22:00 -> 06:00 window; 02:00 is inside.
+    assert_eq!(tzinwindow_fn(&[z, num(22.0 / 24.0), num(6.0 / 24.0)]), Value::Bool(true));
+}
+
+#[test]
+fn tzinwindow_days_mask_excludes_weekday() {
+    // 2026-07-14 is a Tuesday -> Sunday-indexed position 2.
+    let z = dt(&[num(2026.0), num(7.0), num(14.0), num(11.0), num(0.0), num(0.0), txt("Europe/Berlin")]);
+    assert_eq!(tzinwindow_fn(&[z.clone(), num(0.375), num(0.75), txt("1101111")]), Value::Bool(false));
+    assert_eq!(tzinwindow_fn(&[z, num(0.375), num(0.75), txt("1111111")]), Value::Bool(true));
+}
+
+#[test]
+fn tzcanonical_validates_and_normalizes() {
+    assert_eq!(tzcanonical_fn(&[txt("Europe/Berlin")]), Value::Text("Europe/Berlin".to_string()));
+    assert_eq!(tzcanonical_fn(&[txt("+05:30")]), Value::Text("+05:30".to_string()));
+    assert_eq!(tzcanonical_fn(&[txt("Mars/Olympus")]), Value::Error(ErrorKind::Value));
+}
+
+#[test]
+fn batch4_rejects_bad_inputs() {
+    assert_eq!(tzinwindow_fn(&[num(1.0), num(0.0), num(1.0)]), Value::Error(ErrorKind::Value));
+    assert_eq!(tzcanonical_fn(&[num(1.0)]), Value::Error(ErrorKind::Value));
+    assert_eq!(tzinwindow_fn(&[txt("x")]), Value::Error(ErrorKind::NA));
+}

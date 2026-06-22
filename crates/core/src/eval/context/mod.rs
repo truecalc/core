@@ -12,6 +12,11 @@ pub struct Context {
     /// fraction = time of day). `None` ⇒ the functions read the ambient
     /// local clock. Set via [`crate::Engine::evaluate_at`] (P1.4, issue #526).
     pub now_serial: Option<f64>,
+    /// Pinned "now" as an absolute UTC instant (nanoseconds since the Unix
+    /// epoch), for the zone-aware `TZNOW`. `None` ⇒ `TZNOW` reads the ambient
+    /// UTC clock. Set from the workbook's `timestamp_ms` during recalc; distinct
+    /// from `now_serial` (a tz-naive local serial for `NOW`/`TODAY`).
+    pub now_utc_nanos: Option<i64>,
     /// Per-cell RNG key for deterministic draws: (seed, sheet_index, row, col).
     /// Set by the workbook recalc loop; None for bare Engine::evaluate calls.
     pub rng_cell: Option<(u64, u32, u32, u32)>,
@@ -24,12 +29,12 @@ impl Context {
         let normalized = vars.into_iter()
             .map(|(k, v)| (k.to_uppercase(), v))
             .collect();
-        Self { vars: normalized, now_serial: None, rng_cell: None }
+        Self { vars: normalized, now_serial: None, now_utc_nanos: None, rng_cell: None }
     }
 
     /// Create an empty `Context` with no variable bindings.
     pub fn empty() -> Self {
-        Self { vars: HashMap::new(), now_serial: None, rng_cell: None }
+        Self { vars: HashMap::new(), now_serial: None, now_utc_nanos: None, rng_cell: None }
     }
 
     /// Look up a variable by name (case-insensitive). Returns `Value::Empty` if not found.
