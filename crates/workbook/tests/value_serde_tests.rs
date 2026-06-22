@@ -184,3 +184,28 @@ fn one_by_n_and_n_by_one_arrays_are_accepted() {
     let column = Value::Array(vec![vec![Value::Number(1.0)], vec![Value::Number(2.0)]]);
     assert_eq!(round_trip(&column), column);
 }
+
+// ── Zoned (Model B): canonical, self-describing RFC-9557 wire form ─────────────
+
+#[test]
+fn zoned_iana_round_trips_via_rfc9557() {
+    // The serializer must emit exactly the canonical RFC-9557 string, and the
+    // value must survive a JSON round trip unchanged.
+    let json = r#"{"type":"zoned","value":"2026-07-14T11:00:00+02:00[Europe/Berlin]"}"#;
+    let v = serde_json::from_str::<Value>(json).unwrap();
+    assert_eq!(serde_json::to_string(&v).unwrap(), json);
+    assert_eq!(round_trip(&v), v);
+}
+
+#[test]
+fn zoned_fixed_offset_round_trips() {
+    let json = r#"{"type":"zoned","value":"2026-01-01T12:00:00+05:30"}"#;
+    let v = serde_json::from_str::<Value>(json).unwrap();
+    assert_eq!(serde_json::to_string(&v).unwrap(), json);
+    assert_eq!(round_trip(&v), v);
+}
+
+#[test]
+fn zoned_rejects_invalid_rfc9557() {
+    assert!(serde_json::from_str::<Value>(r#"{"type":"zoned","value":"not a timestamp"}"#).is_err());
+}

@@ -8,9 +8,14 @@ use serde_json::json;
 use tsify_next::Tsify;
 use wasm_bindgen::prelude::*;
 
+use truecalc_core::types::zoned::parse_rfc9557;
 use truecalc_core::Value;
 
 /// Convert a JSON value (from JS) into a truecalc-core Value.
+///
+/// A zoned instant round-trips in via the self-describing object
+/// `{ "type": "zoned", "value": "<RFC-9557>" }` (the same shape `value_to_result`
+/// emits), so an emitted `Zoned` can be fed back as a variable.
 fn json_to_value(v: &serde_json::Value) -> Value {
     match v {
         serde_json::Value::Number(n) => n
@@ -20,6 +25,18 @@ fn json_to_value(v: &serde_json::Value) -> Value {
         serde_json::Value::String(s) => Value::Text(s.clone()),
         serde_json::Value::Bool(b) => Value::Bool(*b),
         serde_json::Value::Null => Value::Empty,
+        serde_json::Value::Object(map) => {
+            if map.get("type").and_then(|t| t.as_str()) == Some("zoned") {
+                if let Some(zi) = map
+                    .get("value")
+                    .and_then(|val| val.as_str())
+                    .and_then(parse_rfc9557)
+                {
+                    return Value::Zoned(Box::new(zi));
+                }
+            }
+            Value::Empty
+        }
         _ => Value::Empty,
     }
 }
@@ -54,6 +71,11 @@ pub enum EvalResult {
     /// A spreadsheet serial date number. Distinct from `Number` so consumers can
     /// format it as a date; the epoch is implied by the engine flavor.
     Date { value: f64 },
+    /// A zone-aware instant, carried as its canonical, self-describing RFC-9557
+    /// string, e.g. `2026-07-14T11:00:00+02:00[Europe/Berlin]`. Derived fields
+    /// (offset/abbrev/is_dst) are intentionally NOT emitted — fetch them via the
+    /// `TZ*` functions so consumers never persist a stale offset.
+    Zoned { value: String },
     Error { error: String },
     Empty,
     /// An (unspilled) array result. Recursive: 2-D arrays are arrays of `array`
@@ -69,6 +91,7 @@ pub fn value_to_result(value: Value) -> EvalResult {
     match value {
         Value::Number(n) => EvalResult::Number { value: n },
         Value::Date(n) => EvalResult::Date { value: n },
+        Value::Zoned(z) => EvalResult::Zoned { value: z.to_rfc9557() },
         Value::Text(s) => EvalResult::Text { value: s },
         Value::Bool(b) => EvalResult::Bool { value: b },
         Value::Error(e) => EvalResult::Error { error: e.to_string() },

@@ -24,6 +24,7 @@ pub fn average_fn(args: &[Value]) -> Value {
                 }
             }
             Value::Empty => {} // skip
+            Value::Zoned(_) => return Value::Error(ErrorKind::Value),
             Value::Error(e) => return Value::Error(e.clone()),
             Value::Array(elems) => {
                 // Array context: skip bool/text, include numbers

@@ -116,6 +116,7 @@ fn type_rank(v: &Value) -> u8 {
         Value::Number(_) | Value::Date(_) | Value::Empty => 0,
         Value::Text(_) => 1,
         Value::Bool(_) => 2,
+        Value::Zoned(_) => 3,
         _ => 255,
     }
 }
@@ -128,6 +129,9 @@ fn compare_values(a: &Value, b: &Value) -> std::cmp::Ordering {
             x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal),
         (Value::Text(x), Value::Text(y)) => x.to_lowercase().cmp(&y.to_lowercase()),
         (Value::Bool(x), Value::Bool(y)) => x.cmp(y),
+        // Zoned instants order on the absolute instant only (same moment in a
+        // different zone compares equal). Cross-type Zoned is rejected upstream.
+        (Value::Zoned(x), Value::Zoned(y)) => x.utc_nanos.cmp(&y.utc_nanos),
         _ => type_rank(a).cmp(&type_rank(b)),
     }
 }
@@ -140,11 +144,26 @@ fn same_type(a: &Value, b: &Value) -> bool {
             | (Value::Text(_), Value::Text(_))
             | (Value::Bool(_), Value::Bool(_))
             | (Value::Empty, Value::Empty)
+            | (Value::Zoned(_), Value::Zoned(_))
     )
+}
+
+/// Mixed naive/aware comparison is rejected: a `Zoned` instant cannot be ordered
+/// against a naive `Number`/`Date`/`Text`/`Bool`. Returns `#VALUE!` when exactly
+/// one operand is `Zoned`.
+fn zoned_cross_type(a: &Value, b: &Value) -> Option<Value> {
+    if matches!(a, Value::Zoned(_)) ^ matches!(b, Value::Zoned(_)) {
+        Some(Value::Error(ErrorKind::Value))
+    } else {
+        None
+    }
 }
 
 pub fn eq_fn(args: &[Value]) -> Value {
     if let Some(e) = check_exact(args, 2) {
+        return e;
+    }
+    if let Some(e) = zoned_cross_type(&args[0], &args[1]) {
         return e;
     }
     let (a, b) = (&args[0], &args[1]);
@@ -158,6 +177,9 @@ pub fn ne_fn(args: &[Value]) -> Value {
     if let Some(e) = check_exact(args, 2) {
         return e;
     }
+    if let Some(e) = zoned_cross_type(&args[0], &args[1]) {
+        return e;
+    }
     let (a, b) = (&args[0], &args[1]);
     if !same_type(a, b) {
         return Value::Bool(true);
@@ -169,11 +191,17 @@ pub fn gt_fn(args: &[Value]) -> Value {
     if let Some(e) = check_exact(args, 2) {
         return e;
     }
+    if let Some(e) = zoned_cross_type(&args[0], &args[1]) {
+        return e;
+    }
     Value::Bool(compare_values(&args[0], &args[1]) == std::cmp::Ordering::Greater)
 }
 
 pub fn gte_fn(args: &[Value]) -> Value {
     if let Some(e) = check_exact(args, 2) {
+        return e;
+    }
+    if let Some(e) = zoned_cross_type(&args[0], &args[1]) {
         return e;
     }
     Value::Bool(compare_values(&args[0], &args[1]) != std::cmp::Ordering::Less)
@@ -183,11 +211,17 @@ pub fn lt_fn(args: &[Value]) -> Value {
     if let Some(e) = check_exact(args, 2) {
         return e;
     }
+    if let Some(e) = zoned_cross_type(&args[0], &args[1]) {
+        return e;
+    }
     Value::Bool(compare_values(&args[0], &args[1]) == std::cmp::Ordering::Less)
 }
 
 pub fn lte_fn(args: &[Value]) -> Value {
     if let Some(e) = check_exact(args, 2) {
+        return e;
+    }
+    if let Some(e) = zoned_cross_type(&args[0], &args[1]) {
         return e;
     }
     Value::Bool(compare_values(&args[0], &args[1]) != std::cmp::Ordering::Greater)

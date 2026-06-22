@@ -11,6 +11,7 @@ fn value_to_json(v: &Value) -> serde_json::Value {
         Value::Text(s) => serde_json::json!({"type": "text", "value": s}),
         Value::Boolean(b) => serde_json::json!({"type": "bool", "value": b}),
         Value::Date(n) => serde_json::json!({"type": "date", "value": n}),
+        Value::Zoned(z) => serde_json::json!({"type": "zoned", "value": z.to_rfc9557()}),
         Value::Error(code) => serde_json::json!({"type": "error", "error": code}),
         Value::Empty => serde_json::json!({"type": "empty"}),
         Value::Array(rows) => {

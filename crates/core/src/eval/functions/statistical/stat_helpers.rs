@@ -53,6 +53,7 @@ fn collect_nums_a_into_checked(args: &[Value], out: &mut Vec<f64>) -> Option<Val
             }
             Value::Error(e) => return Some(Value::Error(e.clone())),
             Value::Empty => {}
+            Value::Zoned(_) => {}
         }
     }
     None
@@ -100,6 +101,7 @@ pub fn collect_nums_a_checked(args: &[Value]) -> Result<Vec<f64>, Value> {
                     return Err(err);
                 }
             }
+            Value::Zoned(_) => return Err(Value::Error(ErrorKind::Value)),
             Value::Error(e) => return Err(Value::Error(e.clone())),
         }
     }
@@ -146,6 +148,7 @@ pub fn collect_nums_direct(args: &[Value]) -> Result<Vec<f64>, Value> {
                     return Err(err);
                 }
             }
+            Value::Zoned(_) => return Err(Value::Error(ErrorKind::Value)),
             Value::Error(e) => return Err(Value::Error(e.clone())),
         }
     }
@@ -193,6 +196,7 @@ pub fn collect_nums_a_direct(args: &[Value]) -> Result<Vec<f64>, Value> {
                 // Array context: bools coerce, text→0
                 collect_nums_a_into(inner, &mut nums);
             }
+            Value::Zoned(_) => return Err(Value::Error(ErrorKind::Value)),
             Value::Error(e) => return Err(Value::Error(e.clone())),
         }
     }
@@ -217,6 +221,7 @@ pub fn collect_nums_a_into(args: &[Value], out: &mut Vec<f64>) {
             Value::Array(inner) => collect_nums_a_into(inner, out),
             Value::Empty => {}
             Value::Error(_) => {}
+            Value::Zoned(_) => {}
         }
     }
 }

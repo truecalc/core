@@ -377,6 +377,8 @@ fn tool_workbook_set(args: &JsonValue, store: &mut SessionStore) -> JsonValue {
         CellInput::Literal(WbValue::Boolean(false))
     } else if let Ok(n) = value.parse::<f64>() {
         CellInput::Literal(WbValue::Number(n))
+    } else if let Some(zi) = truecalc_core::types::zoned::parse_rfc9557(value) {
+        CellInput::Literal(WbValue::Zoned(Box::new(zi)))
     } else {
         CellInput::Literal(WbValue::Text(value.to_owned()))
     };
@@ -488,6 +490,7 @@ fn wb_value_to_json(v: &WbValue) -> JsonValue {
         WbValue::Error(e) => json!({ "type": "error", "error": e }),
         WbValue::Empty => json!({ "type": "empty", "value": null }),
         WbValue::Date(d) => json!({ "type": "date", "value": d }),
+        WbValue::Zoned(z) => json!({ "type": "zoned", "value": z.to_rfc9557() }),
         WbValue::Array(rows) => {
             let arr: Vec<Vec<JsonValue>> = rows.iter()
                 .map(|r| r.iter().map(wb_value_to_json).collect())
@@ -511,6 +514,19 @@ fn parse_variables(vars_json: &JsonValue) -> HashMap<String, Value> {
                 }
                 JsonValue::String(s) => Value::Text(s.clone()),
                 JsonValue::Bool(b) => Value::Bool(*b),
+                // Self-describing zoned instant: { "type": "zoned", "value": "<RFC-9557>" }.
+                JsonValue::Object(o)
+                    if o.get("type").and_then(|t| t.as_str()) == Some("zoned") =>
+                {
+                    match o
+                        .get("value")
+                        .and_then(|x| x.as_str())
+                        .and_then(truecalc_core::types::zoned::parse_rfc9557)
+                    {
+                        Some(zi) => Value::Zoned(Box::new(zi)),
+                        None => continue,
+                    }
+                }
                 _ => continue,
             };
             map.insert(k.clone(), val);
@@ -526,6 +542,8 @@ fn value_to_json(v: &Value) -> JsonValue {
         Value::Bool(b) => json!({ "value": b, "type": "bool" }),
         Value::Empty => json!({ "value": null, "type": "empty" }),
         Value::Error(e) => json!({ "value": e.to_string(), "type": "error" }),
+        // Self-describing RFC-9557; deliberately NOT collapsed to "number".
+        Value::Zoned(z) => json!({ "value": z.to_rfc9557(), "type": "zoned" }),
         Value::Array(arr) => {
             let items: Vec<JsonValue> = arr.iter().map(value_to_json).collect();
             json!({ "value": items, "type": "array" })

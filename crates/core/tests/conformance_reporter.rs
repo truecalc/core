@@ -86,7 +86,7 @@ fn flatten_array(v: &Value) -> Vec<Value> {
 
 fn infer_type(v: &Value) -> &'static str {
     match v {
-        Value::Number(_) | Value::Date(_) => "number",
+        Value::Number(_) | Value::Date(_) | Value::Zoned(_) => "number",
         Value::Text(_) => "string",
         Value::Bool(_) => "boolean",
         Value::Error(_) => "error",
