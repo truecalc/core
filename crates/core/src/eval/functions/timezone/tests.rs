@@ -225,3 +225,78 @@ fn batch2_rejects_non_zoned() {
     assert_eq!(tzpart_fn(&[num(1.0), txt("year")]), Value::Error(ErrorKind::Value));
     assert_eq!(tzoffsetdiff_fn(&[num(1.0), num(2.0)]), Value::Error(ErrorKind::Value));
 }
+
+// ── Batch 3: arithmetic (TZDIFF / TZADD) ──────────────────────────────────────
+
+fn utc_dt(y: f64, mo: f64, d: f64, h: f64, mi: f64) -> Value {
+    dt(&[num(y), num(mo), num(d), num(h), num(mi), num(0.0), txt("UTC")])
+}
+
+#[test]
+fn tzdiff_units_and_sign() {
+    let a = utc_dt(2026.0, 1.0, 15.0, 15.0, 0.0);
+    let b = utc_dt(2026.0, 1.0, 15.0, 12.0, 0.0);
+    assert_eq!(tzdiff_fn(&[a.clone(), b.clone()]), Value::Number(10_800.0)); // default seconds
+    assert_eq!(tzdiff_fn(&[a.clone(), b.clone(), txt("hours")]), Value::Number(3.0));
+    assert_eq!(tzdiff_fn(&[a.clone(), b.clone(), txt("minutes")]), Value::Number(180.0));
+    assert_eq!(tzdiff_fn(&[b, a, txt("hours")]), Value::Number(-3.0)); // sign flips
+}
+
+#[test]
+fn tzadd_absolute_hours_is_dst_immune() {
+    let z = utc_dt(2026.0, 1.0, 15.0, 12.0, 0.0);
+    let r = tzadd_fn(&[z, num(3.0), txt("hours")]);
+    assert_eq!(tzpart_fn(&[r.clone(), txt("hour")]), Value::Number(15.0));
+    assert!(matches!(r, Value::Zoned(_)));
+}
+
+#[test]
+fn tzadd_calendar_day_keeps_wallclock_across_dst() {
+    // 2026-03-29 is the Berlin spring-forward day (the 02:00->03:00 jump).
+    let start = dt(&[num(2026.0), num(3.0), num(28.0), num(12.0), num(0.0), num(0.0), txt("Europe/Berlin")]);
+    let next = tzadd_fn(&[start.clone(), num(1.0), txt("days")]);
+    // Calendar add keeps the wall clock at 12:00 the next day...
+    assert_eq!(tzpart_fn(&[next.clone(), txt("hour")]), Value::Number(12.0));
+    assert_eq!(tzpart_fn(&[next.clone(), txt("day")]), Value::Number(29.0));
+    // ...but that calendar day was only 23 hours long on the absolute timeline.
+    assert_eq!(tzdiff_fn(&[next, start, txt("hours")]), Value::Number(23.0));
+}
+
+#[test]
+fn tzadd_absolute_24h_lands_one_hour_ahead_across_spring_forward() {
+    let start = dt(&[num(2026.0), num(3.0), num(28.0), num(12.0), num(0.0), num(0.0), txt("Europe/Berlin")]);
+    let later = tzadd_fn(&[start, num(24.0), txt("hours")]);
+    // +24h absolute over a 23h day -> wall clock is 13:00, not 12:00.
+    assert_eq!(tzpart_fn(&[later, txt("hour")]), Value::Number(13.0));
+}
+
+#[test]
+fn tzadd_months_and_years() {
+    let z = utc_dt(2026.0, 1.0, 15.0, 12.0, 0.0);
+    let m = tzadd_fn(&[z.clone(), num(1.0), txt("months")]);
+    assert_eq!(tzpart_fn(&[m.clone(), txt("month")]), Value::Number(2.0));
+    assert_eq!(tzpart_fn(&[m, txt("day")]), Value::Number(15.0));
+    let y = tzadd_fn(&[z.clone(), num(2.0), txt("years")]);
+    assert_eq!(tzpart_fn(&[y, txt("year")]), Value::Number(2028.0));
+    // Negative amounts subtract.
+    let back = tzadd_fn(&[z, num(-1.0), txt("days")]);
+    assert_eq!(tzpart_fn(&[back, txt("day")]), Value::Number(14.0));
+}
+
+#[test]
+fn tzadd_month_end_clamps() {
+    // Jan 31 + 1 month clamps to Feb 28 (2026 is not a leap year).
+    let z = utc_dt(2026.0, 1.0, 31.0, 9.0, 0.0);
+    let m = tzadd_fn(&[z, num(1.0), txt("months")]);
+    assert_eq!(tzpart_fn(&[m.clone(), txt("month")]), Value::Number(2.0));
+    assert_eq!(tzpart_fn(&[m, txt("day")]), Value::Number(28.0));
+}
+
+#[test]
+fn arithmetic_error_cases() {
+    let z = utc_dt(2026.0, 1.0, 15.0, 12.0, 0.0);
+    assert_eq!(tzadd_fn(&[z.clone(), num(1.0), txt("fortnights")]), Value::Error(ErrorKind::Value));
+    assert_eq!(tzadd_fn(&[num(1.0), num(1.0), txt("days")]), Value::Error(ErrorKind::Value));
+    assert_eq!(tzdiff_fn(&[z, num(1.0)]), Value::Error(ErrorKind::Value));
+    assert_eq!(tzdiff_fn(&[num(1.0), num(2.0)]), Value::Error(ErrorKind::Value));
+}

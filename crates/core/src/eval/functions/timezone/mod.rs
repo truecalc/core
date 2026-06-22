@@ -2,7 +2,7 @@
 //! display [`Value::Zoned`] instants. The naive<->zoned boundary is always an
 //! explicit call here: `TZDATETIME`/`TZLOCALIZE` up, `TZSERIAL` down.
 
-use chrono::{Datelike, NaiveDate, NaiveDateTime, Timelike};
+use chrono::{Datelike, Duration, Months, NaiveDate, NaiveDateTime, Timelike};
 
 use crate::eval::coercion::to_number;
 use crate::eval::functions::date::serial::{
@@ -31,6 +31,8 @@ pub fn register_timezone(registry: &mut Registry) {
     registry.register_eager("TZABBR", tzabbr_fn, FunctionMeta { category: "timezone", signature: "TZABBR(zoned)", description: "Zone abbreviation at this instant (e.g. CEST), display only" });
     registry.register_eager("TZOFFSETDIFF", tzoffsetdiff_fn, FunctionMeta { category: "timezone", signature: "TZOFFSETDIFF(zoned_a,zoned_b)", description: "Signed difference in minutes between two zones' offsets" });
     registry.register_eager("TZPART", tzpart_fn, FunctionMeta { category: "timezone", signature: "TZPART(zoned,unit)", description: "Local wall-clock field: year|month|day|hour|minute|second|weekday" });
+    registry.register_eager("TZDIFF", tzdiff_fn, FunctionMeta { category: "timezone", signature: "TZDIFF(zoned_a,zoned_b,[unit])", description: "Elapsed time from b to a on the absolute timeline (DST-immune)" });
+    registry.register_eager("TZADD", tzadd_fn, FunctionMeta { category: "timezone", signature: "TZADD(zoned,amount,unit,[policy])", description: "Adds time: seconds/minutes/hours are absolute, days/weeks/months/years are DST-aware calendar units" });
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -311,6 +313,103 @@ pub fn tzpart_fn(args: &[Value]) -> Value {
         _ => return Value::Error(ErrorKind::Value),
     };
     Value::Number(value)
+}
+
+pub fn tzdiff_fn(args: &[Value]) -> Value {
+    if let Some(e) = check_arity(args, 2, 3) {
+        return e;
+    }
+    let a = match arg_zoned(&args[0]) {
+        Ok(z) => z,
+        Err(e) => return e,
+    };
+    let b = match arg_zoned(&args[1]) {
+        Ok(z) => z,
+        Err(e) => return e,
+    };
+    let unit = match args.get(2) {
+        None => "seconds".to_string(),
+        Some(Value::Text(s)) => s.to_ascii_lowercase(),
+        Some(_) => return Value::Error(ErrorKind::Value),
+    };
+    // i128 avoids overflow on the difference of two i64 nanosecond counts.
+    let diff_ns = a.utc_nanos as i128 - b.utc_nanos as i128;
+    let value = match unit.as_str() {
+        "nanoseconds" => diff_ns as f64,
+        "seconds" => diff_ns as f64 / 1e9,
+        "minutes" => diff_ns as f64 / 6e10,
+        "hours" => diff_ns as f64 / 3.6e12,
+        // Absolute days = 86400 s; calendar-day length is a TZADD concern.
+        "days" => diff_ns as f64 / 8.64e13,
+        _ => return Value::Error(ErrorKind::Value),
+    };
+    Value::Number(value)
+}
+
+pub fn tzadd_fn(args: &[Value]) -> Value {
+    if let Some(e) = check_arity(args, 3, 4) {
+        return e;
+    }
+    let zi = match arg_zoned(&args[0]) {
+        Ok(z) => z,
+        Err(e) => return e,
+    };
+    let amount = match to_number(args[1].clone()) {
+        Ok(n) => n.trunc() as i64,
+        Err(e) => return e,
+    };
+    let unit = match &args[2] {
+        Value::Text(s) => s.to_ascii_lowercase(),
+        _ => return Value::Error(ErrorKind::Value),
+    };
+    let policy = match optional_policy(args.get(3)) {
+        Ok(p) => p,
+        Err(e) => return e,
+    };
+
+    match unit.as_str() {
+        // Absolute units shift the instant directly (DST-immune).
+        "seconds" | "minutes" | "hours" => {
+            let factor: i64 = match unit.as_str() {
+                "minutes" => 60,
+                "hours" => 3600,
+                _ => 1,
+            };
+            let nanos = amount
+                .checked_mul(factor)
+                .and_then(|s| s.checked_mul(1_000_000_000))
+                .and_then(|d| zi.utc_nanos.checked_add(d));
+            match nanos {
+                Some(n) => zoned(ZonedInstant::from_instant(n, zi.zone.clone())),
+                None => Value::Error(ErrorKind::Num),
+            }
+        }
+        // Calendar units shift the wall clock then re-resolve (DST-aware): a
+        // calendar day may be 23 or 25 hours across a transition.
+        "days" | "weeks" | "months" | "years" => {
+            let local = zi.local();
+            let new_local = match unit.as_str() {
+                "days" => local.checked_add_signed(Duration::days(amount)),
+                "weeks" => local.checked_add_signed(Duration::weeks(amount)),
+                "months" => add_months(local, amount),
+                _ => amount.checked_mul(12).and_then(|m| add_months(local, m)), // years
+            };
+            match new_local.and_then(|nl| ZonedInstant::from_local(zi.zone.clone(), nl, policy)) {
+                Some(z) => zoned(z),
+                None => Value::Error(ErrorKind::Value),
+            }
+        }
+        _ => Value::Error(ErrorKind::Value),
+    }
+}
+
+/// Add (or subtract, when negative) a whole number of calendar months.
+fn add_months(dt: NaiveDateTime, months: i64) -> Option<NaiveDateTime> {
+    if months >= 0 {
+        u32::try_from(months).ok().and_then(|m| dt.checked_add_months(Months::new(m)))
+    } else {
+        u32::try_from(-months).ok().and_then(|m| dt.checked_sub_months(Months::new(m)))
+    }
 }
 
 /// Resolve the optional ambiguous-policy argument shared by the construction

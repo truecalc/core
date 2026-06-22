@@ -6779,6 +6779,13 @@
     "examples": []
   },
   {
+    "name": "TZADD",
+    "category": "timezone",
+    "syntax": "TZADD(zoned,amount,unit,[policy])",
+    "description": "Adds time: seconds/minutes/hours are absolute, days/weeks/months/years are DST-aware calendar units",
+    "examples": []
+  },
+  {
     "name": "TZCONVERT",
     "category": "timezone",
     "syntax": "TZCONVERT(zoned,target_zone)",
@@ -6797,6 +6804,13 @@
     "category": "timezone",
     "syntax": "TZDBVERSION()",
     "description": "IANA time-zone database version the engine is using",
+    "examples": []
+  },
+  {
+    "name": "TZDIFF",
+    "category": "timezone",
+    "syntax": "TZDIFF(zoned_a,zoned_b,[unit])",
+    "description": "Elapsed time from b to a on the absolute timeline (DST-immune)",
     "examples": []
   },
   {
