@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0](https://github.com/truecalc/core/compare/truecalc-workbook-v1.0.2...truecalc-workbook-v2.0.0) - 2026-06-23
+
+### Added
+
+- *(core)* TZNOW (deterministic clock), TZINWINDOW, TZCANONICAL
+- *(wasm,mcp,workbook)* serialize Value::Zoned across all surfaces
+
 ## [1.0.2](https://github.com/truecalc/core/compare/truecalc-workbook-v1.0.0...truecalc-workbook-v1.0.2) - 2026-06-10
 
 ### Other
