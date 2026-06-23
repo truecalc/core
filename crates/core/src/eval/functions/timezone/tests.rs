@@ -480,3 +480,54 @@ fn flagship_rejects_bad_inputs() {
     );
     assert_eq!(tzworldclock_fn(&[anchor, num(5.0)]), Value::Error(ErrorKind::Value)); // zones not text/array
 }
+
+// ── TZOVERLAP — working-hours overlap across N zones ──────────────────────────
+
+/// Date serial for a UTC calendar date at midnight.
+fn date_serial(y: f64, mo: f64, d: f64) -> Value {
+    match tzserial_fn(&[dt(&[num(y), num(mo), num(d), num(0.0), num(0.0), num(0.0), txt("UTC")])]) {
+        Value::Date(s) => Value::Date(s),
+        other => panic!("expected Date, got {other:?}"),
+    }
+}
+
+#[test]
+fn tzoverlap_new_york_berlin_winter() {
+    // 09:00-18:00 local in both. Winter: NY EST(-5), Berlin CET(+1) -> 6h apart.
+    // Overlap = 14:00Z-17:00Z = NY 09:00-12:00.
+    let zones = Value::Array(vec![txt("America/New_York"), txt("Europe/Berlin")]);
+    let res = tzoverlap_fn(&[zones, num(9.0 / 24.0), num(18.0 / 24.0), date_serial(2026.0, 1.0, 15.0)]);
+    match res {
+        Value::Array(iv) => {
+            assert_eq!(iv.len(), 2);
+            assert_eq!(tzstring_fn(&[iv[0].clone()]), txt("2026-01-15T09:00:00-05:00[America/New_York]"));
+            assert_eq!(tzstring_fn(&[iv[1].clone()]), txt("2026-01-15T12:00:00-05:00[America/New_York]"));
+        }
+        other => panic!("expected overlap interval, got {other:?}"),
+    }
+}
+
+#[test]
+fn tzoverlap_none_for_opposite_zones() {
+    // UTC and a fixed +12 zone never share 09:00-18:00 local.
+    let zones = Value::Array(vec![txt("UTC"), txt("+12:00")]);
+    assert_eq!(
+        tzoverlap_fn(&[zones, num(9.0 / 24.0), num(18.0 / 24.0), date_serial(2026.0, 1.0, 15.0)]),
+        Value::Text("No overlap".to_string())
+    );
+}
+
+#[test]
+fn tzoverlap_error_cases() {
+    let s = date_serial(2026.0, 1.0, 15.0);
+    // Invalid zone.
+    assert_eq!(
+        tzoverlap_fn(&[Value::Array(vec![txt("Mars/Olympus")]), num(0.375), num(0.75), s.clone()]),
+        Value::Error(ErrorKind::Value)
+    );
+    // Granularity below 1 minute.
+    assert_eq!(
+        tzoverlap_fn(&[Value::Array(vec![txt("UTC")]), num(0.375), num(0.75), s, num(0.0)]),
+        Value::Error(ErrorKind::Value)
+    );
+}
