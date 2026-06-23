@@ -45,6 +45,7 @@ pub fn register_timezone(registry: &mut Registry) {
     registry.register_eager("TZTABLE", tzboard_fn, FunctionMeta { category: "timezone", signature: "TZTABLE(anchor,zones,[base])", description: "Alias of TZBOARD" });
     registry.register_eager("TZWORLDCLOCK", tzworldclock_fn, FunctionMeta { category: "timezone", signature: "TZWORLDCLOCK(anchor,zones,[base])", description: "Friendly one-line summary comparing the time across N zones" });
     registry.register_eager("TZCOMPARETEXT", tzworldclock_fn, FunctionMeta { category: "timezone", signature: "TZCOMPARETEXT(anchor,zones,[base])", description: "Alias of TZWORLDCLOCK" });
+    registry.register_eager("TZOVERLAP", tzoverlap_fn, FunctionMeta { category: "timezone", signature: "TZOVERLAP(zones,start_local,end_local,date_serial,[granularity_min])", description: "First daily window when the local time is within [start,end) in ALL zones; [start,end] instants or 'No overlap'" });
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -476,13 +477,99 @@ pub fn tzinwindow_fn(args: &[Value]) -> Value {
         }
     }
     let frac = local.time().num_seconds_from_midnight() as f64 / 86_400.0;
-    let inside = if start <= end {
+    Value::Bool(in_window(frac, start, end))
+}
+
+/// Time-of-day membership in `[start, end)`; an overnight window (`start > end`)
+/// wraps past midnight.
+fn in_window(frac: f64, start: f64, end: f64) -> bool {
+    if start <= end {
         frac >= start && frac < end
     } else {
-        // Overnight window wraps past midnight.
         frac >= start || frac < end
+    }
+}
+
+pub fn tzoverlap_fn(args: &[Value]) -> Value {
+    if let Some(e) = check_arity(args, 4, 5) {
+        return e;
+    }
+    let names = match collect_zone_names(&args[0]) {
+        Ok(n) => n,
+        Err(e) => return e,
     };
-    Value::Bool(inside)
+    let start = match to_number(args[1].clone()) {
+        Ok(n) => n,
+        Err(e) => return e,
+    };
+    let end = match to_number(args[2].clone()) {
+        Ok(n) => n,
+        Err(e) => return e,
+    };
+    let date_serial = match to_number(args[3].clone()) {
+        Ok(n) => n,
+        Err(e) => return e,
+    };
+    let gran_min = match args.get(4) {
+        None => 30.0,
+        Some(v) => match to_number(v.clone()) {
+            Ok(n) => n,
+            Err(e) => return e,
+        },
+    };
+    if gran_min < 1.0 {
+        return Value::Error(ErrorKind::Value);
+    }
+    let zones: Vec<ZoneId> = match names.iter().map(|n| parse_zone(n).ok_or(())).collect() {
+        Ok(z) => z,
+        Err(()) => return Value::Error(ErrorKind::Value),
+    };
+    let first = zones[0].clone();
+
+    // Anchor the scan at local midnight of `date_serial` in the first zone, then
+    // step across the next 48 hours looking for the first contiguous run where
+    // every zone is within the window.
+    let date = match serial_to_date(date_serial) {
+        Some(d) => d,
+        None => return Value::Error(ErrorKind::Value),
+    };
+    let midnight = match date.and_hms_opt(0, 0, 0) {
+        Some(m) => m,
+        None => return Value::Error(ErrorKind::Value),
+    };
+    let scan_start = match ZonedInstant::from_local(first.clone(), midnight, AmbiguousPolicy::Compatible) {
+        Some(z) => z.utc_nanos,
+        None => return Value::Error(ErrorKind::Value),
+    };
+    let step = (gran_min * 60.0 * 1e9) as i64;
+    let scan_end = scan_start + 48 * 3_600 * 1_000_000_000;
+
+    let mut overlap_start: Option<i64> = None;
+    let mut overlap_last: Option<i64> = None;
+    let mut t = scan_start;
+    while t <= scan_end {
+        let all_in = zones.iter().all(|z| {
+            let local = ZonedInstant::from_instant(t, z.clone()).local();
+            let frac = local.time().num_seconds_from_midnight() as f64 / 86_400.0;
+            in_window(frac, start, end)
+        });
+        if all_in {
+            overlap_start.get_or_insert(t);
+            overlap_last = Some(t);
+        } else if overlap_start.is_some() {
+            break; // end of the first contiguous overlap run
+        }
+        t += step;
+    }
+
+    match (overlap_start, overlap_last) {
+        (Some(s), Some(last)) => Value::Array(vec![
+            zoned(ZonedInstant::from_instant(s, first.clone())),
+            // Exclusive end: one granularity step past the last in-window sample.
+            zoned(ZonedInstant::from_instant(last + step, first)),
+        ]),
+        _ => Value::Text("No overlap".to_string()),
+    }
 }
 
 /// `TZCANONICAL(zone)` — validate and normalize a zone name. Best-effort: a

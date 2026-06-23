@@ -6891,6 +6891,13 @@
     "examples": []
   },
   {
+    "name": "TZOVERLAP",
+    "category": "timezone",
+    "syntax": "TZOVERLAP(zones,start_local,end_local,date_serial,[granularity_min])",
+    "description": "First daily window when the local time is within [start,end) in ALL zones; [start,end] instants or 'No overlap'",
+    "examples": []
+  },
+  {
     "name": "TZPARSE",
     "category": "timezone",
     "syntax": "TZPARSE(text,[zone])",
