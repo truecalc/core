@@ -2,7 +2,8 @@
 //! display [`Value::Zoned`] instants. The naive<->zoned boundary is always an
 //! explicit call here: `TZDATETIME`/`TZLOCALIZE` up, `TZSERIAL` down.
 
-use chrono::{Datelike, Duration, Months, NaiveDate, NaiveDateTime, Timelike, Utc};
+use chrono::format::{Item, StrftimeItems};
+use chrono::{Datelike, Duration, Months, NaiveDate, NaiveDateTime, TimeZone, Timelike, Utc};
 
 use crate::eval::coercion::to_number;
 use crate::eval::evaluate_expr;
@@ -38,6 +39,12 @@ pub fn register_timezone(registry: &mut Registry) {
     registry.register_lazy("TZNOW", tznow_fn, FunctionMeta { category: "timezone", signature: "TZNOW(zone)", description: "The current moment stamped with the given zone (volatile; pinned during recalc)" });
     registry.register_eager("TZINWINDOW", tzinwindow_fn, FunctionMeta { category: "timezone", signature: "TZINWINDOW(zoned,start_local,end_local,[days_mask])", description: "TRUE if the local time-of-day falls in [start,end); days_mask is 7 chars Sun..Sat" });
     registry.register_eager("TZCANONICAL", tzcanonical_fn, FunctionMeta { category: "timezone", signature: "TZCANONICAL(zone)", description: "Validates and normalizes a zone name (best-effort; IANA links are not resolved)" });
+    registry.register_eager("TZLOCALSTATUS", tzlocalstatus_fn, FunctionMeta { category: "timezone", signature: "TZLOCALSTATUS(year,month,day,hour,minute,zone)", description: "Classifies a local time as unique, gap (nonexistent) or fold (ambiguous)" });
+    registry.register_eager("TZTEXT", tztext_fn, FunctionMeta { category: "timezone", signature: "TZTEXT(zoned,[format])", description: "Human-friendly local string; optional strftime format" });
+    registry.register_eager("TZBOARD", tzboard_fn, FunctionMeta { category: "timezone", signature: "TZBOARD(anchor,zones,[base])", description: "Technical world-clock board: one row per zone {zone,local,offset,delta,rollover,abbrev,dst}" });
+    registry.register_eager("TZTABLE", tzboard_fn, FunctionMeta { category: "timezone", signature: "TZTABLE(anchor,zones,[base])", description: "Alias of TZBOARD" });
+    registry.register_eager("TZWORLDCLOCK", tzworldclock_fn, FunctionMeta { category: "timezone", signature: "TZWORLDCLOCK(anchor,zones,[base])", description: "Friendly one-line summary comparing the time across N zones" });
+    registry.register_eager("TZCOMPARETEXT", tzworldclock_fn, FunctionMeta { category: "timezone", signature: "TZCOMPARETEXT(anchor,zones,[base])", description: "Alias of TZWORLDCLOCK" });
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -496,6 +503,235 @@ pub fn tzcanonical_fn(args: &[Value]) -> Value {
             None => Value::Error(ErrorKind::Value),
         },
         _ => Value::Error(ErrorKind::Value),
+    }
+}
+
+pub fn tzlocalstatus_fn(args: &[Value]) -> Value {
+    if let Some(e) = check_arity(args, 6, 6) {
+        return e;
+    }
+    let parts = match (0..5).map(|i| int_arg(&args[i])).collect::<Result<Vec<_>, _>>() {
+        Ok(p) => p,
+        Err(e) => return e,
+    };
+    let zone = match arg_zone(&args[5]) {
+        Ok(z) => z,
+        Err(e) => return e,
+    };
+    let naive = match build_naive(parts[0], parts[1], parts[2], parts[3], parts[4], 0) {
+        Some(n) => n,
+        None => return Value::Error(ErrorKind::Value),
+    };
+    let status = match zone {
+        ZoneId::Fixed(_) => "unique",
+        ZoneId::Iana(tz) => {
+            use chrono::LocalResult;
+            match tz.from_local_datetime(&naive) {
+                LocalResult::Single(_) => "unique",
+                LocalResult::Ambiguous(_, _) => "fold",
+                LocalResult::None => "gap",
+            }
+        }
+    };
+    Value::Text(status.to_string())
+}
+
+pub fn tztext_fn(args: &[Value]) -> Value {
+    if let Some(e) = check_arity(args, 1, 2) {
+        return e;
+    }
+    let zi = match arg_zoned(&args[0]) {
+        Ok(z) => z,
+        Err(e) => return e,
+    };
+    let local = zi.local();
+    match args.get(1) {
+        None => Value::Text(format!("{} {}", local.format("%a %b %d %Y %H:%M"), zi.abbrev())),
+        Some(Value::Text(fmt)) => {
+            if StrftimeItems::new(fmt).any(|item| matches!(item, Item::Error)) {
+                return Value::Error(ErrorKind::Value);
+            }
+            Value::Text(local.format(fmt).to_string())
+        }
+        Some(_) => Value::Error(ErrorKind::Value),
+    }
+}
+
+pub fn tzboard_fn(args: &[Value]) -> Value {
+    if let Some(e) = check_arity(args, 2, 3) {
+        return e;
+    }
+    let anchor = match arg_zoned(&args[0]) {
+        Ok(z) => z,
+        Err(e) => return e,
+    };
+    let instant = anchor.utc_nanos;
+    let names = match collect_zone_names(&args[1]) {
+        Ok(n) => n,
+        Err(e) => return e,
+    };
+    let base_zone = match args.get(2) {
+        None => anchor.zone.clone(),
+        Some(v) => match zone_of_arg(v) {
+            Ok(z) => z,
+            Err(e) => return e,
+        },
+    };
+    let base = ZonedInstant::from_instant(instant, base_zone);
+    let base_offset = base.offset_minutes();
+    let base_date = base.local().date();
+
+    let mut rows = Vec::with_capacity(names.len());
+    for name in &names {
+        let zone = match parse_zone(name) {
+            Some(z) => z,
+            None => return Value::Error(ErrorKind::Value),
+        };
+        let zi = ZonedInstant::from_instant(instant, zone);
+        let offset = zi.offset_minutes();
+        let rollover = zi.local().date().signed_duration_since(base_date).num_days();
+        rows.push(Value::Array(vec![
+            Value::Text(name.clone()),
+            Value::Text(zi.to_rfc9557()),
+            Value::Number(offset as f64),
+            Value::Number((offset - base_offset) as f64),
+            Value::Number(rollover as f64),
+            Value::Text(zi.abbrev()),
+            Value::Bool(zi.is_dst()),
+        ]));
+    }
+    Value::Array(rows)
+}
+
+pub fn tzworldclock_fn(args: &[Value]) -> Value {
+    if let Some(e) = check_arity(args, 2, 3) {
+        return e;
+    }
+    let anchor = match arg_zoned(&args[0]) {
+        Ok(z) => z,
+        Err(e) => return e,
+    };
+    let instant = anchor.utc_nanos;
+    let names = match collect_zone_names(&args[1]) {
+        Ok(n) => n,
+        Err(e) => return e,
+    };
+    let base_zone = match args.get(2) {
+        None => anchor.zone.clone(),
+        Some(v) => match zone_of_arg(v) {
+            Ok(z) => z,
+            Err(e) => return e,
+        },
+    };
+    let base = ZonedInstant::from_instant(instant, base_zone.clone());
+    let base_offset = base.offset_minutes();
+    let base_date = base.local().date();
+
+    let mut out = format!(
+        "It is {} {} for you ({}).",
+        base.local().format("%H:%M"),
+        base.local().format("%a"),
+        zone_label(&base_zone),
+    );
+    for name in &names {
+        let zone = match parse_zone(name) {
+            Some(z) => z,
+            None => return Value::Error(ErrorKind::Value),
+        };
+        let zi = ZonedInstant::from_instant(instant, zone);
+        let delta = zi.offset_minutes() - base_offset;
+        let rollover = zi.local().date().signed_duration_since(base_date).num_days();
+        out.push_str(&format!(
+            " {} is {} ({}{}).",
+            name,
+            friendly_delta(delta),
+            zi.local().format("%H:%M"),
+            day_phrase(rollover),
+        ));
+    }
+    Value::Text(out)
+}
+
+/// Compose date/time integer parts into a `NaiveDateTime`, validating ranges.
+fn build_naive(y: i64, mo: i64, d: i64, h: i64, mi: i64, s: i64) -> Option<NaiveDateTime> {
+    let y = i32::try_from(y).ok()?;
+    let mo = u32::try_from(mo).ok()?;
+    let d = u32::try_from(d).ok()?;
+    let h = u32::try_from(h).ok()?;
+    let mi = u32::try_from(mi).ok()?;
+    let s = u32::try_from(s).ok()?;
+    NaiveDate::from_ymd_opt(y, mo, d)?.and_hms_opt(h, mi, s)
+}
+
+/// Collect zone-name strings from a value, flattening arrays. Errors on any
+/// non-text leaf or an empty list.
+fn collect_zone_names(v: &Value) -> Result<Vec<String>, Value> {
+    fn walk(v: &Value, out: &mut Vec<String>) -> Result<(), Value> {
+        match v {
+            Value::Text(s) => {
+                out.push(s.clone());
+                Ok(())
+            }
+            Value::Array(items) => {
+                for it in items {
+                    walk(it, out)?;
+                }
+                Ok(())
+            }
+            Value::Error(_) => Err(v.clone()),
+            _ => Err(Value::Error(ErrorKind::Value)),
+        }
+    }
+    let mut out = Vec::new();
+    walk(v, &mut out)?;
+    if out.is_empty() {
+        return Err(Value::Error(ErrorKind::Value));
+    }
+    Ok(out)
+}
+
+/// Resolve a base-zone argument: a zone name, or an existing zoned instant.
+fn zone_of_arg(v: &Value) -> Result<ZoneId, Value> {
+    match v {
+        Value::Text(s) => parse_zone(s).ok_or(Value::Error(ErrorKind::Value)),
+        Value::Zoned(z) => Ok(z.zone.clone()),
+        _ => Err(Value::Error(ErrorKind::Value)),
+    }
+}
+
+/// Display label for a zone: IANA name or `±HH:MM`.
+fn zone_label(zone: &ZoneId) -> String {
+    match zone {
+        ZoneId::Iana(tz) => tz.name().to_string(),
+        ZoneId::Fixed(m) => {
+            let a = m.abs();
+            format!("{}{:02}:{:02}", if *m < 0 { '-' } else { '+' }, a / 60, a % 60)
+        }
+    }
+}
+
+/// Friendly offset delta, e.g. `3h ahead`, `5:45 ahead`, `2h behind`.
+fn friendly_delta(minutes: i32) -> String {
+    if minutes == 0 {
+        return "the same time".to_string();
+    }
+    let a = minutes.abs();
+    let mag = if a % 60 == 0 {
+        format!("{}h", a / 60)
+    } else {
+        format!("{}:{:02}", a / 60, a % 60)
+    };
+    format!("{} {}", mag, if minutes > 0 { "ahead" } else { "behind" })
+}
+
+/// Calendar-day rollover phrase relative to the base zone.
+fn day_phrase(days: i64) -> String {
+    match days {
+        0 => String::new(),
+        1 => ", next day".to_string(),
+        -1 => ", previous day".to_string(),
+        n if n > 0 => format!(", +{n} days"),
+        n => format!(", {n} days"),
     }
 }
 

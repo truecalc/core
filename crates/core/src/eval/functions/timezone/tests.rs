@@ -372,3 +372,111 @@ fn batch4_rejects_bad_inputs() {
     assert_eq!(tzcanonical_fn(&[num(1.0)]), Value::Error(ErrorKind::Value));
     assert_eq!(tzinwindow_fn(&[txt("x")]), Value::Error(ErrorKind::NA));
 }
+
+// ── Phase 4: flagship + display (TZLOCALSTATUS, TZTEXT, TZBOARD, TZWORLDCLOCK) ─
+
+#[test]
+fn tzlocalstatus_classifies_dst_seams() {
+    let unique = [num(2026.0), num(7.0), num(14.0), num(11.0), num(0.0), txt("Europe/Berlin")];
+    let gap = [num(2026.0), num(3.0), num(29.0), num(2.0), num(30.0), txt("Europe/Berlin")];
+    let fold = [num(2026.0), num(10.0), num(25.0), num(2.0), num(30.0), txt("Europe/Berlin")];
+    assert_eq!(tzlocalstatus_fn(&unique), Value::Text("unique".to_string()));
+    assert_eq!(tzlocalstatus_fn(&gap), Value::Text("gap".to_string()));
+    assert_eq!(tzlocalstatus_fn(&fold), Value::Text("fold".to_string()));
+    // Fixed offsets never have a gap/fold.
+    let fixed = [num(2026.0), num(3.0), num(29.0), num(2.0), num(30.0), txt("+05:30")];
+    assert_eq!(tzlocalstatus_fn(&fixed), Value::Text("unique".to_string()));
+}
+
+#[test]
+fn tztext_default_and_custom_format() {
+    let z = dt(&[num(2026.0), num(7.0), num(14.0), num(11.0), num(0.0), num(0.0), txt("Europe/Berlin")]);
+    assert_eq!(tztext_fn(&[z.clone()]), Value::Text("Tue Jul 14 2026 11:00 CEST".to_string()));
+    assert_eq!(tztext_fn(&[z.clone(), txt("%Y-%m-%d")]), Value::Text("2026-07-14".to_string()));
+    // A malformed strftime string is rejected rather than panicking.
+    assert_eq!(tztext_fn(&[z, txt("%")]), Value::Error(ErrorKind::Value));
+}
+
+#[test]
+fn tzboard_rows_are_internally_consistent() {
+    // Anchor instant = 2026-07-14T09:00:00Z; base defaults to the anchor zone (UTC).
+    let anchor = dt(&[num(2026.0), num(7.0), num(14.0), num(9.0), num(0.0), num(0.0), txt("UTC")]);
+    let zones = Value::Array(vec![txt("Europe/Berlin"), txt("Asia/Tokyo")]);
+    match tzboard_fn(&[anchor, zones]) {
+        Value::Array(rows) => {
+            assert_eq!(rows.len(), 2);
+            match &rows[0] {
+                Value::Array(r) => {
+                    assert_eq!(r[0], txt("Europe/Berlin"));
+                    assert_eq!(r[1], txt("2026-07-14T11:00:00+02:00[Europe/Berlin]"));
+                    assert_eq!(r[2], num(120.0)); // offset
+                    assert_eq!(r[3], num(120.0)); // delta vs UTC base
+                    assert_eq!(r[4], num(0.0)); // rollover
+                    assert_eq!(r[5], txt("CEST"));
+                    assert_eq!(r[6], Value::Bool(true));
+                }
+                other => panic!("expected row array, got {other:?}"),
+            }
+            match &rows[1] {
+                Value::Array(r) => {
+                    assert_eq!(r[2], num(540.0)); // Tokyo +09:00
+                    assert_eq!(r[6], Value::Bool(false));
+                }
+                other => panic!("expected row array, got {other:?}"),
+            }
+        }
+        other => panic!("expected array, got {other:?}"),
+    }
+}
+
+#[test]
+fn tzboard_base_override_changes_delta() {
+    let anchor = dt(&[num(2026.0), num(7.0), num(14.0), num(9.0), num(0.0), num(0.0), txt("UTC")]);
+    let zones = Value::Array(vec![txt("Europe/Berlin")]);
+    match tzboard_fn(&[anchor, zones, txt("Asia/Tokyo")]) {
+        Value::Array(rows) => match &rows[0] {
+            // Berlin +120 vs Tokyo +540 base = -420.
+            Value::Array(r) => assert_eq!(r[3], num(-420.0)),
+            _ => panic!(),
+        },
+        _ => panic!(),
+    }
+}
+
+#[test]
+fn tzworldclock_friendly_sentence() {
+    // Anchor 02:00 Los Angeles (PDT, -7h) on a Tuesday = 09:00Z.
+    let anchor = dt(&[num(2026.0), num(7.0), num(14.0), num(2.0), num(0.0), num(0.0), txt("America/Los_Angeles")]);
+    let zones = Value::Array(vec![txt("Europe/Berlin"), txt("Asia/Tokyo"), txt("Asia/Kathmandu")]);
+    assert_eq!(
+        tzworldclock_fn(&[anchor, zones]),
+        Value::Text(
+            "It is 02:00 Tue for you (America/Los_Angeles). \
+             Europe/Berlin is 9h ahead (11:00). \
+             Asia/Tokyo is 16h ahead (18:00). \
+             Asia/Kathmandu is 12:45 ahead (14:45)."
+                .to_string()
+        )
+    );
+}
+
+#[test]
+fn flagship_aliases_and_registration() {
+    use crate::eval::functions::Registry;
+    let r = Registry::new();
+    for name in ["TZBOARD", "TZTABLE", "TZWORLDCLOCK", "TZCOMPARETEXT", "TZLOCALSTATUS", "TZTEXT"] {
+        assert!(r.functions.contains_key(name), "{name} should be registered");
+    }
+}
+
+#[test]
+fn flagship_rejects_bad_inputs() {
+    let zones = Value::Array(vec![txt("Europe/Berlin")]);
+    assert_eq!(tzboard_fn(&[num(1.0), zones.clone()]), Value::Error(ErrorKind::Value)); // non-zoned anchor
+    let anchor = dt(&[num(2026.0), num(1.0), num(1.0), num(0.0), num(0.0), num(0.0), txt("UTC")]);
+    assert_eq!(
+        tzboard_fn(&[anchor.clone(), Value::Array(vec![txt("Mars/Olympus")])]),
+        Value::Error(ErrorKind::Value)
+    );
+    assert_eq!(tzworldclock_fn(&[anchor, num(5.0)]), Value::Error(ErrorKind::Value)); // zones not text/array
+}
