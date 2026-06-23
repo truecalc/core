@@ -8,6 +8,11 @@ pub fn max_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);
     }
+    // Zone-aware participation: a column of Zoned instants returns the latest
+    // (as a Zoned); mixing naive and aware values is #VALUE!.
+    if let Some(r) = super::stat_helpers::zoned_extreme(args, false) {
+        return r;
+    }
     let mut result: Option<f64> = None;
     let mut had_array = false;
     for arg in args {

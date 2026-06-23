@@ -1,4 +1,71 @@
-use crate::types::{ErrorKind, Value};
+use crate::types::{ErrorKind, Value, ZonedInstant};
+
+/// Resolve `MIN`/`MAX` over zone-aware values.
+///
+/// Returns `None` when no `Zoned` value participates (the caller falls through
+/// to the numeric path). Otherwise: a propagated error if one is present;
+/// `#VALUE!` if `Zoned` is mixed with any numeric-contributing value
+/// (Number/Bool/Text); else the earliest (`want_min`) or latest `Zoned`,
+/// preserving the winning value's own zone.
+pub fn zoned_extreme(args: &[Value], want_min: bool) -> Option<Value> {
+    fn walk(
+        v: &Value,
+        best: &mut Option<ZonedInstant>,
+        saw_zoned: &mut bool,
+        saw_numeric: &mut bool,
+        error: &mut Option<Value>,
+        want_min: bool,
+    ) {
+        match v {
+            Value::Zoned(z) => {
+                *saw_zoned = true;
+                let take = match best.as_ref() {
+                    None => true,
+                    Some(c) => {
+                        if want_min {
+                            z.utc_nanos < c.utc_nanos
+                        } else {
+                            z.utc_nanos > c.utc_nanos
+                        }
+                    }
+                };
+                if take {
+                    *best = Some((**z).clone());
+                }
+            }
+            Value::Number(_) | Value::Date(_) | Value::Bool(_) | Value::Text(_) => *saw_numeric = true,
+            Value::Error(e) => {
+                if error.is_none() {
+                    *error = Some(Value::Error(e.clone()));
+                }
+            }
+            Value::Empty => {}
+            Value::Array(elems) => {
+                for e in elems {
+                    walk(e, best, saw_zoned, saw_numeric, error, want_min);
+                }
+            }
+        }
+    }
+
+    let mut best: Option<ZonedInstant> = None;
+    let mut saw_zoned = false;
+    let mut saw_numeric = false;
+    let mut error: Option<Value> = None;
+    for a in args {
+        walk(a, &mut best, &mut saw_zoned, &mut saw_numeric, &mut error, want_min);
+    }
+    if !saw_zoned {
+        return None;
+    }
+    if let Some(e) = error {
+        return Some(e);
+    }
+    if saw_numeric {
+        return Some(Value::Error(ErrorKind::Value));
+    }
+    best.map(|z| Value::Zoned(Box::new(z)))
+}
 
 /// Collect numeric values from args, flattening arrays.
 /// Numbers and Dates are included. Bool/Text/Empty are ignored.
