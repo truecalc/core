@@ -487,6 +487,8 @@ fn compare_values_sort(a: &Value, b: &Value) -> std::cmp::Ordering {
         (Value::Number(x), Value::Number(y)) => x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal),
         (Value::Text(x), Value::Text(y)) => x.cmp(y),
         (Value::Bool(x), Value::Bool(y)) => x.cmp(y),
+        // Zone-aware instants sort by the absolute instant.
+        (Value::Zoned(x), Value::Zoned(y)) => x.utc_nanos.cmp(&y.utc_nanos),
         _ => std::cmp::Ordering::Equal,
     }
 }
