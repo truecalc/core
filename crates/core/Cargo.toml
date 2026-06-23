@@ -3,9 +3,11 @@ name = "truecalc-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Spreadsheet formula engine — parser and evaluator for Excel-compatible formulas"
+description = "Spreadsheet formula engine — parser and evaluator for Google Sheets–compatible formulas"
 repository.workspace = true
 readme = "README.md"
+keywords = ["spreadsheet", "formula", "google-sheets", "excel", "evaluator"]
+categories = ["parser-implementations", "mathematics", "science"]
 
 [features]
 # serde off by default: keeps the default core build serde-free. Enables

@@ -7,6 +7,14 @@
 
 WebAssembly-powered spreadsheet formula engine for JavaScript/TypeScript.
 
+484 spreadsheet functions. Runs in Node.js, Bun, Deno, and the browser — no server needed. Ground-truth conformance against real Google Sheets. The same engine is also available as a [Rust crate](https://crates.io/crates/truecalc-core) and as an [MCP server](https://crates.io/crates/truecalc-mcp) for AI assistants.
+
+```js
+const { evaluate } = require('@truecalc/core');
+evaluate('SUM(A1, B1)', { A1: 100, B1: 200 })
+// => { type: 'number', value: 300 }
+```
+
 ## Install
 
 ```sh
@@ -163,3 +171,7 @@ const fns = list_functions();
 | text       | LEFT, MID, RIGHT, LEN, LOWER, UPPER, TRIM, CONCATENATE, FIND, SUBSTITUTE, REPLACE, TEXT, VALUE, REPT |
 | financial  | PMT, NPV, IRR, PV, FV, RATE, NPER |
 | statistical | COUNT, COUNTA, MAX, MIN, MEDIAN |
+
+## Documentation
+
+[docs.truecalc.app](https://docs.truecalc.app)
