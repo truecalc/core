@@ -4,9 +4,9 @@
 [![docs.rs](https://img.shields.io/docsrs/truecalc-core)](https://docs.rs/truecalc-core)
 [![license](https://img.shields.io/crates/l/truecalc-core)](LICENSE)
 
-Spreadsheet formula engine — parser and evaluator with Google Sheets conformance.
+Formula engine with exact Google Sheets semantics — stateless, embeddable, bring your own data model.
 
-484 spreadsheet functions. Ground-truth conformance against real Google Sheets — not self-confirmed values. Stateless and embeddable; no runtime, no server. Also available as a [WebAssembly npm package](https://www.npmjs.com/package/@truecalc/core) and as an [MCP server](https://crates.io/crates/truecalc-mcp) for AI assistants.
+484 functions with exact Google Sheets semantics. Ground-truth conformance validated case by case against real Google Sheets — not a spec interpretation. Stateless and embeddable: bring your own data model, no workbook required. Also available as a [WebAssembly npm package](https://www.npmjs.com/package/@truecalc/core) and as an [MCP server](https://crates.io/crates/truecalc-mcp) for AI assistants.
 
 ```rust
 let result = Engine::sheets().evaluate("=SUM(A1,B1)", &vars);
