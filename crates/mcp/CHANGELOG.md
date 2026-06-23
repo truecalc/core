@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0](https://github.com/truecalc/core/compare/truecalc-mcp-v1.0.2...truecalc-mcp-v2.0.0) - 2026-06-23
+
+### Added
+
+- *(wasm,mcp,workbook)* serialize Value::Zoned across all surfaces
+
+### Other
+
+- *(mcp)* add value pitch, quick-start snippet, and docs footer to README
+- *(mcp,wasm)* add keywords, categories and fix descriptions for crates.io
+
 ## [1.0.2](https://github.com/truecalc/core/compare/truecalc-mcp-v1.0.1...truecalc-mcp-v1.0.2) - 2026-06-10
 
 ### Other

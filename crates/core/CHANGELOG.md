@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0](https://github.com/truecalc/core/compare/truecalc-core-v1.0.2...truecalc-core-v2.0.0) - 2026-06-23
+
+### Added
+
+- *(core)* MIN/MAX/SORT participation for zone-aware values
+- *(core)* TZOVERLAP — working-hours overlap across N zones
+- *(core)* flagship N-timezone compare + display
+- *(core)* TZNOW (deterministic clock), TZINWINDOW, TZCANONICAL
+- *(core)* timezone arithmetic — TZDIFF and TZADD
+- *(core)* timezone construction, introspection and extraction functions
+- *(core)* add foundational timezone functions
+- *(core)* add Value::Zoned type and core-crate plumbing
+
+### Fixed
+
+- *(operator)* make Value::Date comparable as its serial number
+
+### Other
+
+- Merge pull request #686 from truecalc/feat/685-reframe-core-readme
+- Merge pull request #684 from truecalc/feat/669-tz-overlap
+- Merge pull request #672 from truecalc/feat/671-date-comparison-fix
+
 ## [1.0.2](https://github.com/truecalc/core/compare/truecalc-core-v1.0.0...truecalc-core-v1.0.2) - 2026-06-10
 
 ### Other
