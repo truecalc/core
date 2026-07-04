@@ -34,7 +34,7 @@ pub fn time_fn(args: &[Value]) -> Value {
         (wrapped % 60) as u32,
     );
 
-    Value::Number(serial)
+    Value::Date(serial)
 }
 
 #[cfg(test)]

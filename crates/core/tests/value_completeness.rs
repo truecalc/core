@@ -100,6 +100,45 @@ fn eomonth_is_date_typed() {
     assert_eq!(eval("=ISDATE(EOMONTH(DATE(2026,6,7),0))"), Value::Bool(true));
 }
 
+// ── Issue #691: TIME, WORKDAY.INTL, EPOCHTODATE, COUPPCD are Date-typed ──────
+//
+// These four functions previously leaked `Value::Number` instead of the
+// `Value::Date` tag that `ISDATE` matches on. Not pipeline-verified against a
+// workbook.tsv row (the numeric results are already covered by conformance
+// fixtures elsewhere) -- these assert the internal type-tag invariant only.
+
+#[test]
+fn time_is_date_typed() {
+    assert_eq!(eval("=ISDATE(TIME(12,0,0))"), Value::Bool(true));
+}
+
+#[test]
+fn time_24_0_0_wraps_to_zero_and_is_date_typed() {
+    assert_eq!(eval("=TIME(24,0,0)"), Value::Date(0.0));
+    assert_eq!(eval("=ISDATE(TIME(24,0,0))"), Value::Bool(true));
+}
+
+#[test]
+fn workday_intl_is_date_typed() {
+    assert_eq!(
+        eval("=ISDATE(WORKDAY.INTL(DATE(2024,1,1),5,1))"),
+        Value::Bool(true)
+    );
+}
+
+#[test]
+fn epochtodate_is_date_typed() {
+    assert_eq!(eval("=ISDATE(EPOCHTODATE(0))"), Value::Bool(true));
+}
+
+#[test]
+fn couppcd_is_date_typed() {
+    assert_eq!(
+        eval("=ISDATE(COUPPCD(DATE(2011,1,25),DATE(2011,11,15),2,1))"),
+        Value::Bool(true)
+    );
+}
+
 // ── Sheets date serial system (epoch, divergence zone, +1900 rule) ──────────
 
 #[test]

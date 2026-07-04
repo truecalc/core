@@ -2,7 +2,7 @@ use super::super::*;
 use crate::types::Value;
 
 fn approx(a: Value, b: f64) -> bool {
-    if let Value::Number(n) = a { (n - b).abs() < 1e-9 } else { false }
+    if let Value::Date(n) = a { (n - b).abs() < 1e-9 } else { false }
 }
 
 #[test]
@@ -23,7 +23,7 @@ fn minute_overflow_wraps() {
 fn hour_24_wraps_to_zero() {
     // TIME(24,0,0) = 0 (wraps)
     let args = [Value::Number(24.0), Value::Number(0.0), Value::Number(0.0)];
-    assert_eq!(time_fn(&args), Value::Number(0.0));
+    assert_eq!(time_fn(&args), Value::Date(0.0));
 }
 
 #[test]

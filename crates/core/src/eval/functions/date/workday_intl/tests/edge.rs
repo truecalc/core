@@ -5,7 +5,7 @@ use crate::types::Value;
 fn negative_days_backward() {
     // WORKDAY.INTL(DATE(2024,1,1), -1, 1) = 45289  (Dec 29 2023, Friday)
     let args = [Value::Number(45292.0), Value::Number(-1.0), Value::Number(1.0)];
-    assert_eq!(workday_intl_fn(&args), Value::Number(45289.0));
+    assert_eq!(workday_intl_fn(&args), Value::Date(45289.0));
 }
 
 #[test]
@@ -14,7 +14,7 @@ fn code_15_thu_only_skipped() {
     // Code 15 = Thu only weekend. From Mon: Tue is next working day (Mon+1=Tue).
     // Wait: Mon is working (not Thu), so Mon+1 working day = Tue = 45293
     let args = [Value::Number(45292.0), Value::Number(1.0), Value::Number(15.0)];
-    assert_eq!(workday_intl_fn(&args), Value::Number(45293.0));
+    assert_eq!(workday_intl_fn(&args), Value::Date(45293.0));
 }
 
 #[test]
@@ -32,5 +32,5 @@ fn fri_plus_1_with_fri_sat_weekend_skips_to_sun() {
     // Actually code 7 is Fri+Sat weekend. Fri is a weekend day.
     // From Fri (45296): step to Sat (weekend), step to Sun (working) → remaining=0 → Sun = 45298
     let args = [Value::Number(45296.0), Value::Number(1.0), Value::Number(7.0)];
-    assert_eq!(workday_intl_fn(&args), Value::Number(45298.0));
+    assert_eq!(workday_intl_fn(&args), Value::Date(45298.0));
 }
