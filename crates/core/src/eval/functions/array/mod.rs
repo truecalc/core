@@ -1,10 +1,11 @@
 //! Array and matrix functions for Google Sheets compatibility.
 
+use crate::eval::coercion::to_bool;
 use crate::eval::{evaluate_expr, EvalCtx};
 use crate::parser::ast::Expr;
 use crate::types::{ErrorKind, Value};
 
-use super::{check_arity, check_arity_len, FunctionMeta, Registry};
+use super::{check_arity, check_arity_len, EagerFn, FunctionKind, FunctionMeta, Registry};
 
 // ── 2D array helpers ──────────────────────────────────────────────────────────
 
@@ -1416,14 +1417,180 @@ pub fn makearray_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
 
 
 /// `ARRAYFORMULA(array_formula)` — evaluate an array formula.
-/// In the engine this is a pass-through: the argument is already evaluated in
-/// array context.  The function exists so formulas that wrap an expression in
-/// ARRAYFORMULA parse and evaluate without an #NAME? error.
+///
+/// Native operators (`+`, `*`, ...) already broadcast over `Value::Array`
+/// operands via `eval_binary`, so a plain pass-through is correct for those.
+/// But a normally-scalar function (`UPPER`, `LEN`, `ISNUMBER`, `IF`, ...)
+/// either errors or collapses to its top-left element when given an array
+/// argument outside of ARRAYFORMULA. Google Sheets forces per-cell
+/// evaluation for exactly these cases, so `ARRAYFORMULA` broadcasts them
+/// here instead of relying on the wrapped function's own (scalar) coercion.
 pub fn arrayformula_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     if args.len() != 1 {
         return Value::Error(ErrorKind::NA);
     }
-    evaluate_expr(&args[0], ctx)
+    broadcast_expr(&args[0], ctx)
+}
+
+fn broadcast_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
+    match expr {
+        // IF's condition already broadcasts correctly (e.g. `{1,2,3}>2`
+        // evaluates to an array via `eval_binary`), but `if_fn` collapses
+        // that array to its top-left element before branching. Re-run the
+        // branch selection here per element instead.
+        Expr::FunctionCall { name, args: if_args, .. }
+            if name == "IF" && (if_args.len() == 2 || if_args.len() == 3) =>
+        {
+            let cond = evaluate_expr(&if_args[0], ctx);
+            if !matches!(cond, Value::Array(_)) {
+                return evaluate_expr(expr, ctx);
+            }
+            let true_val = evaluate_expr(&if_args[1], ctx);
+            let false_val = if if_args.len() == 3 {
+                evaluate_expr(&if_args[2], ctx)
+            } else {
+                Value::Bool(false)
+            };
+            broadcast_if(&cond, &true_val, &false_val)
+        }
+        // ISNUMBER is registered as a lazy fn (so it can inspect array
+        // arguments for implicit-intersection outside ARRAYFORMULA), which
+        // means it's invisible to the generic `FunctionKind::Eager` branch
+        // below. Its scalar-check logic already exists as a plain eager fn
+        // (`isnumber_fn`, used today only by unit tests) — reuse it here.
+        Expr::FunctionCall { name, args: inner_args, .. }
+            if name == "ISNUMBER" && inner_args.len() == 1 =>
+        {
+            let v = evaluate_expr(&inner_args[0], ctx);
+            if matches!(v, Value::Error(_)) {
+                return v;
+            }
+            if matches!(v, Value::Array(_)) {
+                broadcast_eager(super::logical::is_checks::isnumber_fn, &[v])
+            } else {
+                super::logical::is_checks::isnumber_fn(&[v])
+            }
+        }
+        // Confirmed-broadcastable scalar functions only. Most eager
+        // functions (SUM, MMULT, ...) legitimately want the whole array as
+        // one argument — blanket-broadcasting any eager fn with an array
+        // argument breaks those (e.g. `ARRAYFORMULA(SUM({1,2,3}))` must
+        // stay `6`, not become `{1,2,3}`). Scope this to the specific
+        // per-cell functions confirmed against live Google Sheets to need
+        // element-wise broadcasting under ARRAYFORMULA.
+        Expr::FunctionCall { name, args: inner_args, .. }
+            if matches!(name.as_str(), "LEN" | "UPPER") =>
+        {
+            match ctx.registry.get(name) {
+                Some(FunctionKind::Eager(f)) => {
+                    let f: EagerFn = *f;
+                    let mut evaluated = Vec::with_capacity(inner_args.len());
+                    for a in inner_args {
+                        let v = evaluate_expr(a, ctx);
+                        if matches!(v, Value::Error(_)) {
+                            return v;
+                        }
+                        evaluated.push(v);
+                    }
+                    if evaluated.iter().any(|v| matches!(v, Value::Array(_))) {
+                        broadcast_eager(f, &evaluated)
+                    } else {
+                        f(&evaluated)
+                    }
+                }
+                _ => evaluate_expr(expr, ctx),
+            }
+        }
+        _ => evaluate_expr(expr, ctx),
+    }
+}
+
+/// Returns the common (rows, cols) shape of every `Value::Array` in
+/// `values`, or `None` if two arrays disagree on shape.
+fn broadcast_shape(values: &[Value]) -> Option<(usize, usize)> {
+    let mut shape = None;
+    for v in values {
+        if matches!(v, Value::Array(_)) {
+            let grid = to_2d(v);
+            let nr = grid.len();
+            let nc = grid.first().map(Vec::len).unwrap_or(0);
+            match shape {
+                None => shape = Some((nr, nc)),
+                Some((r, c)) if r == nr && c == nc => {}
+                Some(_) => return None,
+            }
+        }
+    }
+    shape
+}
+
+/// Calls an eager function once per element of a shared array shape,
+/// broadcasting any scalar arguments across every position.
+fn broadcast_eager(f: EagerFn, evaluated: &[Value]) -> Value {
+    let (nrows, ncols) = match broadcast_shape(evaluated) {
+        Some(s) => s,
+        None => return Value::Error(ErrorKind::Value),
+    };
+    let grids: Vec<Option<Vec<Vec<Value>>>> = evaluated
+        .iter()
+        .map(|v| matches!(v, Value::Array(_)).then(|| to_2d(v)))
+        .collect();
+    let mut out = Vec::with_capacity(nrows);
+    for r in 0..nrows {
+        let mut row = Vec::with_capacity(ncols);
+        for c in 0..ncols {
+            let per_pos: Vec<Value> = evaluated
+                .iter()
+                .enumerate()
+                .map(|(i, v)| match &grids[i] {
+                    Some(g) => g[r][c].clone(),
+                    None => v.clone(),
+                })
+                .collect();
+            row.push(f(&per_pos));
+        }
+        out.push(row);
+    }
+    from_2d(out)
+}
+
+/// Broadcasts `IF(cond, true_val, false_val)` element-wise over `cond`'s
+/// shape, indexing into `true_val`/`false_val` at the same position when
+/// they are themselves arrays, or reusing them as a scalar otherwise.
+fn broadcast_if(cond: &Value, true_val: &Value, false_val: &Value) -> Value {
+    let cond_grid = to_2d(cond);
+    let true_grid = matches!(true_val, Value::Array(_)).then(|| to_2d(true_val));
+    let false_grid = matches!(false_val, Value::Array(_)).then(|| to_2d(false_val));
+    let nrows = cond_grid.len();
+    let ncols = cond_grid.first().map(Vec::len).unwrap_or(0);
+    let mut out = Vec::with_capacity(nrows);
+    for (r, cond_row) in cond_grid.iter().enumerate() {
+        let mut row = Vec::with_capacity(ncols);
+        for (c, cond_cell) in cond_row.iter().enumerate() {
+            let branch_val = match to_bool(cond_cell.clone()) {
+                Ok(true) => match &true_grid {
+                    Some(g) => g
+                        .get(r)
+                        .and_then(|row| row.get(c))
+                        .cloned()
+                        .unwrap_or(Value::Error(ErrorKind::Value)),
+                    None => true_val.clone(),
+                },
+                Ok(false) => match &false_grid {
+                    Some(g) => g
+                        .get(r)
+                        .and_then(|row| row.get(c))
+                        .cloned()
+                        .unwrap_or(Value::Error(ErrorKind::Value)),
+                    None => false_val.clone(),
+                },
+                Err(e) => e,
+            };
+            row.push(branch_val);
+        }
+        out.push(row);
+    }
+    from_2d(out)
 }
 
 pub fn register_array(registry: &mut Registry) {
