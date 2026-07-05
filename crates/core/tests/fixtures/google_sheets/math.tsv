@@ -1997,3 +1997,7 @@ negative places behavior — GS zeros left digits, Excel same	=TRUNC(9999,-2)	99
 TRUNC vs INT for negative numbers — TRUNC rounds towards zero, INT towards negative infinity	=TRUNC(-2.9)-INT(-2.9)	1	compatibility	number
 very small decimal truncated to integer is zero	=TRUNC(0.9999)	0	compatibility	number
 places=0 explicitly vs omitting places — should behave identically	=TRUNC(3.7,0)-TRUNC(3.7)	0	compatibility	number
+ARRAYFORMULA multiplies array by scalar	=ARRAYFORMULA({1,2,3}*2)	{2,4,6}	official	array
+ARRAYFORMULA adds two arrays element-wise	=ARRAYFORMULA({1,2,3}+{10,20,30})	{11,22,33}	official	array
+ARRAYFORMULA with nested arithmetic	=ARRAYFORMULA({2,4,6}/2+{1,1,1})	{2,3,4}	edge	array
+GS-only — Excel uses Ctrl+Shift+Enter array formulas or dynamic arrays natively	=ARRAYFORMULA({1,2,3}*{4,5,6})	{4,10,18}	compatibility	array
