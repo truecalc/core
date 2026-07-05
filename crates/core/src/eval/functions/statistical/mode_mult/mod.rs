@@ -1,6 +1,8 @@
 use crate::types::{ErrorKind, Value};
 
-/// `MODE.MULT(value1, ...)` — returns the first (lowest-index) mode.
+/// `MODE.MULT(value1, ...)` — returns every value tied for the highest
+/// frequency, sorted ascending (a single tied value collapses to a plain
+/// scalar, matching this engine's general 1x1-array convention).
 /// Direct args: Bool/text coerced like MODE.SNGL. Errors propagate.
 /// Returns #NA if no value appears more than once.
 pub fn mode_mult_fn(args: &[Value]) -> Value {
@@ -46,12 +48,23 @@ pub fn mode_mult_fn(args: &[Value]) -> Value {
     if max_count < 2 {
         return Value::Error(ErrorKind::NA);
     }
-    // Return the smallest value that has max_count occurrences (Google Sheets returns minimum mode).
-    let mode = nums.iter()
-        .filter(|&&n| *freq.get(&n.to_bits()).unwrap_or(&0) == max_count)
-        .cloned()
-        .fold(f64::INFINITY, f64::min);
-    if mode.is_finite() { Value::Number(mode) } else { Value::Error(ErrorKind::NA) }
+    // Every distinct value tied for max_count, sorted ascending (confirmed
+    // against live Google Sheets: {3,3,1,1,2} → {1;3}, {5,3,3,5,1} → {3;5} —
+    // both counter to first-appearance order).
+    let mut seen: std::collections::HashSet<u64> = std::collections::HashSet::new();
+    let mut modes: Vec<f64> = Vec::new();
+    for &n in &nums {
+        let bits = n.to_bits();
+        if *freq.get(&bits).unwrap_or(&0) == max_count && seen.insert(bits) {
+            modes.push(n);
+        }
+    }
+    modes.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    match modes.len() {
+        0 => Value::Error(ErrorKind::NA),
+        1 => Value::Number(modes[0]),
+        _ => Value::Array(modes.into_iter().map(|n| Value::Array(vec![Value::Number(n)])).collect()),
+    }
 }
 
 #[cfg(test)]
