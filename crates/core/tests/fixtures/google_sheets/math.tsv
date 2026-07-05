@@ -2001,3 +2001,7 @@ ARRAYFORMULA multiplies array by scalar	=ARRAYFORMULA({1,2,3}*2)	{2,4,6}	officia
 ARRAYFORMULA adds two arrays element-wise	=ARRAYFORMULA({1,2,3}+{10,20,30})	{11,22,33}	official	array
 ARRAYFORMULA with nested arithmetic	=ARRAYFORMULA({2,4,6}/2+{1,1,1})	{2,3,4}	edge	array
 GS-only — Excel uses Ctrl+Shift+Enter array formulas or dynamic arrays natively	=ARRAYFORMULA({1,2,3}*{4,5,6})	{4,10,18}	compatibility	array
+ARRAYFORMULA with IF over array	"=ARRAYFORMULA(IF({1,2,3}>2,""big"",""small""))"	{small,small,big}	official	array
+ARRAYFORMULA with LEN over text array	"=ARRAYFORMULA(LEN({""hi"",""hello"",""hey""}))"	{2,5,3}	edge	array
+ARRAYFORMULA with ISNUMBER over array	"=ARRAYFORMULA(ISNUMBER({1,""a"",3}))"	{true,false,true}	edge	array
+nested ARRAYFORMULA with UPPER	"=ARRAYFORMULA(UPPER({""hello"",""world""}))"	{HELLO,WORLD}	nested	array
