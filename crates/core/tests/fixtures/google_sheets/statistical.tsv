@@ -3147,3 +3147,11 @@ ZTEST and Z.TEST aliases should return identical results	=ZTEST({1,2,3,4,5,6},5.
 text in data: GS ignores vs Excel possible error divergence	=ZTEST({1,"two",3,4,5},3,1)	0.3085375387259869	compatibility	number
 all-equal data without sigma: GS errors (STDEV=0), Excel may differ	=ZTEST({5,5,5,5,5},5)	#NUM!	compatibility	error
 ZTEST one-tailed P-value: consistent interpretation GS and Excel	=ZTEST({3,5,7,9,11},6,2)	0.13177623864148647	compatibility	number
+MODE.MULT returns array of all modes from dataset with two modes	=MODE.MULT({10,15,20,30,10,15})	{10;15}	official	array
+MODE.MULT with two equally frequent values returns both	=MODE.MULT({10,15,20,30,10,15})	{10;15}	edge	array
+MODE.MULT with three modes returns all three	=MODE.MULT({1,2,3,1,2,3})	{1;2;3}	edge	array
+MODE.MULT ignores text values in array	"=MODE.MULT({1,2,""text"",2,3,3})"	{2;3}	coercion	array
+MODE.MULT order of returned modes: sorted ascending	=MODE.MULT({3,3,1,1,2})	{1;3}	compatibility	array
+MODE.MULT with all values equally repeated returns all	=MODE.MULT({1,2,3,1,2,3,1,2,3})	{1;2;3}	compatibility	array
+MODE.MULT vs MODE.SNGL: same dataset returns array vs scalar	=MODE.MULT({10,15,10,15,20})	{10;15}	compatibility	array
+MODE.MULT basic	=MODE.MULT({1,2,2,3,3})	{2;3}	statistical	array
