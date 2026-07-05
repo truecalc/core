@@ -1406,6 +1406,9 @@ pub fn makearray_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         }
         grid.push(row);
     }
+    if nrows == 1 && ncols == 1 {
+        return grid[0][0].clone();
+    }
     from_2d(grid)
 }
 

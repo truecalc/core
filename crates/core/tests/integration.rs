@@ -518,3 +518,21 @@ fn sum_direct_bool_still_counts() {
     // SUM(TRUE,FALSE,TRUE) = 2 — direct bool args still coerced (not array context)
     assert_eq!(helpers::eval("=SUM(TRUE,FALSE,TRUE)"), Value::Number(2.0));
 }
+
+// ── MAKEARRAY: 1x1 result collapses to a bare scalar (#689) ──────────────────
+
+#[test]
+fn makearray_1x1_collapses_to_scalar() {
+    // MAKEARRAY(1,1,...) is a 1x1 result, which spreadsheets auto-collapse
+    // to a plain scalar rather than an array-wrapped [2].
+    assert_eq!(helpers::eval("=MAKEARRAY(1,1,LAMBDA(r,c,r+c))"), Value::Number(2.0));
+}
+
+#[test]
+fn makearray_larger_result_still_array() {
+    // Non-1x1 results are unaffected by the scalar collapse.
+    assert_eq!(
+        helpers::eval("=MAKEARRAY(1,2,LAMBDA(r,c,r+c))"),
+        Value::Array(vec![Value::Number(2.0), Value::Number(3.0)])
+    );
+}
