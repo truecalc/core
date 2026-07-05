@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1](https://github.com/truecalc/core/compare/truecalc-core-v2.0.0...truecalc-core-v2.0.1) - 2026-07-05
+
+### Fixed
+
+- add verified MODE.MULT/ARRAYFORMULA fixture rows now that #699/#700 are fixed
+- ARRAYFORMULA broadcasts LEN/UPPER/ISNUMBER/IF, MODE.MULT returns all modes
+- remove 7 stale MODE.MULT multi-mode rows from statistical.tsv
+- verify and migrate remaining 32 stale bugs.tsv array/math rows
+- remove 109 more stale bugs.tsv rows superseded by category TSVs
+- remove 258 stale bugs.tsv rows superseded by array.tsv
+
+### Other
+
+- Merge pull request #697 from truecalc/fix/array-bugs-tsv-stale-rows
+
 ## [2.0.0](https://github.com/truecalc/core/compare/truecalc-core-v1.0.2...truecalc-core-v2.0.0) - 2026-06-23
 
 ### Added
