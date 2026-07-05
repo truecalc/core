@@ -11,24 +11,14 @@ use std::f64::consts::{PI, SQRT_2, E};
 // Error function (erf / erfc)
 // ---------------------------------------------------------------------------
 
-/// Approximation of erf(x) using Horner's method (Abramowitz & Stegun 7.1.26).
-/// Max error ≈ 1.5e-7.
+/// Error function, accurate to < 1 ulp (fdlibm algorithm via `libm`).
 pub fn erf(x: f64) -> f64 {
-    if x == 0.0 {
-        return 0.0;
-    }
-    if x < 0.0 {
-        return -erf(-x);
-    }
-    let t = 1.0 / (1.0 + 0.3275911 * x);
-    let poly = t * (0.254829592
-        + t * (-0.284496736
-            + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
-    1.0 - poly * libm::exp(-x * x)
+    libm::erf(x)
 }
 
+/// Complementary error function, accurate to < 1 ulp (fdlibm algorithm via `libm`).
 pub fn erfc(x: f64) -> f64 {
-    1.0 - erf(x)
+    libm::erfc(x)
 }
 
 // ---------------------------------------------------------------------------
