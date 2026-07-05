@@ -5,10 +5,10 @@ use crate::types::Value;
 fn fractional_seconds_produce_fractional_serial() {
     // 43200 seconds = half a day → serial 25569.5
     let args = [Value::Number(43200.0), Value::Number(1.0)];
-    if let Value::Number(n) = epochtodate_fn(&args) {
+    if let Value::Date(n) = epochtodate_fn(&args) {
         assert!((n - 25569.5).abs() < 1e-9, "expected 25569.5, got {n}");
     } else {
-        panic!("expected Number");
+        panic!("expected Date");
     }
 }
 

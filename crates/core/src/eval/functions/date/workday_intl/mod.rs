@@ -41,7 +41,7 @@ pub fn workday_intl_fn(args: &[Value]) -> Value {
 
     let days = days_raw as i64;
     if days == 0 {
-        return Value::Number(date_to_serial(start));
+        return Value::Date(date_to_serial(start));
     }
 
     let base = chrono::NaiveDate::from_ymd_opt(1899, 12, 30).unwrap();
@@ -60,7 +60,7 @@ pub fn workday_intl_fn(args: &[Value]) -> Value {
         }
     }
 
-    Value::Number(date_to_serial(current))
+    Value::Date(date_to_serial(current))
 }
 
 #[cfg(test)]

@@ -31,7 +31,7 @@ pub fn epochtodate_fn(args: &[Value]) -> Value {
 
     // Unix epoch = serial 25569; 86400 seconds per day.
     let serial = 25569.0 + seconds / 86400.0;
-    Value::Number(serial)
+    Value::Date(serial)
 }
 
 #[cfg(test)]
