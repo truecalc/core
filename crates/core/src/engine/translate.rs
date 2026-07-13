@@ -9,6 +9,8 @@ use crate::parser::CellAddr;
 /// Shift `addr` by `(d_row, d_col)`, skipping any axis marked `$`-absolute.
 /// Returns `None` if a *relative* axis lands outside the Sheets grid
 /// (`1..=MAX_COL` / `1..=MAX_ROW`) — the caller renders that as `#REF!`.
+// TODO(#709): remove once shift_ref_text (Task 2) calls this.
+#[allow(dead_code)]
 pub(crate) fn shift_addr(addr: CellAddr, d_row: i64, d_col: i64) -> Option<CellAddr> {
     let col = if addr.col_abs { addr.col as i64 } else { addr.col as i64 + d_col };
     let row = if addr.row_abs { addr.row as i64 } else { addr.row as i64 + d_row };
