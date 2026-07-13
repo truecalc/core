@@ -2,8 +2,8 @@ use crate::eval::functions::check_arity;
 use crate::types::{ErrorKind, Value};
 
 /// Google Sheets limits: 18,278 columns (≈ column ZZZ) and 10,000,000 rows.
-const MAX_COL: usize = 18_278;
-const MAX_ROW: usize = 10_000_000;
+pub(crate) const MAX_COL: usize = 18_278;
+pub(crate) const MAX_ROW: usize = 10_000_000;
 
 /// `INDIRECT(ref_text, [a1])` -- converts a string reference to a value.
 ///

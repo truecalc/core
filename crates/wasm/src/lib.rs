@@ -150,6 +150,28 @@ pub fn validate(formula: &str) -> ValidateResult {
     }
 }
 
+#[derive(Tsify, Serialize)]
+#[tsify(into_wasm_abi)]
+pub struct TranslateResult {
+    #[tsify(optional)]
+    pub formula: Option<String>,
+    #[tsify(optional)]
+    pub error: Option<String>,
+}
+
+/// Shift every relative cell/range reference in `formula` by `(d_row, d_col)`
+/// — the fill / copy-paste reference-adjustment transform. `$`-absolute axes
+/// are left unchanged; an out-of-bounds corner becomes literal `#REF!`.
+///
+/// Sheets flavor only (issue #709 v1); Excel support is a follow-up.
+#[wasm_bindgen]
+pub fn translate_formula(formula: &str, d_row: i32, d_col: i32) -> TranslateResult {
+    match truecalc_core::Engine::sheets().translate_formula(formula, d_row as i64, d_col as i64) {
+        Ok(f) => TranslateResult { formula: Some(f), error: None },
+        Err(e) => TranslateResult { formula: None, error: Some(e.to_string()) },
+    }
+}
+
 /// Return metadata for all built-in functions as a JS array.
 ///
 /// Each entry: `{ name, category, syntax, description }`.
