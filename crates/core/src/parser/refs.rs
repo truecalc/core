@@ -202,7 +202,7 @@ fn sheet_needs_quoting(name: &str) -> bool {
         || name.eq_ignore_ascii_case("FALSE")
 }
 
-fn write_sheet(f: &mut fmt::Formatter<'_>, sheet: &Option<String>) -> fmt::Result {
+pub(crate) fn write_sheet(f: &mut dyn fmt::Write, sheet: &Option<String>) -> fmt::Result {
     match sheet {
         None => Ok(()),
         Some(name) => {
