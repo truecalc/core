@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0](https://github.com/truecalc/core/compare/truecalc-workbook-v2.0.1...truecalc-workbook-v3.0.0) - 2026-07-13
+
+### Fixed
+
+- dedupe Unresolved precedents regardless of $ anchors
+
 ## [2.0.0](https://github.com/truecalc/core/compare/truecalc-workbook-v1.0.2...truecalc-workbook-v2.0.0) - 2026-06-23
 
 ### Added

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0](https://github.com/truecalc/core/compare/truecalc-core-v2.0.1...truecalc-core-v3.0.0) - 2026-07-13
+
+### Added
+
+- *(core)* expose Engine::translate_formula (closes #709)
+- *(core)* add translate_text splice entry point ([#709](https://github.com/truecalc/core/pull/709))
+- *(core)* scope-aware ref collection skips LET/LAMBDA bindings ([#709](https://github.com/truecalc/core/pull/709))
+- *(core)* add shift_ref_text with per-corner #REF! ([#709](https://github.com/truecalc/core/pull/709))
+- *(core)* add shift_addr for translate_formula ([#709](https://github.com/truecalc/core/pull/709))
+- add dollar_cell_ref tokenizer for $-anchored cell addresses
+
+### Fixed
+
+- *(core)* use sort_by_key instead of sort_by in translate_text ([#709](https://github.com/truecalc/core/pull/709))
+- *(core)* correct translate_text test expectations to (d_row, d_col) order ([#709](https://github.com/truecalc/core/pull/709))
+- *(core)* silence expected dead_code on shift_addr pending Task 2 ([#709](https://github.com/truecalc/core/pull/709))
+- make evaluation-time lookup keys $-insensitive
+- parse $-absolute references (closes #708)
+- [**breaking**] add $ absolute/relative markers to CellAddr
+
 ## [2.0.1](https://github.com/truecalc/core/compare/truecalc-core-v2.0.0...truecalc-core-v2.0.1) - 2026-07-05
 
 ### Fixed
