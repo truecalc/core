@@ -568,12 +568,15 @@ fn resolve_ref(
                 None => own_sheet.to_owned(),
                 Some(name) => match workbook.sheet(name) {
                     Some(_) => simple_fold(folder, name),
-                    None => return Precedent::Unresolved(r.to_string()),
+                    // `relative_display` (not `to_string`) so a missing-sheet
+                    // reference reached via `$A$1` dedupes with one reached
+                    // via `A1` — `$` anchors don't change what's unresolved.
+                    None => return Precedent::Unresolved(r.relative_display()),
                 },
             };
             match to_address(addr) {
                 Some(a) => Precedent::Cell(CellRef::new(sheet_folded, a)),
-                None => Precedent::Unresolved(r.to_string()),
+                None => Precedent::Unresolved(r.relative_display()),
             }
         }
         Ref::Range { sheet, start, end } => {
@@ -581,7 +584,7 @@ fn resolve_ref(
                 None => own_sheet.to_owned(),
                 Some(name) => match workbook.sheet(name) {
                     Some(_) => simple_fold(folder, name),
-                    None => return Precedent::Unresolved(r.to_string()),
+                    None => return Precedent::Unresolved(r.relative_display()),
                 },
             };
             match normalize_range(start, end) {
@@ -590,7 +593,7 @@ fn resolve_ref(
                     start: s,
                     end: e,
                 }),
-                None => Precedent::Unresolved(r.to_string()),
+                None => Precedent::Unresolved(r.relative_display()),
             }
         }
         Ref::Name(name) => {
