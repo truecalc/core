@@ -32,7 +32,10 @@ pub fn let_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     let mut saved: Vec<(String, Option<Value>)> = Vec::with_capacity(pair_count);
     for i in 0..pair_count {
         let name = match &args[i * 2] {
-            Expr::Variable(n, _) => n.to_uppercase(),
+            // Strip `$` (never legitimate in a real LET name — only in a
+            // $-anchored bare cell/range reference, issue #708) so this
+            // binding is found under the same key it's read back with.
+            Expr::Variable(n, _) => n.to_uppercase().replace('$', ""),
             _ => unreachable!(), // validated above
         };
         let val = evaluate_expr(&args[i * 2 + 1], ctx);

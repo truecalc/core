@@ -34,14 +34,21 @@ pub fn evaluate_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
         // Bare identifiers: a local binding (LAMBDA parameter, caller-supplied
         // variable, or canonical-text variable) wins; otherwise the name is
         // classified into a `Ref` and read through the resolver (P1.3, #525).
-        Expr::Variable(name, _) => match ctx.ctx.lookup(name) {
+        // The local-binding lookup strips `$` (never legitimate in a bare
+        // name/parameter — only in a $-anchored cell/range reference, see
+        // `dollar_cell_ref`) so a binding set under `LET($A$1, ...)` is
+        // found; `Ref::classify` still gets the original `name` so the
+        // resolved `Ref`'s col_abs/row_abs flags are preserved.
+        Expr::Variable(name, _) => match ctx.ctx.lookup(&name.replace('$', "")) {
             Some(v) => v,
             None => ctx.resolve_ref(&crate::parser::refs::Ref::classify(name)),
         },
         // Sheet-qualified references: a binding under the canonical reference
         // text wins (back-compat with variable-supplied refs); otherwise the
-        // reference is read through the resolver.
-        Expr::Reference(r, _) => match ctx.ctx.lookup(&r.to_string()) {
+        // reference is read through the resolver. Looked up via
+        // `relative_display` (not `to_string`) so `$` anchors don't affect
+        // which override binding is found.
+        Expr::Reference(r, _) => match ctx.ctx.lookup(&r.relative_display()) {
             Some(v) => v,
             None => ctx.resolve_ref(r),
         },
@@ -120,7 +127,10 @@ fn eval_apply(func: &Expr, call_args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
             let mut params: Vec<String> = Vec::with_capacity(param_count);
             for param_expr in &lambda_args[..param_count] {
                 match param_expr {
-                    Expr::Variable(n, _) => params.push(n.to_uppercase()),
+                    // Strip `$` for the same reason as the Variable read arm
+                    // above: a $-shaped bare token is now syntactically legal
+                    // (issue #708) but must bind/read under the same key.
+                    Expr::Variable(n, _) => params.push(n.to_uppercase().replace('$', "")),
                     _ => return Value::Error(ErrorKind::Name),
                 }
             }

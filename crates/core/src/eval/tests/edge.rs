@@ -22,6 +22,17 @@ fn variable_not_found() {
 }
 
 #[test]
+fn bare_variable_override_lookup_is_dollar_insensitive() {
+    // A caller-supplied override bound under the plain key must still be
+    // found when the formula reads it via a $-anchored bare reference --
+    // $ is a display marker only (issue #708).
+    let (reg, mut ctx) = make_ctx();
+    ctx.set("A1".to_string(), Value::Number(42.0));
+    let expr = Expr::Variable("$A$1".to_string(), dummy_span());
+    assert_eq!(run(&expr, &reg, ctx), Value::Number(42.0));
+}
+
+#[test]
 fn cmp_eq_cross_type() {
     // Number vs Text: always false for Eq
     let (reg, ctx) = make_ctx();
@@ -109,4 +120,36 @@ fn pow_overflow_to_infinity_is_num_error() {
         span: dummy_span(),
     };
     assert_eq!(run(&expr, &reg, ctx), Value::Error(ErrorKind::Num));
+}
+
+#[test]
+fn reference_override_lookup_is_dollar_insensitive() {
+    // A caller-supplied override bound under the plain canonical key must
+    // still be found when the formula reads the cell via a $-anchored
+    // reference -- $ is a display marker only (issue #708).
+    let (reg, mut ctx) = make_ctx();
+    ctx.set("Sheet1!A1".to_string(), Value::Number(99.0));
+    let r = crate::parser::refs::Ref::Cell {
+        sheet: Some("Sheet1".to_string()),
+        addr: crate::parser::refs::CellAddr::new(1, 1).with_col_abs(true).with_row_abs(true),
+    };
+    let expr = Expr::Reference(r, dummy_span());
+    assert_eq!(run(&expr, &reg, ctx), Value::Number(99.0));
+}
+
+#[test]
+fn reference_override_lookup_does_not_corrupt_dollar_sheet_name() {
+    // A sheet literally named "Q1$Data" contains '$' as a real character,
+    // not a reference anchor. The override-lookup key must only strip $
+    // from the CellAddr portion (built structurally via relative_display,
+    // never by string-replacing the whole rendered text) so the sheet
+    // name's own '$' survives untouched (issue #708).
+    let (reg, mut ctx) = make_ctx();
+    ctx.set("'Q1$Data'!A1".to_string(), Value::Number(7.0));
+    let r = crate::parser::refs::Ref::Cell {
+        sheet: Some("Q1$Data".to_string()),
+        addr: crate::parser::refs::CellAddr::new(1, 1).with_col_abs(true),
+    };
+    let expr = Expr::Reference(r, dummy_span());
+    assert_eq!(run(&expr, &reg, ctx), Value::Number(7.0));
 }
