@@ -101,7 +101,7 @@ impl ModelResolver {
         let mut out = Vec::new();
         for row in start.row..=end.row {
             for col in start.col..=end.col {
-                let addr = CellAddr { col, row };
+                let addr = CellAddr::new(col, row);
                 out.push(self.cell(sheet, &addr));
             }
         }
@@ -298,13 +298,13 @@ fn extract_refs_finds_refs_in_every_position() {
     assert_eq!(
         extract_refs(&expr),
         vec![
-            Ref::Cell { sheet: None, addr: CellAddr { col: 1, row: 1 } },
-            Ref::Cell { sheet: Some("Data".to_string()), addr: CellAddr { col: 2, row: 2 } },
+            Ref::Cell { sheet: None, addr: CellAddr::new(1, 1) },
+            Ref::Cell { sheet: Some("Data".to_string()), addr: CellAddr::new(2, 2) },
             Ref::Name("TAX_RATE".to_string()),
             Ref::Range {
                 sheet: Some("Quoted Name".to_string()),
-                start: CellAddr { col: 1, row: 1 },
-                end: CellAddr { col: 1, row: 3 },
+                start: CellAddr::new(1, 1),
+                end: CellAddr::new(1, 3),
             },
         ],
     );
@@ -318,10 +318,10 @@ fn extract_refs_classifies_bare_identifiers() {
         vec![
             Ref::Range {
                 sheet: None,
-                start: CellAddr { col: 1, row: 1 },
-                end: CellAddr { col: 4, row: 4 },
+                start: CellAddr::new(1, 1),
+                end: CellAddr::new(4, 4),
             },
-            Ref::Cell { sheet: None, addr: CellAddr { col: 2, row: 7 } },
+            Ref::Cell { sheet: None, addr: CellAddr::new(2, 7) },
             Ref::Name("MYNAME".to_string()),
         ],
     );
@@ -330,7 +330,7 @@ fn extract_refs_classifies_bare_identifiers() {
 #[test]
 fn extract_refs_preserves_duplicates() {
     let expr = Engine::sheets().parse("=A1+A1").unwrap();
-    let a1 = Ref::Cell { sheet: None, addr: CellAddr { col: 1, row: 1 } };
+    let a1 = Ref::Cell { sheet: None, addr: CellAddr::new(1, 1) };
     assert_eq!(extract_refs(&expr), vec![a1.clone(), a1]);
 }
 
@@ -340,10 +340,10 @@ fn extract_refs_descends_into_nested_calls_and_arrays() {
     assert_eq!(
         extract_refs(&expr),
         vec![
-            Ref::Cell { sheet: None, addr: CellAddr { col: 1, row: 1 } },
-            Ref::Cell { sheet: None, addr: CellAddr { col: 2, row: 2 } },
-            Ref::Cell { sheet: None, addr: CellAddr { col: 3, row: 3 } },
-            Ref::Cell { sheet: Some("Data".to_string()), addr: CellAddr { col: 4, row: 4 } },
+            Ref::Cell { sheet: None, addr: CellAddr::new(1, 1) },
+            Ref::Cell { sheet: None, addr: CellAddr::new(2, 2) },
+            Ref::Cell { sheet: None, addr: CellAddr::new(3, 3) },
+            Ref::Cell { sheet: Some("Data".to_string()), addr: CellAddr::new(4, 4) },
         ],
     );
 }

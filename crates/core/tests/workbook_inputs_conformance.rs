@@ -153,7 +153,7 @@ impl<'a> SnapshotResolver<'a> {
         let mut cells = Vec::new();
         for r in start.row..=end.row {
             for c in start.col..=end.col {
-                cells.push(self.cell(sheet, &CellAddr { col: c, row: r }));
+                cells.push(self.cell(sheet, &CellAddr::new(c, r)));
             }
         }
         Value::Array(cells)

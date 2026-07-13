@@ -19,7 +19,7 @@ fn ref_arg_text(i: usize) -> String {
 fn expected_ref(i: usize) -> Ref {
     Ref::Cell {
         sheet: None,
-        addr: CellAddr { col: (i as u32) + 1, row: 1 },
+        addr: CellAddr::new((i as u32) + 1, 1),
     }
 }
 

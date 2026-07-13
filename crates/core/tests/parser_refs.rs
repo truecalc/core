@@ -25,7 +25,7 @@ fn parse_err(formula: &str) {
 }
 
 fn addr(col: u32, row: u32) -> CellAddr {
-    CellAddr { col, row }
+    CellAddr::new(col, row)
 }
 
 // ── sheet-qualified cells ───────────────────────────────────────────────────
