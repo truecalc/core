@@ -7,7 +7,19 @@ pub use refs::{CellAddr, Ref};
 use ast::{BinaryOp, Span, UnaryOp};
 use crate::types::ParseError;
 use nom::{IResult, character::complete::multispace0};
-use tokens::{bool_literal, identifier, number_literal, offset, string_literal};
+use tokens::{bool_literal, dollar_cell_ref, identifier, number_literal, offset, string_literal};
+
+/// A cell-address token: `dollar_cell_ref()`'s `$`-bearing shape (`$A1`,
+/// `A$1`, `$A$1`), or — when no literal `$` is present — `identifier()`'s
+/// plain shape (`A1`). `dollar_cell_ref` must be tried first: `identifier`
+/// does not fail on input like `"A$1"`, it just stops early at `A` and
+/// succeeds, so trying it first would never give `dollar_cell_ref` a chance
+/// to claim the `$1` suffix. Used wherever a range endpoint is expected, so
+/// either corner of a range may independently carry `$` anchors (e.g.
+/// `A1:$D$4`).
+fn cell_ref_text(i: &str) -> IResult<&str, &str> {
+    dollar_cell_ref(i).or_else(|_| identifier(i))
+}
 
 struct Parser<'a> {
     full: &'a str,
@@ -75,6 +87,24 @@ impl<'a> Parser<'a> {
             return self.parse_quoted_sheet_ref(i);
         }
 
+        // $-anchored cell reference (bare, no sheet): $A$1, $A1, A$1. A
+        // '$'-bearing token can only ever be a cell/range reference (never a
+        // sheet name, function call, or plain variable — none of those can
+        // contain '$'), so it short-circuits straight to Expr::Variable,
+        // mirroring how plain `A1` becomes Expr::Variable("A1", ..) below.
+        if let Ok((rest, span)) = dollar_cell_ref(i) {
+            let rest_ws = multispace0(rest)?.0;
+            if let Some(after_colon) = rest_ws.strip_prefix(':') {
+                if let Ok((rest2, end_span)) = cell_ref_text(after_colon) {
+                    if CellAddr::parse(end_span).is_some() {
+                        let range_name = format!("{}:{}", span, end_span);
+                        return Ok((rest2, Expr::Variable(range_name, self.span(i, rest2))));
+                    }
+                }
+            }
+            return Ok((rest, Expr::Variable(span.to_string(), self.span(i, rest))));
+        }
+
         // Identifier: sheet-qualified reference, variable, or function call
         if let Ok((rest, name)) = identifier(i) {
             // Sheet-qualified reference: Sheet1!A1 / Sheet1!A1:B2 — `!` binds
@@ -117,11 +147,13 @@ impl<'a> Parser<'a> {
                     nom::error::ErrorKind::Char,
                 )));
             }
-            // Range reference: A1:D4
-            if is_cell_ref(name) {
+            // Range reference: A1:D4 (end corner may itself be $-anchored,
+            // e.g. A1:$D$4 — validated via the same CellAddr::parse used
+            // for the dollar-led branch above, so both paths agree on shape).
+            if CellAddr::parse(name).is_some() {
                 if let Some(after_colon) = rest_ws.strip_prefix(':') {
-                    if let Ok((rest2, name2)) = identifier(after_colon) {
-                        if is_cell_ref(name2) {
+                    if let Ok((rest2, name2)) = cell_ref_text(after_colon) {
+                        if CellAddr::parse(name2).is_some() {
                             let range_name = format!("{}:{}", name, name2);
                             return Ok((rest2, Expr::Variable(range_name, self.span(i, rest2))));
                         }
@@ -141,12 +173,12 @@ impl<'a> Parser<'a> {
     /// is the unescaped sheet name.
     fn parse_ref_body(&self, start: &'a str, sheet: String, i: &'a str) -> IResult<&'a str, Expr> {
         let err = || nom::Err::Error(nom::error::Error::new(i, nom::error::ErrorKind::Tag));
-        let (rest, cell_text) = identifier(i).map_err(|_| err())?;
+        let (rest, cell_text) = cell_ref_text(i).map_err(|_| err())?;
         let addr = CellAddr::parse(cell_text).ok_or_else(err)?;
         // Optional range tail, mirroring the bare `A1:D4` grammar below.
         let rest_ws = multispace0(rest)?.0;
         if let Some(after_colon) = rest_ws.strip_prefix(':') {
-            if let Ok((rest2, end_text)) = identifier(after_colon) {
+            if let Ok((rest2, end_text)) = cell_ref_text(after_colon) {
                 if let Some(end) = CellAddr::parse(end_text) {
                     let r = Ref::Range { sheet: Some(sheet), start: addr, end };
                     return Ok((rest2, Expr::Reference(r, self.span(start, rest2))));
@@ -437,13 +469,6 @@ impl<'a> Parser<'a> {
 
         Ok((rest, left))
     }
-}
-
-/// Returns true if `name` looks like a cell reference (e.g. "A1", "BC42").
-fn is_cell_ref(name: &str) -> bool {
-    let bytes = name.as_bytes();
-    let col_end = bytes.iter().take_while(|b| b.is_ascii_alphabetic()).count();
-    col_end > 0 && col_end < bytes.len() && bytes[col_end..].iter().all(|b| b.is_ascii_digit())
 }
 
 // ── public API ──────────────────────────────────────────────────────────────

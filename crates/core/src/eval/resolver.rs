@@ -85,8 +85,8 @@ pub trait Resolver {
 /// assert_eq!(
 ///     refs,
 ///     vec![
-///         Ref::Cell { sheet: None, addr: CellAddr { col: 1, row: 1 } },
-///         Ref::Cell { sheet: Some("Data".to_string()), addr: CellAddr { col: 2, row: 2 } },
+///         Ref::Cell { sheet: None, addr: CellAddr::new(1, 1) },
+///         Ref::Cell { sheet: Some("Data".to_string()), addr: CellAddr::new(2, 2) },
 ///         Ref::Name("TAX_RATE".to_string()),
 ///     ],
 /// );

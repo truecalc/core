@@ -150,6 +150,19 @@ fn unknown_sheet_is_unresolved_no_edge() {
 }
 
 #[test]
+fn unresolved_dedupes_regardless_of_dollar_anchors() {
+    // Two references to the same missing-sheet target, one plain and one
+    // $-anchored, must dedupe to a single Unresolved precedent — `$` is a
+    // display marker only, never an identity difference (issue #708).
+    let mut wb = wb_one_sheet();
+    set_formula(&mut wb, "Sheet1", "A1", "=Ghost!B2+Ghost!$B$2");
+    let g = DependencyGraph::build(&wb);
+    let precs = g.precedents_of(&cref("sheet1", "A1")).unwrap();
+    assert_eq!(precs.len(), 1);
+    assert!(matches!(&precs[0], Precedent::Unresolved(_)));
+}
+
+#[test]
 fn unparseable_formula_is_unresolved() {
     let mut wb = wb_one_sheet();
     set_formula(&mut wb, "Sheet1", "A1", "=SUM(");

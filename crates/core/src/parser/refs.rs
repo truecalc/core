@@ -7,30 +7,68 @@
 
 use std::fmt;
 
-/// A1-style cell address with 1-based column and row.
+/// A1-style cell address with 1-based column and row, plus per-axis `$`
+/// (absolute-reference) markers.
 ///
-/// `A1` → `CellAddr { col: 1, row: 1 }`, `BC42` → `CellAddr { col: 55, row: 42 }`.
+/// `A1` → `CellAddr::new(1, 1)`, `BC42` → `CellAddr::new(55, 42)`,
+/// `$A$1` → `CellAddr::new(1, 1).with_col_abs(true).with_row_abs(true)`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CellAddr {
     /// 1-based column index (`A` = 1, `Z` = 26, `AA` = 27).
     pub col: u32,
     /// 1-based row index.
     pub row: u32,
+    /// `true` if the column was written with a `$` anchor (`$A1`, `$A$1`).
+    pub col_abs: bool,
+    /// `true` if the row was written with a `$` anchor (`A$1`, `$A$1`).
+    pub row_abs: bool,
 }
 
 impl CellAddr {
-    /// Parse an A1-style address (case-insensitive): letters followed by digits.
+    /// A relative address (no `$` on either axis) — the common case.
+    pub const fn new(col: u32, row: u32) -> Self {
+        Self { col, row, col_abs: false, row_abs: false }
+    }
+
+    /// Set whether the column is `$`-anchored.
+    pub const fn with_col_abs(mut self, abs: bool) -> Self {
+        self.col_abs = abs;
+        self
+    }
+
+    /// Set whether the row is `$`-anchored.
+    pub const fn with_row_abs(mut self, abs: bool) -> Self {
+        self.row_abs = abs;
+        self
+    }
+
+    /// Parse an A1-style address (case-insensitive): an optional `$`, column
+    /// letters, an optional `$`, then row digits. A `$` before the letters
+    /// marks the column absolute; a `$` before the digits marks the row
+    /// absolute.
     ///
     /// Returns `None` for anything else (empty column/row part, row `0`,
-    /// trailing characters, or out-of-range values).
+    /// trailing characters, malformed `$` placement, or out-of-range values).
     pub fn parse(text: &str) -> Option<Self> {
         let bytes = text.as_bytes();
-        let col_end = bytes.iter().take_while(|b| b.is_ascii_alphabetic()).count();
-        if col_end == 0 || col_end == bytes.len() {
+        let mut idx = 0;
+        let col_abs = bytes.first() == Some(&b'$');
+        if col_abs {
+            idx += 1;
+        }
+        let col_start = idx;
+        let col_end =
+            col_start + bytes[col_start..].iter().take_while(|b| b.is_ascii_alphabetic()).count();
+        if col_end == col_start {
             return None;
         }
-        let row_str = &text[col_end..];
-        if !row_str.bytes().all(|b| b.is_ascii_digit()) {
+        idx = col_end;
+        let row_abs = bytes.get(idx) == Some(&b'$');
+        if row_abs {
+            idx += 1;
+        }
+        let row_str = &text[idx..];
+        if row_str.is_empty() || !row_str.bytes().all(|b| b.is_ascii_digit()) {
             return None;
         }
         let row: u32 = row_str.parse().ok()?;
@@ -38,17 +76,21 @@ impl CellAddr {
             return None;
         }
         let mut col: u32 = 0;
-        for b in &bytes[..col_end] {
+        for b in &bytes[col_start..col_end] {
             let v = (b.to_ascii_uppercase() - b'A' + 1) as u32;
             col = col.checked_mul(26)?.checked_add(v)?;
         }
-        Some(Self { col, row })
+        Some(Self { col, row, col_abs, row_abs })
     }
 }
 
 impl fmt::Display for CellAddr {
-    /// Canonical A1 form: uppercase column letters followed by the row number.
+    /// Canonical A1 form: uppercase column letters followed by the row
+    /// number, each axis preceded by `$` when marked absolute.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.col_abs {
+            write!(f, "$")?;
+        }
         let mut col = self.col;
         let mut letters = [0u8; 8];
         let mut n = 0;
@@ -60,6 +102,9 @@ impl fmt::Display for CellAddr {
         }
         for b in letters[..n].iter().rev() {
             write!(f, "{}", *b as char)?;
+        }
+        if self.row_abs {
+            write!(f, "$")?;
         }
         write!(f, "{}", self.row)
     }
@@ -103,6 +148,29 @@ impl Ref {
             }
         }
         Ref::Name(text.to_string())
+    }
+
+    /// Canonical text with all `$` anchors stripped — an identity/lookup key
+    /// where `$` must not affect equality (e.g. resolver-override lookups,
+    /// dependency-graph dedup). Built structurally (zeroing `col_abs`/
+    /// `row_abs` before formatting), not by string-replacing `$` out of the
+    /// rendered text, so a quoted sheet name that legitimately contains a
+    /// literal `$` is not corrupted.
+    pub fn relative_display(&self) -> String {
+        match self {
+            Ref::Cell { sheet, addr } => Ref::Cell {
+                sheet: sheet.clone(),
+                addr: CellAddr::new(addr.col, addr.row),
+            }
+            .to_string(),
+            Ref::Range { sheet, start, end } => Ref::Range {
+                sheet: sheet.clone(),
+                start: CellAddr::new(start.col, start.row),
+                end: CellAddr::new(end.col, end.row),
+            }
+            .to_string(),
+            Ref::Name(_) => self.to_string(),
+        }
     }
 }
 
@@ -165,3 +233,6 @@ impl fmt::Display for Ref {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
