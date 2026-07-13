@@ -5,6 +5,8 @@ use crate::eval::{evaluate_expr, Context, EvalCtx, Resolver};
 use crate::parser::{parse_formula, Expr};
 use crate::types::{ErrorKind, ParseError, Value};
 
+mod translate;
+
 /// Which spreadsheet product's semantics the engine targets.
 ///
 /// The engine flavor also locks the **date serial system** (P1.4, issue #526):
