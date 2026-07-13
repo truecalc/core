@@ -147,8 +147,6 @@ fn walk(expr: &Expr, scope: &mut Vec<String>, out: &mut Vec<(Span, Ref)>) {
 /// Parse `formula`, shift every relative reference axis by `(d_row, d_col)`,
 /// and splice the result back into the original text. See the module-level
 /// doc comment and `docs/superpowers/specs/2026-07-14-translate-formula-design.md`.
-// TODO(#709): remove once Engine::translate_formula (Task 5) calls this.
-#[allow(dead_code)]
 pub(crate) fn translate_text(formula: &str, d_row: i64, d_col: i64) -> Result<String, ParseError> {
     let expr = crate::parser::parse_formula(formula)?;
     let mut spans = collect_shiftable_refs(&expr);

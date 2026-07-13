@@ -85,3 +85,27 @@ fn google_sheets_is_deprecated_alias_for_sheets() {
     let result = engine.evaluate("=SUM(1,2)", &HashMap::new());
     assert_eq!(result, Value::Number(3.0));
 }
+
+#[test]
+fn translate_formula_shifts_relative_reference() {
+    let engine = Engine::sheets();
+    assert_eq!(engine.translate_formula("=A1", 1, 1), Ok("=B2".to_string()));
+}
+
+#[test]
+fn translate_formula_preserves_absolute_reference() {
+    let engine = Engine::sheets();
+    assert_eq!(engine.translate_formula("=$A$1", 5, 5), Ok("=$A$1".to_string()));
+}
+
+#[test]
+fn translate_formula_excel_flavor_is_unsupported() {
+    let engine = Engine::excel();
+    assert!(engine.translate_formula("=A1", 1, 1).is_err());
+}
+
+#[test]
+fn translate_formula_propagates_parse_error() {
+    let engine = Engine::sheets();
+    assert!(engine.translate_formula("=SUM(", 0, 0).is_err());
+}

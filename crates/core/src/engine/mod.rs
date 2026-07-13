@@ -77,6 +77,23 @@ impl Engine {
         self.parse(formula).map(|_| ())
     }
 
+    /// Shift every relative axis of every cell/range reference in `formula`
+    /// by `(d_row, d_col)` — the fill / copy-paste reference-adjustment
+    /// transform. `$`-absolute axes are left unchanged. An axis that shifts
+    /// out of the Sheets grid becomes a literal `#REF!` for that corner.
+    ///
+    /// Sheets flavor only: `Engine::excel().translate_formula(...)` returns
+    /// `Err` until Excel grid bounds are established.
+    pub fn translate_formula(&self, formula: &str, d_row: i64, d_col: i64) -> Result<String, ParseError> {
+        if self.flavor == EngineFlavor::Excel {
+            return Err(ParseError {
+                message: "translate_formula: Excel flavor not yet supported".into(),
+                position: 0,
+            });
+        }
+        translate::translate_text(formula, d_row, d_col)
+    }
+
     /// Evaluate a formula string with named variables.
     ///
     /// Array results flow through **unspilled**: a formula producing an array
