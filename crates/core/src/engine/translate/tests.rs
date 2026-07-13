@@ -155,3 +155,49 @@ fn lambda_call_args_are_evaluated_in_outer_scope() {
     // the invocation argument is a real cell ref, not shadowed by the param
     assert_eq!(spans_text("=LAMBDA(A1, A1+1)(B1)"), vec!["B1"]);
 }
+
+#[test]
+fn shifts_simple_relative_reference() {
+    assert_eq!(translate_text("=A1", 1, 1).unwrap(), "=B2");
+}
+
+#[test]
+fn preserves_absolute_axis() {
+    assert_eq!(translate_text("=$A$1+B1", 1, 1).unwrap(), "=$A$1+C2");
+}
+
+#[test]
+fn shifts_range_both_corners() {
+    assert_eq!(translate_text("=SUM(A1:B2)", 1, 1).unwrap(), "=SUM(B2:C3)");
+}
+
+#[test]
+fn out_of_bounds_becomes_ref_error() {
+    assert_eq!(translate_text("=A1", -1, 0).unwrap(), "=#REF!");
+}
+
+#[test]
+fn leaves_defined_names_and_function_names_untouched() {
+    assert_eq!(translate_text("=SUM(A1,TAX_RATE)", 1, 0).unwrap(), "=SUM(B1,TAX_RATE)");
+}
+
+#[test]
+fn leaves_string_literals_untouched() {
+    assert_eq!(translate_text("=CONCAT(\"A1\",B1)", 1, 0).unwrap(), "=CONCAT(\"A1\",C1)");
+}
+
+#[test]
+fn propagates_parse_errors() {
+    assert!(translate_text("=SUM(", 0, 0).is_err());
+}
+
+#[test]
+fn splice_survives_length_changing_replacement_at_higher_offset() {
+    // A9 -> A10 grows by one byte; must not corrupt the earlier A1 -> A2 splice.
+    assert_eq!(translate_text("=A1+A9", 1, 0).unwrap(), "=A2+A10");
+}
+
+#[test]
+fn cross_sheet_reference_shifts_correctly() {
+    assert_eq!(translate_text("=Sheet1!A1", 1, 1).unwrap(), "=Sheet1!B2");
+}

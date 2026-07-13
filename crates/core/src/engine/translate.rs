@@ -7,7 +7,7 @@ use crate::eval::functions::lookup::indirect::{MAX_COL, MAX_ROW};
 use crate::parser::ast::{Expr, Span};
 use crate::parser::refs::write_sheet;
 use crate::parser::{CellAddr, Ref};
-use crate::types::ErrorKind;
+use crate::types::{ErrorKind, ParseError};
 
 /// Shift `addr` by `(d_row, d_col)`, skipping any axis marked `$`-absolute.
 /// Returns `None` if a *relative* axis lands outside the Sheets grid
@@ -32,8 +32,6 @@ fn addr_text(addr: CellAddr, d_row: i64, d_col: i64) -> String {
 /// Render `r` shifted by `(d_row, d_col)` back to formula text. A corner
 /// that shifts out of the Sheets grid becomes literal `#REF!`; the other
 /// corner of a range (if in bounds) keeps its shifted address.
-// TODO(#709): remove once translate_text (Task 4) calls this.
-#[allow(dead_code)]
 pub(crate) fn shift_ref_text(r: &Ref, d_row: i64, d_col: i64) -> String {
     match r {
         Ref::Cell { sheet, addr } => {
@@ -62,8 +60,6 @@ fn normalize_name(name: &str) -> String {
 /// `Expr::Reference` nodes, and bare `Expr::Variable` nodes that classify as
 /// `Ref::Cell`/`Ref::Range` and are not shadowed by an enclosing `LET`/
 /// `LAMBDA` binding of the same (normalized) name.
-// TODO(#709): remove once translate_text (Task 4) calls this.
-#[allow(dead_code)]
 pub(crate) fn collect_shiftable_refs(expr: &Expr) -> Vec<(Span, Ref)> {
     let mut out = Vec::new();
     let mut scope: Vec<String> = Vec::new();
@@ -71,8 +67,6 @@ pub(crate) fn collect_shiftable_refs(expr: &Expr) -> Vec<(Span, Ref)> {
     out
 }
 
-// TODO(#709): remove once translate_text (Task 4) calls this.
-#[allow(dead_code)]
 fn walk(expr: &Expr, scope: &mut Vec<String>, out: &mut Vec<(Span, Ref)>) {
     match expr {
         Expr::Number(..) | Expr::Text(..) | Expr::Bool(..) => {}
@@ -148,6 +142,25 @@ fn walk(expr: &Expr, scope: &mut Vec<String>, out: &mut Vec<(Span, Ref)>) {
             walk(func, scope, out);
         }
     }
+}
+
+/// Parse `formula`, shift every relative reference axis by `(d_row, d_col)`,
+/// and splice the result back into the original text. See the module-level
+/// doc comment and `docs/superpowers/specs/2026-07-14-translate-formula-design.md`.
+// TODO(#709): remove once Engine::translate_formula (Task 5) calls this.
+#[allow(dead_code)]
+pub(crate) fn translate_text(formula: &str, d_row: i64, d_col: i64) -> Result<String, ParseError> {
+    let expr = crate::parser::parse_formula(formula)?;
+    let mut spans = collect_shiftable_refs(&expr);
+    spans.sort_by(|a, b| b.0.offset.cmp(&a.0.offset)); // right to left
+    let mut out = formula.to_string();
+    for (span, r) in spans {
+        let replacement = shift_ref_text(&r, d_row, d_col);
+        let start = span.offset;
+        let end = span.offset + span.length;
+        out.replace_range(start..end, &replacement);
+    }
+    Ok(out)
 }
 
 #[cfg(test)]
