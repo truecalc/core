@@ -2,7 +2,7 @@ use nom::{
     IResult, Parser,
     bytes::complete::{take_while, take_while1},
     character::complete::char,
-    combinator::{map, recognize},
+    combinator::{map, opt, recognize},
     number::complete::double,
     sequence::{delimited, pair},
 };
@@ -10,6 +10,25 @@ use nom::{
 /// Byte offset of `sub` within `full`. Both must be slices of the same allocation.
 pub fn offset(full: &str, sub: &str) -> usize {
     sub.as_ptr() as usize - full.as_ptr() as usize
+}
+
+/// Parse a `$`-optional cell-address token: `A1`, `$A1`, `A$1`, `$A$1`.
+/// Requires at least one literal `$` to match, so it never competes with the
+/// plain `identifier()` grammar below — every string this *can* match was
+/// previously always a parse error, since `$` appears nowhere else in the
+/// grammar. On failure, the input is returned untouched.
+pub fn dollar_cell_ref(i: &str) -> IResult<&str, &str> {
+    let (rest, matched) = recognize((
+        opt(char('$')),
+        take_while1(|c: char| c.is_ascii_alphabetic()),
+        opt(char('$')),
+        take_while1(|c: char| c.is_ascii_digit()),
+    ))
+    .parse(i)?;
+    if !matched.contains('$') {
+        return Err(nom::Err::Error(nom::error::Error::new(i, nom::error::ErrorKind::Tag)));
+    }
+    Ok((rest, matched))
 }
 
 /// Parse a float/int literal.
@@ -96,6 +115,35 @@ mod tests {
         assert_eq!(identifier("myVar"), Ok(("", "myVar")));
         assert_eq!(identifier("_x1 rest"), Ok((" rest", "_x1")));
         assert!(identifier("123abc").is_err());
+    }
+
+    #[test]
+    fn dollar_cell_ref_matches_all_three_dollar_shapes() {
+        assert_eq!(dollar_cell_ref("$A$1 rest"), Ok((" rest", "$A$1")));
+        assert_eq!(dollar_cell_ref("$A1 rest"), Ok((" rest", "$A1")));
+        assert_eq!(dollar_cell_ref("A$1 rest"), Ok((" rest", "A$1")));
+    }
+
+    #[test]
+    fn dollar_cell_ref_rejects_plain_no_dollar_input() {
+        // No '$' present -> must fail, leaving `identifier()` to own this case.
+        assert!(dollar_cell_ref("A1").is_err());
+        assert!(dollar_cell_ref("myVar").is_err());
+    }
+
+    #[test]
+    fn dollar_cell_ref_no_match_leaves_input_unchanged() {
+        match dollar_cell_ref("A1") {
+            Err(nom::Err::Error(e)) => assert_eq!(e.input, "A1"),
+            other => panic!("expected Error with unchanged input, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn dollar_cell_ref_rejects_malformed_shapes() {
+        for text in ["$", "$$A1", "$1A"] {
+            assert!(dollar_cell_ref(text).is_err(), "{text:?} should not match");
+        }
     }
 
     #[test]
