@@ -585,7 +585,7 @@ Add to `crates/core/src/engine/translate.rs` (add `use crate::types::ParseError;
 pub(crate) fn translate_text(formula: &str, d_row: i64, d_col: i64) -> Result<String, ParseError> {
     let expr = crate::parser::parse_formula(formula)?;
     let mut spans = collect_shiftable_refs(&expr);
-    spans.sort_by(|a, b| b.0.offset.cmp(&a.0.offset)); // right to left
+    spans.sort_by_key(|s| std::cmp::Reverse(s.0.offset)); // right to left
     let mut out = formula.to_string();
     for (span, r) in spans {
         let replacement = shift_ref_text(&r, d_row, d_col);
