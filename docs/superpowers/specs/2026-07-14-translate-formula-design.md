@@ -84,15 +84,21 @@ using the **same name normalization the evaluator already uses** (`name.to_upper
 per `crates/core/src/eval/functions/logical/let_fn.rs:38` and `crates/core/src/eval/mod.rs:133`) so the scope
 set matches exactly what the evaluator would bind:
 
-- `Expr::FunctionCall { name, args, .. }` where `name` case-insensitively equals `"LET"`: for the `(name, value)`
-  pairs, the name-slot (`args[i*2]`) is never a shift candidate — push its normalized text onto the active scope
-  set *before* walking the corresponding value expr (`args[i*2+1]`) and all later pairs/the body (later
-  bindings can reference earlier ones, per the existing comment in `let_fn.rs`). Pop all of this `LET` call's
-  bindings after finishing its subtree.
-- `Expr::FunctionCall { name, args, .. }` where `name` case-insensitively equals `"LAMBDA"`: all args except the
-  last are parameter name-slots — never shift candidates, pushed onto the active scope before walking the body
-  (last arg). Popped after. (This covers both `Expr::Apply { func: <LAMBDA FunctionCall>, .. }` — since `func`
-  is walked through the same generic `FunctionCall` branch — and a bare, uninvoked `=LAMBDA(x, x+1)`.)
+- `Expr::FunctionCall { name, args, .. }` where `name == "LET"` (parsed `FunctionCall.name` is always
+  uppercased already, per `crates/core/src/parser/ast.rs:51`, so this is a plain `==`, not a case-insensitive
+  comparison): for each `(name, value)` pair in order, the name-slot (`args[i*2]`) is never a shift candidate —
+  walk the corresponding value expr (`args[i*2+1]`) **first**, under the scope as it stands *before* this
+  binding, then push the name-slot's normalized text onto the active scope. This matches `let_fn.rs`'s actual
+  evaluation order (`evaluate_expr(&args[i*2+1], ctx)` runs *before* `ctx.ctx.set(name, val)` —
+  `crates/core/src/eval/functions/logical/let_fn.rs:38-40` — so binding `i`'s own value expression sees only
+  bindings `0..i-1`, never itself: `=LET(A1, A1+1, A1*2)`'s `A1` inside `A1+1` is the real cell, not the local
+  binding). After all pairs are pushed, walk the body under the full accumulated scope. Pop all of this `LET`
+  call's bindings after finishing its subtree.
+- `Expr::FunctionCall { name, args, .. }` where `name == "LAMBDA"`: all args except the last are parameter
+  name-slots — never shift candidates, all pushed onto the active scope together (no value exprs to walk,
+  unlike `LET` — LAMBDA has no separate per-parameter value expression) before walking the body (last arg).
+  Popped after. (This covers both `Expr::Apply { func: <LAMBDA FunctionCall>, .. }` — since `func` is walked
+  through the same generic `FunctionCall` branch — and a bare, uninvoked `=LAMBDA(x, x+1)`.)
 - `Expr::Apply { func, call_args, .. }`: `call_args` are evaluated in the **caller's** scope (the arguments
   passed *into* the lambda), so they're walked with the scope as it stood *before* `func`'s own LAMBDA-param
   push. Only `func`'s walk (per the bullet above) sees the new params.
