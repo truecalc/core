@@ -419,3 +419,93 @@ fn display_round_trips_through_parser() {
         assert_eq!(r1, r2, "round-trip of {formula}");
     }
 }
+
+// ── $ absolute/relative references (issue #708) ────────────────────────────
+
+#[test]
+fn bare_dollar_cell_stays_variable() {
+    for (formula, text) in [("=$A$1", "$A$1"), ("=$A1", "$A1"), ("=A$1", "A$1")] {
+        assert!(
+            matches!(parse(formula), Expr::Variable(ref n, _) if n == text),
+            "{formula} should parse as Variable({text:?})"
+        );
+    }
+}
+
+#[test]
+fn sheet_qualified_dollar_cell() {
+    for (formula, col_abs, row_abs) in [
+        ("=Sheet1!$A$1", true, true),
+        ("=Sheet1!$A1", true, false),
+        ("=Sheet1!A$1", false, true),
+    ] {
+        match parse(formula) {
+            Expr::Reference(Ref::Cell { sheet, addr: a }, _) => {
+                assert_eq!(sheet.as_deref(), Some("Sheet1"));
+                assert_eq!(a, addr(1, 1).with_col_abs(col_abs).with_row_abs(row_abs));
+            }
+            other => panic!("expected Reference(Cell), got {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn quoted_sheet_mixed_dollar_range() {
+    match parse("='Sheet 1'!$A1:B$4") {
+        Expr::Reference(Ref::Range { sheet, start, end }, _) => {
+            assert_eq!(sheet.as_deref(), Some("Sheet 1"));
+            assert_eq!(start, addr(1, 1).with_col_abs(true));
+            assert_eq!(end, addr(2, 4).with_row_abs(true));
+        }
+        other => panic!("expected Reference(Range), got {other:?}"),
+    }
+}
+
+#[test]
+fn bare_mixed_corner_dollar_ranges_stay_variable() {
+    for (formula, text) in [("=$A$1:D4", "$A$1:D4"), ("=A1:$D$4", "A1:$D$4")] {
+        assert!(
+            matches!(parse(formula), Expr::Variable(ref n, _) if n == text),
+            "{formula} should parse as Variable({text:?})"
+        );
+    }
+}
+
+#[test]
+fn sheet_qualified_mixed_corner_dollar_range() {
+    match parse("=Sheet1!$A$1:D4") {
+        Expr::Reference(Ref::Range { start, end, .. }, _) => {
+            assert_eq!(start, addr(1, 1).with_col_abs(true).with_row_abs(true));
+            assert_eq!(end, addr(4, 4));
+        }
+        other => panic!("expected Reference(Range), got {other:?}"),
+    }
+}
+
+#[test]
+fn error_malformed_dollar_range_end() {
+    // Matches today's error shape for the equivalent non-$ malformed input
+    // (error_bad_range_second_endpoint above): a bad end corner degrades to
+    // a parse-time error, not a runtime #NAME?.
+    parse_err("=$A$1:FOO");
+}
+
+#[test]
+fn celladdr_parse_and_display_dollar_forms() {
+    for (text, col, row, col_abs, row_abs) in [
+        ("$A$1", 1, 1, true, true),
+        ("$A1", 1, 1, true, false),
+        ("A$1", 1, 1, false, true),
+    ] {
+        let a = CellAddr::parse(text).unwrap_or_else(|| panic!("{text} should parse"));
+        assert_eq!(a, addr(col, row).with_col_abs(col_abs).with_row_abs(row_abs), "{text}");
+        assert_eq!(a.to_string(), text, "{text}");
+    }
+}
+
+#[test]
+fn celladdr_rejects_malformed_dollar_addresses() {
+    for text in ["$", "$$A1", "$1A", "A$$1", "$A$"] {
+        assert!(CellAddr::parse(text).is_none(), "{text:?} should not parse");
+    }
+}
