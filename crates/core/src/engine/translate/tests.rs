@@ -89,3 +89,69 @@ fn range_one_corner_out_of_bounds_only_that_corner_becomes_ref_error() {
     // start row 1-5=-4 (OOB); end row 10-5=5 (OK)
     assert_eq!(shift_ref_text(&r, -5, 0), "#REF!:B5");
 }
+
+fn spans_text<'a>(formula: &'a str) -> Vec<&'a str> {
+    let expr = crate::parser::parse_formula(formula).unwrap();
+    collect_shiftable_refs(&expr)
+        .into_iter()
+        .map(|(span, _)| &formula[span.offset..span.offset + span.length])
+        .collect()
+}
+
+#[test]
+fn bare_cell_reference_is_collected() {
+    assert_eq!(spans_text("=A1"), vec!["A1"]);
+}
+
+#[test]
+fn sheet_qualified_reference_is_collected() {
+    assert_eq!(spans_text("=Sheet1!A1"), vec!["Sheet1!A1"]);
+}
+
+#[test]
+fn defined_name_is_not_collected() {
+    assert_eq!(spans_text("=TAX_RATE"), Vec::<&str>::new());
+}
+
+#[test]
+fn function_name_is_not_collected() {
+    assert_eq!(spans_text("=SUM(A1,B1)"), vec!["A1", "B1"]);
+}
+
+#[test]
+fn string_literal_is_not_collected() {
+    assert_eq!(spans_text("=CONCAT(\"A1\", B1)"), vec!["B1"]);
+}
+
+#[test]
+fn range_is_collected_as_single_span() {
+    assert_eq!(spans_text("=SUM(A1:B2)"), vec!["A1:B2"]);
+}
+
+#[test]
+fn let_binding_name_and_shadowed_body_use_are_skipped() {
+    assert_eq!(spans_text("=LET(A1, 5, A1*2)"), Vec::<&str>::new());
+}
+
+#[test]
+fn let_value_expr_self_reference_is_a_real_cell_ref() {
+    // A1 inside the value expr is not yet bound (LET binds only after its
+    // own value expr evaluates), so it's the real cell, not the local name.
+    assert_eq!(spans_text("=LET(A1, A1+1, A1*2)"), vec!["A1"]);
+}
+
+#[test]
+fn let_second_pair_value_expr_sees_first_binding_as_local() {
+    assert_eq!(spans_text("=LET(A1, 5, B1, A1+1, B1)"), Vec::<&str>::new());
+}
+
+#[test]
+fn lambda_param_and_body_use_are_skipped() {
+    assert_eq!(spans_text("=LAMBDA(A1, A1+1)(5)"), Vec::<&str>::new());
+}
+
+#[test]
+fn lambda_call_args_are_evaluated_in_outer_scope() {
+    // the invocation argument is a real cell ref, not shadowed by the param
+    assert_eq!(spans_text("=LAMBDA(A1, A1+1)(B1)"), vec!["B1"]);
+}

@@ -4,6 +4,7 @@
 //! `docs/superpowers/specs/2026-07-14-translate-formula-design.md`.
 
 use crate::eval::functions::lookup::indirect::{MAX_COL, MAX_ROW};
+use crate::parser::ast::{Expr, Span};
 use crate::parser::refs::write_sheet;
 use crate::parser::{CellAddr, Ref};
 use crate::types::ErrorKind;
@@ -50,6 +51,102 @@ pub(crate) fn shift_ref_text(r: &Ref, d_row: i64, d_col: i64) -> String {
             out
         }
         Ref::Name(name) => name.clone(), // never reached by the Task 3 traversal
+    }
+}
+
+fn normalize_name(name: &str) -> String {
+    name.to_uppercase().replace('$', "")
+}
+
+/// Collect every reference in `expr` that should be shifted: sheet-qualified
+/// `Expr::Reference` nodes, and bare `Expr::Variable` nodes that classify as
+/// `Ref::Cell`/`Ref::Range` and are not shadowed by an enclosing `LET`/
+/// `LAMBDA` binding of the same (normalized) name.
+// TODO(#709): remove once translate_text (Task 4) calls this.
+#[allow(dead_code)]
+pub(crate) fn collect_shiftable_refs(expr: &Expr) -> Vec<(Span, Ref)> {
+    let mut out = Vec::new();
+    let mut scope: Vec<String> = Vec::new();
+    walk(expr, &mut scope, &mut out);
+    out
+}
+
+// TODO(#709): remove once translate_text (Task 4) calls this.
+#[allow(dead_code)]
+fn walk(expr: &Expr, scope: &mut Vec<String>, out: &mut Vec<(Span, Ref)>) {
+    match expr {
+        Expr::Number(..) | Expr::Text(..) | Expr::Bool(..) => {}
+        Expr::Reference(r, span) => out.push((span.clone(), r.clone())),
+        Expr::Variable(name, span) => {
+            if !scope.contains(&normalize_name(name)) {
+                match Ref::classify(name) {
+                    Ref::Name(_) => {}
+                    r => out.push((span.clone(), r)),
+                }
+            }
+        }
+        Expr::UnaryOp { operand, .. } => walk(operand, scope, out),
+        Expr::BinaryOp { left, right, .. } => {
+            walk(left, scope, out);
+            walk(right, scope, out);
+        }
+        Expr::FunctionCall { name, args, .. }
+            if name == "LET" && args.len() >= 3 && args.len() % 2 == 1 =>
+        {
+            let pair_count = (args.len() - 1) / 2;
+            let mut bound = 0;
+            for i in 0..pair_count {
+                // Value expr sees only bindings 0..i-1 (matches let_fn.rs:
+                // evaluate_expr runs before ctx.set for this pair).
+                walk(&args[i * 2 + 1], scope, out);
+                match &args[i * 2] {
+                    Expr::Variable(n, _) => {
+                        scope.push(normalize_name(n));
+                        bound += 1;
+                    }
+                    other => walk(other, scope, out), // malformed name slot
+                }
+            }
+            walk(&args[args.len() - 1], scope, out); // body sees all bindings
+            for _ in 0..bound {
+                scope.pop();
+            }
+        }
+        Expr::FunctionCall { name, args, .. } if name == "LAMBDA" && !args.is_empty() => {
+            let param_count = args.len() - 1;
+            let mut bound = 0;
+            for param_expr in &args[..param_count] {
+                match param_expr {
+                    Expr::Variable(n, _) => {
+                        scope.push(normalize_name(n));
+                        bound += 1;
+                    }
+                    other => walk(other, scope, out), // malformed param slot
+                }
+            }
+            walk(&args[args.len() - 1], scope, out); // body
+            for _ in 0..bound {
+                scope.pop();
+            }
+        }
+        Expr::FunctionCall { args, .. } => {
+            for arg in args {
+                walk(arg, scope, out);
+            }
+        }
+        Expr::Array(elems, _) => {
+            for elem in elems {
+                walk(elem, scope, out);
+            }
+        }
+        Expr::Apply { func, call_args, .. } => {
+            // call_args are evaluated in the caller's (outer) scope, before
+            // func's own LAMBDA params are pushed.
+            for arg in call_args {
+                walk(arg, scope, out);
+            }
+            walk(func, scope, out);
+        }
     }
 }
 
