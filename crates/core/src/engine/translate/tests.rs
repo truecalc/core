@@ -178,12 +178,12 @@ fn out_of_bounds_becomes_ref_error() {
 
 #[test]
 fn leaves_defined_names_and_function_names_untouched() {
-    assert_eq!(translate_text("=SUM(A1,TAX_RATE)", 1, 0).unwrap(), "=SUM(B1,TAX_RATE)");
+    assert_eq!(translate_text("=SUM(A1,TAX_RATE)", 1, 0).unwrap(), "=SUM(A2,TAX_RATE)");
 }
 
 #[test]
 fn leaves_string_literals_untouched() {
-    assert_eq!(translate_text("=CONCAT(\"A1\",B1)", 1, 0).unwrap(), "=CONCAT(\"A1\",C1)");
+    assert_eq!(translate_text("=CONCAT(\"A1\",B1)", 1, 0).unwrap(), "=CONCAT(\"A1\",B2)");
 }
 
 #[test]
