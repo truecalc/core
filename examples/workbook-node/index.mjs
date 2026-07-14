@@ -16,7 +16,7 @@ const wasmPkgJs = process.env.WASM_PKG_PATH
   ? resolve(process.cwd(), process.env.WASM_PKG_PATH)
   : null;
 const pkgSpecifier = wasmPkgJs ? pathToFileURL(wasmPkgJs).href : '@truecalc/workbook';
-const { default: init, JsWorkbook } = await import(pkgSpecifier);
+const { default: init, JsWorkbook, translateFormula } = await import(pkgSpecifier);
 await init(wasmPkgJs ? readFileSync(wasmPkgJs.replace(/\.js$/, '_bg.wasm')) : undefined);
 
 // ── Example 1: basic formulas on a single sheet ──────────────────────────────
@@ -85,5 +85,26 @@ console.assert(
 );
 console.log('Roundtrip Sheet1 A3:', a3After);    // { type: 'number', value: 30 }
 console.log('Roundtrip Summary A1:', summaryAfter);  // { type: 'number', value: 30 }
+
+// ── Example 5: reference translation (fill / paste) ──────────────────────────
+
+// Route fill/paste reference adjustment through the engine's own parser instead
+// of a re-implemented tokenizer. `=A1+$A$2` filled down one row: the relative
+// row shifts, the `$`-absolute reference stays put.
+const translated = translateFormula('=A1+$A$2', 1, 0);
+console.assert(
+  translated.formula === '=A2+$A$2',
+  `translateFormula expected '=A2+$A$2', got ${JSON.stringify(translated)}`
+);
+console.log('translateFormula =A1+$A$2 (down 1 row):', translated.formula);  // =A2+$A$2
+
+// The rewritten text feeds straight back into the workbook.
+wb.set('Sheet1', 'A4', '5');
+wb.set('Sheet1', 'A5', '7');
+wb.set('Sheet1', 'B5', translateFormula('=A4', 1, 0).formula);  // =A5
+wb.recalc(JSON.stringify({ timestamp_ms: 0, timezone: 'UTC', rng_seed: 0 }));
+const b5 = wb.resolved('Sheet1', 'B5');
+console.assert(b5.type === 'number' && b5.value === 7, `B5 expected 7, got ${JSON.stringify(b5)}`);
+console.log('Sheet1 B5 (translated =A4 -> =A5):', b5);  // { type: 'number', value: 7 }
 
 console.log('All assertions passed.');
