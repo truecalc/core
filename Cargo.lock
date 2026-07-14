@@ -2230,6 +2230,7 @@ version = "3.0.0"
 dependencies = [
  "serde",
  "serde_json",
+ "truecalc-core",
  "truecalc-workbook",
  "tsify-next",
  "wasm-bindgen",

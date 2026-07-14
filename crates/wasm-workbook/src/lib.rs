@@ -1,8 +1,44 @@
+use serde::Serialize;
+use tsify_next::Tsify;
 use wasm_bindgen::prelude::*;
 
+use truecalc_core::Engine;
 use truecalc_workbook::{
     Address, CellInput, Change, EngineFlavor, RecalcContext, Resolved, Value, Workbook, Worksheet,
 };
+
+/// Result of [`translate_formula`]: either the rewritten `formula` text or an
+/// `error` message (mutually exclusive). Mirrors the `TranslateResult` shape
+/// exposed by the calc-only `@truecalc/core` WASM binding so both packages
+/// present the same reference-translation surface.
+#[derive(Tsify, Serialize)]
+#[tsify(into_wasm_abi)]
+pub struct TranslateResult {
+    #[tsify(optional)]
+    pub formula: Option<String>,
+    #[tsify(optional)]
+    pub error: Option<String>,
+}
+
+/// Shift every relative cell/range reference in `formula` by `(dRow, dCol)` —
+/// the fill / copy-paste reference-adjustment transform — using the engine's
+/// authoritative parser instead of a re-implemented tokenizer.
+///
+/// `$`-absolute axes stay fixed; range endpoints and cross-sheet refs adjust
+/// while the sheet name is preserved; references inside string literals and
+/// function names are never rewritten; a name bound by `LET`/`LAMBDA` is left
+/// untouched. An axis that shifts out of the grid becomes a literal `#REF!`
+/// for that corner.
+///
+/// Sheets flavor only (Excel grid bounds are a follow-up); a parse error is
+/// surfaced in the `error` field.
+#[wasm_bindgen(js_name = translateFormula)]
+pub fn translate_formula(formula: &str, d_row: i32, d_col: i32) -> TranslateResult {
+    match Engine::sheets().translate_formula(formula, d_row as i64, d_col as i64) {
+        Ok(f) => TranslateResult { formula: Some(f), error: None },
+        Err(e) => TranslateResult { formula: None, error: Some(e.to_string()) },
+    }
+}
 
 /// Convert a `Value` to a `serde_json::Value` tagged object for WASM consumers.
 fn value_to_json(v: &Value) -> serde_json::Value {
