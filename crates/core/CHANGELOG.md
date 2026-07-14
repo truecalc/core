@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0](https://github.com/truecalc/core/compare/truecalc-core-v3.0.0...truecalc-core-v3.1.0) - 2026-07-15
+
+### Added
+
+- *(wasm-workbook)* expose translateFormula on the WebAssembly workbook binding ([#717](https://github.com/truecalc/core/pull/717))
+
 ## [3.0.0](https://github.com/truecalc/core/compare/truecalc-core-v2.0.1...truecalc-core-v3.0.0) - 2026-07-13
 
 ### Added
