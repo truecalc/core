@@ -159,6 +159,17 @@ fn cross_sheet_date_cell_is_date_typed() {
 }
 
 #[test]
+fn date_typed_cell_stays_date_through_arithmetic() {
+    // A cell resolved as Date (E1) carries its type through offset arithmetic,
+    // so a host can store a serial as a Date and rely on the engine to keep it
+    // rendering as a date (issue #721).
+    assert_eq!(eval("=Data!E1+1"), Value::Date(46181.0));
+    assert_eq!(eval("=Data!E1-7"), Value::Date(46173.0));
+    // Two Date cells subtracted are a plain day count.
+    assert_eq!(eval("=Data!E1-Data!E1"), Value::Number(0.0));
+}
+
+#[test]
 fn cross_sheet_empty_cell_concats_as_blank() {
     assert_eq!(eval("=\"<\"&Data!H9&\">\""), Value::Text("<>".to_string()));
 }

@@ -107,4 +107,32 @@ const b5 = wb.resolved('Sheet1', 'B5');
 console.assert(b5.type === 'number' && b5.value === 7, `B5 expected 7, got ${JSON.stringify(b5)}`);
 console.log('Sheet1 B5 (translated =A4 -> =A5):', b5);  // { type: 'number', value: 7 }
 
+// ── Example 6: date-typed cells via setDate (issue #721) ─────────────────────
+
+// A host stores a serial *as a Date* so the engine keeps offset arithmetic
+// rendering as a date. `resolved` returns a tagged JSON string, so parse it to
+// read the type. These checks throw on regression (a real gate, not a smoke log).
+function must(cond, msg) { if (!cond) throw new Error(`Example 6 failed: ${msg}`); }
+
+wb.addSheet('Dates');
+wb.setDate('Dates', 'A1', 46180);     // a date-typed serial (2026-06-07)
+wb.setDate('Dates', 'A2', -1.5);      // a pre-1900 serial round-trips exactly
+wb.set('Dates', 'B1', '=A1+1');       // date + number → date
+wb.set('Dates', 'C1', '=A1-7');       // date − number → date
+wb.set('Dates', 'D1', '=A1-A2');      // date − date → plain number of days
+wb.recalc(JSON.stringify({ timestamp_ms: 0, timezone: 'UTC', rng_seed: 0 }));
+
+const dA1 = JSON.parse(wb.resolved('Dates', 'A1'));
+const dA2 = JSON.parse(wb.resolved('Dates', 'A2'));
+const dB1 = JSON.parse(wb.resolved('Dates', 'B1'));
+const dC1 = JSON.parse(wb.resolved('Dates', 'C1'));
+const dD1 = JSON.parse(wb.resolved('Dates', 'D1'));
+
+must(dA1.type === 'date' && dA1.value === 46180, `A1 date round-trip, got ${JSON.stringify(dA1)}`);
+must(dA2.type === 'date' && dA2.value === -1.5, `A2 pre-1900 serial round-trip, got ${JSON.stringify(dA2)}`);
+must(dB1.type === 'date' && dB1.value === 46181, `A1+1 stays a date, got ${JSON.stringify(dB1)}`);
+must(dC1.type === 'date' && dC1.value === 46173, `A1-7 stays a date, got ${JSON.stringify(dC1)}`);
+must(dD1.type === 'number' && dD1.value === 46181.5, `A1-A2 is a plain number, got ${JSON.stringify(dD1)}`);
+console.log('setDate date-typed arithmetic:', { A1: dA1, B1: dB1, C1: dC1, D1: dD1 });
+
 console.log('All assertions passed.');
