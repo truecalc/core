@@ -21,7 +21,7 @@ use truecalc_core::types::ZonedInstant;
 ///   array is collapsed to its scalar element before storage, schema spec
 ///   §6), and holds only scalar values (never a nested `Array`). It appears
 ///   only as a spill anchor's value (schema spec §5).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Value {
     /// Finite IEEE-754 f64.
     Number(f64),
@@ -32,6 +32,15 @@ pub enum Value {
     /// A spreadsheet error code, e.g. `#REF!`. Allowed codes are the
     /// engine's error set for the workbook's flavor (registry-driven).
     Error(String),
+    /// An error code carrying an *additive* diagnostic message (Google Sheets
+    /// parity, e.g. the arity message for `DATE()`). The message is in-memory
+    /// metadata only: it is **not** part of value identity (equality and
+    /// hashing compare by code — see the hand-written `PartialEq`/`Hash`) and
+    /// is **dropped** by canonical serialization, so the persisted JSON, the
+    /// `to_json ∘ from_json = id` guarantee, and hash/equality are all
+    /// byte-for-byte unchanged from a bare `Error(code)`. Consumers read it via
+    /// [`Value::error_message`].
+    ErrorMsg(String, String),
     /// An evaluated-empty result (a formula cell before first recalc, or a
     /// formula referencing an unauthored cell). Never used to pad the
     /// sparse grid.
@@ -58,14 +67,64 @@ fn normalized_bits(x: f64) -> u64 {
     }
 }
 
+impl Value {
+    /// The error code if this value is any error variant (bare `Error` or
+    /// message-carrying `ErrorMsg`), else `None`.
+    fn error_code(&self) -> Option<&str> {
+        match self {
+            Value::Error(code) | Value::ErrorMsg(code, _) => Some(code.as_str()),
+            _ => None,
+        }
+    }
+
+    /// The additive diagnostic message attached to an error value, if any.
+    /// Bare errors (and non-errors) return `None`.
+    pub fn error_message(&self) -> Option<&str> {
+        match self {
+            Value::ErrorMsg(_, msg) => Some(msg.as_str()),
+            _ => None,
+        }
+    }
+}
+
+/// Errors compare **by code only** — the diagnostic message is additive
+/// metadata and must never affect identity (a message-carrying error stays
+/// equal to the same bare error code, so canonical round-tripping and grid
+/// deduplication are unchanged). Every non-error arm matches the previous
+/// `#[derive(PartialEq)]` behaviour exactly.
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Value::Number(a), Value::Number(b)) => a == b,
+            (Value::Text(a), Value::Text(b)) => a == b,
+            (Value::Boolean(a), Value::Boolean(b)) => a == b,
+            (Value::Empty, Value::Empty) => true,
+            (Value::Array(a), Value::Array(b)) => a == b,
+            (Value::Date(a), Value::Date(b)) => a == b,
+            (Value::Zoned(a), Value::Zoned(b)) => a == b,
+            _ => match (self.error_code(), other.error_code()) {
+                (Some(a), Some(b)) => a == b,
+                _ => false,
+            },
+        }
+    }
+}
+
 impl Hash for Value {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        // Both error variants hash identically (message ignored, fixed tag) so
+        // that `Error(code)` and `ErrorMsg(code, _)` — which compare equal —
+        // also hash equal, keeping the Hash/Eq contract intact.
+        if let Some(code) = self.error_code() {
+            "error".hash(state);
+            code.hash(state);
+            return;
+        }
         std::mem::discriminant(self).hash(state);
         match self {
             Value::Number(n) | Value::Date(n) => normalized_bits(*n).hash(state),
             Value::Text(s) => s.hash(state),
             Value::Boolean(b) => b.hash(state),
-            Value::Error(code) => code.hash(state),
             // Hash the canonical RFC-9557 form: structurally equal instants
             // (same utc_nanos + zone) produce the same string, agreeing with `==`.
             Value::Zoned(z) => z.to_rfc9557().hash(state),
@@ -79,6 +138,8 @@ impl Hash for Value {
                     }
                 }
             }
+            // Handled above via `error_code()`.
+            Value::Error(_) | Value::ErrorMsg(_, _) => unreachable!(),
         }
     }
 }
@@ -123,7 +184,10 @@ impl Serialize for Value {
                 map.serialize_entry("value", b)?;
                 map.end()
             }
-            Value::Error(code) => {
+            // Both error variants serialize identically: the diagnostic message
+            // is in-memory-only metadata and is dropped here, so canonical JSON
+            // (and the round-trip identity guarantee) is byte-for-byte unchanged.
+            Value::Error(code) | Value::ErrorMsg(code, _) => {
                 // Key is `error`, not `value`; emitted before `type` to match
                 // canonical (JCS) key order.
                 let mut map = serializer.serialize_map(Some(2))?;

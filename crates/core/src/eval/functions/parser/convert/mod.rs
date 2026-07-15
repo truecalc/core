@@ -198,13 +198,13 @@ pub fn convert_fn(args: &[Value]) -> Value {
 
     let from = match &args[1] {
         Value::Text(s)  => s.clone(),
-        Value::Error(_) => return args[1].clone(),
+        Value::Error(_) | Value::ErrorMsg(_, _) => return args[1].clone(),
         _ => return Value::Error(ErrorKind::Value),
     };
 
     let to = match &args[2] {
         Value::Text(s)  => s.clone(),
-        Value::Error(_) => return args[2].clone(),
+        Value::Error(_) | Value::ErrorMsg(_, _) => return args[2].clone(),
         _ => return Value::Error(ErrorKind::Value),
     };
 

@@ -26,7 +26,7 @@ pub fn sumifs_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     }
 
     let sum_range_val = evaluate_expr(&args[0], ctx);
-    if matches!(sum_range_val, Value::Error(_)) {
+    if sum_range_val.is_error() {
         return sum_range_val;
     }
     let sum_range = flatten_to_vec(&sum_range_val);
@@ -35,11 +35,11 @@ pub fn sumifs_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     let mut crit_vals = Vec::new();
     for chunk in args[1..].chunks(2) {
         let rv = evaluate_expr(&chunk[0], ctx);
-        if matches!(rv, Value::Error(_)) {
+        if rv.is_error() {
             return rv;
         }
         let cv = evaluate_expr(&chunk[1], ctx);
-        if matches!(cv, Value::Error(_)) {
+        if cv.is_error() {
             return cv;
         }
         range_vals.push(rv);

@@ -49,6 +49,11 @@ fn value_to_json(v: &Value) -> serde_json::Value {
         Value::Date(n) => serde_json::json!({"type": "date", "value": n}),
         Value::Zoned(z) => serde_json::json!({"type": "zoned", "value": z.to_rfc9557()}),
         Value::Error(code) => serde_json::json!({"type": "error", "error": code}),
+        // Additive `message` (Google Sheets parity, e.g. the arity diagnostic);
+        // absent for bare errors, so existing consumers are unaffected.
+        Value::ErrorMsg(code, msg) => {
+            serde_json::json!({"type": "error", "error": code, "message": msg})
+        }
         Value::Empty => serde_json::json!({"type": "empty"}),
         Value::Array(rows) => {
             let arr: Vec<Vec<serde_json::Value>> = rows

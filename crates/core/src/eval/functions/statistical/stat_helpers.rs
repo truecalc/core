@@ -34,9 +34,9 @@ pub fn zoned_extreme(args: &[Value], want_min: bool) -> Option<Value> {
                 }
             }
             Value::Number(_) | Value::Date(_) | Value::Bool(_) | Value::Text(_) => *saw_numeric = true,
-            Value::Error(e) => {
+            Value::Error(_) | Value::ErrorMsg(_, _) => {
                 if error.is_none() {
-                    *error = Some(Value::Error(e.clone()));
+                    *error = Some(v.clone());
                 }
             }
             Value::Empty => {}
@@ -99,6 +99,7 @@ fn collect_nums_into_checked(args: &[Value], out: &mut Vec<f64>) -> Option<Value
                 }
             }
             Value::Error(e) => return Some(Value::Error(e.clone())),
+            Value::ErrorMsg(e, m) => return Some(Value::ErrorMsg(e.clone(), m.clone())),
             _ => {}
         }
     }
@@ -119,6 +120,7 @@ fn collect_nums_a_into_checked(args: &[Value], out: &mut Vec<f64>) -> Option<Val
                 }
             }
             Value::Error(e) => return Some(Value::Error(e.clone())),
+            Value::ErrorMsg(e, m) => return Some(Value::ErrorMsg(e.clone(), m.clone())),
             Value::Empty => {}
             Value::Zoned(_) => {}
         }
@@ -139,6 +141,7 @@ pub fn collect_numbers_checked(v: &Value) -> Result<Vec<f64>, Value> {
         }
         Value::Number(n) => Ok(vec![*n]),
         Value::Error(e) => Err(Value::Error(e.clone())),
+        Value::ErrorMsg(e, m) => Err(Value::ErrorMsg(e.clone(), m.clone())),
         _ => Ok(vec![]),
     }
 }
@@ -170,6 +173,7 @@ pub fn collect_nums_a_checked(args: &[Value]) -> Result<Vec<f64>, Value> {
             }
             Value::Zoned(_) => return Err(Value::Error(ErrorKind::Value)),
             Value::Error(e) => return Err(Value::Error(e.clone())),
+            Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
         }
     }
     Ok(nums)
@@ -217,6 +221,7 @@ pub fn collect_nums_direct(args: &[Value]) -> Result<Vec<f64>, Value> {
             }
             Value::Zoned(_) => return Err(Value::Error(ErrorKind::Value)),
             Value::Error(e) => return Err(Value::Error(e.clone())),
+            Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
         }
     }
     Ok(nums)
@@ -265,6 +270,7 @@ pub fn collect_nums_a_direct(args: &[Value]) -> Result<Vec<f64>, Value> {
             }
             Value::Zoned(_) => return Err(Value::Error(ErrorKind::Value)),
             Value::Error(e) => return Err(Value::Error(e.clone())),
+            Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
         }
     }
     Ok(nums)
@@ -287,7 +293,7 @@ pub fn collect_nums_a_into(args: &[Value], out: &mut Vec<f64>) {
             Value::Text(_) => out.push(0.0),
             Value::Array(inner) => collect_nums_a_into(inner, out),
             Value::Empty => {}
-            Value::Error(_) => {}
+            Value::Error(_) | Value::ErrorMsg(_, _) => {}
             Value::Zoned(_) => {}
         }
     }
@@ -315,8 +321,8 @@ pub fn collect_paired(x_arg: &Value, y_arg: &Value) -> Result<(Vec<f64>, Vec<f64
     let mut xs = Vec::new();
     let mut ys = Vec::new();
     for (x, y) in xs_raw.iter().zip(ys_raw.iter()) {
-        if let Value::Error(e) = x { return Err(Value::Error(e.clone())); }
-        if let Value::Error(e) = y { return Err(Value::Error(e.clone())); }
+        if x.is_error() { return Err(x.clone()); }
+        if y.is_error() { return Err(y.clone()); }
         if let (Value::Number(xn), Value::Number(yn)) = (x, y) {
             xs.push(*xn);
             ys.push(*yn);

@@ -43,6 +43,7 @@ fn collect_numbers_checked(v: &Value) -> Result<Vec<f64>, Value> {
                 match x {
                     Value::Number(n) => nums.push(*n),
                     Value::Error(e) => return Err(Value::Error(e.clone())),
+                    Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
                     _ => {}
                 }
             }
@@ -50,6 +51,7 @@ fn collect_numbers_checked(v: &Value) -> Result<Vec<f64>, Value> {
         }
         Value::Number(n) => Ok(vec![*n]),
         Value::Error(e) => Err(Value::Error(e.clone())),
+        Value::ErrorMsg(e, m) => Err(Value::ErrorMsg(e.clone(), m.clone())),
         _ => Ok(vec![]),
     }
 }

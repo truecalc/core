@@ -28,6 +28,7 @@ pub fn geomean_fn(args: &[Value]) -> Value {
                 }
             }
             Value::Error(e) => return Value::Error(e.clone()),
+            Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
             _ => {}
         }
     }

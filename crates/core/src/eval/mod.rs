@@ -11,7 +11,22 @@ use crate::parser::ast::{BinaryOp, Expr, UnaryOp};
 use crate::types::{ErrorKind, Value};
 
 use coercion::{to_number, to_string_val};
-use functions::FunctionKind;
+use functions::{FunctionKind, FN_NAME_PLACEHOLDER};
+
+/// Fill the function-name placeholder in an arity diagnostic with the actual
+/// name of the function being dispatched. Arity errors are produced by
+/// `check_arity`, which does not know the caller's name, so the message carries
+/// [`FN_NAME_PLACEHOLDER`] until it reaches the dispatch site here. The name is
+/// upper-cased for Google-Sheets parity (`=date()` → "... to DATE ..."). Any
+/// value without the placeholder passes through untouched.
+fn finalize_call_result(v: Value, name: &str) -> Value {
+    match v {
+        Value::ErrorMsg(kind, msg) if msg.contains(FN_NAME_PLACEHOLDER) => {
+            Value::ErrorMsg(kind, msg.replace(FN_NAME_PLACEHOLDER, &name.to_uppercase()))
+        }
+        other => other,
+    }
+}
 
 /// Walk an expression tree and produce a [`Value`].
 ///
@@ -95,7 +110,7 @@ pub fn evaluate_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
                     // Copy the fn pointer out to avoid holding a borrow on ctx.registry
                     // while also mutably borrowing ctx itself.
                     let f: functions::LazyFn = *f;
-                    f(args, ctx)
+                    finalize_call_result(f(args, ctx), name)
                 }
                 Some(FunctionKind::Eager(f)) => {
                     let f: functions::EagerFn = *f;
@@ -103,12 +118,12 @@ pub fn evaluate_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
                     let mut evaluated = Vec::with_capacity(args.len());
                     for arg in args {
                         let v = evaluate_expr(arg, ctx);
-                        if matches!(v, Value::Error(_)) {
+                        if v.is_error() {
                             return v;
                         }
                         evaluated.push(v);
                     }
-                    f(&evaluated)
+                    finalize_call_result(f(&evaluated), name)
                 }
             }
         }
@@ -147,7 +162,7 @@ fn eval_apply(func: &Expr, call_args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     let mut evaluated_args: Vec<Value> = Vec::with_capacity(call_args.len());
     for arg in call_args {
         let v = evaluate_expr(arg, ctx);
-        if matches!(v, Value::Error(_)) {
+        if v.is_error() {
             return v;
         }
         evaluated_args.push(v);
@@ -180,7 +195,7 @@ fn type_rank(v: &Value) -> u8 {
         Value::Bool(_)                  => 2,
         // Error and Array cannot reach compare_values through the normal eval path
         // (eval_binary guards against errors before calling compare_values).
-        Value::Error(_) | Value::Array(_) => 3,
+        Value::Error(_) | Value::ErrorMsg(_, _) | Value::Array(_) => 3,
     }
 }
 
@@ -275,8 +290,8 @@ fn eval_binary(op: &BinaryOp, lv: Value, rv: Value) -> Value {
         | BinaryOp::Lt | BinaryOp::Gt
         | BinaryOp::Le | BinaryOp::Ge => {
             // Error propagation: left side first.
-            if let Value::Error(_) = &lv { return lv; }
-            if let Value::Error(_) = &rv { return rv; }
+            if lv.is_error() { return lv; }
+            if rv.is_error() { return rv; }
             // Mixed naive/aware comparison is rejected (a zoned instant cannot be
             // ordered against a naive value).
             if matches!(&lv, Value::Zoned(_)) ^ matches!(&rv, Value::Zoned(_)) {

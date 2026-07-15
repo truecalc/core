@@ -13,7 +13,7 @@ pub fn timevalue_fn(args: &[Value]) -> Value {
     }
     let text = match &args[0] {
         Value::Text(s) => s.clone(),
-        Value::Error(_) => return args[0].clone(),
+        Value::Error(_) | Value::ErrorMsg(_, _) => return args[0].clone(),
         _ => return Value::Error(ErrorKind::Value),
     };
 

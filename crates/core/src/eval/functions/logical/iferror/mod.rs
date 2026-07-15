@@ -10,7 +10,7 @@ pub fn iferror_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         return err;
     }
     let val = evaluate_expr(&args[0], ctx);
-    if matches!(val, Value::Error(_)) {
+    if val.is_error() {
         if args.len() == 2 {
             evaluate_expr(&args[1], ctx)
         } else {
@@ -28,7 +28,7 @@ pub fn ifna_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         return err;
     }
     let val = evaluate_expr(&args[0], ctx);
-    if matches!(val, Value::Error(ErrorKind::NA)) {
+    if val.error_kind() == Some(&ErrorKind::NA) {
         if args.len() == 2 {
             evaluate_expr(&args[1], ctx)
         } else {

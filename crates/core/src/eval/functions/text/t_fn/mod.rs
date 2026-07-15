@@ -8,7 +8,7 @@ pub fn t_fn(args: &[Value]) -> Value {
     }
     match &args[0] {
         Value::Text(s) => Value::Text(s.clone()),
-        Value::Error(_) => args[0].clone(),
+        Value::Error(_) | Value::ErrorMsg(_, _) => args[0].clone(),
         _ => Value::Text(String::new()),
     }
 }

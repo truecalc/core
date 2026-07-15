@@ -474,6 +474,7 @@ pub fn vdb_fn(args: &[Value]) -> Value {
             Value::Number(n) => *n != 0.0,
             Value::Empty => false,
             Value::Error(e) => return Value::Error(e.clone()),
+            Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
             _ => false,
         }
     } else {

@@ -25,14 +25,14 @@ pub fn average_fn(args: &[Value]) -> Value {
             }
             Value::Empty => {} // skip
             Value::Zoned(_) => return Value::Error(ErrorKind::Value),
-            Value::Error(e) => return Value::Error(e.clone()),
+            Value::Error(_) | Value::ErrorMsg(_, _) => return arg.clone(),
             Value::Array(elems) => {
                 // Array context: skip bool/text, include numbers
                 for elem in elems {
                     match elem {
                         Value::Number(n) => { sum += n; count += 1; }
                         Value::Date(n)   => { sum += n; count += 1; }
-                        Value::Error(e)  => return Value::Error(e.clone()),
+                        Value::Error(_) | Value::ErrorMsg(_, _) => return elem.clone(),
                         _ => {} // Bool, Text, Empty all skipped in array
                     }
                 }

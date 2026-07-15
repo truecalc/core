@@ -40,11 +40,13 @@ pub fn min_fn(args: &[Value]) -> Value {
                             result = Some(result.map_or(*n, |cur: f64| cur.min(*n)));
                         }
                         Value::Error(e) => return Value::Error(e.clone()),
+                        Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
                         _ => {}
                     }
                 }
             }
             Value::Error(e) => return Value::Error(e.clone()),
+            Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
             _ => {}
         }
     }

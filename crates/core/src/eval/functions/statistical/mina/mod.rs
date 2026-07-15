@@ -31,12 +31,14 @@ pub fn mina_fn(args: &[Value]) -> Value {
                         Value::Text(_) => 0.0,
                         Value::Empty => continue,
                         Value::Error(e) => return Value::Error(e.clone()),
+                        Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
                         _ => continue,
                     };
                     result = Some(result.map_or(n, |cur: f64| cur.min(n)));
                 }
             }
             Value::Error(e) => return Value::Error(e.clone()),
+            Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
             _ => {}
         }
     }

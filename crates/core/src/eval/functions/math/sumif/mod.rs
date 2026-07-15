@@ -19,11 +19,11 @@ pub fn sumif_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     }
 
     let range_val = evaluate_expr(&args[0], ctx);
-    if matches!(range_val, Value::Error(_)) {
+    if range_val.is_error() {
         return range_val;
     }
     let crit_val = evaluate_expr(&args[1], ctx);
-    if matches!(crit_val, Value::Error(_)) {
+    if crit_val.is_error() {
         return crit_val;
     }
 
@@ -33,7 +33,7 @@ pub fn sumif_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     let sum_range_val;
     let sum_range: Vec<&Value> = if args.len() == 3 {
         sum_range_val = evaluate_expr(&args[2], ctx);
-        if matches!(sum_range_val, Value::Error(_)) {
+        if sum_range_val.is_error() {
             return sum_range_val;
         }
         flatten_to_vec(&sum_range_val)

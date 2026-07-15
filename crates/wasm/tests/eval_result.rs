@@ -45,6 +45,26 @@ fn error_maps_to_error_with_error_key() {
 }
 
 #[test]
+fn error_with_message_maps_to_error_with_message_key() {
+    // #728: a diagnostic-carrying error surfaces an additive `message` field
+    // alongside the unchanged `error` code.
+    let msg = "Wrong number of arguments to DATE. Expected 3 arguments, but got 0 arguments.";
+    assert_eq!(
+        shape(Value::ErrorMsg(ErrorKind::NA, msg.into())),
+        json!({ "type": "error", "error": "#N/A", "message": msg })
+    );
+}
+
+#[test]
+fn bare_error_omits_message_key() {
+    // #728: messageless errors keep the exact pre-existing shape (no `message`
+    // key), so existing consumers are unaffected.
+    let out = shape(Value::Error(ErrorKind::DivByZero));
+    assert_eq!(out, json!({ "type": "error", "error": "#DIV/0!" }));
+    assert!(out.get("message").is_none(), "bare error must not emit a message key");
+}
+
+#[test]
 fn date_maps_to_distinct_date_not_number() {
     // #569: dates are no longer collapsed to `number`.
     let out = shape(Value::Date(46180.0));

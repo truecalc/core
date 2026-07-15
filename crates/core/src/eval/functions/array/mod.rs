@@ -315,7 +315,7 @@ fn tocol_fn(args: &[Value]) -> Value {
 
     let filtered: Vec<Value> = flat.into_iter().filter(|v| {
         let is_blank = matches!(v, Value::Empty) || matches!(v, Value::Text(s) if s.is_empty());
-        let is_error = matches!(v, Value::Error(_));
+        let is_error = v.is_error();
         if ignore == 1 && is_blank { return false; }
         if ignore == 2 && is_error { return false; }
         if ignore == 3 && (is_blank || is_error) { return false; }
@@ -362,7 +362,7 @@ fn torow_fn(args: &[Value]) -> Value {
 
     let filtered: Vec<Value> = flat.into_iter().filter(|v| {
         let is_blank = matches!(v, Value::Empty) || matches!(v, Value::Text(s) if s.is_empty());
-        let is_error = matches!(v, Value::Error(_));
+        let is_error = v.is_error();
         if ignore == 1 && is_blank { return false; }
         if ignore == 2 && is_error { return false; }
         if ignore == 3 && (is_blank || is_error) { return false; }
@@ -1207,7 +1207,7 @@ pub fn byrow_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         return e;
     }
     let arr_val = evaluate_expr(&args[0], ctx);
-    if matches!(arr_val, Value::Error(_)) {
+    if arr_val.is_error() {
         return arr_val;
     }
     let grid = to_2d(&arr_val);
@@ -1232,7 +1232,7 @@ pub fn bycol_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         return e;
     }
     let arr_val = evaluate_expr(&args[0], ctx);
-    if matches!(arr_val, Value::Error(_)) {
+    if arr_val.is_error() {
         return arr_val;
     }
     let grid = to_2d(&arr_val);
@@ -1307,11 +1307,11 @@ pub fn reduce_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         return e;
     }
     let initial = evaluate_expr(&args[0], ctx);
-    if matches!(initial, Value::Error(_)) {
+    if initial.is_error() {
         return initial;
     }
     let arr_val = evaluate_expr(&args[1], ctx);
-    if matches!(arr_val, Value::Error(_)) {
+    if arr_val.is_error() {
         return arr_val;
     }
     let items = flatten_val(&arr_val);
@@ -1336,11 +1336,11 @@ pub fn scan_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         return e;
     }
     let initial = evaluate_expr(&args[0], ctx);
-    if matches!(initial, Value::Error(_)) {
+    if initial.is_error() {
         return initial;
     }
     let arr_val = evaluate_expr(&args[1], ctx);
-    if matches!(arr_val, Value::Error(_)) {
+    if arr_val.is_error() {
         return arr_val;
     }
     let grid = to_2d(&arr_val);
@@ -1378,10 +1378,10 @@ pub fn makearray_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     }
     let rows_val = evaluate_expr(&args[0], ctx);
     let cols_val = evaluate_expr(&args[1], ctx);
-    if matches!(rows_val, Value::Error(_)) {
+    if rows_val.is_error() {
         return rows_val;
     }
-    if matches!(cols_val, Value::Error(_)) {
+    if cols_val.is_error() {
         return cols_val;
     }
     let nrows = match to_f64(&rows_val) {
@@ -1462,7 +1462,7 @@ fn broadcast_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
             if name == "ISNUMBER" && inner_args.len() == 1 =>
         {
             let v = evaluate_expr(&inner_args[0], ctx);
-            if matches!(v, Value::Error(_)) {
+            if v.is_error() {
                 return v;
             }
             if matches!(v, Value::Array(_)) {
@@ -1487,7 +1487,7 @@ fn broadcast_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
                     let mut evaluated = Vec::with_capacity(inner_args.len());
                     for a in inner_args {
                         let v = evaluate_expr(a, ctx);
-                        if matches!(v, Value::Error(_)) {
+                        if v.is_error() {
                             return v;
                         }
                         evaluated.push(v);

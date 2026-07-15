@@ -46,7 +46,7 @@ fn sumsq_value(v: &Value, in_array: bool) -> Result<f64, Value> {
         }
         Value::Zoned(_) if in_array => Ok(0.0), // skipped in array context
         Value::Zoned(_) => Err(Value::Error(crate::types::ErrorKind::Value)),
-        Value::Error(_) => Err(v.clone()),
+        Value::Error(_) | Value::ErrorMsg(_, _) => Err(v.clone()),
         Value::Date(n) => Ok(n * n),
     }
 }

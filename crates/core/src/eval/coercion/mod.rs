@@ -23,7 +23,7 @@ pub fn to_number(v: Value) -> Result<f64, Value> {
                     .map_err(|_| Value::Error(ErrorKind::Value))
             }
         }
-        Value::Error(_)  => Err(v),
+        Value::Error(_) | Value::ErrorMsg(_, _) => Err(v),
         Value::Array(_)  => Err(Value::Error(ErrorKind::Value)),
         // Zoned instants have no naive numeric value; force an explicit TZSERIAL
         // downcast rather than silently mixing naive/aware time.
@@ -45,7 +45,7 @@ pub fn to_string_val(v: Value) -> Result<String, Value> {
         Value::Number(n) | Value::Date(n) => Ok(display_number(n)),
         Value::Bool(b)  => Ok(if b { "TRUE".to_string() } else { "FALSE".to_string() }),
         Value::Empty    => Ok(String::new()),
-        Value::Error(_) => Err(v),
+        Value::Error(_) | Value::ErrorMsg(_, _) => Err(v),
         Value::Array(_) => Err(Value::Error(ErrorKind::Value)),
         // Self-describing canonical RFC-9557 form so concatenation is lossless.
         Value::Zoned(z) => Ok(z.to_rfc9557()),
@@ -65,7 +65,7 @@ pub fn to_bool(v: Value) -> Result<bool, Value> {
     match v {
         Value::Bool(b)   => Ok(b),
         Value::Number(n) | Value::Date(n) => Ok(n != 0.0),
-        Value::Error(_)  => Err(v),
+        Value::Error(_) | Value::ErrorMsg(_, _) => Err(v),
         Value::Text(ref s) => match s.to_uppercase().as_str() {
             "TRUE"  => Ok(true),
             "FALSE" => Ok(false),

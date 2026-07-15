@@ -267,7 +267,7 @@ fn value_to_complex(v: Value) -> Result<Complex, Value> {
         Value::Text(s) => {
             parse_complex(&s).ok_or(Value::Error(ErrorKind::Num))
         }
-        Value::Error(_) => Err(v),
+        Value::Error(_) | Value::ErrorMsg(_, _) => Err(v),
         // GS: booleans are NOT valid complex arguments -> #NUM!
         Value::Bool(_) => Err(Value::Error(ErrorKind::Num)),
         _ => {

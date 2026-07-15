@@ -25,11 +25,13 @@ pub fn trimmean_fn(args: &[Value]) -> Value {
     match &args[0] {
         Value::Number(n) => nums.push(*n),
         Value::Error(e) => return Value::Error(e.clone()),
+        Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
         Value::Array(arr) => {
             for v in arr {
                 match v {
                     Value::Number(n) => nums.push(*n),
                     Value::Error(e) => return Value::Error(e.clone()),
+                    Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
                     _ => {}
                 }
             }

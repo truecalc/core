@@ -708,7 +708,9 @@ impl Workbook {
             // (1)/(2): the cell itself is (or held) a spill.
             let is_spill_cell = match self.cell_at(cell).map(Cell::value) {
                 Some(Value::Array(_)) => true,
-                Some(Value::Error(code)) => code == BLOCKED_SPILL_ERROR,
+                Some(Value::Error(code)) | Some(Value::ErrorMsg(code, _)) => {
+                    code == BLOCKED_SPILL_ERROR
+                }
                 _ => false,
             };
             let mut seed = is_spill_cell;
@@ -1145,6 +1147,7 @@ fn core_to_workbook(v: CoreValue) -> Value {
         CoreValue::Text(s) => Value::Text(s),
         CoreValue::Bool(b) => Value::Boolean(b),
         CoreValue::Error(e) => Value::Error(e.to_string()),
+        CoreValue::ErrorMsg(e, m) => Value::ErrorMsg(e.to_string(), m),
         CoreValue::Empty => Value::Empty,
         CoreValue::Date(n) => Value::Date(n),
         CoreValue::Zoned(z) => Value::Zoned(z),
@@ -1185,7 +1188,9 @@ fn workbook_to_core(v: &Value) -> CoreValue {
         Value::Number(n) => CoreValue::Number(*n),
         Value::Text(s) => CoreValue::Text(s.clone()),
         Value::Boolean(b) => CoreValue::Bool(*b),
-        Value::Error(code) => CoreValue::Error(error_kind_from_code(code)),
+        Value::Error(code) | Value::ErrorMsg(code, _) => {
+            CoreValue::Error(error_kind_from_code(code))
+        }
         Value::Empty => CoreValue::Empty,
         Value::Date(n) => CoreValue::Date(*n),
         Value::Zoned(z) => CoreValue::Zoned(z.clone()),
