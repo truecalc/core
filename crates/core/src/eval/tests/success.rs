@@ -258,6 +258,36 @@ fn function_eager_first_error_wins_over_second() {
     assert_eq!(run(&expr, &reg, ctx), Value::Error(ErrorKind::DivByZero));
 }
 
+// ── Array broadcasting preserves orientation (truecalc/core#707) ──────────────
+
+#[test]
+fn elementwise_op_preserves_column_vector_orientation() {
+    // A vertical operand (column vector `{1;2;3}`) scaled by a scalar must stay
+    // a column vector `[[2],[4],[6]]`, matching Google Sheets — the same path
+    // that governs `=A1:A3*2` over a vertical range.
+    let col = |vals: &[f64]| {
+        Value::Array(
+            vals.iter()
+                .map(|&n| Value::Array(vec![Value::Number(n)]))
+                .collect(),
+        )
+    };
+    assert_eq!(
+        crate::evaluate("={1;2;3}*2", &std::collections::HashMap::new()),
+        col(&[2.0, 4.0, 6.0])
+    );
+}
+
+#[test]
+fn elementwise_op_preserves_row_vector_orientation() {
+    // A horizontal operand (row `{1,2,3}`) scaled by a scalar stays a flat row
+    // `[2,4,6]` — locks the already-correct 1×N behavior.
+    assert_eq!(
+        crate::evaluate("={1,2,3}*2", &std::collections::HashMap::new()),
+        Value::Array(vec![Value::Number(2.0), Value::Number(4.0), Value::Number(6.0)])
+    );
+}
+
 #[test]
 fn concat_right_error_propagates() {
     let (reg, _) = make_ctx();
