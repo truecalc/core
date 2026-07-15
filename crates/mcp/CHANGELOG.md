@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0](https://github.com/truecalc/core/compare/truecalc-mcp-v3.3.0...truecalc-mcp-v4.0.0) - 2026-07-15
+
+### Added
+
+- *(core)* carry optional diagnostic messages on eval errors
+
 ## [2.0.0](https://github.com/truecalc/core/compare/truecalc-mcp-v1.0.2...truecalc-mcp-v2.0.0) - 2026-06-23
 
 ### Added
