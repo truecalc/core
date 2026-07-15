@@ -14,6 +14,7 @@ pub fn regexextract_fn(args: &[Value]) -> Value {
         Value::Text(s) => s.clone(),
         Value::Empty => String::new(),
         Value::Error(e) => return Value::Error(e.clone()),
+        Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
         _ => return Value::Error(ErrorKind::Value),
     };
     let pattern = match to_string_val(args[1].clone()) {

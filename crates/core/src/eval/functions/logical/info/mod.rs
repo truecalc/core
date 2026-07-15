@@ -127,6 +127,7 @@ pub fn cell_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     let info_type = match &info_type_val {
         Value::Text(s) => s.to_ascii_lowercase(),
         Value::Error(e) => return Value::Error(e.clone()),
+        Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
         _ => return Value::Error(ErrorKind::NA),
     };
 
@@ -165,6 +166,7 @@ pub fn cell_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
                         let val = evaluate_expr(ref_expr, ctx);
                         match val {
                             Value::Error(e) => Value::Error(e),
+                            Value::ErrorMsg(e, m) => Value::ErrorMsg(e, m),
                             _ => Value::Error(ErrorKind::NA),
                         }
                     }
@@ -174,6 +176,7 @@ pub fn cell_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
                     let val = evaluate_expr(ref_expr, ctx);
                     match val {
                         Value::Error(e) => Value::Error(e),
+                        Value::ErrorMsg(e, m) => Value::ErrorMsg(e, m),
                         _ => Value::Error(ErrorKind::NA),
                     }
                 }
@@ -188,6 +191,7 @@ pub fn cell_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
                         let val = evaluate_expr(ref_expr, ctx);
                         match val {
                             Value::Error(e) => Value::Error(e),
+                            Value::ErrorMsg(e, m) => Value::ErrorMsg(e, m),
                             _ => Value::Error(ErrorKind::NA),
                         }
                     }
@@ -196,6 +200,7 @@ pub fn cell_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
                     let val = evaluate_expr(ref_expr, ctx);
                     match val {
                         Value::Error(e) => Value::Error(e),
+                        Value::ErrorMsg(e, m) => Value::ErrorMsg(e, m),
                         _ => Value::Error(ErrorKind::NA),
                     }
                 }
@@ -211,6 +216,7 @@ pub fn cell_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
                         let val = evaluate_expr(ref_expr, ctx);
                         match val {
                             Value::Error(e) => Value::Error(e),
+                            Value::ErrorMsg(e, m) => Value::ErrorMsg(e, m),
                             _ => Value::Error(ErrorKind::NA),
                         }
                     }
@@ -219,6 +225,7 @@ pub fn cell_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
                     let val = evaluate_expr(ref_expr, ctx);
                     match val {
                         Value::Error(e) => Value::Error(e),
+                        Value::ErrorMsg(e, m) => Value::ErrorMsg(e, m),
                         _ => Value::Error(ErrorKind::NA),
                     }
                 }
@@ -231,6 +238,7 @@ pub fn cell_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
                 let val = evaluate_expr(ref_expr, ctx);
                 match val {
                     Value::Error(e) => Value::Error(e),
+                    Value::ErrorMsg(e, m) => Value::ErrorMsg(e, m),
                     other => other,
                 }
             } else {
@@ -238,6 +246,7 @@ pub fn cell_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
                 let val = evaluate_expr(ref_expr, ctx);
                 match val {
                     Value::Error(e) => Value::Error(e),
+                    Value::ErrorMsg(e, m) => Value::ErrorMsg(e, m),
                     _ => Value::Error(ErrorKind::NA),
                 }
             }

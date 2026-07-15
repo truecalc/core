@@ -645,8 +645,8 @@ fn chisq_test_impl(args: &[Value]) -> Value {
     let mut chi2 = 0.0_f64;
     let mut n_valid = 0usize;
     for (o_val, e_val) in obs_flat.iter().zip(exp_flat.iter()) {
-        if let Value::Error(e) = o_val { return Value::Error(e.clone()); }
-        if let Value::Error(e) = e_val { return Value::Error(e.clone()); }
+        if o_val.is_error() { return o_val.clone(); }
+        if e_val.is_error() { return e_val.clone(); }
         let o = match o_val {
             Value::Number(n) => *n,
             _ => continue, // skip non-numeric observed
@@ -810,9 +810,9 @@ fn t_test_impl(args: &[Value]) -> Value {
     }
     // Propagate errors from data arrays before collecting numbers
     for arg in &args[0..2] {
-        if let Value::Error(e) = arg { return Value::Error(e.clone()); }
+        if arg.is_error() { return arg.clone(); }
         if let Value::Array(inner) = arg {
-            for v in inner { if let Value::Error(e) = v { return Value::Error(e.clone()); } }
+            for v in inner { if v.is_error() { return v.clone(); } }
         }
     }
     let arr1 = collect_nums(std::slice::from_ref(&args[0]));
@@ -1008,14 +1008,14 @@ fn f_test_impl(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     // Propagate errors from arrays before collecting numbers
-    if let Value::Error(e) = &args[0] { return Value::Error(e.clone()); }
-    if let Value::Error(e) = &args[1] { return Value::Error(e.clone()); }
+    if args[0].is_error() { return args[0].clone(); }
+    if args[1].is_error() { return args[1].clone(); }
     // Check for NA/error within arrays
     if let Value::Array(inner) = &args[0] {
-        for v in inner { if let Value::Error(e) = v { return Value::Error(e.clone()); } }
+        for v in inner { if v.is_error() { return v.clone(); } }
     }
     if let Value::Array(inner) = &args[1] {
-        for v in inner { if let Value::Error(e) = v { return Value::Error(e.clone()); } }
+        for v in inner { if v.is_error() { return v.clone(); } }
     }
     let arr1 = collect_nums(std::slice::from_ref(&args[0]));
     let arr2 = collect_nums(std::slice::from_ref(&args[1]));
@@ -1630,6 +1630,7 @@ pub fn prob_fn(args: &[Value]) -> Value {
             match v {
                 Value::Number(n) => out.push(*n),
                 Value::Error(e) => return Value::Error(e.clone()),
+                Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
                 _ => return Value::Error(ErrorKind::Value),
             }
         }
@@ -1646,6 +1647,7 @@ pub fn prob_fn(args: &[Value]) -> Value {
             match v {
                 Value::Number(n) => out.push(*n),
                 Value::Error(e) => return Value::Error(e.clone()),
+                Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
                 _ => return Value::Error(ErrorKind::Value),
             }
         }
@@ -1679,9 +1681,9 @@ fn z_test_impl(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     // Propagate errors from data array
-    if let Value::Error(e) = &args[0] { return Value::Error(e.clone()); }
+    if args[0].is_error() { return args[0].clone(); }
     if let Value::Array(inner) = &args[0] {
-        for v in inner { if let Value::Error(e) = v { return Value::Error(e.clone()); } }
+        for v in inner { if v.is_error() { return v.clone(); } }
     }
     let data = collect_nums(std::slice::from_ref(&args[0]));
     let mu0 = match as_f64(&args[1]) { Some(v) => v, None => return Value::Error(ErrorKind::Value) };

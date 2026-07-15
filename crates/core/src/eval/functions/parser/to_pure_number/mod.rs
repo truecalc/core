@@ -10,7 +10,7 @@ pub fn to_pure_number_fn(args: &[Value]) -> Value {
         Value::Date(n)   => Value::Number(*n),
         Value::Bool(b)   => Value::Bool(*b),
         Value::Text(s)   => Value::Text(s.clone()),
-        Value::Error(_)  => args[0].clone(),
+        Value::Error(_) | Value::ErrorMsg(_, _)  => args[0].clone(),
         _                => Value::Error(ErrorKind::Value),
     }
 }

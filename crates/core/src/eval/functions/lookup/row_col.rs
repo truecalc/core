@@ -37,7 +37,7 @@ fn extract_ref_string_from_expr(arg: &Expr, ctx: &mut EvalCtx<'_>) -> Option<Str
             let v = evaluate_expr(arg, ctx);
             match v {
                 Value::Text(s) if s.starts_with("__offset__:") => Some(s),
-                Value::Error(_) => None,
+                Value::Error(_) | Value::ErrorMsg(_, _) => None,
                 _ => None,
             }
         }

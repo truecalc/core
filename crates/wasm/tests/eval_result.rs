@@ -48,7 +48,7 @@ fn error_maps_to_error_with_error_key() {
 fn error_with_message_maps_to_error_with_message_key() {
     // #728: a diagnostic-carrying error surfaces an additive `message` field
     // alongside the unchanged `error` code.
-    let msg = "Wrong number of arguments to DATE. Expected 3 arguments, but got 0.";
+    let msg = "Wrong number of arguments to DATE. Expected 3 arguments, but got 0 arguments.";
     assert_eq!(
         shape(Value::ErrorMsg(ErrorKind::NA, msg.into())),
         json!({ "type": "error", "error": "#N/A", "message": msg })

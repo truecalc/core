@@ -11,11 +11,13 @@ fn collect_nums(args: &[Value]) -> Result<Vec<f64>, Value> {
                     match v {
                         Value::Number(n) => nums.push(*n),
                         Value::Error(e) => return Err(Value::Error(e.clone())),
+                        Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
                         _ => {}
                     }
                 }
             }
             Value::Error(e) => return Err(Value::Error(e.clone())),
+            Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
             _ => {}
         }
     }

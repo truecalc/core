@@ -39,7 +39,7 @@ pub fn to_text_fn(args: &[Value]) -> Value {
         Value::Date(n)   => Value::Text(gs_number_to_text(*n)),
         Value::Bool(b)   => Value::Text(if *b { "TRUE".to_string() } else { "FALSE".to_string() }),
         Value::Text(s)   => Value::Text(s.clone()),
-        Value::Error(_)  => args[0].clone(),
+        Value::Error(_) | Value::ErrorMsg(_, _)  => args[0].clone(),
         _                => Value::Error(ErrorKind::Value),
     }
 }

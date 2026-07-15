@@ -32,7 +32,7 @@ fn wrong_arity_cell_carries_message() {
     let value = wb.get("Sheet1", a1("A1")).unwrap().value().clone();
     assert_eq!(
         value.error_message(),
-        Some("Wrong number of arguments to DATE. Expected 3 arguments, but got 0.")
+        Some("Wrong number of arguments to DATE. Expected 3 arguments, but got 0 arguments.")
     );
     // The code is unchanged, and equality/identity are by code only.
     assert_eq!(value, Value::Error("#N/A".into()));

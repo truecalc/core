@@ -708,7 +708,9 @@ impl Workbook {
             // (1)/(2): the cell itself is (or held) a spill.
             let is_spill_cell = match self.cell_at(cell).map(Cell::value) {
                 Some(Value::Array(_)) => true,
-                Some(Value::Error(code)) => code == BLOCKED_SPILL_ERROR,
+                Some(Value::Error(code)) | Some(Value::ErrorMsg(code, _)) => {
+                    code == BLOCKED_SPILL_ERROR
+                }
                 _ => false,
             };
             let mut seed = is_spill_cell;

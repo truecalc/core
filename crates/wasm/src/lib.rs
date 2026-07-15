@@ -58,7 +58,7 @@ fn json_to_value(v: &serde_json::Value) -> Value {
 /// - `{ type: "empty" }`
 /// - `{ type: "error", error: "#REF!" }` -- and, when a diagnostic is available,
 ///   `{ type: "error", error: "#N/A", message: "Wrong number of arguments to
-///   DATE. Expected 3 arguments, but got 0." }`. `message` is additive and
+///   DATE. Expected 3 arguments, but got 0 arguments." }`. `message` is additive and
 ///   omitted for errors without a diagnostic, so existing consumers are unaffected.
 /// - `{ type: "date", value: 46180 }` -- spreadsheet serial number (epoch implied
 ///   by the engine flavor; `sheets` day 0 = 1899-12-30)

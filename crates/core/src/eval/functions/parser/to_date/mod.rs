@@ -9,7 +9,7 @@ pub fn to_date_fn(args: &[Value]) -> Value {
         Value::Number(n) => Value::Date(*n),
         Value::Date(n)   => Value::Date(*n),
         Value::Text(s)   => Value::Text(s.clone()),
-        Value::Error(_)  => args[0].clone(),
+        Value::Error(_) | Value::ErrorMsg(_, _)  => args[0].clone(),
         _                => Value::Error(ErrorKind::Value),
     }
 }

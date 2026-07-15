@@ -245,7 +245,7 @@ pub const FN_NAME_PLACEHOLDER: &str = "\u{1}FN\u{1}";
 /// Build the Google-Sheets-style "wrong number of arguments" diagnostic. The
 /// function name is left as [`FN_NAME_PLACEHOLDER`] for the dispatch site to
 /// fill in. Example (min == max == 3, got == 0):
-/// `"Wrong number of arguments to DATE. Expected 3 arguments, but got 0."`
+/// `"Wrong number of arguments to DATE. Expected 3 arguments, but got 0 arguments."`
 fn arity_message(min: usize, max: usize, got: usize) -> String {
     fn plural(n: usize) -> &'static str {
         if n == 1 { "" } else { "s" }
@@ -257,7 +257,10 @@ fn arity_message(min: usize, max: usize, got: usize) -> String {
     } else {
         format!("between {min} and {max} arguments")
     };
-    format!("Wrong number of arguments to {FN_NAME_PLACEHOLDER}. Expected {expected}, but got {got}.")
+    format!(
+        "Wrong number of arguments to {FN_NAME_PLACEHOLDER}. Expected {expected}, but got {got} argument{}.",
+        plural(got)
+    )
 }
 
 /// Validate argument count for eager functions (args already evaluated to `&[Value]`).

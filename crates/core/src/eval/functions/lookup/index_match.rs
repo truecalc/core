@@ -9,6 +9,7 @@ fn coerce_index(v: &Value) -> Result<i64, Value> {
         Value::Number(n) => Ok(n.trunc() as i64),
         Value::Bool(b) => Ok(if *b { 1 } else { 0 }),
         Value::Error(e) => Err(Value::Error(e.clone())),
+        Value::ErrorMsg(e, m) => Err(Value::ErrorMsg(e.clone(), m.clone())),
         _ => Err(Value::Error(ErrorKind::Value)),
     }
 }

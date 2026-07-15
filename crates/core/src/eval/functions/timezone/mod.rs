@@ -429,7 +429,7 @@ pub fn tznow_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
             Some(z) => z,
             None => return Value::Error(ErrorKind::Value),
         },
-        Value::Error(_) => return zone_val,
+        Value::Error(_) | Value::ErrorMsg(_, _) => return zone_val,
         _ => return Value::Error(ErrorKind::Value),
     };
     let nanos = match ctx.ctx.now_utc_nanos {
@@ -765,7 +765,7 @@ fn collect_zone_names(v: &Value) -> Result<Vec<String>, Value> {
                 }
                 Ok(())
             }
-            Value::Error(_) => Err(v.clone()),
+            Value::Error(_) | Value::ErrorMsg(_, _) => Err(v.clone()),
             _ => Err(Value::Error(ErrorKind::Value)),
         }
     }

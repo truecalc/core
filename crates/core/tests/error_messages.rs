@@ -24,7 +24,7 @@ fn date_wrong_arity_carries_google_sheets_message() {
     // ...and now it also carries the diagnostic.
     assert_eq!(
         v.error_message(),
-        Some("Wrong number of arguments to DATE. Expected 3 arguments, but got 0.")
+        Some("Wrong number of arguments to DATE. Expected 3 arguments, but got 0 arguments.")
     );
     assert!(matches!(v, Value::ErrorMsg(ErrorKind::NA, _)));
 }
@@ -35,7 +35,7 @@ fn function_name_is_upper_cased_for_parity() {
     let v = eval("=date()");
     assert_eq!(
         v.error_message(),
-        Some("Wrong number of arguments to DATE. Expected 3 arguments, but got 0.")
+        Some("Wrong number of arguments to DATE. Expected 3 arguments, but got 0 arguments.")
     );
 }
 
@@ -46,7 +46,7 @@ fn bounded_range_arity_uses_between_phrasing() {
     assert_eq!(v.error_kind(), Some(&ErrorKind::NA));
     assert_eq!(
         v.error_message(),
-        Some("Wrong number of arguments to SUM. Expected between 1 and 255 arguments, but got 0.")
+        Some("Wrong number of arguments to SUM. Expected between 1 and 255 arguments, but got 0 arguments.")
     );
 }
 
@@ -74,7 +74,7 @@ fn arity_error_propagates_through_arithmetic() {
     assert_eq!(v.error_kind(), Some(&ErrorKind::NA));
     assert_eq!(
         v.error_message(),
-        Some("Wrong number of arguments to DATE. Expected 3 arguments, but got 0.")
+        Some("Wrong number of arguments to DATE. Expected 3 arguments, but got 0 arguments.")
     );
 }
 
@@ -88,4 +88,21 @@ fn iferror_catches_arity_error() {
 fn iserror_and_isna_see_arity_error() {
     assert_eq!(eval("=ISERROR(DATE())"), Value::Bool(true));
     assert_eq!(eval("=ISNA(DATE())"), Value::Bool(true));
+}
+
+#[test]
+fn lazy_fn_propagates_nested_arity_error() {
+    // Regression: TZNOW(DATE()) must stay #N/A (the arity error), not degrade
+    // to #VALUE! when the message-carrying error reaches a hand-rolled arm.
+    assert_eq!(eval("=TZNOW(DATE())").error_kind(), Some(&ErrorKind::NA));
+}
+
+#[test]
+fn arity_error_inside_array_literal_is_not_dropped() {
+    // Regression: an ErrorMsg element injected via an array literal must
+    // propagate (previously silently dropped -> a bogus numeric answer).
+    assert_eq!(
+        eval("=FTEST({1,2,3,DATE()},{4,5,6,7})").error_kind(),
+        Some(&ErrorKind::NA)
+    );
 }
