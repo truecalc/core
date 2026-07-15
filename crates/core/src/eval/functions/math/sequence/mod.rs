@@ -6,8 +6,9 @@ use crate::types::{ErrorKind, Value};
 ///
 /// Returns an array of sequential numbers.
 /// Default: cols=1, start=1, step=1.
-/// If cols=1: returns a flat column vector Array([start, start+step, ...]).
-/// If cols>1: returns a nested 2D Array.
+/// Always returns a nested 2-D `Array` of `rows` row-arrays, each with `cols`
+/// elements, matching Google Sheets orientation: `SEQUENCE(N)` / `SEQUENCE(N,1)`
+/// is an N-row × 1-column column vector (`[[1],[2],[3]]`), not a 1×N row.
 pub fn sequence_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         // GS: SEQUENCE() with no args -> #REF!
@@ -49,27 +50,18 @@ pub fn sequence_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::Num);
     }
 
-    if cols == 1 {
-        // Return flat array (column vector)
-        let items: Vec<Value> = (0..rows)
-            .map(|i| Value::Number(start + step * i as f64))
-            .collect();
-        Value::Array(items)
-    } else {
-        // Return nested 2D array
-        let mut val = start;
-        let outer: Vec<Value> = (0..rows)
-            .map(|_| {
-                let row: Vec<Value> = (0..cols)
-                    .map(|_| {
-                        let v = Value::Number(val);
-                        val += step;
-                        v
-                    })
-                    .collect();
-                Value::Array(row)
-            })
-            .collect();
-        Value::Array(outer)
-    }
+    // Row-major nested 2-D array. A single column (cols == 1) yields a column
+    // vector `[[v], [v], ...]`; a single row (rows == 1) yields `[[v, v, ...]]`.
+    let outer: Vec<Value> = (0..rows)
+        .map(|r| {
+            let row: Vec<Value> = (0..cols)
+                .map(|c| Value::Number(start + step * (r * cols + c) as f64))
+                .collect();
+            Value::Array(row)
+        })
+        .collect();
+    Value::Array(outer)
 }
+
+#[cfg(test)]
+mod tests;
