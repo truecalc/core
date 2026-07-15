@@ -53,6 +53,40 @@ fn full_recalc_evaluates_a_simple_chain_in_order() {
 }
 
 #[test]
+fn date_typed_literal_round_trips_exactly_and_propagates_through_arithmetic() {
+    // Issue #721: a host stores a serial *as a Date* (CellInput::Literal with
+    // Value::Date), and the engine's type propagation keeps offset arithmetic
+    // rendering as a date.
+    let mut wb = sheets_wb();
+    // A modern date serial and a pre-1900 (negative) serial: both must round-trip
+    // bit-for-bit — the value is stored verbatim, never rebuilt via DATE(y,m,d).
+    wb.set("Sheet1", a1("A1"), CellInput::Literal(Value::Date(46180.0)))
+        .unwrap();
+    wb.set("Sheet1", a1("A2"), CellInput::Literal(Value::Date(-1.5)))
+        .unwrap();
+    wb.set("Sheet1", a1("B1"), CellInput::Formula("=A1+1".into()))
+        .unwrap();
+    wb.set("Sheet1", a1("C1"), CellInput::Formula("=A1-7".into()))
+        .unwrap();
+    wb.set("Sheet1", a1("D1"), CellInput::Formula("=A1-A2".into()))
+        .unwrap();
+
+    wb.recalc(&ctx());
+
+    // Exact serial round-trip on the stored literals.
+    assert_eq!(wb.get("Sheet1", a1("A1")).unwrap().value(), &Value::Date(46180.0));
+    assert_eq!(wb.get("Sheet1", a1("A2")).unwrap().value(), &Value::Date(-1.5));
+    // date + number and date − number stay date-typed.
+    assert_eq!(wb.get("Sheet1", a1("B1")).unwrap().value(), &Value::Date(46181.0));
+    assert_eq!(wb.get("Sheet1", a1("C1")).unwrap().value(), &Value::Date(46173.0));
+    // date − date is a plain day count.
+    assert_eq!(
+        wb.get("Sheet1", a1("D1")).unwrap().value(),
+        &Value::Number(46181.5)
+    );
+}
+
+#[test]
 fn full_recalc_is_idempotent_with_no_changes_second_time() {
     let mut wb = sheets_wb();
     wb.set("Sheet1", a1("A1"), CellInput::Literal(Value::Number(10.0)))

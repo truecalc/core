@@ -218,15 +218,25 @@ fn eval_binary(op: &BinaryOp, lv: Value, rv: Value) -> Value {
     match op {
         // ── Arithmetic ──────────────────────────────────────────────────────
         BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Pow => {
-            // Date-type production (schema spec §6: date-typed iff the fixtures
-            // pipeline observes Sheets producing a Date). Observed: date ± offset
-            // via `+` stays date-typed (workbook.tsv `=DATE(2026,6,7)+1` → date);
-            // date − date is a plain number (`=DATE(2026,6,7)-DATE(2026,6,1)` → 6,
-            // `=TODAY()-TODAY()` → 0, both typed number). Everything else —
-            // including date − number, ×, ÷, ^ — stays a plain number until a
-            // fixture observes otherwise.
-            let date_typed_add = matches!(op, BinaryOp::Add)
-                && matches!(lv, Value::Date(_)) != matches!(rv, Value::Date(_));
+            // Date-type production (schema spec §6: date-typed iff Sheets keeps
+            // the result rendering as a date). Sheets treats date ± offset as a
+            // date:
+            //   - `+`: date + number (either operand order) stays a date
+            //     (workbook.tsv `=DATE(2026,6,7)+1` → date).
+            //   - `−`: date − number stays a date (a date a week earlier is still
+            //     a date), while date − date is a plain day count
+            //     (workbook.tsv `=DATE(2026,6,7)-DATE(2026,6,1)` → 6, number) and
+            //     number − date is a plain number.
+            // `×`, `÷`, `^` on a date are not date operations and stay numbers.
+            let date_typed = match op {
+                BinaryOp::Add => {
+                    matches!(lv, Value::Date(_)) != matches!(rv, Value::Date(_))
+                }
+                BinaryOp::Sub => {
+                    matches!(lv, Value::Date(_)) && !matches!(rv, Value::Date(_))
+                }
+                _ => false,
+            };
             let ln = match to_number(lv) { Ok(n) => n, Err(e) => return e };
             let rn = match to_number(rv) { Ok(n) => n, Err(e) => return e };
             let result = match op {
@@ -246,7 +256,7 @@ fn eval_binary(op: &BinaryOp, lv: Value, rv: Value) -> Value {
             if !result.is_finite() {
                 return Value::Error(ErrorKind::Num);
             }
-            if date_typed_add {
+            if date_typed {
                 Value::Date(result)
             } else {
                 Value::Number(result)

@@ -148,6 +148,29 @@ impl JsWorkbook {
             .map_err(|e| JsError::new(&e.to_string()))
     }
 
+    /// Sets the cell at `a1` on `sheet` to a **Date-typed** serial value.
+    ///
+    /// Unlike [`set`](Self::set) — which stores a numeric string as a plain
+    /// `Number` — this stores `serial` as a `Date`, the type a host uses for a
+    /// cell it means as a date. The engine's arithmetic type propagation then
+    /// keeps it rendering as a date through offset arithmetic: `=A1+1` and
+    /// `=A1-7` on a Date cell stay dates (`=A1-B1` between two Date cells is a
+    /// plain day count, matching Google Sheets).
+    ///
+    /// The serial round-trips exactly — it is stored verbatim, never
+    /// reconstructed via `DATE(y, m, d)` — so pre-1900 (negative) serials and
+    /// fractional time-of-day components are preserved bit-for-bit.
+    #[wasm_bindgen(js_name = setDate)]
+    pub fn set_date(&mut self, sheet: &str, a1: &str, serial: f64) -> Result<(), JsError> {
+        let addr = Address::from_a1(a1)
+            .ok_or_else(|| JsError::new(&format!("invalid A1 address: {a1:?}")))?;
+
+        self.inner
+            .set(sheet, addr, CellInput::Literal(Value::Date(serial)))
+            .map(|_| ())
+            .map_err(|e| JsError::new(&e.to_string()))
+    }
+
     /// Clears the cell at `a1` on `sheet`.
     pub fn clear(&mut self, sheet: &str, a1: &str) {
         if let Some(addr) = Address::from_a1(a1) {

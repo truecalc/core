@@ -66,6 +66,27 @@ fn date_minus_date_is_a_plain_number() {
 }
 
 #[test]
+fn date_minus_number_stays_date_typed() {
+    // Google Sheets: a date minus an offset is still a date (a week earlier is
+    // still date-formatted). Mirror of the `+` propagation for `−` (issue #721).
+    assert_eq!(eval("=DATE(2026,6,7)-1"), Value::Date(46179.0));
+    assert_eq!(eval("=DATE(2026,6,7)-7"), Value::Date(46173.0));
+}
+
+#[test]
+fn number_minus_date_is_a_plain_number() {
+    // Only `date − number` is a date operation; `number − date` is not.
+    assert_eq!(eval("=100-DATE(2026,6,7)"), Value::Number(100.0 - 46180.0));
+}
+
+#[test]
+fn date_times_or_divided_by_number_stays_a_plain_number() {
+    // `×` / `÷` on a date are not date operations (issue #721).
+    assert_eq!(eval("=DATE(2026,6,7)*1"), Value::Number(46180.0));
+    assert_eq!(eval("=DATE(2026,6,7)/1"), Value::Number(46180.0));
+}
+
+#[test]
 fn isdate_observations() {
     // workbook.tsv: =ISDATE(DATE(2026,6,7)) → TRUE,
     // =ISDATE(DATE(2026,6,7)+1) → TRUE, =ISDATE(N(DATE(2026,6,7))) → FALSE
