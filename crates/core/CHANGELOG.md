@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0](https://github.com/truecalc/core/compare/truecalc-core-v3.1.0...truecalc-core-v3.2.0) - 2026-07-15
+
+### Fixed
+
+- *(core)* SEQUENCE(N)/SEQUENCE(N,1) return an N×1 column vector
+
+### Other
+
+- Merge pull request #723 from truecalc/fix/707-column-vector-orientation
+
 ## [3.1.0](https://github.com/truecalc/core/compare/truecalc-core-v3.0.0...truecalc-core-v3.1.0) - 2026-07-15
 
 ### Added
