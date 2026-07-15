@@ -488,6 +488,7 @@ fn wb_value_to_json(v: &WbValue) -> JsonValue {
         WbValue::Text(s) => json!({ "type": "text", "value": s }),
         WbValue::Boolean(b) => json!({ "type": "boolean", "value": b }),
         WbValue::Error(e) => json!({ "type": "error", "error": e }),
+        WbValue::ErrorMsg(e, m) => json!({ "type": "error", "error": e, "message": m }),
         WbValue::Empty => json!({ "type": "empty", "value": null }),
         WbValue::Date(d) => json!({ "type": "date", "value": d }),
         WbValue::Zoned(z) => json!({ "type": "zoned", "value": z.to_rfc9557() }),
@@ -542,6 +543,7 @@ fn value_to_json(v: &Value) -> JsonValue {
         Value::Bool(b) => json!({ "value": b, "type": "bool" }),
         Value::Empty => json!({ "value": null, "type": "empty" }),
         Value::Error(e) => json!({ "value": e.to_string(), "type": "error" }),
+        Value::ErrorMsg(e, m) => json!({ "value": e.to_string(), "type": "error", "message": m }),
         // Self-describing RFC-9557; deliberately NOT collapsed to "number".
         Value::Zoned(z) => json!({ "value": z.to_rfc9557(), "type": "zoned" }),
         Value::Array(arr) => {

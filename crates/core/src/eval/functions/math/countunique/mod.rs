@@ -19,6 +19,7 @@ fn to_unique_key(v: &Value) -> Option<UniqueKey> {
         Value::Text(s) if !s.is_empty() => Some(UniqueKey::Text(s.clone())),
         Value::Text(_) | Value::Empty => None,
         Value::Error(e) => Some(UniqueKey::ErrorVal(format!("{e:?}"))),
+        Value::ErrorMsg(e, _) => Some(UniqueKey::ErrorVal(format!("{e:?}"))),
         Value::Date(_) | Value::Array(_) => None,
         Value::Zoned(_) => None,
     }

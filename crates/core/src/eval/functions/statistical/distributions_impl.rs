@@ -97,7 +97,7 @@ fn collect_weights_arg(arg: &Value) -> Result<Vec<f64>, Value> {
         },
         Value::Empty => Ok(vec![]),
         Value::Zoned(_) => Err(Value::Error(ErrorKind::Value)),
-        Value::Error(e) => Err(Value::Error(e.clone())),
+        Value::Error(_) | Value::ErrorMsg(_, _) => Err(arg.clone()),
         Value::Array(inner) => {
             let mut out = Vec::new();
             for item in inner {
@@ -107,7 +107,7 @@ fn collect_weights_arg(arg: &Value) -> Result<Vec<f64>, Value> {
                     Value::Bool(_) => return Err(Value::Error(ErrorKind::Value)),
                     Value::Text(_) | Value::Empty => {}
                     Value::Zoned(_) => {}
-                    Value::Error(e) => return Err(Value::Error(e.clone())),
+                    Value::Error(_) | Value::ErrorMsg(_, _) => return Err(item.clone()),
                     Value::Array(_) => {}
                 }
             }

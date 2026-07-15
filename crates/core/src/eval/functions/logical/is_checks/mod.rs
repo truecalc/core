@@ -17,7 +17,7 @@ pub fn istext_fn(args: &[Value]) -> Value {
 
 pub fn iserror_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 1, 1) { return err; }
-    Value::Bool(matches!(args[0], Value::Error(_)))
+    Value::Bool(args[0].is_error())
 }
 
 pub fn isblank_fn(args: &[Value]) -> Value {
@@ -27,7 +27,7 @@ pub fn isblank_fn(args: &[Value]) -> Value {
 
 pub fn isna_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 1, 1) { return err; }
-    Value::Bool(matches!(args[0], Value::Error(ErrorKind::NA)))
+    Value::Bool(args[0].error_kind() == Some(&ErrorKind::NA))
 }
 
 // ── Lazy versions (registered — can inspect error arguments) ─────────────────
@@ -62,7 +62,7 @@ pub fn iserror_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let val = evaluate_expr(&args[0], ctx);
-    Value::Bool(matches!(val, Value::Error(_)))
+    Value::Bool(val.is_error())
 }
 
 /// `ISBLANK(value)` — TRUE if value is Empty.
@@ -80,7 +80,7 @@ pub fn isna_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let val = evaluate_expr(&args[0], ctx);
-    Value::Bool(matches!(val, Value::Error(ErrorKind::NA)))
+    Value::Bool(val.error_kind() == Some(&ErrorKind::NA))
 }
 
 /// `ISERR(value)` — TRUE if value is any Error **except** `#N/A`.
@@ -89,9 +89,9 @@ pub fn iserr_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let val = evaluate_expr(&args[0], ctx);
-    let is_err = match &val {
-        Value::Error(e) => *e != ErrorKind::NA,
-        _ => false,
+    let is_err = match val.error_kind() {
+        Some(e) => *e != ErrorKind::NA,
+        None => false,
     };
     Value::Bool(is_err)
 }
@@ -166,7 +166,7 @@ pub fn isformula_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
                 // Valid cell reference (e.g. INDIRECT of valid addr) returns Empty.
                 Value::Empty => Value::Bool(false),
                 // Errors propagate (covers #REF! from INDIRECT of invalid addr).
-                Value::Error(e) => Value::Error(e),
+                _ if val.is_error() => val,
                 // Anything else (number, text, bool, array) is not a reference.
                 _ => Value::Error(ErrorKind::NA),
             }
@@ -191,7 +191,7 @@ pub fn isdate_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     }
     let val = evaluate_expr(&args[0], ctx);
     match val {
-        Value::Error(_) => val,
+        Value::Error(_) | Value::ErrorMsg(_, _) => val,
         Value::Date(_) => Value::Bool(true),
         Value::Text(ref s) => Value::Bool(is_date_string(s)),
         _ => Value::Bool(false),

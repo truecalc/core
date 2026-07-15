@@ -56,7 +56,10 @@ fn json_to_value(v: &serde_json::Value) -> Value {
 /// - `{ type: "text", value: "yes" }`
 /// - `{ type: "bool", value: true }`
 /// - `{ type: "empty" }`
-/// - `{ type: "error", error: "#REF!" }`
+/// - `{ type: "error", error: "#REF!" }` -- and, when a diagnostic is available,
+///   `{ type: "error", error: "#N/A", message: "Wrong number of arguments to
+///   DATE. Expected 3 arguments, but got 0." }`. `message` is additive and
+///   omitted for errors without a diagnostic, so existing consumers are unaffected.
 /// - `{ type: "date", value: 46180 }` -- spreadsheet serial number (epoch implied
 ///   by the engine flavor; `sheets` day 0 = 1899-12-30)
 /// - `{ type: "array", value: [ EvalResult, ... ] }` -- recursive; a 2-D result is
@@ -76,7 +79,14 @@ pub enum EvalResult {
     /// (offset/abbrev/is_dst) are intentionally NOT emitted — fetch them via the
     /// `TZ*` functions so consumers never persist a stale offset.
     Zoned { value: String },
-    Error { error: String },
+    Error {
+        error: String,
+        /// Optional human-readable diagnostic (Google Sheets parity), e.g. the
+        /// arity message for `DATE()`. Absent for errors without a diagnostic.
+        #[tsify(optional)]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        message: Option<String>,
+    },
     Empty,
     /// An (unspilled) array result. Recursive: 2-D arrays are arrays of `array`
     /// rows. Cells carry their own type, including nested `date`/`error`/`empty`.
@@ -94,7 +104,8 @@ pub fn value_to_result(value: Value) -> EvalResult {
         Value::Zoned(z) => EvalResult::Zoned { value: z.to_rfc9557() },
         Value::Text(s) => EvalResult::Text { value: s },
         Value::Bool(b) => EvalResult::Bool { value: b },
-        Value::Error(e) => EvalResult::Error { error: e.to_string() },
+        Value::Error(e) => EvalResult::Error { error: e.to_string(), message: None },
+        Value::ErrorMsg(e, m) => EvalResult::Error { error: e.to_string(), message: Some(m) },
         Value::Empty => EvalResult::Empty,
         Value::Array(items) => EvalResult::Array {
             value: items.into_iter().map(value_to_result).collect(),

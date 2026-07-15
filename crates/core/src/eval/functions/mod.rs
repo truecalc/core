@@ -235,22 +235,46 @@ impl Default for Registry {
     }
 }
 
-/// Validate argument count for eager functions (args already evaluated to `&[Value]`).
-/// Returns `Some(Value::Error(ErrorKind::NA))` if the count is out of range
-/// (matches Google Sheets / Excel behaviour for wrong argument count).
-pub fn check_arity(args: &[Value], min: usize, max: usize) -> Option<Value> {
-    if args.len() < min || args.len() > max {
-        Some(Value::Error(ErrorKind::NA))
-    } else {
-        None
+/// Placeholder that stands in for the function name inside an arity diagnostic
+/// message. `check_arity`/`check_arity_len` do not know the calling function's
+/// name, so they emit this token; the evaluator substitutes the real name at
+/// the dispatch site (see [`crate::eval::finalize_call_result`]). Chosen from
+/// control characters so it can never collide with a real function name.
+pub const FN_NAME_PLACEHOLDER: &str = "\u{1}FN\u{1}";
+
+/// Build the Google-Sheets-style "wrong number of arguments" diagnostic. The
+/// function name is left as [`FN_NAME_PLACEHOLDER`] for the dispatch site to
+/// fill in. Example (min == max == 3, got == 0):
+/// `"Wrong number of arguments to DATE. Expected 3 arguments, but got 0."`
+fn arity_message(min: usize, max: usize, got: usize) -> String {
+    fn plural(n: usize) -> &'static str {
+        if n == 1 { "" } else { "s" }
     }
+    let expected = if min == max {
+        format!("{min} argument{}", plural(min))
+    } else if max == usize::MAX {
+        format!("at least {min} argument{}", plural(min))
+    } else {
+        format!("between {min} and {max} arguments")
+    };
+    format!("Wrong number of arguments to {FN_NAME_PLACEHOLDER}. Expected {expected}, but got {got}.")
+}
+
+/// Validate argument count for eager functions (args already evaluated to `&[Value]`).
+/// Returns `Some(Value::ErrorMsg(ErrorKind::NA, <message>))` if the count is out
+/// of range (matches Google Sheets / Excel behaviour for wrong argument count).
+/// The error *code* is unchanged (`#N/A`); only an additive diagnostic message
+/// is attached.
+pub fn check_arity(args: &[Value], min: usize, max: usize) -> Option<Value> {
+    check_arity_len(args.len(), min, max)
 }
 
 /// Validate argument count for lazy functions (args are `&[Expr]`).
-/// Returns `Some(Value::Error(ErrorKind::NA))` if the count is out of range.
+/// Returns `Some(Value::ErrorMsg(ErrorKind::NA, <message>))` if the count is out
+/// of range.
 pub fn check_arity_len(count: usize, min: usize, max: usize) -> Option<Value> {
     if count < min || count > max {
-        Some(Value::Error(ErrorKind::NA))
+        Some(Value::ErrorMsg(ErrorKind::NA, arity_message(min, max, count)))
     } else {
         None
     }

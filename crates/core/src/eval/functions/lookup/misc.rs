@@ -14,6 +14,7 @@ pub fn formulatext_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     let val = evaluate_expr(&args[0], ctx);
     match val {
         Value::Error(e) => Value::Error(e),
+        Value::ErrorMsg(e, m) => Value::ErrorMsg(e, m),
         _ => Value::Error(ErrorKind::NA),
     }
 }
@@ -26,8 +27,8 @@ pub fn getpivotdata_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     }
     // Evaluate the pivot_table arg (2nd arg) -- if it is already an error, propagate it.
     let pivot_ref = evaluate_expr(&args[1], ctx);
-    if let Value::Error(e) = pivot_ref {
-        return Value::Error(e);
+    if pivot_ref.is_error() {
+        return pivot_ref;
     }
     Value::Error(ErrorKind::Ref)
 }
@@ -75,10 +76,10 @@ pub fn offset_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
 
     // Propagate errors from mandatory args.
     for v in [&ref_val, &rows_val, &cols_val] {
-        if let Value::Error(e) = v { return Value::Error(e.clone()); }
+        if v.is_error() { return v.clone(); }
     }
-    if let Some(Value::Error(e)) = &height_val { return Value::Error(e.clone()); }
-    if let Some(Value::Error(e)) = &width_val  { return Value::Error(e.clone()); }
+    if let Some(v) = &height_val { if v.is_error() { return v.clone(); } }
+    if let Some(v) = &width_val  { if v.is_error() { return v.clone(); } }
 
     let row_offset = match rows_val {
         Value::Number(n) => n.trunc() as i64,
@@ -157,6 +158,7 @@ pub fn sheet_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
             match val {
                 Value::Text(_) => Value::Error(ErrorKind::Ref),
                 Value::Error(e) => Value::Error(e),
+                Value::ErrorMsg(e, m) => Value::ErrorMsg(e, m),
                 _ => Value::Error(ErrorKind::NA),
             }
         }

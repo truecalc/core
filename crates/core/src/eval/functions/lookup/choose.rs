@@ -24,6 +24,7 @@ pub fn choose_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         // Empty (omitted arg) → treated as 0 → out of range → #NUM!
         Value::Empty => return Value::Error(ErrorKind::Num),
         Value::Error(e) => return Value::Error(e),
+        Value::ErrorMsg(e, m) => return Value::ErrorMsg(e, m),
         _ => return Value::Error(ErrorKind::Value),
     };
 

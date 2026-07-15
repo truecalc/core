@@ -53,7 +53,7 @@ pub fn n_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         Value::Bool(b)          => Value::Number(if b { 1.0 } else { 0.0 }),
         Value::Empty | Value::Text(_) | Value::Array(_) => Value::Number(0.0),
         Value::Zoned(_)         => Value::Error(ErrorKind::Value),
-        Value::Error(_)         => val,
+        Value::Error(_) | Value::ErrorMsg(_, _) => val,
     }
 }
 
@@ -68,7 +68,7 @@ pub fn type_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         Value::Number(_) | Value::Date(_) => 1.0,
         Value::Text(_)   => 2.0,
         Value::Bool(_)   => 4.0,
-        Value::Error(_)  => 16.0,
+        Value::Error(_) | Value::ErrorMsg(_, _) => 16.0,
         Value::Array(_)  => 64.0,
         Value::Empty     => 1.0, // Excel treats empty as number
         Value::Zoned(_)  => 1.0, // classify like Number/Date for the TYPE code
@@ -150,6 +150,7 @@ pub fn cell_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
                 Value::Bool(_)      => Value::Text("l".to_string()),
                 Value::Zoned(_)     => Value::Text("n".to_string()),
                 Value::Error(e)     => Value::Error(e),
+                Value::ErrorMsg(e, m) => Value::ErrorMsg(e, m),
                 Value::Array(_)     => Value::Error(ErrorKind::NA),
             }
         }

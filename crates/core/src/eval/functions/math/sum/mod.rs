@@ -58,7 +58,7 @@ fn sum_array_value(v: &Value) -> Result<f64, Value> {
         // In array context: zoned instants are silently skipped
         Value::Zoned(_) => Ok(0.0),
         // Errors propagate
-        Value::Error(_) => Err(v.clone()),
+        Value::Error(_) | Value::ErrorMsg(_, _) => Err(v.clone()),
         // Numbers and Dates contribute their value
         Value::Number(n) | Value::Date(n) => Ok(*n),
     }

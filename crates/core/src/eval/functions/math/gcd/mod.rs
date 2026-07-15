@@ -26,7 +26,7 @@ pub fn gcd_fn(args: &[Value]) -> Value {
     for arg in args { collect_gcd_values(arg, &mut nums); }
     let mut result: u64 = 0;
     for v in &nums {
-        if let Value::Error(_) = v { return v.clone(); }
+        if v.is_error() { return v.clone(); }
         let n = match to_number(v.clone()) {
             Err(e) => return e,
             Ok(v) => v,

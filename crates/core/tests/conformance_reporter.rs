@@ -89,7 +89,7 @@ fn infer_type(v: &Value) -> &'static str {
         Value::Number(_) | Value::Date(_) | Value::Zoned(_) => "number",
         Value::Text(_) => "string",
         Value::Bool(_) => "boolean",
-        Value::Error(_) => "error",
+        Value::Error(_) | Value::ErrorMsg(_, _) => "error",
         Value::Array(_) => "array",
         Value::Empty => "string",
     }

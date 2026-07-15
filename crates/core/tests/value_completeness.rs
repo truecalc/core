@@ -284,6 +284,6 @@ fn excel_evaluation_is_still_stubbed() {
     // remains a stub returning an error (exact kind tracked by #556).
     assert!(matches!(
         Engine::excel().evaluate("=DATE(2026,6,7)", &HashMap::new()),
-        Value::Error(_)
+        Value::Error(_) | Value::ErrorMsg(_, _)
     ));
 }

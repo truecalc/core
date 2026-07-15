@@ -119,6 +119,7 @@ pub fn row_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     let v = evaluate_expr(&args[0], ctx);
     match v {
         Value::Error(e) => Value::Error(e),
+        Value::ErrorMsg(e, m) => Value::ErrorMsg(e, m),
         _ => Value::Error(ErrorKind::NA),
     }
 }
@@ -138,6 +139,7 @@ pub fn column_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     let v = evaluate_expr(&args[0], ctx);
     match v {
         Value::Error(e) => Value::Error(e),
+        Value::ErrorMsg(e, m) => Value::ErrorMsg(e, m),
         _ => Value::Error(ErrorKind::NA),
     }
 }
@@ -182,7 +184,7 @@ fn count_rows_from_value(v: &Value) -> Value {
                 Value::Number(1.0)
             }
         }
-        Value::Error(e) => Value::Error(e.clone()),
+        Value::Error(_) | Value::ErrorMsg(_, _) => v.clone(),
         _ => Value::Number(1.0),
     }
 }
@@ -200,7 +202,7 @@ fn count_cols_from_value(v: &Value) -> Value {
                 Value::Number(outer.len() as f64)
             }
         }
-        Value::Error(e) => Value::Error(e.clone()),
+        Value::Error(_) | Value::ErrorMsg(_, _) => v.clone(),
         _ => Value::Number(1.0),
     }
 }
