@@ -206,7 +206,7 @@ fn today_minus_today_within_one_recalc_is_zero() {
 
 #[test]
 fn pinned_now_returns_the_pinned_serial() {
-    assert_eq!(eval_at("=NOW()", PINNED_NOW), Value::Number(PINNED_NOW));
+    assert_eq!(eval_at("=NOW()", PINNED_NOW), Value::Date(PINNED_NOW));
 }
 
 #[test]
