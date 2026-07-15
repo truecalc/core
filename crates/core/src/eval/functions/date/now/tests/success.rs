@@ -15,30 +15,30 @@ fn call(now_serial: Option<f64>) -> Value {
 const MIN_SERIAL: f64 = 45292.0;
 
 #[test]
-fn returns_a_number() {
-    assert!(matches!(call(None), Value::Number(_)));
+fn returns_a_date() {
+    assert!(matches!(call(None), Value::Date(_)));
 }
 
 #[test]
 fn result_is_after_2024_jan_01() {
-    if let Value::Number(n) = call(None) {
+    if let Value::Date(n) = call(None) {
         assert!(n >= MIN_SERIAL, "now serial {n} should be >= {MIN_SERIAL}");
     } else {
-        panic!("expected Number");
+        panic!("expected Date");
     }
 }
 
 #[test]
 fn fractional_part_is_between_0_and_1() {
-    if let Value::Number(n) = call(None) {
+    if let Value::Date(n) = call(None) {
         let frac = n.fract();
         assert!(frac >= 0.0 && frac < 1.0, "fractional part {frac} out of range");
     } else {
-        panic!("expected Number");
+        panic!("expected Date");
     }
 }
 
 #[test]
 fn pinned_context_returns_now_serial_verbatim() {
-    assert_eq!(call(Some(46180.5)), Value::Number(46180.5));
+    assert_eq!(call(Some(46180.5)), Value::Date(46180.5));
 }

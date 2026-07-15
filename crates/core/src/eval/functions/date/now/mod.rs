@@ -4,8 +4,10 @@ use crate::eval::functions::date::serial::{date_to_serial, time_to_serial};
 use crate::parser::ast::Expr;
 use crate::types::Value;
 
-/// `NOW()` — returns the current local datetime as a spreadsheet serial number.
-/// Integer part = date serial; fractional part = time-of-day.
+/// `NOW()` — returns the current local datetime as a date-typed spreadsheet serial.
+/// Integer part = date serial; fractional part = time-of-day. Returned as
+/// `Value::Date` (like `TODAY()`) so consumers can render it as a datetime; the
+/// fractional part distinguishes a datetime from a whole-day date.
 ///
 /// Volatile. Registered lazy so it can read the evaluation context: when the
 /// context carries a pinned `now_serial` (set via `Engine::evaluate_at`,
@@ -22,7 +24,7 @@ pub fn now_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
             date_to_serial(now.date()) + time_to_serial(now.hour(), now.minute(), now.second())
         }
     };
-    Value::Number(serial)
+    Value::Date(serial)
 }
 
 #[cfg(test)]
