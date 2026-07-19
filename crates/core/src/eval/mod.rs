@@ -4,7 +4,7 @@ pub mod functions;
 pub mod resolver;
 
 pub use context::Context;
-pub use functions::{EvalCtx, FunctionMeta, Registry};
+pub use functions::{EvalCtx, EvalHook, EvalOp, FunctionMeta, Registry};
 pub use resolver::{extract_refs, Resolver};
 
 use crate::parser::ast::{BinaryOp, Expr, UnaryOp};
@@ -34,7 +34,31 @@ fn finalize_call_result(v: Value, name: &str) -> Value {
 /// `ctx.registry`. Eager functions receive pre-evaluated arguments; lazy
 /// functions (e.g. `IF`) receive raw [`Expr`] nodes and control their own
 /// evaluation order.
+///
+/// This is the single per-node entry point: every node that is *reduced to a
+/// [`Value`]* flows through exactly one `evaluate_expr` call (recursion
+/// re-enters here), so the opt-in [`EvalHook`] fires once per such node in
+/// post-order (children before parents). Nodes that are structurally
+/// destructured rather than evaluated — e.g. the `LAMBDA(...)` callee of an
+/// `Apply`, which [`eval_apply`] pattern-matches without evaluating — never
+/// produce a value and so never fire. When [`EvalCtx::hook`] is `None` the
+/// observation costs a single branch and nothing else; the real tree-walk
+/// lives in [`eval_node`].
 pub fn evaluate_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
+    let value = eval_node(expr, ctx);
+    // Per-node observation seam (issue #732). Opt-in: `None` ⇒ no descriptor is
+    // built. The hook receives shared references only — it observes the node's
+    // operation and resulting value and can never alter `value`.
+    if let Some(hook) = ctx.hook.as_deref_mut() {
+        hook.on_node(EvalOp::of(expr), &value);
+    }
+    value
+}
+
+/// Tree-walk one node to its [`Value`]. Recursion goes back through
+/// [`evaluate_expr`] (never here directly) so the per-node hook fires for every
+/// node exactly once.
+fn eval_node(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
     match expr {
         // ── Leaf nodes ──────────────────────────────────────────────────────
         Expr::Number(n, _) => {
