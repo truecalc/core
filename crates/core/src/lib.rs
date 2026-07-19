@@ -69,6 +69,7 @@ pub mod display;
 pub mod engine;
 pub mod eval;
 pub mod parser;
+pub mod search;
 pub mod types;
 
 pub use display::display_number;
@@ -81,6 +82,7 @@ pub use types::{ErrorKind, ParseError, Value};
 
 pub use eval::functions::{FunctionMeta, Registry};
 pub use eval::{extract_refs, Resolver};
+pub use search::{search_functions, FunctionMatch};
 
 use std::collections::HashMap;
 

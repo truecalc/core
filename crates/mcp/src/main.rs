@@ -203,6 +203,7 @@ fn dispatch_tool(name: &str, args: &JsonValue, default_conformance: &str, engine
         "explain" => tool_explain(args, engines),
         "batch_evaluate" => tool_batch_evaluate(args, default_conformance, engines),
         "list_functions" => tool_list_functions(),
+        "search_functions" => tool_search_functions(args),
         "get_stats" => tool_get_stats(),
         "workbook_create" => tool_workbook_create(args, store),
         "workbook_set" => tool_workbook_set(args, store),
@@ -302,6 +303,29 @@ fn tool_list_functions() -> JsonValue {
         .collect();
     entries.sort_by_key(|e| e["name"].as_str().unwrap_or("").to_owned());
     json!({ "functions": entries })
+}
+
+fn tool_search_functions(args: &JsonValue) -> JsonValue {
+    let query = match args["query"].as_str() {
+        Some(q) => q,
+        None => return json!({ "error": "missing query" }),
+    };
+    // Default to a focused top-N so callers get a ranked shortlist, not the catalogue.
+    let limit = args["limit"].as_u64().unwrap_or(10) as usize;
+
+    let registry = Registry::new();
+    let matches = truecalc_core::search_functions(&registry, query, limit);
+    let results: Vec<JsonValue> = matches
+        .iter()
+        .map(|m| json!({
+            "name": m.name,
+            "category": m.category,
+            "syntax": m.signature,
+            "description": m.description,
+            "score": m.score,
+        }))
+        .collect();
+    json!({ "query": query, "matches": results })
 }
 
 fn tool_get_stats() -> JsonValue {
@@ -626,6 +650,18 @@ fn tools_list() -> JsonValue {
             "name": "list_functions",
             "description": "Return the catalogue of supported spreadsheet functions.",
             "inputSchema": { "type": "object", "properties": {} }
+        },
+        {
+            "name": "search_functions",
+            "description": "Find the most relevant spreadsheet functions for a natural-language intent (e.g. \"monthly loan payment\" → PMT). Returns ranked matches with their signatures, so you can pick a function without knowing the catalogue.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": { "type": "string", "description": "Natural-language description of what you want to compute" },
+                    "limit": { "type": "integer", "description": "Maximum number of ranked matches to return (default: 10; 0 = no cap)" }
+                },
+                "required": ["query"]
+            }
         },
         {
             "name": "get_stats",
