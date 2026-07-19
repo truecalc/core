@@ -46,7 +46,11 @@ fn finalize_call_result(v: Value, name: &str) -> Value {
 /// destructured rather than evaluated — e.g. the `LAMBDA(...)` callee of an
 /// `Apply`, which [`eval_apply`] pattern-matches without evaluating — never
 /// produce a value and so never fire *as a node in their own right*; each
-/// LAMBDA parameter is the one exception (see [`eval_apply`]). When
+/// LAMBDA parameter is the one exception (see [`eval_apply`], and — for the
+/// six higher-order functions (MAP/REDUCE/BYROW/BYCOL/SCAN/MAKEARRAY) that
+/// bind lambda parameters through their own `apply_lambda` helper rather
+/// than `eval_apply` — `crate::eval::functions::array::apply_lambda`, which
+/// fires the same per-parameter event once per invocation). When
 /// [`EvalCtx::hook`] is `None` the observation costs a single branch and
 /// nothing else; the real tree-walk lives in [`eval_node`].
 pub fn evaluate_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
@@ -180,6 +184,15 @@ fn eval_node(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
 /// `evaluate_expr`) because a parameter's "value" is the call-site argument,
 /// not the result of evaluating the parameter token itself (which is never
 /// evaluated — it's destructured).
+///
+/// This covers only the standalone `LAMBDA(...)(...)` call form (`Apply`).
+/// The six higher-order functions (MAP, REDUCE, BYROW, BYCOL, SCAN,
+/// MAKEARRAY) bind lambda parameters through a separate helper,
+/// `crate::eval::functions::array::apply_lambda`, which fires the same
+/// per-parameter [`EvalOp::Variable`] event — once per parameter, once per
+/// invocation (e.g. an N-element `MAP` fires N sets of parameter events, one
+/// per element, all sharing the parameter's span but each carrying that
+/// element's bound value).
 fn eval_apply(func: &Expr, call_args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     // Each entry is (as-written name for the hook event, upper-cased/`$`-
     // stripped bind key for `ctx.ctx`, the parameter token's own span).

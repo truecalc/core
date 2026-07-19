@@ -102,6 +102,22 @@ impl<'a> EvalOp<'a> {
 /// callee's source extent (it is a sub-span of the `Apply` node's span) but
 /// gets no discrete event, and no value, for the callee as a whole.
 ///
+/// The same parameter-binding event fires for lambda parameters bound by the
+/// six higher-order array functions — MAP, REDUCE, BYROW, BYCOL, SCAN,
+/// MAKEARRAY — which route every lambda call through their own
+/// `crate::eval::functions::array::apply_lambda` helper rather than
+/// `eval_apply` (this was a gap in the initial parameter-event landing,
+/// closed as a follow-up). Each invocation of the lambda (one per array
+/// element for MAP, one per row for BYROW, one per accumulator step for
+/// REDUCE/SCAN, one per (row, col) cell for MAKEARRAY) fires one
+/// [`EvalOp::Variable`] event per parameter, all sharing that parameter's
+/// source span but each carrying the value bound for that specific
+/// invocation — so e.g. `MAP({1,2,3}, LAMBDA(x, 42))` fires three `x` events
+/// (values 1, 2, 3) even though the body never reads `x`. These are
+/// intentionally not deduplicated by span: a consumer sees one event per
+/// invocation, the same way a cell reference read inside a loop fires once
+/// per read rather than once per distinct span.
+///
 /// Blanket-implemented for every `FnMut(EvalOp<'_>, Span, &Value)`, so a
 /// closure can be wired directly. Wiring is opt-in via [`EvalCtx::hook`]:
 /// when it is `None` no descriptor is built and the only per-node cost is a
