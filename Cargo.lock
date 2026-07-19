@@ -2192,6 +2192,7 @@ version = "4.0.0"
 dependencies = [
  "chrono",
  "chrono-tz",
+ "criterion",
  "csv",
  "libm",
  "nom",

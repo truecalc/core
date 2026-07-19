@@ -17,8 +17,77 @@ pub mod web;
 use std::collections::HashMap;
 use crate::eval::context::Context;
 use crate::eval::resolver::Resolver;
-use crate::parser::ast::Expr;
+use crate::parser::ast::{BinaryOp, Expr, UnaryOp};
 use crate::types::{ErrorKind, Value};
+
+// ── EvalOp / EvalHook (per-node observation seam, issue #732) ───────────────
+
+/// A lightweight, borrowed description of the operation an evaluated node
+/// performs. Handed to an [`EvalHook`] alongside the node's resulting
+/// [`Value`] so an observer can profile or trace evaluation without touching
+/// the AST directly or any function. Constructing it borrows from the
+/// expression and allocates nothing.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum EvalOp<'a> {
+    /// Numeric literal.
+    Number,
+    /// Text literal.
+    Text,
+    /// Boolean literal.
+    Bool,
+    /// Bare-identifier read (local binding or reference), carrying its name.
+    Variable(&'a str),
+    /// Cell / range / name reference read.
+    Reference,
+    /// Unary operator (negation, percent).
+    UnaryOp(&'a UnaryOp),
+    /// Binary operator (arithmetic, comparison, concatenation).
+    BinaryOp(&'a BinaryOp),
+    /// Array literal.
+    Array,
+    /// Immediately-invoked lambda application.
+    Apply,
+    /// Function call, carrying the (uppercased) function name.
+    FunctionCall(&'a str),
+}
+
+impl<'a> EvalOp<'a> {
+    /// Derive the operation descriptor for an expression node. Pure and
+    /// allocation-free — every variant only borrows from `expr`.
+    pub fn of(expr: &'a Expr) -> Self {
+        match expr {
+            Expr::Number(..) => EvalOp::Number,
+            Expr::Text(..) => EvalOp::Text,
+            Expr::Bool(..) => EvalOp::Bool,
+            Expr::Variable(name, _) => EvalOp::Variable(name),
+            Expr::Reference(..) => EvalOp::Reference,
+            Expr::UnaryOp { op, .. } => EvalOp::UnaryOp(op),
+            Expr::BinaryOp { op, .. } => EvalOp::BinaryOp(op),
+            Expr::Array(..) => EvalOp::Array,
+            Expr::Apply { .. } => EvalOp::Apply,
+            Expr::FunctionCall { name, .. } => EvalOp::FunctionCall(name),
+        }
+    }
+}
+
+/// An observer invoked once per evaluated node, in post-order (children before
+/// parents), with the node's [`EvalOp`] and resulting [`Value`]. Purely
+/// observational: it is handed shared references and cannot alter evaluation.
+///
+/// Blanket-implemented for every `FnMut(EvalOp<'_>, &Value)`, so a closure can
+/// be wired directly. Wiring is opt-in via [`EvalCtx::hook`]: when it is `None`
+/// no descriptor is built and the only per-node cost is a single branch; when
+/// present, each node costs one `EvalOp::of` plus one dynamic (vtable) call
+/// through the `&mut dyn EvalHook` trait object.
+pub trait EvalHook {
+    fn on_node(&mut self, op: EvalOp<'_>, value: &Value);
+}
+
+impl<F: FnMut(EvalOp<'_>, &Value)> EvalHook for F {
+    fn on_node(&mut self, op: EvalOp<'_>, value: &Value) {
+        self(op, value)
+    }
+}
 
 // ── EvalCtx ───────────────────────────────────────────────────────────────
 
@@ -38,6 +107,10 @@ pub struct EvalCtx<'r> {
     /// references read as [`Value::Empty`] (the historical
     /// [`crate::Engine::evaluate`] contract).
     pub resolver: Option<&'r mut dyn Resolver>,
+    /// Opt-in per-node observation hook (issue #732). `None` (the default) ⇒
+    /// zero per-node work beyond a single branch; the callback only observes
+    /// and can never alter evaluation. Set the field directly to wire one.
+    pub hook: Option<&'r mut dyn EvalHook>,
 }
 
 impl<'r> EvalCtx<'r> {
@@ -45,7 +118,7 @@ impl<'r> EvalCtx<'r> {
     /// [`Value::Empty`]. Use [`EvalCtx::with_resolver`] to supply real
     /// workbook semantics.
     pub fn new(ctx: Context, registry: &'r Registry) -> Self {
-        Self { ctx, registry, resolver: None }
+        Self { ctx, registry, resolver: None, hook: None }
     }
 
     /// Build an `EvalCtx` that resolves references through `resolver`.
@@ -54,7 +127,7 @@ impl<'r> EvalCtx<'r> {
         registry: &'r Registry,
         resolver: &'r mut dyn Resolver,
     ) -> Self {
-        Self { ctx, registry, resolver: Some(resolver) }
+        Self { ctx, registry, resolver: Some(resolver), hook: None }
     }
 
     /// Resolve a reference that was not bound as a local variable, delegating
