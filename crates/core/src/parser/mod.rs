@@ -2,9 +2,9 @@ pub mod ast;
 pub mod refs;
 pub mod tokens;
 
-pub use ast::Expr;
+pub use ast::{Expr, Span};
 pub use refs::{CellAddr, Ref};
-use ast::{BinaryOp, Span, UnaryOp};
+use ast::{BinaryOp, UnaryOp};
 use crate::types::ParseError;
 use nom::{IResult, character::complete::multispace0};
 use tokens::{bool_literal, dollar_cell_ref, identifier, number_literal, offset, string_literal};

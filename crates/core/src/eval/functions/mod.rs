@@ -17,10 +17,11 @@ pub mod web;
 use std::collections::HashMap;
 use crate::eval::context::Context;
 use crate::eval::resolver::Resolver;
-use crate::parser::ast::{BinaryOp, Expr, UnaryOp};
+use crate::parser::ast::{BinaryOp, Expr, Span, UnaryOp};
 use crate::types::{ErrorKind, Value};
 
-// ── EvalOp / EvalHook (per-node observation seam, issue #732) ───────────────
+// ── EvalOp / EvalHook (per-node observation seam, issue #732; span-carrying
+// enhancement per distributions ADR D10) ────────────────────────────────────
 
 /// A lightweight, borrowed description of the operation an evaluated node
 /// performs. Handed to an [`EvalHook`] alongside the node's resulting
@@ -71,21 +72,49 @@ impl<'a> EvalOp<'a> {
 }
 
 /// An observer invoked once per evaluated node, in post-order (children before
-/// parents), with the node's [`EvalOp`] and resulting [`Value`]. Purely
-/// observational: it is handed shared references and cannot alter evaluation.
+/// parents), with the node's [`EvalOp`], its source [`Span`], and resulting
+/// [`Value`]. Purely observational: it is handed shared/by-value data and
+/// cannot alter evaluation.
 ///
-/// Blanket-implemented for every `FnMut(EvalOp<'_>, &Value)`, so a closure can
-/// be wired directly. Wiring is opt-in via [`EvalCtx::hook`]: when it is `None`
-/// no descriptor is built and the only per-node cost is a single branch; when
-/// present, each node costs one `EvalOp::of` plus one dynamic (vtable) call
-/// through the `&mut dyn EvalHook` trait object.
+/// # Why `Span`
+///
+/// A single post-order stream is ambiguous for variable/dynamic-arity nodes
+/// (`FunctionCall`, `Array`, `Apply`; lazy `IF`/`AND`/`OR` that skip un-taken
+/// branches): a consumer cannot tell, from operation + value alone, which
+/// events belong to which parent, or how many children a node had. Carrying
+/// each node's byte-range `Span` — every `Expr` already has one — lets a
+/// consumer reconstruct the full tree from the flat stream by *span
+/// containment* (a child's span always falls inside its parent's), which is
+/// robust to short-circuiting by construction: an unfired branch simply has
+/// no event, and containment among the events that *do* fire is unaffected.
+/// The span doubles as the byte range a UI highlights to explain a node (see
+/// distributions ADR D10).
+///
+/// # Apply / LAMBDA callee (see [`EvalOp::Variable`] parameter-binding note)
+///
+/// The `LAMBDA(...)` callee of an `Apply` is pattern-destructured, not
+/// evaluated, so it never reduces to a `Value` and its own `FunctionCall`
+/// node never fires — there is no honest `Value` to give a lambda (no such
+/// [`Value`] variant exists). Each parameter *binding* does have an honest
+/// value, though (the argument bound to it), so it fires as an ordinary
+/// [`EvalOp::Variable`] event at bind time, carrying the parameter's own
+/// span and bound value — see `eval_apply`. A consumer can still recover the
+/// callee's source extent (it is a sub-span of the `Apply` node's span) but
+/// gets no discrete event, and no value, for the callee as a whole.
+///
+/// Blanket-implemented for every `FnMut(EvalOp<'_>, Span, &Value)`, so a
+/// closure can be wired directly. Wiring is opt-in via [`EvalCtx::hook`]:
+/// when it is `None` no descriptor is built and the only per-node cost is a
+/// single branch; when present, each node costs one `EvalOp::of`, one
+/// `Span` copy (two `usize`s), and one dynamic (vtable) call through the
+/// `&mut dyn EvalHook` trait object.
 pub trait EvalHook {
-    fn on_node(&mut self, op: EvalOp<'_>, value: &Value);
+    fn on_node(&mut self, op: EvalOp<'_>, span: Span, value: &Value);
 }
 
-impl<F: FnMut(EvalOp<'_>, &Value)> EvalHook for F {
-    fn on_node(&mut self, op: EvalOp<'_>, value: &Value) {
-        self(op, value)
+impl<F: FnMut(EvalOp<'_>, Span, &Value)> EvalHook for F {
+    fn on_node(&mut self, op: EvalOp<'_>, span: Span, value: &Value) {
+        self(op, span, value)
     }
 }
 
