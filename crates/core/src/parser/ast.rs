@@ -1,7 +1,7 @@
 use super::refs::Ref;
 
 /// Byte range of a node within the original formula string.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Span {
     pub offset: usize, // byte offset from start of formula
     pub length: usize,

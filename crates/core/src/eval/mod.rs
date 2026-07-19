@@ -6,6 +6,8 @@ pub mod resolver;
 pub use context::Context;
 pub use functions::{EvalCtx, EvalHook, EvalOp, FunctionMeta, Registry};
 pub use resolver::{extract_refs, Resolver};
+/// Re-exported so hook implementors don't need to reach into `crate::parser`.
+pub use crate::parser::ast::Span;
 
 use crate::parser::ast::{BinaryOp, Expr, UnaryOp};
 use crate::types::{ErrorKind, Value};
@@ -38,19 +40,24 @@ fn finalize_call_result(v: Value, name: &str) -> Value {
 /// This is the single per-node entry point: every node that is *reduced to a
 /// [`Value`]* flows through exactly one `evaluate_expr` call (recursion
 /// re-enters here), so the opt-in [`EvalHook`] fires once per such node in
-/// post-order (children before parents). Nodes that are structurally
+/// post-order (children before parents), carrying the node's own [`Span`] —
+/// see [`EvalHook`] for why the span is needed and how a consumer uses it to
+/// reconstruct a tree from the flat stream. Nodes that are structurally
 /// destructured rather than evaluated — e.g. the `LAMBDA(...)` callee of an
 /// `Apply`, which [`eval_apply`] pattern-matches without evaluating — never
-/// produce a value and so never fire. When [`EvalCtx::hook`] is `None` the
-/// observation costs a single branch and nothing else; the real tree-walk
-/// lives in [`eval_node`].
+/// produce a value and so never fire *as a node in their own right*; each
+/// LAMBDA parameter is the one exception (see [`eval_apply`]). When
+/// [`EvalCtx::hook`] is `None` the observation costs a single branch and
+/// nothing else; the real tree-walk lives in [`eval_node`].
 pub fn evaluate_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
     let value = eval_node(expr, ctx);
-    // Per-node observation seam (issue #732). Opt-in: `None` ⇒ no descriptor is
-    // built. The hook receives shared references only — it observes the node's
-    // operation and resulting value and can never alter `value`.
+    // Per-node observation seam (issue #732; span-carrying per D10). Opt-in:
+    // `None` ⇒ no descriptor is built. The hook receives shared/by-value data
+    // only — it observes the node's operation, span, and resulting value and
+    // can never alter `value`. `Span` is `Copy` (two `usize`s), so this is a
+    // cheap copy, not an allocation.
     if let Some(hook) = ctx.hook.as_deref_mut() {
-        hook.on_node(EvalOp::of(expr), &value);
+        hook.on_node(EvalOp::of(expr), *expr.span(), &value);
     }
     value
 }
@@ -156,20 +163,42 @@ fn eval_node(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
 }
 
 /// Evaluate an immediately-invoked function application `func(call_args)`.
+///
+/// Hook coverage (D10 / review finding F2): the `LAMBDA(...)` callee itself
+/// is pattern-matched below, never passed through [`evaluate_expr`], so its
+/// `FunctionCall("LAMBDA")` node never fires — there's no [`Value`] that
+/// honestly represents a lambda. Each *parameter*, however, is bound to a
+/// real argument [`Value`] at call time, so once bound it fires as an
+/// ordinary [`EvalOp::Variable`] event carrying the parameter's own span
+/// (its position inside the `LAMBDA(...)` parameter list) and its bound
+/// value — giving a trace of e.g. `LAMBDA(x, x*2)(5)` an explicit `x = 5`
+/// event even if `body` never happens to read `x`. This is the same
+/// operation tag [`Expr::Variable`] nodes normally use, carrying the
+/// parameter exactly as written in the source (matching how an ordinary
+/// variable-read event names it) even though binding itself keys off an
+/// upper-cased, `$`-stripped form; it is fired directly here (not through
+/// `evaluate_expr`) because a parameter's "value" is the call-site argument,
+/// not the result of evaluating the parameter token itself (which is never
+/// evaluated — it's destructured).
 fn eval_apply(func: &Expr, call_args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
+    // Each entry is (as-written name for the hook event, upper-cased/`$`-
+    // stripped bind key for `ctx.ctx`, the parameter token's own span).
     let (lambda_params, body) = match func {
         Expr::FunctionCall { name, args: lambda_args, .. } if name == "LAMBDA" => {
             if lambda_args.is_empty() {
                 return Value::Error(ErrorKind::NA);
             }
             let param_count = lambda_args.len() - 1;
-            let mut params: Vec<String> = Vec::with_capacity(param_count);
+            let mut params: Vec<(String, String, Span)> = Vec::with_capacity(param_count);
             for param_expr in &lambda_args[..param_count] {
                 match param_expr {
                     // Strip `$` for the same reason as the Variable read arm
                     // above: a $-shaped bare token is now syntactically legal
                     // (issue #708) but must bind/read under the same key.
-                    Expr::Variable(n, _) => params.push(n.to_uppercase().replace('$', "")),
+                    Expr::Variable(n, span) => {
+                        let bind_key = n.to_uppercase().replace('$', "");
+                        params.push((n.clone(), bind_key, *span));
+                    }
                     _ => return Value::Error(ErrorKind::Name),
                 }
             }
@@ -193,9 +222,13 @@ fn eval_apply(func: &Expr, call_args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     }
 
     let mut saved: Vec<(String, Option<Value>)> = Vec::with_capacity(lambda_params.len());
-    for (param, val) in lambda_params.iter().zip(evaluated_args) {
-        let old = ctx.ctx.set(param.clone(), val);
-        saved.push((param.clone(), old));
+    for ((display_name, bind_key, span), val) in lambda_params.iter().zip(evaluated_args) {
+        // Parameter-binding event — see the function doc comment above.
+        if let Some(hook) = ctx.hook.as_deref_mut() {
+            hook.on_node(EvalOp::Variable(display_name), *span, &val);
+        }
+        let old = ctx.ctx.set(bind_key.clone(), val);
+        saved.push((bind_key.clone(), old));
     }
 
     let result = evaluate_expr(body, ctx);
