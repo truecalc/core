@@ -5,7 +5,7 @@ use crate::eval::{evaluate_expr, EvalCtx};
 use crate::parser::ast::Expr;
 use crate::types::{ErrorKind, Value};
 
-use super::{check_arity, check_arity_len, EagerFn, FunctionKind, FunctionMeta, Registry};
+use super::{check_arity, check_arity_len, EagerFn, EvalOp, FunctionKind, FunctionMeta, Registry};
 
 // ── 2D array helpers ──────────────────────────────────────────────────────────
 
@@ -1167,6 +1167,12 @@ fn growth_fn(args: &[Value]) -> Value {
 /// Apply a LAMBDA expression with bound parameter values.
 /// `lambda_expr` should be `Expr::FunctionCall { name: "LAMBDA", args: [p1, ..., body] }`
 /// `bound_args` are the Values to bind to p1, p2, ...
+///
+/// Every higher-order function (MAP, REDUCE, BYROW, BYCOL, SCAN, MAKEARRAY)
+/// funnels its per-invocation lambda call through here, so this is also
+/// where each invocation's parameter-binding [`EvalOp::Variable`] events fire
+/// (issue #740 follow-up) — see the doc comment on [`crate::eval::EvalHook`]
+/// for what these events mean and why they exist.
 fn apply_lambda(lambda_expr: &Expr, bound_args: &[Value], ctx: &mut EvalCtx<'_>) -> Option<Value> {
     match lambda_expr {
         Expr::FunctionCall { name, args, .. } if name == "LAMBDA" => {
@@ -1181,7 +1187,19 @@ fn apply_lambda(lambda_expr: &Expr, bound_args: &[Value], ctx: &mut EvalCtx<'_>)
             // Bind each parameter in context
             let mut saved: Vec<(String, Value)> = Vec::new();
             for (param_expr, val) in params.iter().zip(bound_args.iter()) {
-                if let Expr::Variable(name, _) = param_expr {
+                if let Expr::Variable(name, span) = param_expr {
+                    // Parameter-binding event, mirroring standalone
+                    // `LAMBDA(...)(...)` (`eval_apply`, issue #740): fires once
+                    // per parameter for *this* invocation, carrying the
+                    // parameter's own span (same span across every
+                    // invocation of a given HOF call — e.g. all N elements of
+                    // a MAP) and the value bound for this element/row/col/
+                    // accumulator step. Not deduped by design: a trace
+                    // consumer sees one event per invocation, exactly like
+                    // repeated reads of the same cell reference.
+                    if let Some(hook) = ctx.hook.as_deref_mut() {
+                        hook.on_node(EvalOp::Variable(name), *span, val);
+                    }
                     let old = ctx.ctx.get(name);
                     saved.push((name.clone(), old));
                     ctx.ctx.set(name.clone(), val.clone());

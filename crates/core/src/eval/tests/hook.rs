@@ -11,7 +11,11 @@
 //!    and a child's span is always contained within its parent's;
 //! 5. an `Apply`'s `LAMBDA` parameter fires an `EvalOp::Variable` binding
 //!    event — even when the body never reads it — while the `LAMBDA` callee
-//!    itself never fires as a discrete node.
+//!    itself never fires as a discrete node;
+//! 6. the same parameter-binding event fires for the six higher-order array
+//!    functions (MAP/REDUCE/BYROW/BYCOL/SCAN/MAKEARRAY), which bind lambda
+//!    parameters through their own `apply_lambda` helper rather than
+//!    `eval_apply` — once per parameter, per invocation.
 
 use crate::eval::{Context, EvalCtx, EvalOp, Registry, Span};
 use crate::engine::Engine;
@@ -360,4 +364,241 @@ fn apply_fires_a_binding_event_per_parameter_in_order() {
     // declaration order.
     assert_eq!(bindings[0], ("a".to_string(), Value::Number(10.0)));
     assert_eq!(bindings[1], ("b".to_string(), Value::Number(3.0)));
+}
+
+// ── Higher-order functions (MAP/REDUCE/BYROW/BYCOL/SCAN/MAKEARRAY) bind
+// lambda parameters through their own `apply_lambda` helper, not
+// `eval_apply` — this is the gap #740's review found (issue follow-up).
+// These prove each HOF now fires one parameter-binding event per parameter
+// per invocation, even when the body never reads the parameter.
+
+/// Collect just the `Variable` events (name, value) from a trace, in order —
+/// the parameter-binding events plus any ordinary in-body variable reads.
+fn variable_events(events: &[(Op, Span, Value)]) -> Vec<(String, Value)> {
+    events
+        .iter()
+        .filter_map(|(op, _, v)| match op {
+            Op::Variable(name) => Some((name.clone(), v.clone())),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn map_fires_one_parameter_event_per_element_even_when_body_ignores_it() {
+    // =MAP({1,2,3}, LAMBDA(x, 42)) → body never reads x, but the gap this PR
+    // closes means each of the 3 invocations must still fire its own x=<n>
+    // binding event (values 1, 2, 3 — one per element).
+    let formula = "=MAP({1,2,3}, LAMBDA(x, 42))";
+    let (value, events) = trace(formula);
+    assert_eq!(
+        value,
+        Value::Array(vec![Value::Number(42.0), Value::Number(42.0), Value::Number(42.0)])
+    );
+    let bindings = variable_events(&events);
+    assert_eq!(
+        bindings,
+        vec![
+            ("x".to_string(), Value::Number(1.0)),
+            ("x".to_string(), Value::Number(2.0)),
+            ("x".to_string(), Value::Number(3.0)),
+        ]
+    );
+    // All three share the parameter's own span (its token position inside
+    // `LAMBDA(x, ...)`), not deduped — one event per invocation by design.
+    let param_spans: Vec<Span> = events
+        .iter()
+        .filter(|(op, _, _)| matches!(op, Op::Variable(n) if n == "x"))
+        .map(|(_, span, _)| *span)
+        .collect();
+    assert_eq!(param_spans.len(), 3);
+    assert_eq!(param_spans[0], param_spans[1]);
+    assert_eq!(param_spans[1], param_spans[2]);
+    assert_eq!(text_of(formula, param_spans[0]), "x");
+}
+
+#[test]
+fn map_fires_parameter_events_when_body_reads_it_too() {
+    // =MAP({1,2,3}, LAMBDA(x, x*10)) → each invocation fires the binding
+    // event (x=1/2/3) followed by the body's own read of x (same value).
+    let formula = "=MAP({1,2,3}, LAMBDA(x, x*10))";
+    let (value, events) = trace(formula);
+    assert_eq!(
+        value,
+        Value::Array(vec![Value::Number(10.0), Value::Number(20.0), Value::Number(30.0)])
+    );
+    let bindings = variable_events(&events);
+    // Binding event + body-read event per invocation, each pair equal.
+    assert_eq!(bindings.len(), 6);
+    for pair in bindings.chunks(2) {
+        assert_eq!(pair[0], pair[1]);
+    }
+    assert_eq!(bindings[0].1, Value::Number(1.0));
+    assert_eq!(bindings[2].1, Value::Number(2.0));
+    assert_eq!(bindings[4].1, Value::Number(3.0));
+}
+
+#[test]
+fn reduce_fires_two_parameter_events_per_item() {
+    // =REDUCE(0, {1,2,3}, LAMBDA(acc,item, acc+item)) → 3 invocations, each
+    // binding both acc and item. The body reads both, so each parameter
+    // fires twice per invocation (the bind-time event, then the body's own
+    // read) — take every other (even-indexed) event to isolate the bindings.
+    let formula = "=REDUCE(0, {1,2,3}, LAMBDA(acc,item, acc+item))";
+    let (value, events) = trace(formula);
+    assert_eq!(value, Value::Number(6.0));
+    let bindings = variable_events(&events);
+    let acc_bindings: Vec<Value> = bindings
+        .iter()
+        .filter(|(n, _)| n == "acc")
+        .step_by(2)
+        .map(|(_, v)| v.clone())
+        .collect();
+    let item_bindings: Vec<Value> = bindings
+        .iter()
+        .filter(|(n, _)| n == "item")
+        .step_by(2)
+        .map(|(_, v)| v.clone())
+        .collect();
+    // acc: 0, 1, 3 (running total before each step); item: 1, 2, 3.
+    assert_eq!(
+        acc_bindings,
+        vec![Value::Number(0.0), Value::Number(1.0), Value::Number(3.0)]
+    );
+    assert_eq!(
+        item_bindings,
+        vec![Value::Number(1.0), Value::Number(2.0), Value::Number(3.0)]
+    );
+}
+
+#[test]
+fn scan_fires_two_parameter_events_per_item() {
+    // =SCAN(0, {1,2,3}, LAMBDA(acc,item, acc+item)) → same binding shape as
+    // REDUCE, but SCAN also returns the running values. Body reads both
+    // params, so each fires twice per invocation; every other event is the
+    // bind-time one.
+    let formula = "=SCAN(0, {1,2,3}, LAMBDA(acc,item, acc+item))";
+    let (value, events) = trace(formula);
+    assert_eq!(
+        value,
+        Value::Array(vec![Value::Number(1.0), Value::Number(3.0), Value::Number(6.0)])
+    );
+    let bindings = variable_events(&events);
+    let item_bindings: Vec<Value> = bindings
+        .iter()
+        .filter(|(n, _)| n == "item")
+        .step_by(2)
+        .map(|(_, v)| v.clone())
+        .collect();
+    assert_eq!(
+        item_bindings,
+        vec![Value::Number(1.0), Value::Number(2.0), Value::Number(3.0)]
+    );
+}
+
+#[test]
+fn byrow_fires_one_parameter_event_per_row_even_when_body_ignores_it() {
+    // =BYROW({1,2;3,4}, LAMBDA(row, 99)) → 2 rows, body ignores `row`, but
+    // each invocation still fires row=<array> even though nothing reads it.
+    let formula = "=BYROW({1,2;3,4}, LAMBDA(row, 99))";
+    let (value, events) = trace(formula);
+    assert_eq!(
+        value,
+        Value::Array(vec![
+            Value::Array(vec![Value::Number(99.0)]),
+            Value::Array(vec![Value::Number(99.0)]),
+        ])
+    );
+    let bindings = variable_events(&events);
+    assert_eq!(
+        bindings,
+        vec![
+            (
+                "row".to_string(),
+                Value::Array(vec![Value::Number(1.0), Value::Number(2.0)])
+            ),
+            (
+                "row".to_string(),
+                Value::Array(vec![Value::Number(3.0), Value::Number(4.0)])
+            ),
+        ]
+    );
+}
+
+#[test]
+fn bycol_fires_one_parameter_event_per_column_even_when_body_ignores_it() {
+    // =BYCOL({1,2;3,4}, LAMBDA(col, 99)) → 2 columns.
+    let formula = "=BYCOL({1,2;3,4}, LAMBDA(col, 99))";
+    let (value, events) = trace(formula);
+    assert_eq!(value, Value::Array(vec![Value::Number(99.0), Value::Number(99.0)]));
+    let bindings = variable_events(&events);
+    assert_eq!(
+        bindings,
+        vec![
+            (
+                "col".to_string(),
+                Value::Array(vec![Value::Number(1.0), Value::Number(3.0)])
+            ),
+            (
+                "col".to_string(),
+                Value::Array(vec![Value::Number(2.0), Value::Number(4.0)])
+            ),
+        ]
+    );
+}
+
+#[test]
+fn makearray_fires_two_parameter_events_per_cell_even_when_body_ignores_them() {
+    // =MAKEARRAY(2, 2, LAMBDA(r,c, 0)) → 4 cells, body ignores both params,
+    // but each invocation still fires r=<row> and c=<col>.
+    let formula = "=MAKEARRAY(2, 2, LAMBDA(r,c, 0))";
+    let (value, events) = trace(formula);
+    assert_eq!(
+        value,
+        Value::Array(vec![
+            Value::Array(vec![Value::Number(0.0), Value::Number(0.0)]),
+            Value::Array(vec![Value::Number(0.0), Value::Number(0.0)]),
+        ])
+    );
+    let bindings = variable_events(&events);
+    let r_events: Vec<Value> =
+        bindings.iter().filter(|(n, _)| n == "r").map(|(_, v)| v.clone()).collect();
+    let c_events: Vec<Value> =
+        bindings.iter().filter(|(n, _)| n == "c").map(|(_, v)| v.clone()).collect();
+    assert_eq!(
+        r_events,
+        vec![
+            Value::Number(1.0),
+            Value::Number(1.0),
+            Value::Number(2.0),
+            Value::Number(2.0)
+        ]
+    );
+    assert_eq!(
+        c_events,
+        vec![
+            Value::Number(1.0),
+            Value::Number(2.0),
+            Value::Number(1.0),
+            Value::Number(2.0)
+        ]
+    );
+}
+
+#[test]
+fn hof_parameter_events_do_not_change_computed_value() {
+    // The hook is purely observational for the HOF path too: computed values
+    // match with and without a hook wired.
+    for formula in [
+        "=MAP({1,2,3}, LAMBDA(x, x*2))",
+        "=REDUCE(0, {1,2,3}, LAMBDA(acc,item, acc+item))",
+        "=SCAN(0, {1,2,3}, LAMBDA(acc,item, acc+item))",
+        "=BYROW({1,2;3,4}, LAMBDA(row, SUM(row)))",
+        "=BYCOL({1,2;3,4}, LAMBDA(col, SUM(col)))",
+        "=MAKEARRAY(2, 2, LAMBDA(r,c, r*10+c))",
+    ] {
+        let (with_hook, _) = trace(formula);
+        let without_hook = eval_no_hook(formula);
+        assert_eq!(with_hook, without_hook, "value diverged for {formula}");
+    }
 }
