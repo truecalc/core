@@ -88,3 +88,9 @@ pub use spill::{SpillRect, BLOCKED_SPILL_ERROR};
 pub use value::Value;
 pub use workbook::{Workbook, SCHEMA_VERSION};
 pub use worksheet::Worksheet;
+
+/// Re-exported so callers of [`Workbook::trace_cell`] can implement or wire a
+/// hook without a direct `truecalc-core` dependency (issue #743) — same
+/// rationale as [`EngineFlavor`]'s re-export above: one trait, no drift
+/// between the two crates.
+pub use truecalc_core::eval::EvalHook;

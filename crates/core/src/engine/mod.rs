@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::eval::functions::Registry;
-use crate::eval::{evaluate_expr, Context, EvalCtx, Resolver};
+use crate::eval::{evaluate_expr, Context, EvalCtx, EvalHook, Resolver};
 use crate::parser::{parse_formula, Expr};
 use crate::types::{ErrorKind, ParseError, Value};
 
@@ -212,6 +212,34 @@ impl Engine {
         now_utc_nanos: Option<i64>,
         rng_cell: Option<(u64, u32, u32, u32)>,
     ) -> Value {
+        self.evaluate_with_resolver_at_keyed_hooked(
+            formula,
+            resolver,
+            now_serial,
+            now_utc_nanos,
+            rng_cell,
+            None,
+        )
+    }
+
+    /// Like [`Engine::evaluate_with_resolver_at_keyed`], but additionally
+    /// wires an opt-in per-node [`EvalHook`] (issue #743) onto the
+    /// [`EvalCtx`] built for this evaluation. `hook: None` is exactly
+    /// [`Engine::evaluate_with_resolver_at_keyed`] — same code path, same
+    /// value, no observation overhead beyond the `Option` check already paid
+    /// by [`evaluate_expr`]'s per-node hook branch. This is the seam the
+    /// workbook layer's single-cell tracer (`Workbook::trace_cell`) uses to
+    /// reach a real cell's evaluation with the same resolver-backed
+    /// semantics `recalc` uses, rather than re-deriving its own `EvalCtx`.
+    pub fn evaluate_with_resolver_at_keyed_hooked<'r>(
+        &'r self,
+        formula: &str,
+        resolver: &'r mut dyn Resolver,
+        now_serial: Option<f64>,
+        now_utc_nanos: Option<i64>,
+        rng_cell: Option<(u64, u32, u32, u32)>,
+        hook: Option<&'r mut dyn EvalHook>,
+    ) -> Value {
         if let Some(n) = now_serial {
             if !n.is_finite() {
                 return Value::Error(ErrorKind::Num);
@@ -228,6 +256,7 @@ impl Engine {
                 ctx.now_utc_nanos = now_utc_nanos;
                 ctx.rng_cell = rng_cell;
                 let mut eval_ctx = EvalCtx::with_resolver(ctx, &self.registry, resolver);
+                eval_ctx.hook = hook;
                 evaluate_expr(&expr, &mut eval_ctx)
             }
         }

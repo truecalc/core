@@ -109,3 +109,71 @@ fn translate_formula_propagates_parse_error() {
     let engine = Engine::sheets();
     assert!(engine.translate_formula("=SUM(", 0, 0).is_err());
 }
+
+// ── evaluate_with_resolver_at_keyed_hooked (issue #743) ─────────────────────
+
+/// A resolver reading a single flat map keyed by canonical reference text —
+/// same shape as the [`crate::Resolver`] doctest's `MapResolver`.
+struct MapResolver(HashMap<String, Value>);
+
+impl crate::Resolver for MapResolver {
+    fn resolve(&mut self, r: &crate::Ref) -> Value {
+        self.0.get(&r.to_string()).cloned().unwrap_or(Value::Empty)
+    }
+}
+
+fn a1_resolver() -> MapResolver {
+    let mut cells = HashMap::new();
+    cells.insert("A1".to_string(), Value::Number(5.0));
+    MapResolver(cells)
+}
+
+#[test]
+fn hooked_keyed_resolver_eval_with_none_hook_matches_unhooked_method() {
+    // `hook: None` on the `_hooked` method must be indistinguishable from
+    // calling the pre-existing, non-hooked method: same formula, same
+    // resolver contents, same pinned clock/RNG key ⇒ same value.
+    let engine = Engine::sheets();
+    let unhooked = engine.evaluate_with_resolver_at_keyed(
+        "=A1*2",
+        &mut a1_resolver(),
+        Some(45_000.0),
+        Some(0),
+        Some((0, 0, 0, 0)),
+    );
+    let hooked_none = engine.evaluate_with_resolver_at_keyed_hooked(
+        "=A1*2",
+        &mut a1_resolver(),
+        Some(45_000.0),
+        Some(0),
+        Some((0, 0, 0, 0)),
+        None,
+    );
+    assert_eq!(unhooked, Value::Number(10.0));
+    assert_eq!(hooked_none, unhooked);
+}
+
+#[test]
+fn hooked_keyed_resolver_eval_with_hook_attached_is_same_value_and_fires() {
+    // Attaching a hook must not change the computed value versus `None`
+    // (issue #743 additive invariant), and the hook must actually observe
+    // the reference-precedent read.
+    let engine = Engine::sheets();
+    let mut seen: Vec<Value> = Vec::new();
+    let mut hook = |_op: crate::eval::EvalOp<'_>, _span: crate::Span, value: &Value| {
+        seen.push(value.clone());
+    };
+    let hooked = engine.evaluate_with_resolver_at_keyed_hooked(
+        "=A1*2",
+        &mut a1_resolver(),
+        Some(45_000.0),
+        Some(0),
+        Some((0, 0, 0, 0)),
+        Some(&mut hook),
+    );
+    assert_eq!(hooked, Value::Number(10.0));
+    // Post-order: the A1 reference (value 5) fires before the top-level
+    // multiplication (value 10, matching the returned result).
+    assert!(seen.contains(&Value::Number(5.0)));
+    assert_eq!(seen.last(), Some(&Value::Number(10.0)));
+}
