@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0](https://github.com/truecalc/core/compare/truecalc-core-v4.0.0...truecalc-core-v5.0.0) - 2026-07-20
+
+### Added
+
+- *(core,workbook)* reach the per-node eval hook through workbook recalc
+- *(eval)* fire lambda parameter-binding events from the HOF apply_lambda helper
+- *(eval)* carry Span on the per-node evaluation hook
+- *(eval)* opt-in per-node evaluation hook
+
+### Fixed
+
+- *(eval)* MAP double-eval, error propagation, and $-normalization in HOF lambda binding
+
 ## [4.0.0](https://github.com/truecalc/core/compare/truecalc-core-v3.3.0...truecalc-core-v4.0.0) - 2026-07-15
 
 ### Added
