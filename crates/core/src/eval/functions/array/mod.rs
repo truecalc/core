@@ -1200,9 +1200,17 @@ fn apply_lambda(lambda_expr: &Expr, bound_args: &[Value], ctx: &mut EvalCtx<'_>)
                     if let Some(hook) = ctx.hook.as_deref_mut() {
                         hook.on_node(EvalOp::Variable(name), *span, val);
                     }
-                    let old = ctx.ctx.get(name);
-                    saved.push((name.clone(), old));
-                    ctx.ctx.set(name.clone(), val.clone());
+                    // Strip `$` and uppercase for the same reason as
+                    // `eval_apply`: a $-shaped bare token is syntactically
+                    // legal (issue #708) but must bind/read under the same
+                    // normalized key, so a $- or case-variant lambda param
+                    // behaves identically whether reached via a HOF
+                    // (MAP/REDUCE/BYROW/BYCOL/SCAN/MAKEARRAY) or standalone
+                    // `LAMBDA(...)(...)`.
+                    let bind_key = name.to_uppercase().replace('$', "");
+                    let old = ctx.ctx.get(&bind_key);
+                    saved.push((bind_key.clone(), old));
+                    ctx.ctx.set(bind_key, val.clone());
                 } else {
                     return None;
                 }
@@ -1282,13 +1290,25 @@ pub fn map_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     // Last arg is LAMBDA, all prior are arrays
     let lambda_expr = &args[args.len() - 1];
     let arr_count = args.len() - 1;
-    let arrays: Vec<Vec<Value>> = args[..arr_count]
-        .iter()
-        .map(|a| {
-            let v = evaluate_expr(a, ctx);
-            flatten_val(&v)
-        })
-        .collect();
+    // Evaluate each array argument once, keeping the un-flattened value of
+    // the first one around to read its shape later (avoids a redundant
+    // second `evaluate_expr(&args[0], ctx)` — that used to double-evaluate
+    // the argument purely to reshape the result). Mirrors REDUCE/SCAN:
+    // check `is_error()` on each evaluated array before flattening, so an
+    // errored array argument propagates instead of silently flattening the
+    // error into the data.
+    let mut first_shape_val: Option<Value> = None;
+    let mut arrays: Vec<Vec<Value>> = Vec::with_capacity(arr_count);
+    for (i, a) in args[..arr_count].iter().enumerate() {
+        let v = evaluate_expr(a, ctx);
+        if v.is_error() {
+            return v;
+        }
+        if i == 0 {
+            first_shape_val = Some(v.clone());
+        }
+        arrays.push(flatten_val(&v));
+    }
     let len = arrays[0].len();
     for arr in &arrays[1..] {
         if arr.len() != len {
@@ -1303,8 +1323,12 @@ pub fn map_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
             None => return Value::Error(ErrorKind::NA),
         }
     }
-    // Preserve shape of first array
-    let first_grid = to_2d(&evaluate_expr(&args[0], ctx));
+    // Preserve shape of first array (reuse the value evaluated above).
+    let first_grid = to_2d(
+        first_shape_val
+            .as_ref()
+            .expect("arr_count >= 1 (check_arity_len enforces at least 2 args)"),
+    );
     if first_grid.len() > 1 {
         // 2D → reshape results
         let ncols = first_grid[0].len();
