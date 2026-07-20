@@ -8,6 +8,7 @@ use truecalc_core::eval::EvalOp;
 use truecalc_core::{Span, Value as CoreValue};
 use truecalc_workbook::{
     Address, CellInput, EngineFlavor, RecalcContext, Value, Workbook, Worksheet,
+    BLOCKED_SPILL_ERROR, CIRCULAR_ERROR,
 };
 
 /// A fixed, DST-free context (GMT) pinned to an arbitrary instant — same
@@ -138,4 +139,141 @@ fn trace_cell_on_an_empty_cell_returns_empty_without_firing_the_hook() {
 
     assert_eq!(traced, Value::Empty);
     assert!(!fired);
+}
+
+// ── recalc-parity findings (independent review, issue #743) ────────────────
+
+#[test]
+fn trace_cell_on_a_blocked_spill_matches_recalcs_blocked_spill_error() {
+    // A1 wants to spill {"x","y","z"} into A1:C1, but B1 is an authored
+    // literal blocking it — recalc stores the Sheets blocked-spill error at
+    // the anchor (schema spec §5/§12), not the raw array. `trace_cell` must
+    // apply the same occupancy check against the current grid rather than
+    // handing back the engine's raw (unblocked) result.
+    let mut wb = sheets_wb();
+    wb.set(
+        "Sheet1",
+        a1("A1"),
+        CellInput::Formula("=SPLIT(\"x,y,z\",\",\")".into()),
+    )
+    .unwrap();
+    wb.set("Sheet1", a1("B1"), CellInput::Literal(Value::Number(99.0)))
+        .unwrap();
+
+    wb.recalc(&ctx());
+    let recalced = wb.get("Sheet1", a1("A1")).unwrap().value().clone();
+    assert_eq!(
+        recalced,
+        Value::Error(BLOCKED_SPILL_ERROR.to_owned()),
+        "sanity: recalc blocks A1's spill on the authored B1"
+    );
+
+    let mut hook = |_op: EvalOp<'_>, _span: Span, _value: &CoreValue| {};
+    let traced = wb.trace_cell("Sheet1", a1("A1"), &ctx(), &mut hook);
+
+    assert_eq!(traced, recalced);
+    assert_eq!(traced, Value::Error(BLOCKED_SPILL_ERROR.to_owned()));
+}
+
+#[test]
+fn trace_cell_on_a_cycle_member_matches_recalcs_circular_error_even_through_iferror() {
+    // A1 and B1 form a mutual cycle, each wrapped in IFERROR. `recalc` never
+    // evaluates a cycle member's formula at all — every cycle cell
+    // short-circuits straight to the circular-dependency error before
+    // evaluation, so the IFERROR never gets a chance to catch anything.
+    // Evaluating A1's formula directly (as `trace_cell` used to) would read
+    // B1's already error-tainted *stored* value and let IFERROR catch it,
+    // returning 99 — diverging from recalc's #REF!.
+    let mut wb = sheets_wb();
+    wb.set(
+        "Sheet1",
+        a1("A1"),
+        CellInput::Formula("=IFERROR(B1+1,99)".into()),
+    )
+    .unwrap();
+    wb.set(
+        "Sheet1",
+        a1("B1"),
+        CellInput::Formula("=IFERROR(A1+1,99)".into()),
+    )
+    .unwrap();
+
+    wb.recalc(&ctx());
+    let recalced = wb.get("Sheet1", a1("A1")).unwrap().value().clone();
+    assert_eq!(
+        recalced,
+        Value::Error(CIRCULAR_ERROR.to_owned()),
+        "sanity: recalc short-circuits the mutual cycle to the circular error"
+    );
+
+    let mut fired = false;
+    let mut hook = |_op: EvalOp<'_>, _span: Span, _value: &CoreValue| {
+        fired = true;
+    };
+    let traced = wb.trace_cell("Sheet1", a1("A1"), &ctx(), &mut hook);
+
+    assert_eq!(traced, recalced);
+    assert_eq!(traced, Value::Error(CIRCULAR_ERROR.to_owned()));
+    assert!(
+        !fired,
+        "a cycle member's formula is never evaluated, so the hook must not fire"
+    );
+}
+
+#[test]
+fn trace_cell_on_a_reader_of_a_spilled_precedent_matches_recalc() {
+    // A1 spills {10, 20} into A1:B1; C1 reads the *spilled* (non-anchor) B1
+    // cell, which is not itself authored — it only exists via the anchor's
+    // placed spill rectangle (schema spec §5). `trace_cell` must resolve
+    // that precedent read the same way a real recompute's `GridResolver`
+    // does (its stored-grid `grid_spilled_value` fallback).
+    let mut wb = sheets_wb();
+    wb.set("Sheet1", a1("A1"), CellInput::Formula("={10,20}".into()))
+        .unwrap();
+    wb.set("Sheet1", a1("C1"), CellInput::Formula("=B1*2".into()))
+        .unwrap();
+
+    wb.recalc(&ctx());
+    let recalced = wb.get("Sheet1", a1("C1")).unwrap().value().clone();
+    assert_eq!(
+        recalced,
+        Value::Number(40.0),
+        "sanity: recalc's C1 reads the spilled B1 = 20"
+    );
+
+    let mut hook = |_op: EvalOp<'_>, _span: Span, _value: &CoreValue| {};
+    let traced = wb.trace_cell("Sheet1", a1("C1"), &ctx(), &mut hook);
+
+    assert_eq!(traced, recalced);
+    assert_eq!(traced, Value::Number(40.0));
+}
+
+#[test]
+fn trace_cell_on_a_cross_sheet_reference_matches_recalc() {
+    // Sheet2!B1 reads Sheet1!A1 — a cross-sheet precedent, resolved through
+    // `GridResolver::target_sheet` rather than the tracer's own sheet.
+    let mut wb = sheets_wb();
+    wb.add_sheet(Worksheet::new("Sheet2")).unwrap();
+    wb.set("Sheet1", a1("A1"), CellInput::Literal(Value::Number(7.0)))
+        .unwrap();
+    wb.set(
+        "Sheet2",
+        a1("B1"),
+        CellInput::Formula("=Sheet1!A1*3".into()),
+    )
+    .unwrap();
+
+    wb.recalc(&ctx());
+    let recalced = wb.get("Sheet2", a1("B1")).unwrap().value().clone();
+    assert_eq!(
+        recalced,
+        Value::Number(21.0),
+        "sanity: recalc's Sheet2!B1 reads Sheet1!A1 = 7"
+    );
+
+    let mut hook = |_op: EvalOp<'_>, _span: Span, _value: &CoreValue| {};
+    let traced = wb.trace_cell("Sheet2", a1("B1"), &ctx(), &mut hook);
+
+    assert_eq!(traced, recalced);
+    assert_eq!(traced, Value::Number(21.0));
 }
