@@ -43,6 +43,7 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use chrono::{NaiveDate, TimeZone, Timelike, Utc};
 use chrono_tz::Tz;
 use icu_casemap::CaseMapperBorrowed;
+use truecalc_core::eval::EvalHook;
 use truecalc_core::{Engine, EngineFlavor, ErrorKind, Ref, Resolver, Value as CoreValue};
 
 use crate::address::Address;
@@ -331,6 +332,127 @@ impl Workbook {
             }
         }
         self.diff_against_snapshot(pre)
+    }
+
+    /// Explains one cell's value against the **currently stored grid** (issue
+    /// #743): evaluates `addr`'s formula once through `hook`, resolving every
+    /// precedent read to its **stored** value (the same grid-backed
+    /// [`Resolver`] semantics `recalc` uses), and returns the value — provably
+    /// the same value `recalc`/`recalc_incremental` would write for this cell,
+    /// provided the grid is already current for its precedents.
+    ///
+    /// This is a point-in-time explain, not a recalc: unlike
+    /// [`Workbook::recalc`], `trace_cell` does **not** recompute anything
+    /// transitively — a precedent's value is whatever is already on the grid
+    /// (or, for a cell inside another anchor's placed spill, the
+    /// reconstructed spilled element — schema spec §5). If the grid is stale
+    /// relative to unapplied edits, `trace_cell` faithfully explains the
+    /// *stale* value; call `recalc` or `recalc_incremental` first if the
+    /// caller needs a fresh grid.
+    ///
+    /// Two pieces of `recalc`'s behavior can't be reproduced from the target
+    /// cell in isolation, so `trace_cell` matches them explicitly rather than
+    /// diverging (an on-demand, single-cell call — a user clicking a cell —
+    /// can afford this; see the two call sites below):
+    ///
+    /// - **Spill occupancy** (schema spec §5): an array result is only stored
+    ///   if its target rectangle is free on the current grid; otherwise
+    ///   `recalc` stores [`BLOCKED_SPILL_ERROR`] instead, exactly like
+    ///   [`Workbook::place_spill`] applies for a real recompute.
+    /// - **Dependency cycles**: `recalc` never evaluates a cycle member's
+    ///   formula at all — it short-circuits straight to
+    ///   [`CIRCULAR_ERROR`] (see [`DependencyGraph::cycle_cells`] and
+    ///   `recompute`). Evaluating the formula anyway would diverge whenever it
+    ///   *catches* the error (e.g. `IFERROR`), since its precedents' stored
+    ///   values already carry the propagated error but `recalc` never gave the
+    ///   formula the chance to run.
+    ///
+    /// `addr` need not be a formula cell: a literal (or empty, or spilled
+    /// non-anchor) cell has no expression to trace, so this returns its
+    /// resolved value directly without invoking `hook` — `hook` observes no
+    /// events in that case, by design (there is nothing to walk). Passing a
+    /// hook is optional in the sense that evaluating with `hook = None`'s
+    /// counterpart, [`Engine::evaluate_with_resolver_at_keyed`], produces this
+    /// same value: `trace_cell` adds observation, it does not change what gets
+    /// computed.
+    pub fn trace_cell(
+        &self,
+        sheet: &str,
+        addr: Address,
+        ctx: &RecalcContext,
+        hook: &mut dyn EvalHook,
+    ) -> Value {
+        let folder = CaseMapperBorrowed::new();
+        let own_sheet = simple_fold(&folder, sheet);
+        let cell_ref = CellRef {
+            sheet: own_sheet.clone(),
+            addr,
+        };
+
+        // A cycle member never gets its formula evaluated by `recalc` — it is
+        // skipped in every pass of `recompute` and then unconditionally
+        // assigned `CIRCULAR_ERROR`, regardless of what the formula itself
+        // might do with its (already error-tainted) precedents. Match that
+        // before evaluating anything. Building the graph is an on-demand,
+        // single-cell, interactive call (a user clicking a cell), so
+        // correctness beats avoiding the graph walk here.
+        let graph = DependencyGraph::build(self);
+        if graph.cycle_cells().contains(&cell_ref) {
+            return Value::Error(CIRCULAR_ERROR.to_owned());
+        }
+
+        // No per-pass recompute state: every precedent read falls straight
+        // through to the stored grid (see `GridResolver::cell_value`'s
+        // fallback chain), which is exactly "explain given the current grid".
+        let empty_values: BTreeMap<CellRef, Value> = BTreeMap::new();
+        let empty_spills: BTreeMap<CellRef, SpillRect> = BTreeMap::new();
+        let empty_cells: BTreeSet<CellRef> = BTreeSet::new();
+        let mut resolver = GridResolver {
+            workbook: self,
+            own_sheet: &own_sheet,
+            new_values: &empty_values,
+            spills: &empty_spills,
+            prev_values: &empty_values,
+            prev_spills: &empty_spills,
+            cycle: &empty_cells,
+            recomputed: &empty_cells,
+        };
+
+        let Some(formula) = self.cell_at(&cell_ref).and_then(Cell::formula) else {
+            // Not a formula: nothing to trace. Resolve the cell's own value
+            // through the same fallback chain a precedent read would use, so
+            // e.g. a spilled (non-anchor) cell still resolves correctly.
+            return core_to_workbook(resolver.cell_value(&own_sheet, addr));
+        };
+        let formula = formula.to_owned();
+
+        let engine = match self.engine() {
+            EngineFlavor::Sheets => Engine::sheets(),
+            EngineFlavor::Excel => Engine::excel(),
+        };
+        let sheet_index = self
+            .sheets()
+            .iter()
+            .position(|ws| simple_fold(&folder, ws.name()) == own_sheet)
+            .unwrap_or(0) as u32;
+        let rng_cell = Some((ctx.rng_seed(), sheet_index, addr.row, addr.column));
+
+        let core = engine.evaluate_with_resolver_at_keyed_hooked(
+            &formula,
+            &mut resolver,
+            ctx.now_serial(),
+            ctx.now_utc_nanos(),
+            rng_cell,
+            Some(hook),
+        );
+        let raw = core_to_workbook(core);
+
+        // Match `eval_formula_cell`'s spill placement: an array result is
+        // only stored if its target rectangle is free on the *current*
+        // stored grid (`place_spill`/`spill_blocked` read `self.cell_at`
+        // directly, so passing fresh, empty per-pass maps here reads exactly
+        // that — no real spill state is mutated).
+        self.place_spill(&cell_ref, raw, &empty_values, &mut BTreeMap::new())
     }
 
     /// Shared evaluation core: evaluates `to_eval` (a set of formula cells) in
