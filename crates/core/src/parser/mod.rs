@@ -66,6 +66,11 @@ impl<'a> Parser<'a> {
 
         // Parenthesised expression
         if let Some(inner) = i.strip_prefix('(') {
+            // Trim whitespace after '(' so a padded grouping like `( A1 + B1 )`
+            // does not leak the leading space into the inner expression's span
+            // (issue #751 — same class as #746/#748/#749, which also trim before
+            // parse_comparison; the trailing side is already trimmed below).
+            let inner = multispace0(inner)?.0;
             let (rest, expr) = self.parse_comparison(inner)?;
             let rest = multispace0(rest)?.0;
             if let Some(after) = rest.strip_prefix(')') {
@@ -623,6 +628,22 @@ mod tests {
             }
             _ => panic!("Expected FunctionCall"),
         }
+    }
+
+    #[test]
+    fn parse_parenthesised_expr_span_no_leading_space() {
+        // A padded grouping `( A1 + B1 )` must not leak the space after '(' into
+        // the inner expression's span (issue #751 — same class as #746/#748/#749).
+        let src = "=( A1 + B1 )";
+        let expr = parse(src).unwrap();
+        assert!(matches!(expr, Expr::BinaryOp { .. }));
+        let sp = expr.span();
+        assert_eq!(&src[sp.offset..sp.offset + sp.length], "A1 + B1");
+        // Extra whitespace + a different precedence level, still clean.
+        let src2 = "=(  A1*B1  )";
+        let expr2 = parse(src2).unwrap();
+        let sp2 = expr2.span();
+        assert_eq!(&src2[sp2.offset..sp2.offset + sp2.length], "A1*B1");
     }
 
     #[test]
