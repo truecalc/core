@@ -286,12 +286,22 @@ impl<'a> Parser<'a> {
         loop {
             rest = multispace0(rest)?.0;
             if let Some(after_comma) = rest.strip_prefix(',') {
-                let (r, elem) = self.parse_comparison(after_comma)?;
+                // Parse from the first non-whitespace token, not from just
+                // after the comma — same leading-whitespace bug as #746's
+                // function-argument fix, but here in the array-element
+                // separator: passing the untrimmed `after_comma` would let a
+                // compound (BinaryOp) element's span start at the separating
+                // whitespace instead of the element's own first token.
+                let after_ws = multispace0(after_comma)?.0;
+                let (r, elem) = self.parse_comparison(after_ws)?;
                 current_row.push(elem);
                 rest = r;
             } else if let Some(after_semi) = rest.strip_prefix(';') {
                 rows.push(std::mem::take(&mut current_row));
-                let (r, elem) = self.parse_comparison(after_semi)?;
+                // Same trim as the comma branch above, for the first element
+                // of the new row.
+                let after_ws = multispace0(after_semi)?.0;
+                let (r, elem) = self.parse_comparison(after_ws)?;
                 current_row.push(elem);
                 rest = r;
             } else {
@@ -303,12 +313,26 @@ impl<'a> Parser<'a> {
         if rows.len() == 1 {
             return Ok((rest, rows.into_iter().next().unwrap()));
         }
-        // Multiple rows → wrap each row in an Array node
-        let span_start = i;
+        // Multiple rows → wrap each row in an Array node. Each row's span
+        // must cover only that row's own elements (its first element's start
+        // to its last element's end) — not the whole `{…}` body, which is
+        // what every row got when this span was computed once outside the
+        // loop below.
         let row_exprs: Vec<Expr> = rows
             .into_iter()
             .map(|row_elems| {
-                let s = self.span(span_start, rest);
+                let s = match (row_elems.first(), row_elems.last()) {
+                    (Some(first), Some(last)) => {
+                        let start = first.span().offset;
+                        let end = last.span().offset + last.span().length;
+                        Span::new(start, end - start)
+                    }
+                    // A row is never empty in practice (each row starts with
+                    // an element pushed either before the loop or right
+                    // after a `;`), but fall back to the old whole-body span
+                    // rather than panic if that ever changes.
+                    _ => self.span(i, rest),
+                };
                 Expr::Array(row_elems, s)
             })
             .collect();
@@ -618,6 +642,150 @@ mod tests {
     fn parse_array_literal_empty() {
         let expr = parse("={}").unwrap();
         assert!(matches!(expr, Expr::Array(ref e, _) if e.is_empty()));
+    }
+
+    #[test]
+    fn parse_array_literal_row_spans() {
+        // Each row's span must cover only that row's own elements, not the
+        // whole `{...}` body (issue #745).
+        let src = "={1,2;3,4}";
+        let expr = parse(src).unwrap();
+        let slice = |s: &Span| &src[s.offset..s.offset + s.length];
+
+        let (rows, outer_span) = match &expr {
+            Expr::Array(rows, span) => (rows, span),
+            _ => panic!("Expected outer Array"),
+        };
+        assert_eq!(slice(outer_span), "{1,2;3,4}");
+        assert_eq!(rows.len(), 2);
+
+        let (row0_elems, row0_span) = match &rows[0] {
+            Expr::Array(elems, span) => (elems, span),
+            _ => panic!("Expected row 0 to be an Array"),
+        };
+        assert_eq!(slice(row0_span), "1,2");
+        assert_eq!(row0_elems.len(), 2);
+        assert_eq!(slice(row0_elems[0].span()), "1");
+        assert_eq!(slice(row0_elems[1].span()), "2");
+
+        let (row1_elems, row1_span) = match &rows[1] {
+            Expr::Array(elems, span) => (elems, span),
+            _ => panic!("Expected row 1 to be an Array"),
+        };
+        assert_eq!(slice(row1_span), "3,4");
+        assert_eq!(row1_elems.len(), 2);
+        assert_eq!(slice(row1_elems[0].span()), "3");
+        assert_eq!(slice(row1_elems[1].span()), "4");
+    }
+
+    #[test]
+    fn parse_array_literal_single_row_unaffected() {
+        // A single-row array (no semicolons) returns a flat Vec<Expr> — no
+        // row-wrapper Array nodes — and must be unaffected by the row-span
+        // fix (issue #745).
+        let src = "={1,2,3}";
+        let expr = parse(src).unwrap();
+        let slice = |s: &Span| &src[s.offset..s.offset + s.length];
+        match &expr {
+            Expr::Array(elems, span) => {
+                assert_eq!(slice(span), "{1,2,3}");
+                assert_eq!(elems.len(), 3);
+                assert_eq!(slice(elems[0].span()), "1");
+                assert_eq!(slice(elems[1].span()), "2");
+                assert_eq!(slice(elems[2].span()), "3");
+                for e in elems {
+                    assert!(!matches!(e, Expr::Array(_, _)), "single-row elements must not be row-wrapped");
+                }
+            }
+            _ => panic!("Expected Array"),
+        }
+    }
+
+    #[test]
+    fn parse_array_literal_element_no_leading_space() {
+        // A compound (BinaryOp) element after a `;` (or `,`) separator must
+        // span exactly its own tokens — not the whitespace after the
+        // separator. Same root cause as issue #746's function-argument bug,
+        // here in the sibling `parse_array_elements`.
+        let src = "={1; 2+3}";
+        let expr = parse(src).unwrap();
+        let slice = |s: &Span| &src[s.offset..s.offset + s.length];
+
+        let rows = match &expr {
+            Expr::Array(rows, _) => rows,
+            _ => panic!("Expected outer Array"),
+        };
+        assert_eq!(rows.len(), 2);
+        let row1_elems = match &rows[1] {
+            Expr::Array(elems, _) => elems,
+            _ => panic!("Expected row 1 to be an Array"),
+        };
+        assert_eq!(row1_elems.len(), 1);
+        assert_eq!(slice(row1_elems[0].span()), "2+3");
+    }
+
+    #[test]
+    fn parse_array_literal_multi_row_element_no_leading_space() {
+        // Same as above, but with a compound element after a `,` in each
+        // row of a multi-row array — every compound element must slice
+        // minimally, with no leading whitespace from its separator.
+        let src = "={1, 2+3; 4, 5*6}";
+        let expr = parse(src).unwrap();
+        let slice = |s: &Span| &src[s.offset..s.offset + s.length];
+
+        let rows = match &expr {
+            Expr::Array(rows, _) => rows,
+            _ => panic!("Expected outer Array"),
+        };
+        assert_eq!(rows.len(), 2);
+
+        let row0_elems = match &rows[0] {
+            Expr::Array(elems, _) => elems,
+            _ => panic!("Expected row 0 to be an Array"),
+        };
+        assert_eq!(slice(row0_elems[0].span()), "1");
+        assert_eq!(slice(row0_elems[1].span()), "2+3");
+
+        let row1_elems = match &rows[1] {
+            Expr::Array(elems, _) => elems,
+            _ => panic!("Expected row 1 to be an Array"),
+        };
+        assert_eq!(slice(row1_elems[0].span()), "4");
+        assert_eq!(slice(row1_elems[1].span()), "5*6");
+    }
+
+    #[test]
+    fn parse_array_literal_single_element_rows() {
+        // Gap noted in review: single-element-per-row arrays must produce
+        // flat one-element rows with correct spans.
+        let src = "={1;2}";
+        let expr = parse(src).unwrap();
+        let slice = |s: &Span| &src[s.offset..s.offset + s.length];
+
+        let rows = match &expr {
+            Expr::Array(rows, span) => {
+                assert_eq!(slice(span), "{1;2}");
+                rows
+            }
+            _ => panic!("Expected outer Array"),
+        };
+        assert_eq!(rows.len(), 2);
+
+        let (row0_elems, row0_span) = match &rows[0] {
+            Expr::Array(elems, span) => (elems, span),
+            _ => panic!("Expected row 0 to be an Array"),
+        };
+        assert_eq!(slice(row0_span), "1");
+        assert_eq!(row0_elems.len(), 1);
+        assert_eq!(slice(row0_elems[0].span()), "1");
+
+        let (row1_elems, row1_span) = match &rows[1] {
+            Expr::Array(elems, span) => (elems, span),
+            _ => panic!("Expected row 1 to be an Array"),
+        };
+        assert_eq!(slice(row1_span), "2");
+        assert_eq!(row1_elems.len(), 1);
+        assert_eq!(slice(row1_elems[0].span()), "2");
     }
 
     #[test]
