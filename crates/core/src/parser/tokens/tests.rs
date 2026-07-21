@@ -137,3 +137,16 @@ fn error_literal_rejects_unrecognized_text() {
     assert!(error_literal("REF!").is_err()); // missing leading '#'
     assert!(error_literal("").is_err());
 }
+
+#[test]
+fn error_literal_is_case_insensitive_like_bool_literal() {
+    // Matches this file's convention (see `booleans`/`bool_literal`): keyword
+    // tokens accept any casing.
+    assert_eq!(error_literal("#ref!"), Ok(("", ErrorKind::Ref)));
+    assert_eq!(error_literal("#Ref!"), Ok(("", ErrorKind::Ref)));
+    assert_eq!(error_literal("#div/0!"), Ok(("", ErrorKind::DivByZero)));
+    assert_eq!(error_literal("#n/a"), Ok(("", ErrorKind::NA)));
+    assert_eq!(error_literal("#N/a rest"), Ok((" rest", ErrorKind::NA)));
+    // Boundary check still applies regardless of case.
+    assert!(error_literal("#ref!x").is_err());
+}

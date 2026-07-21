@@ -79,6 +79,10 @@ pub fn bool_literal(i: &str) -> IResult<&str, bool> {
 /// `ErrorKind`, so a formula can embed an error value directly (`=#REF!`,
 /// `=#REF!+1`) the same way it embeds a number or boolean literal.
 ///
+/// Case-insensitive, matching this file's other keyword-style tokens
+/// (`bool_literal`'s `TRUE`/`true`, cell-reference letters): `#ref!` and
+/// `#Ref!` parse the same as `#REF!`.
+///
 /// Word-boundary rule: the character immediately following the matched
 /// literal, if any, must not be alphanumeric or `_`. This rejects a
 /// hypothetical trailing character glued onto the literal (`#REF!X`) rather
@@ -91,10 +95,21 @@ pub fn bool_literal(i: &str) -> IResult<&str, bool> {
 /// diverge by their second or third character), so at most one candidate can
 /// ever match a given input; the loop below does not need longest-match
 /// ordering.
+///
+/// Every primary-expression parse tries this function (see `parse_primary`),
+/// so it bails out before the per-kind loop — and its `to_string()`
+/// allocations — for the overwhelming majority of inputs that don't even
+/// start with `#`.
 pub fn error_literal(i: &str) -> IResult<&str, ErrorKind> {
+    if !i.starts_with('#') {
+        return Err(nom::Err::Error(nom::error::Error::new(i, nom::error::ErrorKind::Tag)));
+    }
+    let bytes = i.as_bytes();
     for kind in ErrorKind::LITERAL_KINDS {
         let text = kind.to_string();
-        if let Some(rest) = i.strip_prefix(text.as_str()) {
+        let len = text.len();
+        if bytes.len() >= len && bytes[..len].eq_ignore_ascii_case(text.as_bytes()) {
+            let rest = &i[len..];
             let boundary_ok = !rest.chars().next().map(|c| c.is_alphanumeric() || c == '_').unwrap_or(false);
             if boundary_ok {
                 return Ok((rest, kind));

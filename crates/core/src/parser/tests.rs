@@ -430,3 +430,12 @@ fn parse_error_literal_unsupported_is_not_a_literal() {
     // `#UNSUPPORTED!` is engine-internal, never accepted as formula text.
     assert!(parse("=#UNSUPPORTED!").is_err());
 }
+
+#[test]
+fn parse_error_literal_is_case_insensitive() {
+    // Matches the parser's existing case-insensitive keywords (TRUE/FALSE,
+    // function names, cell references).
+    assert!(matches!(parse("=#ref!").unwrap(), Expr::Error(ErrorKind::Ref, _)));
+    assert!(matches!(parse("=#Div/0!").unwrap(), Expr::Error(ErrorKind::DivByZero, _)));
+    assert!(matches!(parse("=#n/a").unwrap(), Expr::Error(ErrorKind::NA, _)));
+}
