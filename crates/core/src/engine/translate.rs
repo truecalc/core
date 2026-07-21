@@ -69,7 +69,7 @@ pub(crate) fn collect_shiftable_refs(expr: &Expr) -> Vec<(Span, Ref)> {
 
 fn walk(expr: &Expr, scope: &mut Vec<String>, out: &mut Vec<(Span, Ref)>) {
     match expr {
-        Expr::Number(..) | Expr::Text(..) | Expr::Bool(..) => {}
+        Expr::Number(..) | Expr::Text(..) | Expr::Bool(..) | Expr::Error(..) => {}
         Expr::Reference(r, span) => out.push((*span, r.clone())),
         Expr::Variable(name, span) => {
             if !scope.contains(&normalize_name(name)) {

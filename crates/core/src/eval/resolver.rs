@@ -101,7 +101,7 @@ fn collect_refs(expr: &Expr, out: &mut Vec<Ref>) {
     match expr {
         Expr::Reference(r, _) => out.push(r.clone()),
         Expr::Variable(name, _) => out.push(Ref::classify(name)),
-        Expr::Number(..) | Expr::Text(..) | Expr::Bool(..) => {}
+        Expr::Number(..) | Expr::Text(..) | Expr::Bool(..) | Expr::Error(..) => {}
         Expr::UnaryOp { operand, .. } => collect_refs(operand, out),
         Expr::BinaryOp { left, right, .. } => {
             collect_refs(left, out);
