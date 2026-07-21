@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0](https://github.com/truecalc/core/compare/truecalc-workbook-v4.0.0...truecalc-workbook-v5.0.0) - 2026-07-20
+
+### Added
+
+- *(core,workbook)* reach the per-node eval hook through workbook recalc
+
+### Fixed
+
+- *(workbook)* match trace_cell's spill and cycle behavior to recalc
+
 ## [4.0.0](https://github.com/truecalc/core/compare/truecalc-workbook-v3.3.0...truecalc-workbook-v4.0.0) - 2026-07-15
 
 ### Added
