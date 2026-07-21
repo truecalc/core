@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.1](https://github.com/truecalc/core/compare/truecalc-core-v5.0.0...truecalc-core-v5.0.1) - 2026-07-21
+
+### Fixed
+
+- *(parser)* start function-argument span at its first token
+
+### Other
+
+- Merge pull request #749 from truecalc/fix/746-arg-leading-space
+
 ## [5.0.0](https://github.com/truecalc/core/compare/truecalc-core-v4.0.0...truecalc-core-v5.0.0) - 2026-07-20
 
 ### Added
