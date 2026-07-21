@@ -82,20 +82,21 @@ fn translate_then_set_round_trips() {
     assert_eq!(resolved(&wb, "B2"), Some(Value::Number(40.0)));
 }
 
-/// Documents issue #715 gap 3 (`#REF!` error literal): the parser does not yet
-/// accept `#REF!` as an error literal, so `set` rejects a formula whose text an
-/// out-of-bounds fill produced. Tracked as a follow-up; this test guards the
-/// current behavior and should be updated (to `is_ok()` + a `#REF!` value
-/// assertion) when the literal lands.
+/// Issue #715 gap 3 (`#REF!` error literal), landed by issue #716: `set` now
+/// accepts a formula whose text an out-of-bounds fill produced, resolving it
+/// to the `#REF!` error value after recalc.
 #[test]
-fn set_still_rejects_ref_error_literal() {
+fn set_accepts_ref_error_literal() {
     let mut wb = sheets_workbook();
     assert!(
-        set_formula(&mut wb, "C1", "=#REF!").is_err(),
-        "#REF! literal is not yet a parseable value (follow-up)"
+        set_formula(&mut wb, "C1", "=#REF!").is_ok(),
+        "#REF! literal should now be a parseable value"
     );
     assert!(
-        set_formula(&mut wb, "C2", "=#REF!+1").is_err(),
-        "#REF! literal is not yet a parseable value (follow-up)"
+        set_formula(&mut wb, "C2", "=#REF!+1").is_ok(),
+        "#REF! literal should now be a parseable value"
     );
+    recalc(&mut wb);
+    assert_eq!(resolved(&wb, "C1"), Some(Value::Error("#REF!".into())));
+    assert_eq!(resolved(&wb, "C2"), Some(Value::Error("#REF!".into())));
 }
