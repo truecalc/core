@@ -261,7 +261,13 @@ impl<'a> Parser<'a> {
                     args.push(Expr::Variable(String::new(), Span::new(0, 0)));
                     rest = after_comma;
                 } else {
-                    let (r, arg) = self.parse_comparison(after_comma)?;
+                    // Parse from the first non-whitespace token, not from
+                    // just after the comma — a compound (BinaryOp) argument's
+                    // span is measured from its entry point here, so passing
+                    // the untrimmed `after_comma` would make the span start
+                    // at the separating whitespace instead of the argument's
+                    // own first token.
+                    let (r, arg) = self.parse_comparison(after_ws)?;
                     args.push(arg);
                     rest = r;
                 }
@@ -552,6 +558,76 @@ mod tests {
             Expr::FunctionCall { name, args, .. } => {
                 assert_eq!(name, "SUM");
                 assert_eq!(args.len(), 3);
+            }
+            _ => panic!("Expected FunctionCall"),
+        }
+    }
+
+    #[test]
+    fn parse_function_call_arg_spans_no_leading_space() {
+        // A BinaryOp argument in 2nd+ position must span exactly its own
+        // tokens — not the whitespace after the preceding comma (issue #746).
+        let src = "=SUM(X1*2, X2*3, X3*4)";
+        let expr = parse(src).unwrap();
+        let slice = |s: &Span| &src[s.offset..s.offset + s.length];
+        match expr {
+            Expr::FunctionCall { name, args, .. } => {
+                assert_eq!(name, "SUM");
+                assert_eq!(args.len(), 3);
+                assert_eq!(slice(args[0].span()), "X1*2");
+                assert_eq!(slice(args[1].span()), "X2*3");
+                assert_eq!(slice(args[2].span()), "X3*4");
+            }
+            _ => panic!("Expected FunctionCall"),
+        }
+    }
+
+    #[test]
+    fn parse_function_call_arg_spans_no_space_after_comma_unaffected() {
+        // Gap noted in review: when there's no whitespace after the comma at
+        // all (`after_ws == after_comma`), the fix must be a no-op — args
+        // still slice to exactly their own tokens.
+        let src = "=SUM(X1*2,X2*3)";
+        let expr = parse(src).unwrap();
+        let slice = |s: &Span| &src[s.offset..s.offset + s.length];
+        match expr {
+            Expr::FunctionCall { name, args, .. } => {
+                assert_eq!(name, "SUM");
+                assert_eq!(args.len(), 2);
+                assert_eq!(slice(args[0].span()), "X1*2");
+                assert_eq!(slice(args[1].span()), "X2*3");
+            }
+            _ => panic!("Expected FunctionCall"),
+        }
+    }
+
+    #[test]
+    fn parse_function_call_nested_and_unary_arg_spans_unaffected() {
+        // Nested-call and unary args were already correct — confirm the
+        // leading-whitespace fix doesn't disturb them.
+        let src = "=SUM(1, MAX(2,3), 4)";
+        let expr = parse(src).unwrap();
+        let slice = |s: &Span| &src[s.offset..s.offset + s.length];
+        match expr {
+            Expr::FunctionCall { name, args, .. } => {
+                assert_eq!(name, "SUM");
+                assert_eq!(args.len(), 3);
+                assert_eq!(slice(args[0].span()), "1");
+                assert_eq!(slice(args[1].span()), "MAX(2,3)");
+                assert_eq!(slice(args[2].span()), "4");
+            }
+            _ => panic!("Expected FunctionCall"),
+        }
+
+        let src2 = "=SUM(1, -2)";
+        let expr2 = parse(src2).unwrap();
+        let slice2 = |s: &Span| &src2[s.offset..s.offset + s.length];
+        match expr2 {
+            Expr::FunctionCall { name, args, .. } => {
+                assert_eq!(name, "SUM");
+                assert_eq!(args.len(), 2);
+                assert_eq!(slice2(args[0].span()), "1");
+                assert_eq!(slice2(args[1].span()), "-2");
             }
             _ => panic!("Expected FunctionCall"),
         }
