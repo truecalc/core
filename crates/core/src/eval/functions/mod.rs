@@ -9,6 +9,7 @@ pub mod lookup;
 pub mod math;
 pub mod operator;
 pub mod parser;
+pub mod query;
 pub mod statistical;
 pub mod text;
 pub mod timezone;
@@ -246,6 +247,7 @@ impl Registry {
         array::register_array(&mut r);
         database::register_database(&mut r);
         lookup::register_lookup(&mut r);
+        query::register_query(&mut r);
         web::register_web(&mut r);
         timezone::register_timezone(&mut r);
         r
