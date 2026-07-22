@@ -27,13 +27,8 @@ pub fn trimmean_fn(args: &[Value]) -> Value {
         Value::Error(e) => return Value::Error(e.clone()),
         Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
         Value::Array(arr) => {
-            for v in arr {
-                match v {
-                    Value::Number(n) => nums.push(*n),
-                    Value::Error(e) => return Value::Error(e.clone()),
-                    Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
-                    _ => {}
-                }
+            if let Err(e) = collect_array_nums(arr, &mut nums) {
+                return e;
             }
         }
         _ => {}
@@ -56,6 +51,21 @@ pub fn trimmean_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::Num);
     }
     Value::Number(mean)
+}
+
+/// Recurse into nested arrays (e.g. a vertical range materializes as nested
+/// one-element row arrays) so every cell is visited.
+fn collect_array_nums(arr: &[Value], out: &mut Vec<f64>) -> Result<(), Value> {
+    for v in arr {
+        match v {
+            Value::Number(n) => out.push(*n),
+            Value::Array(inner) => collect_array_nums(inner, out)?,
+            Value::Error(e) => return Err(Value::Error(e.clone())),
+            Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

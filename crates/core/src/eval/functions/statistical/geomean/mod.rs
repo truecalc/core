@@ -20,13 +20,7 @@ pub fn geomean_fn(args: &[Value]) -> Value {
                 }
             }
             Value::Empty => {}
-            Value::Array(arr) => {
-                for v in arr {
-                    if let Value::Number(n) = v {
-                        nums.push(*n);
-                    }
-                }
-            }
+            Value::Array(arr) => collect_array_nums(arr, &mut nums),
             Value::Error(e) => return Value::Error(e.clone()),
             Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
             _ => {}
@@ -47,6 +41,18 @@ pub fn geomean_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::Num);
     }
     Value::Number(result)
+}
+
+/// Recurse into nested arrays (e.g. a vertical range materializes as nested
+/// one-element row arrays) so every cell is visited.
+fn collect_array_nums(arr: &[Value], out: &mut Vec<f64>) {
+    for v in arr {
+        match v {
+            Value::Number(n) => out.push(*n),
+            Value::Array(inner) => collect_array_nums(inner, out),
+            _ => {}
+        }
+    }
 }
 
 #[cfg(test)]

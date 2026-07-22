@@ -57,3 +57,43 @@ fn elementwise_op_over_a_vertical_range_spills_down_not_sideways() {
     // would have placed its second element) stays empty.
     assert!(wb.resolved("Sheet1", a1("C1")).is_none());
 }
+
+/// A vertical range now materializes with one extra level of `Array`
+/// nesting (see above). Statistical functions that flatten their array
+/// argument by hand (rather than routing through a fully-recursive helper)
+/// must still see every cell — not silently drop them because they only
+/// unwrap one level of nesting.
+#[test]
+fn statistical_functions_still_see_every_cell_of_a_vertical_range() {
+    let mut wb = wb();
+    wb.set("Sheet1", a1("A1"), CellInput::Literal(num(1.0))).unwrap();
+    wb.set("Sheet1", a1("A2"), CellInput::Literal(num(2.0))).unwrap();
+    wb.set("Sheet1", a1("A3"), CellInput::Literal(num(3.0))).unwrap();
+    // A separate vertical range with a repeated value, for MODE.
+    wb.set("Sheet1", a1("D1"), CellInput::Literal(num(1.0))).unwrap();
+    wb.set("Sheet1", a1("D2"), CellInput::Literal(num(2.0))).unwrap();
+    wb.set("Sheet1", a1("D3"), CellInput::Literal(num(2.0))).unwrap();
+
+    wb.set("Sheet1", a1("B1"), CellInput::Formula("=SMALL(A1:A3,1)".into())).unwrap();
+    wb.set("Sheet1", a1("B2"), CellInput::Formula("=LARGE(A1:A3,1)".into())).unwrap();
+    wb.set("Sheet1", a1("B3"), CellInput::Formula("=GEOMEAN(A1:A3)".into())).unwrap();
+    wb.set("Sheet1", a1("B4"), CellInput::Formula("=RANK(A1,A1:A3)".into())).unwrap();
+    wb.set("Sheet1", a1("B5"), CellInput::Formula("=MAXA(A1:A3)".into())).unwrap();
+    wb.set("Sheet1", a1("B6"), CellInput::Formula("=MINA(A1:A3)".into())).unwrap();
+    wb.set("Sheet1", a1("B7"), CellInput::Formula("=MODE(D1:D3)".into())).unwrap();
+    wb.set("Sheet1", a1("B8"), CellInput::Formula("=PERCENTRANK(A1:A3,2)".into())).unwrap();
+    wb.recalc(&ctx());
+
+    assert_eq!(wb.get("Sheet1", a1("B1")).unwrap().value(), &num(1.0), "SMALL");
+    assert_eq!(wb.get("Sheet1", a1("B2")).unwrap().value(), &num(3.0), "LARGE");
+    let geomean = wb.get("Sheet1", a1("B3")).unwrap().value().clone();
+    match geomean {
+        Value::Number(n) => assert!((n - 1.817_120_593).abs() < 1e-6, "GEOMEAN got {n}"),
+        other => panic!("GEOMEAN should be a number, got {other:?}"),
+    }
+    assert_eq!(wb.get("Sheet1", a1("B4")).unwrap().value(), &num(3.0), "RANK");
+    assert_eq!(wb.get("Sheet1", a1("B5")).unwrap().value(), &num(3.0), "MAXA");
+    assert_eq!(wb.get("Sheet1", a1("B6")).unwrap().value(), &num(1.0), "MINA");
+    assert_eq!(wb.get("Sheet1", a1("B7")).unwrap().value(), &num(2.0), "MODE");
+    assert_eq!(wb.get("Sheet1", a1("B8")).unwrap().value(), &num(0.5), "PERCENTRANK");
+}

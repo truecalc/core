@@ -24,13 +24,8 @@ pub fn mode_mult_fn(args: &[Value]) -> Value {
             }
             Value::Empty => {}
             Value::Array(arr) => {
-                for v in arr {
-                    match v {
-                        Value::Number(n) => nums.push(*n),
-                        Value::Error(e) => return Value::Error(e.clone()),
-                        Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
-                        _ => {}
-                    }
+                if let Err(e) = collect_array_nums_into(arr, &mut nums) {
+                    return e;
                 }
             }
             Value::Error(e) => return Value::Error(e.clone()),
@@ -67,6 +62,21 @@ pub fn mode_mult_fn(args: &[Value]) -> Value {
         1 => Value::Number(modes[0]),
         _ => Value::Array(modes.into_iter().map(|n| Value::Array(vec![Value::Number(n)])).collect()),
     }
+}
+
+/// Recurse into nested arrays (e.g. a vertical range materializes as nested
+/// one-element row arrays) so every cell is visited.
+fn collect_array_nums_into(arr: &[Value], out: &mut Vec<f64>) -> Result<(), Value> {
+    for v in arr {
+        match v {
+            Value::Number(n) => out.push(*n),
+            Value::Array(inner) => collect_array_nums_into(inner, out)?,
+            Value::Error(e) => return Err(Value::Error(e.clone())),
+            Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
