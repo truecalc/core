@@ -1,6 +1,7 @@
 # @truecalc/workbook
 
 [![npm](https://img.shields.io/npm/v/@truecalc/workbook)](https://www.npmjs.com/package/@truecalc/workbook)
+[![npm downloads](https://img.shields.io/npm/dm/@truecalc/workbook)](https://www.npmjs.com/package/@truecalc/workbook)
 [![crates.io](https://img.shields.io/crates/v/truecalc-core)](https://crates.io/crates/truecalc-core)
 [![docs.rs](https://img.shields.io/docsrs/truecalc-core)](https://docs.rs/truecalc-core)
 [![license](https://img.shields.io/crates/l/truecalc-core)](LICENSE)

@@ -1,12 +1,14 @@
 # truecalc-core
 
 [![crates.io](https://img.shields.io/crates/v/truecalc-core)](https://crates.io/crates/truecalc-core)
+[![crates.io downloads](https://img.shields.io/crates/d/truecalc-core)](https://crates.io/crates/truecalc-core)
 [![docs.rs](https://img.shields.io/docsrs/truecalc-core)](https://docs.rs/truecalc-core)
 [![license](https://img.shields.io/crates/l/truecalc-core)](LICENSE)
+[![functions](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/truecalc/core/gh-pages/functions-badge.json)](https://truecalc.github.io/core/)
 
 Formula engine with exact Google Sheets semantics — stateless, embeddable, bring your own data model.
 
-484 functions with exact Google Sheets semantics. Ground-truth conformance validated case by case against real Google Sheets — not a spec interpretation. Stateless and embeddable: bring your own data model, no workbook required. Also available as a [WebAssembly npm package](https://www.npmjs.com/package/@truecalc/core) and as an [MCP server](https://crates.io/crates/truecalc-mcp) for AI assistants.
+A large, growing function library (see the live count above) with exact Google Sheets semantics. Ground-truth conformance validated case by case against real Google Sheets — not a spec interpretation. Stateless and embeddable: bring your own data model, no workbook required. Also available as a [WebAssembly npm package](https://www.npmjs.com/package/@truecalc/core) and as an [MCP server](https://crates.io/crates/truecalc-mcp) for AI assistants.
 
 ```rust
 let result = Engine::sheets().evaluate("=SUM(A1,B1)", &vars);

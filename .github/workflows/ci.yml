@@ -183,6 +183,8 @@ jobs:
             | ./target/debug/truecalc-mcp \
             | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); fns=json.loads(d['result']['content'][0]['text'])['functions']; json.dump(sorted(fns,key=lambda f:f['name']),sys.stdout)" \
             > target/functions.json
+          fn_count=$(python3 -c "import json; print(len(json.load(open('target/functions.json'))))")
+          functions_badge_json="{\"schemaVersion\":1,\"label\":\"functions\",\"message\":\"${fn_count}\",\"color\":\"blue\"}"
           python3 .github/scripts/generate-pages-html.py \
             target/nextest/ci/junit.xml \
             target/conformance-report.json \
@@ -196,11 +198,12 @@ jobs:
           git checkout gh-pages 2>/dev/null || git checkout --orphan gh-pages
           echo "$badge_json" > conformance-badge.json
           echo "$cov_badge_json" > coverage-badge.json
+          echo "$functions_badge_json" > functions-badge.json
           cp /tmp/conformance.html index.html
           rm -rf coverage && cp -r /tmp/coverage-html coverage
           touch .nojekyll
           cp /tmp/conformance-summary.json conformance-summary.json
-          git add conformance-badge.json coverage-badge.json index.html .nojekyll coverage/ conformance-summary.json
+          git add conformance-badge.json coverage-badge.json functions-badge.json index.html .nojekyll coverage/ conformance-summary.json
           git diff --cached --quiet || git commit -m "chore: update conformance + coverage report [skip ci]"
           git push --force origin gh-pages
           # Restore working tree so subsequent steps (Clippy, wasm-pack) see source files.

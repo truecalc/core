@@ -2,11 +2,13 @@
 
 [![truecalc-core](https://img.shields.io/crates/v/truecalc-core?label=truecalc-core)](https://crates.io/crates/truecalc-core)
 [![truecalc-mcp](https://img.shields.io/crates/v/truecalc-mcp?label=truecalc-mcp)](https://crates.io/crates/truecalc-mcp)
+[![crates.io downloads](https://img.shields.io/crates/d/truecalc-mcp)](https://crates.io/crates/truecalc-mcp)
 [![license](https://img.shields.io/crates/l/truecalc-mcp)](LICENSE)
+[![functions](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/truecalc/core/gh-pages/functions-badge.json)](https://truecalc.github.io/core/)
 
 MCP server that exposes [truecalc](https://crates.io/crates/truecalc-core) spreadsheet formula evaluation as tools for AI assistants.
 
-484 spreadsheet functions — evaluate, validate, and explain formulas without writing any code. Ground-truth conformance against real Google Sheets. Backed by the same engine used in the [Rust crate](https://crates.io/crates/truecalc-core) and [npm package](https://www.npmjs.com/package/@truecalc/core).
+A comprehensive spreadsheet function library (see the live count above) — evaluate, validate, and explain formulas without writing any code. Ground-truth conformance against real Google Sheets. Backed by the same engine used in the [Rust crate](https://crates.io/crates/truecalc-core) and [npm package](https://www.npmjs.com/package/@truecalc/core).
 
 ```json
 // Tool: evaluate

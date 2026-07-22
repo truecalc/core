@@ -1,13 +1,15 @@
 # @truecalc/core
 
 [![npm](https://img.shields.io/npm/v/@truecalc/core)](https://www.npmjs.com/package/@truecalc/core)
+[![npm downloads](https://img.shields.io/npm/dm/@truecalc/core)](https://www.npmjs.com/package/@truecalc/core)
 [![crates.io](https://img.shields.io/crates/v/truecalc-core)](https://crates.io/crates/truecalc-core)
 [![docs.rs](https://img.shields.io/docsrs/truecalc-core)](https://docs.rs/truecalc-core)
 [![license](https://img.shields.io/crates/l/truecalc-core)](LICENSE)
+[![functions](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/truecalc/core/gh-pages/functions-badge.json)](https://truecalc.github.io/core/)
 
 WebAssembly-powered spreadsheet formula engine for JavaScript/TypeScript.
 
-484 spreadsheet functions. Runs in Node.js, Bun, Deno, and the browser — no server needed. Ground-truth conformance against real Google Sheets. The same engine is also available as a [Rust crate](https://crates.io/crates/truecalc-core) and as an [MCP server](https://crates.io/crates/truecalc-mcp) for AI assistants.
+A comprehensive library of spreadsheet functions (see the live count above). Runs in Node.js, Bun, Deno, and the browser — no server needed. Ground-truth conformance against real Google Sheets. The same engine is also available as a [Rust crate](https://crates.io/crates/truecalc-core) and as an [MCP server](https://crates.io/crates/truecalc-mcp) for AI assistants.
 
 ```js
 const { evaluate } = require('@truecalc/core');
@@ -162,15 +164,7 @@ const fns = list_functions();
 // ]
 ```
 
-**Available functions by category:**
-
-| Category   | Functions |
-|------------|-----------|
-| math       | SUM, AVERAGE, PRODUCT, ROUND, ROUNDUP, ROUNDDOWN, INT, ABS, SIGN, MOD, POWER, SQRT, LOG, LOG10, LN, EXP, CEILING, FLOOR, RAND, RANDBETWEEN, PI, SIN, COS, TAN, QUOTIENT |
-| logical    | IF, AND, OR, NOT, IFERROR, IFNA, IFS, SWITCH, ISNUMBER, ISTEXT, ISERROR, ISBLANK, ISNA |
-| text       | LEFT, MID, RIGHT, LEN, LOWER, UPPER, TRIM, CONCATENATE, FIND, SUBSTITUTE, REPLACE, TEXT, VALUE, REPT |
-| financial  | PMT, NPV, IRR, PV, FV, RATE, NPER |
-| statistical | COUNT, COUNTA, MAX, MIN, MEDIAN |
+See the full, live function list at [truecalc.github.io/core](https://truecalc.github.io/core/).
 
 ## Documentation
 
