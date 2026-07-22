@@ -39,15 +39,11 @@ pub fn max_fn(args: &[Value]) -> Value {
                 if elems.is_empty() {
                     return Value::Error(ErrorKind::Ref);
                 }
-                for elem in elems {
-                    match elem {
-                        Value::Number(n) => {
-                            result = Some(result.map_or(*n, |cur: f64| cur.max(*n)));
-                        }
-                        Value::Error(e) => return Value::Error(e.clone()),
-                        Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
-                        _ => {}
-                    }
+                // Recurse into nested arrays (e.g. a vertical range
+                // materializes as nested one-element row arrays) so every
+                // cell is visited.
+                if let Err(e) = max_array_into(elems, &mut result) {
+                    return e;
                 }
             }
             Value::Error(e) => return Value::Error(e.clone()),
@@ -60,6 +56,23 @@ pub fn max_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::Ref);
     }
     Value::Number(result.unwrap_or(0.0))
+}
+
+/// Recursively fold a nested array's numbers into `result` for MAX's
+/// array-context rules (Bool/Text/Empty skipped, errors propagate).
+fn max_array_into(elems: &[Value], result: &mut Option<f64>) -> Result<(), Value> {
+    for elem in elems {
+        match elem {
+            Value::Number(n) => {
+                *result = Some(result.map_or(*n, |cur: f64| cur.max(*n)));
+            }
+            Value::Error(e) => return Err(Value::Error(e.clone())),
+            Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
+            Value::Array(inner) => max_array_into(inner, result)?,
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

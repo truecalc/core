@@ -1197,10 +1197,19 @@ impl Resolver for GridResolver<'_> {
 
 impl GridResolver<'_> {
     /// Materializes a range as a core `Value::Array` of its cells in row-major
-    /// reading order — the flat shape the P1.3 [`Resolver`] contract specifies
+    /// reading order — the shape the P1.3 [`Resolver`] contract specifies
     /// ("a range -> a Value::Array of the cells in reading order") and the shape
     /// core's aggregations (SUM/AVERAGE/COUNT/SUMIF) and shape functions
-    /// consume. The own/target sheet has already been resolved.
+    /// consume.
+    ///
+    /// A single-column, multi-row range (a *vertical* range) is materialized
+    /// as a nested `Array` of one-element row `Array`s — core's Nx1 column
+    /// shape (see `to_2d`/`from_2d` in the array functions) — so elementwise
+    /// operations over it (e.g. `=A1:A3*2`) spill down like Google Sheets,
+    /// instead of losing their column orientation to a flat row. Every other
+    /// shape (a single row, a single cell, or a genuine 2-D block) keeps the
+    /// existing flat row-major array, unchanged. The own/target sheet has
+    /// already been resolved.
     fn resolve_range(
         &self,
         sheet_folded: &str,
@@ -1209,6 +1218,7 @@ impl GridResolver<'_> {
     ) -> CoreValue {
         let (r0, r1) = (start.row.min(end.row), start.row.max(end.row));
         let (c0, c1) = (start.col.min(end.col), start.col.max(end.col));
+        let is_vertical = r1 > r0 && c0 == c1;
         let mut cells: Vec<CoreValue> = Vec::new();
         for r in r0..=r1 {
             for c in c0..=c1 {
@@ -1229,9 +1239,17 @@ impl GridResolver<'_> {
                             },
                             other => other,
                         };
-                        cells.push(scalar);
+                        cells.push(if is_vertical {
+                            CoreValue::Array(vec![scalar])
+                        } else {
+                            scalar
+                        });
                     }
-                    None => cells.push(CoreValue::Error(ErrorKind::Ref)),
+                    None => cells.push(if is_vertical {
+                        CoreValue::Array(vec![CoreValue::Error(ErrorKind::Ref)])
+                    } else {
+                        CoreValue::Error(ErrorKind::Ref)
+                    }),
                 }
             }
         }

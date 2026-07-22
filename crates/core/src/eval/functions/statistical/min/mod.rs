@@ -34,15 +34,11 @@ pub fn min_fn(args: &[Value]) -> Value {
             }
             Value::Empty => {}
             Value::Array(elems) => {
-                for elem in elems {
-                    match elem {
-                        Value::Number(n) => {
-                            result = Some(result.map_or(*n, |cur: f64| cur.min(*n)));
-                        }
-                        Value::Error(e) => return Value::Error(e.clone()),
-                        Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
-                        _ => {}
-                    }
+                // Recurse into nested arrays (e.g. a vertical range
+                // materializes as nested one-element row arrays) so every
+                // cell is visited.
+                if let Err(e) = min_array_into(elems, &mut result) {
+                    return e;
                 }
             }
             Value::Error(e) => return Value::Error(e.clone()),
@@ -51,6 +47,23 @@ pub fn min_fn(args: &[Value]) -> Value {
         }
     }
     Value::Number(result.unwrap_or(0.0))
+}
+
+/// Recursively fold a nested array's numbers into `result` for MIN's
+/// array-context rules (Bool/Text/Empty skipped, errors propagate).
+fn min_array_into(elems: &[Value], result: &mut Option<f64>) -> Result<(), Value> {
+    for elem in elems {
+        match elem {
+            Value::Number(n) => {
+                *result = Some(result.map_or(*n, |cur: f64| cur.min(*n)));
+            }
+            Value::Error(e) => return Err(Value::Error(e.clone())),
+            Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
+            Value::Array(inner) => min_array_into(inner, result)?,
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
