@@ -323,6 +323,31 @@ fn parse_literal(s: &str) -> Option<Value> {
     s.parse::<f64>().ok().map(Value::Number)
 }
 
+/// Find the first byte offset of `token` in `s` outside single-quoted
+/// regions, scanning left to right. Byte-wise comparison against an ASCII
+/// `token` is UTF-8-safe: multi-byte characters (e.g. inside a quoted text
+/// literal) never contain a byte matching a lone ASCII byte, so they can't
+/// produce a false match.
+fn find_top_level(s: &str, token: &str) -> Option<usize> {
+    let bytes = s.as_bytes();
+    let tokenb = token.as_bytes();
+    let n = bytes.len();
+    let mut in_quote = false;
+    let mut i = 0;
+    while i < n {
+        if bytes[i] == b'\'' {
+            in_quote = !in_quote;
+            i += 1;
+            continue;
+        }
+        if !in_quote && bytes[i..].starts_with(tokenb) {
+            return Some(i);
+        }
+        i += 1;
+    }
+    None
+}
+
 fn parse_condition(s: &str) -> Result<Condition, Value> {
     let trimmed = s.trim();
     let lower = trimmed.to_ascii_lowercase();
@@ -349,7 +374,7 @@ fn parse_condition(s: &str) -> Result<Condition, Value> {
         (">", CondOp::Gt),
     ];
     for (token, op) in OPS {
-        if let Some(idx) = trimmed.find(token) {
+        if let Some(idx) = find_top_level(trimmed, token) {
             let col = parse_col_ref(&trimmed[..idx])
                 .ok_or_else(|| parse_error(format!("Unable to parse query string for Function QUERY parameter 2: invalid WHERE condition '{s}'")))?;
             let value = parse_literal(&trimmed[idx + token.len()..])
@@ -357,7 +382,7 @@ fn parse_condition(s: &str) -> Result<Condition, Value> {
             return Ok(Condition { col, op, value: Some(value) });
         }
     }
-    if let Some(idx) = trimmed.find('=') {
+    if let Some(idx) = find_top_level(trimmed, "=") {
         let col = parse_col_ref(&trimmed[..idx])
             .ok_or_else(|| parse_error(format!("Unable to parse query string for Function QUERY parameter 2: invalid WHERE condition '{s}'")))?;
         let value = parse_literal(&trimmed[idx + 1..])

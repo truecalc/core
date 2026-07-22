@@ -74,3 +74,26 @@ fn where_is_null_and_is_not_null() {
         Value::Array(vec![Value::Array(vec![text("Name")]), Value::Array(vec![text("Alice")]), Value::Array(vec![text("Carol")])])
     );
 }
+
+#[test]
+fn where_text_literal_containing_operator_characters() {
+    // The quoted RHS literal itself contains '<', '>', and '!' characters —
+    // the operator scan must not mistake those for the real comparison
+    // operator and must not scan past the quoted region at all.
+    let data = table(vec![
+        vec![text("Name"), text("Note")],
+        vec![text("Alice"), text("A<B")],
+        vec![text("Bob"), text("C>D")],
+        vec![text("Carol"), text("E!=F")],
+        vec![text("Dave"), text("plain")],
+    ]);
+
+    let lt = query_fn(&[data.clone(), text("select Col1 where Col2 = 'A<B'"), num(1.0)]);
+    assert_eq!(lt, Value::Array(vec![Value::Array(vec![text("Name")]), Value::Array(vec![text("Alice")])]));
+
+    let gt = query_fn(&[data.clone(), text("select Col1 where Col2 = 'C>D'"), num(1.0)]);
+    assert_eq!(gt, Value::Array(vec![Value::Array(vec![text("Name")]), Value::Array(vec![text("Bob")])]));
+
+    let ne = query_fn(&[data, text("select Col1 where Col2 = 'E!=F'"), num(1.0)]);
+    assert_eq!(ne, Value::Array(vec![Value::Array(vec![text("Name")]), Value::Array(vec![text("Carol")])]));
+}
