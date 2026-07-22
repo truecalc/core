@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.1](https://github.com/truecalc/core/compare/truecalc-core-v6.0.0...truecalc-core-v6.0.1) - 2026-07-22
+
+### Other
+
+- remove hardcoded function counts, add live badges + download badges
+
 ## [6.0.0](https://github.com/truecalc/core/compare/truecalc-core-v5.0.3...truecalc-core-v6.0.0) - 2026-07-22
 
 ### Added
