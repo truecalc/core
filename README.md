@@ -1,17 +1,19 @@
 # @truecalc/core
 
 [![npm](https://img.shields.io/npm/v/@truecalc/core)](https://www.npmjs.com/package/@truecalc/core)
+[![npm downloads](https://img.shields.io/npm/dm/@truecalc/core)](https://www.npmjs.com/package/@truecalc/core)
 [![truecalc-core](https://img.shields.io/crates/v/truecalc-core?label=truecalc-core)](https://crates.io/crates/truecalc-core)
 [![truecalc-mcp](https://img.shields.io/crates/v/truecalc-mcp?label=truecalc-mcp)](https://crates.io/crates/truecalc-mcp)
 [![docs.rs](https://img.shields.io/docsrs/truecalc-core)](https://docs.rs/truecalc-core)
 [![license](https://img.shields.io/crates/l/truecalc-core)](LICENSE)
+[![functions](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/truecalc/core/gh-pages/functions-badge.json)](https://truecalc.github.io/core/)
 [![Google Sheets Conformance](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/truecalc/core/gh-pages/conformance-badge.json)](https://truecalc.github.io/core/)
 
 WebAssembly-powered spreadsheet formula engine for JavaScript/TypeScript.
 
 [DeepWiki](https://deepwiki.com/truecalc/core)
 
-484 spreadsheet functions. Runs in Node.js, Bun, Deno, and the browser — no server needed. Ground-truth conformance against real Google Sheets. The same engine is also available as a [Rust crate](https://crates.io/crates/truecalc-core) and as an [MCP server](https://crates.io/crates/truecalc-mcp) for AI assistants.
+A comprehensive library of spreadsheet functions (see the live count above). Runs in Node.js, Bun, Deno, and the browser — no server needed. Ground-truth conformance against real Google Sheets. The same engine is also available as a [Rust crate](https://crates.io/crates/truecalc-core) and as an [MCP server](https://crates.io/crates/truecalc-mcp) for AI assistants.
 
 ```js
 const { evaluate } = require('@truecalc/core');

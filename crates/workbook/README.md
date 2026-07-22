@@ -1,6 +1,7 @@
 # truecalc-workbook
 
 [![crates.io](https://img.shields.io/crates/v/truecalc-workbook)](https://crates.io/crates/truecalc-workbook)
+[![crates.io downloads](https://img.shields.io/crates/d/truecalc-workbook)](https://crates.io/crates/truecalc-workbook)
 [![docs.rs](https://img.shields.io/docsrs/truecalc-workbook)](https://docs.rs/truecalc-workbook)
 [![license](https://img.shields.io/crates/l/truecalc-workbook)](../../LICENSE)
 
