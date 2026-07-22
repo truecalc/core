@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.0](https://github.com/truecalc/core/compare/truecalc-workbook-v5.0.3...truecalc-workbook-v6.0.0) - 2026-07-22
+
+### Added
+
+- accept #REF! and the error-literal family as parser tokens
+
 ## [5.0.0](https://github.com/truecalc/core/compare/truecalc-workbook-v4.0.0...truecalc-workbook-v5.0.0) - 2026-07-20
 
 ### Added

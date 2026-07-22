@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.0](https://github.com/truecalc/core/compare/truecalc-core-v5.0.3...truecalc-core-v6.0.0) - 2026-07-22
+
+### Added
+
+- accept #REF! and the error-literal family as parser tokens
+
+### Fixed
+
+- *(parser)* make error_literal case-insensitive and avoid per-parse allocation
+
 ## [5.0.3](https://github.com/truecalc/core/compare/truecalc-core-v5.0.1...truecalc-core-v5.0.3) - 2026-07-21
 
 ### Fixed
