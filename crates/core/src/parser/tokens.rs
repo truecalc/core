@@ -7,6 +7,8 @@ use nom::{
     sequence::{delimited, pair},
 };
 
+use crate::types::ErrorKind;
+
 /// Byte offset of `sub` within `full`. Both must be slices of the same allocation.
 pub fn offset(full: &str, sub: &str) -> usize {
     sub.as_ptr() as usize - full.as_ptr() as usize
@@ -72,6 +74,51 @@ pub fn bool_literal(i: &str) -> IResult<&str, bool> {
     Err(nom::Err::Error(nom::error::Error::new(i, nom::error::ErrorKind::Tag)))
 }
 
+/// Parse one of the error-literal tokens (`#REF!`, `#DIV/0!`, `#NAME?`,
+/// `#VALUE!`, `#NUM!`, `#N/A`, `#NULL!` — `ErrorKind::LITERAL_KINDS`) into its
+/// `ErrorKind`, so a formula can embed an error value directly (`=#REF!`,
+/// `=#REF!+1`) the same way it embeds a number or boolean literal.
+///
+/// Case-insensitive, matching this file's other keyword-style tokens
+/// (`bool_literal`'s `TRUE`/`true`, cell-reference letters): `#ref!` and
+/// `#Ref!` parse the same as `#REF!`.
+///
+/// Word-boundary rule: the character immediately following the matched
+/// literal, if any, must not be alphanumeric or `_`. This rejects a
+/// hypothetical trailing character glued onto the literal (`#REF!X`) rather
+/// than silently truncating it to `#REF!` and leaving `X` as garbage for the
+/// caller to trip over later. `#N/A` is the one literal with no trailing
+/// punctuation to anchor on — the same boundary check still applies, using
+/// the character after the final `A`.
+///
+/// None of the seven canonical strings is a prefix of another (they all
+/// diverge by their second or third character), so at most one candidate can
+/// ever match a given input; the loop below does not need longest-match
+/// ordering.
+///
+/// Every primary-expression parse tries this function (see `parse_primary`),
+/// so it bails out before the per-kind loop — and its `to_string()`
+/// allocations — for the overwhelming majority of inputs that don't even
+/// start with `#`.
+pub fn error_literal(i: &str) -> IResult<&str, ErrorKind> {
+    if !i.starts_with('#') {
+        return Err(nom::Err::Error(nom::error::Error::new(i, nom::error::ErrorKind::Tag)));
+    }
+    let bytes = i.as_bytes();
+    for kind in ErrorKind::LITERAL_KINDS {
+        let text = kind.to_string();
+        let len = text.len();
+        if bytes.len() >= len && bytes[..len].eq_ignore_ascii_case(text.as_bytes()) {
+            let rest = &i[len..];
+            let boundary_ok = !rest.chars().next().map(|c| c.is_alphanumeric() || c == '_').unwrap_or(false);
+            if boundary_ok {
+                return Ok((rest, kind));
+            }
+        }
+    }
+    Err(nom::Err::Error(nom::error::Error::new(i, nom::error::ErrorKind::Tag)))
+}
+
 /// Parse an identifier: `[a-zA-Z_][a-zA-Z0-9_.]*`
 /// Dots are allowed within identifiers to support function names like `ERROR.TYPE`.
 pub fn identifier(i: &str) -> IResult<&str, &str> {
@@ -83,87 +130,4 @@ pub fn identifier(i: &str) -> IResult<&str, &str> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn numbers() {
-        assert_eq!(number_literal("3.14rest"), Ok(("rest", 3.14)));
-        assert_eq!(number_literal("42"), Ok(("", 42.0)));
-        assert_eq!(number_literal("1e3"), Ok(("", 1000.0)));
-    }
-
-    #[test]
-    fn strings() {
-        assert_eq!(string_literal("\"hello\""), Ok(("", "hello".to_string())));
-        assert_eq!(string_literal("\"\""), Ok(("", "".to_string())));
-        // Unterminated string returns an error
-        assert!(string_literal("\"unterminated").is_err());
-    }
-
-    #[test]
-    fn booleans() {
-        assert_eq!(bool_literal("TRUE"), Ok(("", true)));
-        assert_eq!(bool_literal("false"), Ok(("", false)));
-        assert_eq!(bool_literal("FALSE rest"), Ok((" rest", false)));
-        assert!(bool_literal("TRUNC(1)").is_err());
-        assert!(bool_literal("TRUENESS").is_err());
-    }
-
-    #[test]
-    fn identifiers() {
-        assert_eq!(identifier("myVar"), Ok(("", "myVar")));
-        assert_eq!(identifier("_x1 rest"), Ok((" rest", "_x1")));
-        assert!(identifier("123abc").is_err());
-    }
-
-    #[test]
-    fn dollar_cell_ref_matches_all_three_dollar_shapes() {
-        assert_eq!(dollar_cell_ref("$A$1 rest"), Ok((" rest", "$A$1")));
-        assert_eq!(dollar_cell_ref("$A1 rest"), Ok((" rest", "$A1")));
-        assert_eq!(dollar_cell_ref("A$1 rest"), Ok((" rest", "A$1")));
-    }
-
-    #[test]
-    fn dollar_cell_ref_rejects_plain_no_dollar_input() {
-        // No '$' present -> must fail, leaving `identifier()` to own this case.
-        assert!(dollar_cell_ref("A1").is_err());
-        assert!(dollar_cell_ref("myVar").is_err());
-    }
-
-    #[test]
-    fn dollar_cell_ref_no_match_leaves_input_unchanged() {
-        match dollar_cell_ref("A1") {
-            Err(nom::Err::Error(e)) => assert_eq!(e.input, "A1"),
-            other => panic!("expected Error with unchanged input, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn dollar_cell_ref_rejects_malformed_shapes() {
-        for text in ["$", "$$A1", "$1A"] {
-            assert!(dollar_cell_ref(text).is_err(), "{text:?} should not match");
-        }
-    }
-
-    #[test]
-    fn offset_calc() {
-        let full = "=SUM(1,2)";
-        let sub = &full[5..]; // "1,2)"
-        assert_eq!(offset(full, sub), 5);
-    }
-
-    #[test]
-    fn bool_boundary() {
-        // FALSE branch word-boundary rejection
-        assert!(bool_literal("falsetto").is_err());
-        // TRUE branch already tested in booleans test
-    }
-
-    #[test]
-    fn offset_boundaries() {
-        let full = "=SUM(1,2)";
-        assert_eq!(offset(full, full), 0);
-        assert_eq!(offset(full, &full[full.len()..]), full.len());
-    }
-}
+mod tests;

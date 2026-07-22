@@ -36,6 +36,8 @@ pub enum EvalOp<'a> {
     Text,
     /// Boolean literal.
     Bool,
+    /// Error literal (`#REF!` etc.), carrying its kind.
+    Error(&'a ErrorKind),
     /// Bare-identifier read (local binding or reference), carrying its name.
     Variable(&'a str),
     /// Cell / range / name reference read.
@@ -60,6 +62,7 @@ impl<'a> EvalOp<'a> {
             Expr::Number(..) => EvalOp::Number,
             Expr::Text(..) => EvalOp::Text,
             Expr::Bool(..) => EvalOp::Bool,
+            Expr::Error(kind, _) => EvalOp::Error(kind),
             Expr::Variable(name, _) => EvalOp::Variable(name),
             Expr::Reference(..) => EvalOp::Reference,
             Expr::UnaryOp { op, .. } => EvalOp::UnaryOp(op),

@@ -81,6 +81,7 @@ fn eval_node(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
         }
         Expr::Text(s, _)   => Value::Text(s.clone()),
         Expr::Bool(b, _)   => Value::Bool(*b),
+        Expr::Error(kind, _) => Value::Error(kind.clone()),
         // Bare identifiers: a local binding (LAMBDA parameter, caller-supplied
         // variable, or canonical-text variable) wins; otherwise the name is
         // classified into a `Ref` and read through the resolver (P1.3, #525).

@@ -110,6 +110,7 @@ fn bench_hook(c: &mut Criterion) {
                     EvalOp::Array => 7,
                     EvalOp::Apply => 8,
                     EvalOp::FunctionCall(_) => 9,
+                    EvalOp::Error(_) => 10,
                 };
                 events.push((tag, span, v.clone()));
             };

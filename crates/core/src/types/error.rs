@@ -31,6 +31,24 @@ impl fmt::Display for ErrorKind {
     }
 }
 
+impl ErrorKind {
+    /// Every kind the parser accepts as a literal formula token (`#REF!`,
+    /// `=1/0+#REF!` etc.), in canonical-string form via `Display`. The
+    /// tokenizer's `error_literal` (`crate::parser::tokens`) mirrors this
+    /// list rather than duplicating the string table above. `Unsupported` is
+    /// engine-internal (never produced by a Google Sheets/Excel formula) and
+    /// is deliberately excluded.
+    pub const LITERAL_KINDS: [ErrorKind; 7] = [
+        ErrorKind::Ref,
+        ErrorKind::DivByZero,
+        ErrorKind::Name,
+        ErrorKind::Value,
+        ErrorKind::Num,
+        ErrorKind::NA,
+        ErrorKind::Null,
+    ];
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParseError {
     pub message: String,
