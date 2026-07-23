@@ -1,0 +1,35 @@
+name: Feature request
+description: Request a new function, a new capability, or an improvement to an existing one.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that truecalc doesn't currently support?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What function or behavior would solve this? If it's a spreadsheet function, name the Google Sheets/Excel function it corresponds to, if any.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Example
+      description: A concrete formula example showing the requested behavior with sample inputs and the expected output.
+      placeholder: |
+        =NEWFUNCTION(A1, B1) with A1 = 1, B1 = 2 => 3
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any workarounds you're currently using, or other approaches you considered.
+    validations:
+      required: false
