@@ -27,14 +27,11 @@ pub fn average_fn(args: &[Value]) -> Value {
             Value::Zoned(_) => return Value::Error(ErrorKind::Value),
             Value::Error(_) | Value::ErrorMsg(_, _) => return arg.clone(),
             Value::Array(elems) => {
-                // Array context: skip bool/text, include numbers
-                for elem in elems {
-                    match elem {
-                        Value::Number(n) => { sum += n; count += 1; }
-                        Value::Date(n)   => { sum += n; count += 1; }
-                        Value::Error(_) | Value::ErrorMsg(_, _) => return elem.clone(),
-                        _ => {} // Bool, Text, Empty all skipped in array
-                    }
+                // Array context: skip bool/text, include numbers. Recurse into
+                // nested arrays (e.g. a vertical range materializes as nested
+                // one-element row arrays) so every cell is visited.
+                if let Err(e) = average_array_into(elems, &mut sum, &mut count) {
+                    return e;
                 }
             }
         }
@@ -47,6 +44,21 @@ pub fn average_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::Num);
     }
     Value::Number(result)
+}
+
+/// Recursively accumulate a nested array's numbers into `sum`/`count` for
+/// AVERAGE's array-context rules (Bool/Text/Empty skipped, errors propagate).
+fn average_array_into(elems: &[Value], sum: &mut f64, count: &mut usize) -> Result<(), Value> {
+    for elem in elems {
+        match elem {
+            Value::Number(n) => { *sum += n; *count += 1; }
+            Value::Date(n)   => { *sum += n; *count += 1; }
+            Value::Error(_) | Value::ErrorMsg(_, _) => return Err(elem.clone()),
+            Value::Array(inner) => average_array_into(inner, sum, count)?,
+            _ => {} // Bool, Text, Empty all skipped in array
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

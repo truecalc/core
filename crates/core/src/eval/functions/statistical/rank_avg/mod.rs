@@ -47,14 +47,7 @@ fn collect_numbers_checked(v: &Value) -> Result<Vec<f64>, Value> {
     match v {
         Value::Array(arr) => {
             let mut nums = Vec::new();
-            for x in arr {
-                match x {
-                    Value::Number(n) => nums.push(*n),
-                    Value::Error(e) => return Err(Value::Error(e.clone())),
-                    Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
-                    _ => {}
-                }
-            }
+            collect_numbers_checked_into(arr, &mut nums)?;
             Ok(nums)
         }
         Value::Number(n) => Ok(vec![*n]),
@@ -62,6 +55,21 @@ fn collect_numbers_checked(v: &Value) -> Result<Vec<f64>, Value> {
         Value::ErrorMsg(e, m) => Err(Value::ErrorMsg(e.clone(), m.clone())),
         _ => Ok(vec![]),
     }
+}
+
+/// Recurse into nested arrays (e.g. a vertical range materializes as nested
+/// one-element row arrays) so every cell is visited.
+fn collect_numbers_checked_into(arr: &[Value], out: &mut Vec<f64>) -> Result<(), Value> {
+    for x in arr {
+        match x {
+            Value::Number(n) => out.push(*n),
+            Value::Array(inner) => collect_numbers_checked_into(inner, out)?,
+            Value::Error(e) => return Err(Value::Error(e.clone())),
+            Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

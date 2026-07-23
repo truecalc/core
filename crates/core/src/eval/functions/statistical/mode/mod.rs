@@ -6,22 +6,28 @@ fn collect_nums(args: &[Value]) -> Result<Vec<f64>, Value> {
     for arg in args {
         match arg {
             Value::Number(n) => nums.push(*n),
-            Value::Array(arr) => {
-                for v in arr {
-                    match v {
-                        Value::Number(n) => nums.push(*n),
-                        Value::Error(e) => return Err(Value::Error(e.clone())),
-                        Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
-                        _ => {}
-                    }
-                }
-            }
+            Value::Array(arr) => collect_nums_array_into(arr, &mut nums)?,
             Value::Error(e) => return Err(Value::Error(e.clone())),
             Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
             _ => {}
         }
     }
     Ok(nums)
+}
+
+/// Recurse into nested arrays (e.g. a vertical range materializes as nested
+/// one-element row arrays) so every cell is visited.
+fn collect_nums_array_into(arr: &[Value], out: &mut Vec<f64>) -> Result<(), Value> {
+    for v in arr {
+        match v {
+            Value::Number(n) => out.push(*n),
+            Value::Array(inner) => collect_nums_array_into(inner, out)?,
+            Value::Error(e) => return Err(Value::Error(e.clone())),
+            Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 /// Find the most frequent value. If tie, return the smallest. If all unique or no values: `#N/A`.

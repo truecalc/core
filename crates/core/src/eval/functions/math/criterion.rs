@@ -18,11 +18,13 @@ pub enum Criterion {
     BoolEq(bool),
 }
 
-/// Flatten a `Value` into a flat list of references.
-/// `Value::Array` is expanded one level; scalars become a single-element slice.
+/// Flatten a `Value` into a flat list of references, fully recursing through
+/// nested arrays (e.g. a vertical range materializes as nested one-element
+/// row arrays — see `resolve_range` in the workbook crate). Scalars become a
+/// single-element slice.
 pub fn flatten_to_vec(v: &Value) -> Vec<&Value> {
     match v {
-        Value::Array(arr) => arr.iter().collect(),
+        Value::Array(arr) => arr.iter().flat_map(flatten_to_vec).collect(),
         other => vec![other],
     }
 }

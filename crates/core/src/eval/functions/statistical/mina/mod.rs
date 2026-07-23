@@ -23,18 +23,11 @@ pub fn mina_fn(args: &[Value]) -> Value {
             Value::Text(_) => return Value::Error(ErrorKind::Value),
             Value::Empty => {}
             Value::Array(inner) => {
-                // In array context: Numbers included, Bool→1/0, Text→0, Empty→skip
-                for v in inner {
-                    let n = match v {
-                        Value::Number(n) => *n,
-                        Value::Bool(b) => if *b { 1.0 } else { 0.0 },
-                        Value::Text(_) => 0.0,
-                        Value::Empty => continue,
-                        Value::Error(e) => return Value::Error(e.clone()),
-                        Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
-                        _ => continue,
-                    };
-                    result = Some(result.map_or(n, |cur: f64| cur.min(n)));
+                // In array context: Numbers included, Bool→1/0, Text→0, Empty→skip.
+                // Recurses into nested arrays (e.g. a vertical range
+                // materializes as nested one-element row arrays).
+                if let Err(e) = fold_array_min(inner, &mut result) {
+                    return e;
                 }
             }
             Value::Error(e) => return Value::Error(e.clone()),
@@ -46,6 +39,29 @@ pub fn mina_fn(args: &[Value]) -> Value {
         Some(n) => Value::Number(n),
         None    => Value::Error(ErrorKind::NA),
     }
+}
+
+/// Recurse into nested arrays (e.g. a vertical range materializes as nested
+/// one-element row arrays) so every cell is visited, folding into `result`
+/// with MINA's array-context coercion rules.
+fn fold_array_min(arr: &[Value], result: &mut Option<f64>) -> Result<(), Value> {
+    for v in arr {
+        let n = match v {
+            Value::Number(n) => *n,
+            Value::Bool(b) => if *b { 1.0 } else { 0.0 },
+            Value::Text(_) => 0.0,
+            Value::Empty => continue,
+            Value::Array(inner) => {
+                fold_array_min(inner, result)?;
+                continue;
+            }
+            Value::Error(e) => return Err(Value::Error(e.clone())),
+            Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
+            _ => continue,
+        };
+        *result = Some(result.map_or(n, |cur: f64| cur.min(n)));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
