@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.0](https://github.com/truecalc/core/compare/truecalc-core-v6.0.1...truecalc-core-v6.1.0) - 2026-07-25
+
+### Added
+
+- *(core)* rewrite sheet-qualified formula refs on sheet rename
+
+### Fixed
+
+- correct case-fold doc claim, add LET-shadowing test
+- fully flatten nested arrays in remaining statistical functions
+- preserve column orientation for vertical ranges in elementwise ops
+
+### Other
+
+- Merge pull request #763 from truecalc/fix/724-vertical-range-spill
+
 ## [6.0.1](https://github.com/truecalc/core/compare/truecalc-core-v6.0.0...truecalc-core-v6.0.1) - 2026-07-22
 
 ### Other
