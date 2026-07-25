@@ -110,6 +110,39 @@ fn translate_formula_propagates_parse_error() {
     assert!(engine.translate_formula("=SUM(", 0, 0).is_err());
 }
 
+#[test]
+fn rename_sheet_refs_rewrites_matching_sheet() {
+    let engine = Engine::sheets();
+    assert_eq!(
+        engine.rename_sheet_refs("=Data!A1", "Data", "Results"),
+        Ok("=Results!A1".to_string())
+    );
+}
+
+#[test]
+fn rename_sheet_refs_leaves_other_sheets_untouched() {
+    let engine = Engine::sheets();
+    assert_eq!(
+        engine.rename_sheet_refs("=Data!A1+Other!B1", "Data", "Results"),
+        Ok("=Results!A1+Other!B1".to_string())
+    );
+}
+
+#[test]
+fn rename_sheet_refs_works_for_excel_flavor_too() {
+    let engine = Engine::excel();
+    assert_eq!(
+        engine.rename_sheet_refs("=Data!A1", "Data", "Results"),
+        Ok("=Results!A1".to_string())
+    );
+}
+
+#[test]
+fn rename_sheet_refs_propagates_parse_error() {
+    let engine = Engine::sheets();
+    assert!(engine.rename_sheet_refs("=SUM(", "Data", "Results").is_err());
+}
+
 // ── evaluate_with_resolver_at_keyed_hooked (issue #743) ─────────────────────
 
 /// A resolver reading a single flat map keyed by canonical reference text —

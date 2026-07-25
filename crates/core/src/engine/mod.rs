@@ -5,6 +5,7 @@ use crate::eval::{evaluate_expr, Context, EvalCtx, EvalHook, Resolver};
 use crate::parser::{parse_formula, Expr};
 use crate::types::{ErrorKind, ParseError, Value};
 
+mod rename;
 mod translate;
 
 /// Which spreadsheet product's semantics the engine targets.
@@ -92,6 +93,18 @@ impl Engine {
             });
         }
         translate::translate_text(formula, d_row, d_col)
+    }
+
+    /// Rewrite the sheet qualifier of every cell/range reference in `formula`
+    /// that points at `old` to point at `new` instead — the sheet-rename
+    /// reference-rewrite transform. Sheet-name matching is case-insensitive
+    /// (mirrors the workbook crate's own sheet-identity rule: sheet names are
+    /// unique case-insensitively, and a pure case-change rename is allowed).
+    /// Requoting is handled automatically. Unqualified refs, refs to other
+    /// sheets, string literals, function names, and defined names are left
+    /// untouched. No-op if `formula` has no `old`-qualified refs.
+    pub fn rename_sheet_refs(&self, formula: &str, old: &str, new: &str) -> Result<String, ParseError> {
+        rename::rename_sheet_refs_text(formula, old, new)
     }
 
     /// Evaluate a formula string with named variables.
