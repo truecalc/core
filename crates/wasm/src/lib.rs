@@ -183,6 +183,29 @@ pub fn translate_formula(formula: &str, d_row: i32, d_col: i32) -> TranslateResu
     }
 }
 
+#[derive(Tsify, Serialize)]
+#[tsify(into_wasm_abi)]
+pub struct RenameSheetRefsResult {
+    #[tsify(optional)]
+    pub formula: Option<String>,
+    #[tsify(optional)]
+    pub error: Option<String>,
+}
+
+/// Rewrite the sheet qualifier of every cell/range reference in `formula`
+/// that points at `old` to point at `new` instead — the sheet-rename
+/// reference-rewrite transform. Sheet-name matching is case-insensitive.
+/// Requoting is handled automatically. Unqualified refs, refs to other
+/// sheets, string literals, function names, and defined names are left
+/// untouched; no-op if `formula` has no `old`-qualified refs.
+#[wasm_bindgen]
+pub fn rename_sheet_refs(formula: &str, old: &str, new: &str) -> RenameSheetRefsResult {
+    match truecalc_core::Engine::sheets().rename_sheet_refs(formula, old, new) {
+        Ok(f) => RenameSheetRefsResult { formula: Some(f), error: None },
+        Err(e) => RenameSheetRefsResult { formula: None, error: Some(e.to_string()) },
+    }
+}
+
 /// Return metadata for all built-in functions as a JS array.
 ///
 /// Each entry: `{ name, category, syntax, description }`.
