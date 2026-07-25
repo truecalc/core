@@ -146,3 +146,14 @@ fn multiple_refs_on_same_sheet_all_rewritten() {
         "=Results!A1+Results!B2:C3"
     );
 }
+
+#[test]
+fn let_bound_name_shadowing_a_sheet_name_is_untouched() {
+    // `Data` here is a LET-bound scalar, not a sheet-qualified ref (it's a
+    // bare Expr::Variable, never a Ref with a sheet) — only Data!A1 should
+    // be rewritten.
+    assert_eq!(
+        rename_sheet_refs_text("=LET(Data,1,Data!A1+Data)", "Data", "Results").unwrap(),
+        "=LET(Data,1,Results!A1+Data)"
+    );
+}

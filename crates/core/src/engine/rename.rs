@@ -10,9 +10,14 @@ use crate::types::ParseError;
 
 use super::translate::collect_shiftable_refs;
 
-/// Case-insensitive sheet-name comparison, matching the workbook crate's own
-/// sheet-identity rule (sheet names are unique case-insensitively, and a pure
-/// case-change rename is allowed).
+/// Case-insensitive sheet-name comparison, in the same spirit as the
+/// workbook crate's own sheet-identity rule (sheet names are unique
+/// case-insensitively, and a pure case-change rename is allowed). Uses
+/// `str::to_uppercase()` rather than the `icu_casemap`-based Unicode *simple*
+/// case folding `workbook::casefold` uses — `core` doesn't depend on
+/// `icu_casemap`, and the two diverge only for characters with multi-char
+/// uppercase expansions (e.g. German `ß` → `SS`), which is not expected to
+/// matter for realistic sheet names.
 fn same_sheet(a: &str, b: &str) -> bool {
     a.to_uppercase() == b.to_uppercase()
 }
