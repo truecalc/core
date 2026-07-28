@@ -38,9 +38,10 @@ fn max_non_empty_array_without_numbers_returns_zero() {
 }
 
 #[test]
-fn max_array_of_only_blanks_is_ref_error() {
-    // `=MAX(<range of blank cells>)` stays #REF! — this is the half the
-    // narrowing above must not disturb.
+fn max_array_of_only_blanks_is_unchanged_at_ref_error() {
+    // No captured row covers an all-blank array, so MAX keeps the #REF! it
+    // has always given. Pinned here because narrowing the rule for text and
+    // booleans must not disturb this case.
     assert_eq!(
         max_fn(&[Value::Array(vec![Value::Empty, Value::Empty, Value::Empty])]),
         Value::Error(ErrorKind::Ref)
@@ -55,7 +56,7 @@ fn max_array_of_only_blanks_is_ref_error() {
 }
 
 #[test]
-fn max_blanks_beside_content_are_not_absent() {
+fn max_one_non_blank_lifts_the_array_out_of_the_ref_rule() {
     assert_eq!(
         max_fn(&[Value::Array(vec![
             Value::Empty,

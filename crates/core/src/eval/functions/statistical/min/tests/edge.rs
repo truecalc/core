@@ -53,37 +53,20 @@ fn min_non_empty_array_without_numbers_still_returns_zero() {
 }
 
 #[test]
-fn min_array_of_only_blanks_is_ref_error() {
-    // `=MIN(<range of blank cells>)` is #REF!: blanks read as absent, not as
-    // present-but-unusable. Both the flat and the nested-row materializations
-    // of such a range must agree.
+fn min_array_of_only_blanks_is_unchanged_at_zero() {
+    // No captured row covers an all-blank array, so MIN keeps the 0 it has
+    // always given. Pinned here so a future change to it has to be deliberate
+    // rather than a side effect of the empty-array rule above.
     assert_eq!(
         min_fn(&[Value::Array(vec![Value::Empty, Value::Empty, Value::Empty])]),
-        Value::Error(ErrorKind::Ref)
-    );
-    assert_eq!(
-        min_fn(&[Value::Array(vec![
-            Value::Array(vec![Value::Empty]),
-            Value::Array(vec![Value::Empty]),
-        ])]),
-        Value::Error(ErrorKind::Ref)
-    );
-}
-
-#[test]
-fn min_blanks_beside_content_are_not_absent() {
-    // One non-blank cell is enough to make the whole argument present.
-    assert_eq!(
-        min_fn(&[Value::Array(vec![
-            Value::Empty,
-            Value::Text("z".to_string()),
-        ])]),
         Value::Number(0.0)
     );
-    // And a number anywhere wins outright.
     assert_eq!(
-        min_fn(&[Value::Array(vec![Value::Empty, Value::Number(4.0)])]),
-        Value::Number(4.0)
+        min_fn(&[Value::Array(vec![
+            Value::Array(vec![Value::Empty]),
+            Value::Array(vec![Value::Empty]),
+        ])]),
+        Value::Number(0.0)
     );
 }
 

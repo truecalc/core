@@ -6,14 +6,16 @@ use crate::types::{ErrorKind, Value};
 ///
 /// "No numbers" is *two* rules, not one — the fixtures separate them:
 ///
-/// - an **absent** argument is `#REF!`: `=MAX({})` and `=MAX(<blank range>)`;
-/// - a **populated** argument holding nothing numeric is 0: `=MAX({"a","b"})`
+/// - an **empty** array argument is `#REF!`: `=MAX({})`;
+/// - a **populated** array holding nothing numeric is 0: `=MAX({"a","b"})`
 ///   and `=MAX({TRUE,FALSE})` are both 0, even though neither text nor
 ///   booleans contribute a number in array context.
 ///
-/// So blanks read as absent while text and booleans read as
-/// present-but-unusable, which is why `array_had_content` ignores `Empty` but
-/// counts everything else.
+/// An array holding only *blanks* is a third case, and it is unprobed — no
+/// captured row covers it. `array_had_content` ignores `Empty` precisely so
+/// that case keeps the `#REF!` MAX has always given it; the flag exists to
+/// carve text and booleans *out* of the old rule, not because blanks were
+/// measured.
 pub fn max_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);
@@ -70,18 +72,19 @@ pub fn max_fn(args: &[Value]) -> Value {
         }
     }
     // A skipped sparkline is not "nothing usable": the aggregate had something
-    // in scope, so it answers 0 rather than falling into the absent-argument
-    // rule below. A sparkline *inside* an array now counts as content on its
-    // own, so this only still decides a direct sparkline argument sitting
-    // beside an otherwise-blank array — a shape no fixture row covers, left
-    // answering 0 as it always has.
+    // in scope, so it answers 0 rather than falling into the rule below. A
+    // sparkline *inside* an array now counts as content on its own, so this
+    // only still decides a direct sparkline argument sitting beside an
+    // otherwise-blank array — a shape no fixture row covers, left answering 0
+    // as it always has.
     if skipped_sparkline && result.is_none() {
         return Value::Number(0.0);
     }
-    // Absent argument → #REF!. An array that held only blanks is as absent as
-    // `{}` is (`=MAX(<range of blank cells>)` is #REF!), but one holding text
-    // or booleans is present-but-unusable and answers 0 (`=MAX({"a","b"})`
-    // and `=MAX({TRUE,FALSE})` are both 0).
+    // An array holding text or booleans is present-but-unusable and answers 0
+    // (`=MAX({"a","b"})` and `=MAX({TRUE,FALSE})` are both 0). Anything the
+    // fold saw nothing in at all — an array of blanks — keeps the long-standing
+    // #REF!. That half is unprobed; `array_had_content` is here to exempt
+    // text and booleans, not to make a claim about blanks.
     if had_array && !array_had_content && result.is_none() {
         return Value::Error(ErrorKind::Ref);
     }
@@ -98,9 +101,10 @@ pub fn max_fn(args: &[Value]) -> Value {
 ///
 /// `had_content` records whether the array held *anything* other than a
 /// blank. Text and booleans do not contribute a number here, but they do make
-/// the array present rather than absent, which is what separates
-/// `=MAX({"a","b"})` and `=MAX({TRUE,FALSE})` (both 0) from
-/// `=MAX(<blank range>)` (#REF!).
+/// the array usable enough to answer 0, which is what lifts
+/// `=MAX({"a","b"})` and `=MAX({TRUE,FALSE})` out of the `#REF!` rule. An
+/// all-blank array sets nothing and so keeps that `#REF!` — unprobed, and
+/// unchanged from what MAX has always done.
 fn max_array_into(
     elems: &[Value],
     result: &mut Option<f64>,
