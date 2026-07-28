@@ -190,6 +190,12 @@
           }
         },
         {
+          "$ref": "#/$defs/zonedValue"
+        },
+        {
+          "$ref": "#/$defs/sparklineValue"
+        },
+        {
           "type": "object",
           "additionalProperties": false,
           "required": [
@@ -310,6 +316,169 @@
             },
             "value": {
               "type": "number"
+            }
+          }
+        },
+        {
+          "$ref": "#/$defs/zonedValue"
+        },
+        {
+          "$ref": "#/$defs/sparklineValue"
+        }
+      ]
+    },
+    "zonedValue": {
+      "description": "A zone-aware instant, carried as a self-describing RFC-9557 string: an RFC-3339 timestamp optionally suffixed with the zone in brackets. The serializer always emits the canonical spelling -- local wall clock, a numeric +HH:MM / -HH:MM offset, and the bracketed zone for a named IANA zone but not for a bare fixed offset -- and the instant range is that of an i64 nanosecond count (1677..2262), so the year is always four digits. The pattern is deliberately a little wider than that, because the reader also accepts the other RFC-3339 spellings (`Z`, fractional seconds) and normalizes them.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "value"
+      ],
+      "properties": {
+        "type": {
+          "const": "zoned"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?([Zz]|[+-][0-9]{2}:[0-9]{2})(\\[[A-Za-z0-9_+:/-]+\\])?$"
+        }
+      }
+    },
+    "sparklineValue": {
+      "description": "A sparkline: the parsed, validated render spec produced by SPARKLINE, carried in full because it is part of the value's storage identity.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "value"
+      ],
+      "properties": {
+        "type": {
+          "const": "sparkline"
+        },
+        "value": {
+          "$ref": "#/$defs/sparklineSpec"
+        }
+      }
+    },
+    "sparklineSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "charttype",
+        "data",
+        "options"
+      ],
+      "properties": {
+        "charttype": {
+          "description": "Lifted out of the option list into its own field; `line` when the option was omitted.",
+          "enum": [
+            "line",
+            "bar",
+            "column",
+            "winloss"
+          ]
+        },
+        "data": {
+          "description": "The points to plot, flattened row-major from the data argument. A single-point sparkline is unrepresentable -- the evaluator answers #N/A -- so there are always at least two.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/sparklinePoint"
+          }
+        },
+        "options": {
+          "description": "The remaining option key/value pairs in the order given. Keys the engine does not recognise are kept rather than rejected, matching Sheets.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sparklineOption"
+          }
+        }
+      }
+    },
+    "sparklineOption": {
+      "description": "One [key, value] pair. Keys are stored ASCII-lower-cased, and `charttype` is never among them -- it has its own field.",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {
+          "type": "string",
+          "pattern": "^[^A-Z]*$",
+          "not": {
+            "const": "charttype"
+          }
+        },
+        {
+          "$ref": "#/$defs/sparklinePoint"
+        }
+      ]
+    },
+    "sparklinePoint": {
+      "description": "A sparkline data point or option value. Narrower than scalarValue: only these four value types can occupy either position.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "number"
+            },
+            "value": {
+              "type": "number"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "text"
+            },
+            "value": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "boolean"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "empty"
+            },
+            "value": {
+              "type": "null"
             }
           }
         }
