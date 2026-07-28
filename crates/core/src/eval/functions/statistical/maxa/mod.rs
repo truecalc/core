@@ -5,6 +5,7 @@ use crate::types::{ErrorKind, Value};
 /// - Booleans coerced: TRUE=1, FALSE=0.
 /// - Text in direct args → `#VALUE!`.
 /// - Empty → skip.
+/// - Empty array argument → `#REF!`.
 /// - No args → `#N/A`.
 pub fn maxa_fn(args: &[Value]) -> Value {
     if args.is_empty() {
@@ -26,6 +27,14 @@ pub fn maxa_fn(args: &[Value]) -> Value {
             Value::Text(_) => return Value::Error(ErrorKind::Value),
             Value::Empty => {}
             Value::Array(inner) => {
+                // An empty argument is #REF!, as it is for MIN and MAX
+                // (`=MAXA({})`). Note MAXA reaches the *other* answers by a
+                // different route: text folds in as 0 rather than being
+                // skipped, so `=MAXA({"a","b"})` is already 0 without any
+                // "populated but numberless" rule.
+                if inner.is_empty() {
+                    return Value::Error(ErrorKind::Ref);
+                }
                 // In array context: Numbers included, Bool→1/0, Text→0, Empty→skip.
                 // Recurses into nested arrays (e.g. a vertical range
                 // materializes as nested one-element row arrays).

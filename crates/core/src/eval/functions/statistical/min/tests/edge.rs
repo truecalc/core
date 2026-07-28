@@ -35,9 +35,9 @@ fn min_empty_array_beside_a_number_is_ref_error() {
 
 #[test]
 fn min_non_empty_array_without_numbers_still_returns_zero() {
-    // Distinct from the empty-array rule: the fixtures pin
-    // `=IFERROR(MIN({"a","b","c"}),"no numbers")` to the number 0, so a
-    // populated-but-numberless array must not become #REF!.
+    // Distinct from the absent-argument rule: the fixtures pin
+    // `=MIN({"a","b"})` and `=IFERROR(MIN({"a","b","c"}),"no numbers")` to
+    // the number 0, so a populated-but-numberless array must not become #REF!.
     assert_eq!(
         min_fn(&[Value::Array(vec![
             Value::Text("a".to_string()),
@@ -45,9 +45,45 @@ fn min_non_empty_array_without_numbers_still_returns_zero() {
         ])]),
         Value::Number(0.0)
     );
+    // Booleans are skipped in array context but still make the array present.
     assert_eq!(
-        min_fn(&[Value::Array(vec![Value::Empty, Value::Empty])]),
+        min_fn(&[Value::Array(vec![Value::Bool(true), Value::Bool(false)])]),
         Value::Number(0.0)
+    );
+}
+
+#[test]
+fn min_array_of_only_blanks_is_ref_error() {
+    // `=MIN(<range of blank cells>)` is #REF!: blanks read as absent, not as
+    // present-but-unusable. Both the flat and the nested-row materializations
+    // of such a range must agree.
+    assert_eq!(
+        min_fn(&[Value::Array(vec![Value::Empty, Value::Empty, Value::Empty])]),
+        Value::Error(ErrorKind::Ref)
+    );
+    assert_eq!(
+        min_fn(&[Value::Array(vec![
+            Value::Array(vec![Value::Empty]),
+            Value::Array(vec![Value::Empty]),
+        ])]),
+        Value::Error(ErrorKind::Ref)
+    );
+}
+
+#[test]
+fn min_blanks_beside_content_are_not_absent() {
+    // One non-blank cell is enough to make the whole argument present.
+    assert_eq!(
+        min_fn(&[Value::Array(vec![
+            Value::Empty,
+            Value::Text("z".to_string()),
+        ])]),
+        Value::Number(0.0)
+    );
+    // And a number anywhere wins outright.
+    assert_eq!(
+        min_fn(&[Value::Array(vec![Value::Empty, Value::Number(4.0)])]),
+        Value::Number(4.0)
     );
 }
 
