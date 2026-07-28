@@ -2236,3 +2236,4 @@ SHEET inside IF	=IF(SHEET()=1,"first sheet","other")	other	nested	string
 STEYX with floating-point coordinates	=STEYX({1.1,2.2,3.3,4.4},{0.9,1.8,2.7,3.6})	#NUM!	compatibility	error
 SHEETS with no argument returns count of sheets	=SHEETS()	19	official	number
 GS and Excel both have SHEETS function	=SHEETS()	19	compatibility	number
+MIN with a sparkline and an empty array	=MIN(SPARKLINE({1,2,3}),{})	#REF!	edge	error
