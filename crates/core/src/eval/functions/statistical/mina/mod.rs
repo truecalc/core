@@ -6,6 +6,7 @@ use crate::types::{ErrorKind, Value};
 /// - Text in direct args → `#VALUE!`.
 /// - Empty → skip.
 /// - Empty array argument → `#REF!`.
+/// - Array of nothing but blanks → 0.
 /// - No args → `#N/A`.
 pub fn mina_fn(args: &[Value]) -> Value {
     if args.is_empty() {
@@ -50,6 +51,11 @@ pub fn mina_fn(args: &[Value]) -> Value {
     match result {
         Some(n) => Value::Number(n),
         None if skipped_sparkline => Value::Number(0.0),
+        // An array of nothing but blanks is 0, not #N/A: `=MINA(A1:A3)` over
+        // empty cells answers the same 0 that MIN, MAX and MAXA give it. A
+        // blank argument with no array in sight keeps the #N/A below — that
+        // shape is unprobed.
+        None if super::stat_helpers::is_blank_only_array(args) => Value::Number(0.0),
         None    => Value::Error(ErrorKind::NA),
     }
 }

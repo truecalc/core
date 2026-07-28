@@ -13,10 +13,17 @@ use crate::types::{ErrorKind, Value};
 ///   booleans contribute a number in array context. Captured in Google
 ///   Sheets; the rows land separately, since they fail until this code exists.
 ///
-/// Everything else numberless — blanks, dates, zoned instants — is unprobed
-/// and keeps the `#REF!` MAX has always given it. `array_had_content` is set
-/// by text and booleans alone, so it exempts exactly what was captured and
-/// makes no claim past it.
+/// An array of nothing but *blanks* — what `=MAX(A1:A3)` over an untouched
+/// column materializes as — is 0 as well, and is now captured. It is decided
+/// by [`stat_helpers::is_blank_only_array`] rather than by `array_had_content`
+/// so that a blank sitting next to something else numberless changes nothing.
+///
+/// Everything else numberless — dates, zoned instants — is unprobed and keeps
+/// the `#REF!` MAX has always given it. `array_had_content` is set by text and
+/// booleans alone, so it exempts exactly what was captured and makes no claim
+/// past it.
+///
+/// [`stat_helpers::is_blank_only_array`]: super::stat_helpers::is_blank_only_array
 pub fn max_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);
@@ -82,10 +89,17 @@ pub fn max_fn(args: &[Value]) -> Value {
     // An array holding text or booleans answers 0 (`=MAX({"a","b"})` and
     // `=MAX({TRUE,FALSE})` are both 0). `array_had_content` is set by exactly
     // those two variants and nothing else, so every other numberless array —
-    // blanks, dates, zoned instants — keeps the long-standing #REF!. Those are
+    // dates, zoned instants — keeps the long-standing #REF!. Those are
     // unprobed; the flag exempts what the capture covers and makes no claim
     // beyond it.
     if had_array && !array_had_content && result.is_none() {
+        // An array of nothing but blanks is the one further exemption, and it
+        // is captured: `=MAX(A1:A3)` over empty cells is 0, the same answer
+        // MIN, MAXA and MINA give it. The check is on the arguments as a
+        // whole, so a blank mixed with anything else still falls to #REF!.
+        if super::stat_helpers::is_blank_only_array(args) {
+            return Value::Number(0.0);
+        }
         return Value::Error(ErrorKind::Ref);
     }
     Value::Number(result.unwrap_or(0.0))
@@ -104,7 +118,9 @@ pub fn max_fn(args: &[Value]) -> Value {
 /// It is deliberately not a catch-all: every other non-numeric variant, most
 /// notably `Date`, leaves it alone and so keeps the `#REF!` MAX has always
 /// answered. Listing the variants rather than falling through also stops a
-/// future `Value` kind inheriting content-hood by accident.
+/// future `Value` kind inheriting content-hood by accident. Blanks are the
+/// one numberless kind that no longer ends at `#REF!`, and they get there
+/// without this flag — see the blank-only check in `max_fn`.
 fn max_array_into(
     elems: &[Value],
     result: &mut Option<f64>,

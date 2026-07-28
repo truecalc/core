@@ -56,10 +56,9 @@ fn min_non_empty_array_without_numbers_still_returns_zero() {
 }
 
 #[test]
-fn min_array_of_only_blanks_is_unchanged_at_zero() {
-    // No captured row covers an all-blank array, so MIN keeps the 0 it has
-    // always given. Pinned here so a future change to it has to be deliberate
-    // rather than a side effect of the empty-array rule above.
+fn min_array_of_only_blanks_is_zero() {
+    // `=MIN(A1:A3)` over empty cells is 0 in Google Sheets. MIN was already
+    // there; MAX, MAXA and MINA were brought to the same answer.
     assert_eq!(
         min_fn(&[Value::Array(vec![Value::Empty, Value::Empty, Value::Empty])]),
         Value::Number(0.0)

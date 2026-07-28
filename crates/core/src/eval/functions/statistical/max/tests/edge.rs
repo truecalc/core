@@ -42,19 +42,35 @@ fn max_non_empty_array_without_numbers_returns_zero() {
 }
 
 #[test]
-fn max_array_of_only_blanks_is_unchanged_at_ref_error() {
-    // No captured row covers an all-blank array, so MAX keeps the #REF! it
-    // has always given. Pinned here because narrowing the rule for text and
-    // booleans must not disturb this case.
+fn max_array_of_only_blanks_is_zero() {
+    // `=MAX(A1:A3)` over empty cells is 0 in Google Sheets — the same answer
+    // MIN, MAXA and MINA give it. MAX used to be alone at #REF! here.
     assert_eq!(
         max_fn(&[Value::Array(vec![Value::Empty, Value::Empty, Value::Empty])]),
-        Value::Error(ErrorKind::Ref)
+        Value::Number(0.0)
     );
+    // Same through the nested-row shape a vertical range materializes as.
     assert_eq!(
         max_fn(&[Value::Array(vec![
             Value::Array(vec![Value::Empty]),
             Value::Array(vec![Value::Empty]),
         ])]),
+        Value::Number(0.0)
+    );
+}
+
+#[test]
+fn max_blank_beside_something_else_numberless_is_still_ref_error() {
+    // The blank-only rule is decided over the arguments as a whole, not by a
+    // per-element flag, so one blank cannot lift an otherwise-unprobed array
+    // out of #REF! — a date-and-blank column must not quietly answer 0.
+    assert_eq!(
+        max_fn(&[Value::Array(vec![Value::Empty, Value::Date(43831.0)])]),
+        Value::Error(ErrorKind::Ref)
+    );
+    // An empty array argument stays #REF! even alongside an all-blank one.
+    assert_eq!(
+        max_fn(&[Value::Array(vec![Value::Empty]), Value::Array(vec![])]),
         Value::Error(ErrorKind::Ref)
     );
 }
