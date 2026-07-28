@@ -10,6 +10,15 @@ enum UniqueKey {
     Text(String),     // case-sensitive per GS
     Bool(bool),
     ErrorVal(String), // GS: errors are counted as unique, not propagated
+    /// A sparkline, keyed by its whole parsed spec. `=` reports any two
+    /// sparklines equal, but COUNTUNIQUE does not — google.tsv records
+    /// `=COUNTUNIQUE(SPARKLINE({1,2,3}),SPARKLINE({9,9,9}))` as 2 and the same
+    /// call on two identical sparklines as 1, so uniqueness keys off something
+    /// deeper than the comparison operator does. Every option the spec kept
+    /// participates, recognised or not: an unrecognised key is not dropped, so
+    /// `{"bogus","x"}` and `{"bogus","y"}` count as two, exactly like two
+    /// different values of a recognised key would.
+    SparklineVal(String),
 }
 
 fn to_unique_key(v: &Value) -> Option<UniqueKey> {
@@ -22,6 +31,7 @@ fn to_unique_key(v: &Value) -> Option<UniqueKey> {
         Value::ErrorMsg(e, _) => Some(UniqueKey::ErrorVal(format!("{e:?}"))),
         Value::Date(_) | Value::Array(_) => None,
         Value::Zoned(_) => None,
+        Value::Sparkline(spec) => Some(UniqueKey::SparklineVal(format!("{spec:?}"))),
     }
 }
 

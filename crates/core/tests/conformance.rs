@@ -277,7 +277,44 @@ fn infer_type(v: &Value) -> &'static str {
         Value::Error(_) | Value::ErrorMsg(_, _) => "error",
         Value::Array(_) => "array",
         Value::Empty => "string",
+        // Sheets reports a sparkline as its own kind (TYPE code 128); the
+        // fixtures record its *displayed* value, which is always empty.
+        Value::Sparkline(_) => "sparkline",
     }
+}
+
+/// True when a formula reads a *sheet-qualified* reference, e.g.
+/// `=SUM(Data!K1:K2)`.
+///
+/// This runner evaluates each row standalone, with no workbook behind it, so
+/// every such reference resolves to empty. That does not merely fail the row —
+/// it can also make one **pass for the wrong reason** whenever the recorded
+/// value happens to be what an empty read produces (`=SUM(Data!K1:K1)` is 0
+/// either way). Both outcomes are noise, so these rows are skipped here; they
+/// are canonical ground truth and are enforced against a seeded resolver
+/// instead (see `tests/sparkline.rs`, and `tests/workbook_inputs_conformance.rs`
+/// for `workbook.tsv`'s equivalent rows).
+///
+/// Scope: in the two runners this only affects `google.tsv`, the only category
+/// file with such rows. The per-function coverage scan below also applies it,
+/// where it additionally drops `workbook.tsv`'s 24 sheet-qualified rows from
+/// the credit scan — harmless today (every function they mention is credited by
+/// many other rows) but not a no-op, and it is deliberate: a row that matches
+/// its recorded value only because both sides are empty is not evidence of
+/// coverage.
+fn needs_authored_input_cells(formula: &str) -> bool {
+    // Engine-explicit: the free `parse` is deprecated in favor of
+    // `Engine::sheets().parse` (ADR 2026-04-27), same as `evaluate` below.
+    let Ok(expr) = truecalc_core::Engine::sheets().parse(formula) else {
+        return false;
+    };
+    truecalc_core::extract_refs(&expr).iter().any(|r| {
+        matches!(
+            r,
+            truecalc_core::Ref::Cell { sheet: Some(_), .. }
+                | truecalc_core::Ref::Range { sheet: Some(_), .. }
+        )
+    })
 }
 
 /// Returns true if a formula contains volatile functions.
@@ -306,13 +343,65 @@ fn pinned_now_serial(path: &Path) -> Option<f64> {
 // TSV runner
 // ---------------------------------------------------------------------------
 
+/// Per-file accounting of what the runner actually checked.
+///
+/// Both runners skip rows silently, for several unrelated reasons, and a green
+/// test says nothing about how many rows were inert — that is the defect
+/// core#767 tracks (rows that look enforced and assert nothing). This does not
+/// fix it: the rows are still skipped. It is a narrow mitigation that makes the
+/// skipping *visible*, so someone adding a row does not get a silent pass where
+/// they expected a check. The real fix is to evaluate these rows, which needs a
+/// display-value projection and a seeded resolver in this harness.
+#[derive(Default)]
+struct RowTally {
+    rows: usize,
+    enforced: usize,
+    /// The expected-value column is blank *after trimming*. The TSV format
+    /// cannot say whether that means "observed to be empty" or "never probed",
+    /// so this bucket holds both — that conflation is core#767's first point.
+    ///
+    /// It is *not* a "no text projection" bucket. `text.tsv`'s 46 rows here are
+    /// 41 with a genuinely empty recorded value (`=LEFT("hello",0)`) plus 5
+    /// whose recorded value is whitespace (`=CHAR(32)`, `=UNICHAR(32)`,
+    /// `=LEFT("   ",2)`, `=RIGHT("   ",1)`, `=CONCATENATE(" "," ")`) — those 5
+    /// *do* have a recorded value and are skipped only because of the `trim()`
+    /// noted at the predicate below. Counts measured over the fixture files,
+    /// not estimated.
+    no_expected_value: usize,
+    no_formula: usize,
+    authored_cells: usize,
+    volatile: usize,
+    unparseable_expected: usize,
+    not_a_formula: usize,
+}
+
+impl RowTally {
+    fn summary(&self, path: &Path) -> String {
+        let name = path.file_name().unwrap_or_default().to_string_lossy();
+        let mut parts = vec![format!("{} enforced", self.enforced)];
+        for (count, reason) in [
+            (self.no_expected_value, "no recorded expected value"),
+            (self.authored_cells, "reads authored cells"),
+            (self.volatile, "volatile"),
+            (self.unparseable_expected, "unparseable expected value"),
+            (self.no_formula, "no formula"),
+            (self.not_a_formula, "not a formula"),
+        ] {
+            if count > 0 {
+                parts.push(format!("{count} skipped ({reason})"));
+            }
+        }
+        format!("{name}: {} rows — {}", self.rows, parts.join(", "))
+    }
+}
+
 fn run_tsv_fixture(path: &Path) {
     assert!(path.exists(), "fixture not found: {:?}", path);
 
     let pinned_now = pinned_now_serial(path);
     let vars: HashMap<String, Value> = HashMap::new();
     let mut failures: Vec<String> = Vec::new();
-    let mut total = 0usize;
+    let mut tally = RowTally::default();
 
     let mut rdr = csv::ReaderBuilder::new()
         .delimiter(b'\t')
@@ -326,6 +415,7 @@ fn run_tsv_fixture(path: &Path) {
         if record.len() < 5 {
             continue;
         }
+        tally.rows += 1;
 
         let desc          = record[0].trim();
         let formula       = record[1].trim();
@@ -335,25 +425,46 @@ fn run_tsv_fixture(path: &Path) {
         let _test_category = record[3].trim();
         let expected_type = record[4].trim();
 
-        if formula.is_empty() || expected_str.trim().is_empty() {
+        if formula.is_empty() {
+            tally.no_formula += 1;
+            continue;
+        }
+        // NOTE the `trim()` here contradicts the comment above about preserving
+        // leading whitespace: a recorded value of `" "` is treated as absent and
+        // skipped. That is 5 rows in text.tsv today (`=CHAR(32)` and the four
+        // listed on `RowTally::no_expected_value`), which is why that field's
+        // name says "no *recorded* expected value" rather than "empty result" —
+        // the bucket mixes both. Pre-existing, and part of what core#767 has to
+        // untangle; the tally at least stops it being silent.
+        if expected_str.trim().is_empty() {
+            tally.no_expected_value += 1;
             continue;
         }
 
         // Skip malformed rows where formula column doesn't contain a formula
         if !formula.starts_with('=') {
+            tally.not_a_formula += 1;
             continue;
         }
 
         if is_volatile_formula(formula) {
+            tally.volatile += 1;
+            continue;
+        }
+        if needs_authored_input_cells(formula) {
+            tally.authored_cells += 1;
             continue;
         }
 
         let expected = match parse_expected(expected_str, expected_type) {
             Some(v) => v,
-            None => continue,
+            None => {
+                tally.unparseable_expected += 1;
+                continue;
+            }
         };
 
-        total += 1;
+        tally.enforced += 1;
         let actual = match pinned_now {
             Some(now) => truecalc_core::Engine::sheets().evaluate_at(formula, &vars, now),
             None => evaluate(formula, &vars),
@@ -367,13 +478,21 @@ fn run_tsv_fixture(path: &Path) {
         }
     }
 
+    // A bare green must not hide how many rows were skipped, or why (core#767).
+    // libtest and nextest both capture a *passing* test's stdout, so this line
+    // reaches a reader through: `--nocapture`, any failure (captured output is
+    // replayed), and CI, whose nextest `ci` profile carries a
+    // `success-output = 'final'` override for this binary (.config/nextest.toml).
+    println!("{}", tally.summary(path));
+
     if !failures.is_empty() {
         panic!(
-            "\n{}/{} conformance failures in {}:\n\n{}\n",
+            "\n{}/{} conformance failures in {}:\n\n{}\n\n{}\n",
             failures.len(),
-            total,
+            tally.enforced,
             path.file_name().unwrap().to_string_lossy(),
             failures.join("\n\n"),
+            tally.summary(path),
         );
     }
 }
@@ -387,6 +506,7 @@ fn run_tsv_fixture_report(path: &Path) {
     let vars: HashMap<String, Value> = HashMap::new();
     let mut pass = 0usize;
     let mut fail = 0usize;
+    let mut tally = RowTally::default();
 
     let mut rdr = csv::ReaderBuilder::new()
         .delimiter(b'\t')
@@ -400,6 +520,7 @@ fn run_tsv_fixture_report(path: &Path) {
         if record.len() < 5 {
             continue;
         }
+        tally.rows += 1;
 
         let desc           = record[0].trim();
         let formula        = record[1].trim();
@@ -407,23 +528,46 @@ fn run_tsv_fixture_report(path: &Path) {
         let _test_category = record[3].trim();
         let expected_type  = record[4].trim();
 
-        if formula.is_empty() || expected_str.trim().is_empty() {
+        if formula.is_empty() {
+            tally.no_formula += 1;
+            continue;
+        }
+        // NOTE the `trim()` here contradicts the comment above about preserving
+        // leading whitespace: a recorded value of `" "` is treated as absent and
+        // skipped. That is 5 rows in text.tsv today (`=CHAR(32)` and the four
+        // listed on `RowTally::no_expected_value`), which is why that field's
+        // name says "no *recorded* expected value" rather than "empty result" —
+        // the bucket mixes both. Pre-existing, and part of what core#767 has to
+        // untangle; the tally at least stops it being silent.
+        if expected_str.trim().is_empty() {
+            tally.no_expected_value += 1;
             continue;
         }
 
         // Skip malformed rows where formula column doesn't contain a formula
         if !formula.starts_with('=') {
+            tally.not_a_formula += 1;
             continue;
         }
 
         if is_volatile_formula(formula) {
+            tally.volatile += 1;
+            continue;
+        }
+        if needs_authored_input_cells(formula) {
+            tally.authored_cells += 1;
             continue;
         }
 
         let expected = match parse_expected(expected_str, expected_type) {
             Some(v) => v,
-            None => continue,
+            None => {
+                tally.unparseable_expected += 1;
+                continue;
+            }
         };
+
+        tally.enforced += 1;
 
         let actual = match pinned_now {
             Some(now) => truecalc_core::Engine::sheets().evaluate_at(formula, &vars, now),
@@ -443,6 +587,10 @@ fn run_tsv_fixture_report(path: &Path) {
 
     let name = path.file_name().unwrap_or_default().to_string_lossy();
     println!("{name}: {pass} passed, {fail} open");
+    // Same accounting as the blocking runner: a skipped row is not an open one,
+    // and neither number is visible without it (core#767). Surfaced in CI by
+    // the `success-output` override in .config/nextest.toml.
+    println!("{}", tally.summary(path));
 }
 
 // ---------------------------------------------------------------------------
@@ -486,6 +634,7 @@ conformance_tsv_test!(array_conformance,       "array.tsv");
 conformance_tsv_test!(filter_conformance,             "filter.tsv");
 conformance_tsv_test!(web_conformance,         "web.tsv");
 conformance_tsv_test!(financial_conformance,         "financial.tsv");
+conformance_tsv_test!(google_conformance,       "google.tsv");
 
 // workbook.tsv is fully covered by the blocking `workbook_conformance` test in
 // `tests/workbook_inputs_conformance.rs` (core#575): cross-sheet/named-range
@@ -616,7 +765,17 @@ fn every_registered_function_has_conformance_coverage() {
     // fixtures pipeline this repo's CI does not have access to — self-verified
     // fixture values are forbidden. Remove from this set once QUERY has
     // pipeline-verified fixture rows.
-    let pending_fixture_verification: std::collections::HashSet<&str> = ["QUERY"].iter().copied().collect();
+    //
+    // SPARKLINE (issue #766) is here for a different, purely mechanical reason:
+    // its 103 pipeline-verified rows exist and land in the immediately
+    // following fixtures-only PR. The "Check fixture / code separation" CI job
+    // rejects any PR touching both `fixtures/google_sheets/*.tsv` and code, and
+    // the two orderings deadlock — code first leaves a registered function with
+    // no rows (this test), fixtures first leaves rows for a function the engine
+    // does not have. This entry breaks that tie for exactly one merge, and is
+    // removed in the follow-up that lands the rows.
+    let pending_fixture_verification: std::collections::HashSet<&str> =
+        ["QUERY", "SPARKLINE"].iter().copied().collect();
 
     let gdir = fixture_dir();
     let vars: HashMap<String, Value> = HashMap::new();
@@ -682,7 +841,13 @@ fn every_registered_function_has_conformance_coverage() {
             }
             let expected_str = record[2].trim();
             let expected_type = record[4].trim();
-            if expected_str.is_empty() || is_volatile_formula(formula) {
+            // Same guard as the runners: an unresolvable sheet-qualified read
+            // can *match* its recorded value by accident, which would credit a
+            // function with coverage it does not have.
+            if expected_str.is_empty()
+                || is_volatile_formula(formula)
+                || needs_authored_input_cells(formula)
+            {
                 continue;
             }
             let expected = match parse_expected(expected_str, expected_type) {

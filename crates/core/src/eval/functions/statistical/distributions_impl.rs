@@ -96,6 +96,8 @@ fn collect_weights_arg(arg: &Value) -> Result<Vec<f64>, Value> {
             _ => Err(Value::Error(ErrorKind::Value)),
         },
         Value::Empty => Ok(vec![]),
+        // Skipped like every other aggregate input (google.tsv: SUM/MAX skip it).
+        Value::Sparkline(_) => Ok(vec![]),
         Value::Zoned(_) => Err(Value::Error(ErrorKind::Value)),
         Value::Error(_) | Value::ErrorMsg(_, _) => Err(arg.clone()),
         Value::Array(inner) => {
@@ -106,7 +108,7 @@ fn collect_weights_arg(arg: &Value) -> Result<Vec<f64>, Value> {
                     Value::Date(n) => out.push(*n),
                     Value::Bool(_) => return Err(Value::Error(ErrorKind::Value)),
                     Value::Text(_) | Value::Empty => {}
-                    Value::Zoned(_) => {}
+                    Value::Zoned(_) | Value::Sparkline(_) => {}
                     Value::Error(_) | Value::ErrorMsg(_, _) => return Err(item.clone()),
                     Value::Array(_) => {}
                 }

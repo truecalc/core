@@ -52,6 +52,9 @@ pub fn n_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         Value::Number(n) | Value::Date(n) => Value::Number(n),
         Value::Bool(b)          => Value::Number(if b { 1.0 } else { 0.0 }),
         Value::Empty | Value::Text(_) | Value::Array(_) => Value::Number(0.0),
+        // `=N(SPARKLINE({1,2,3}))` is 0 (google.tsv) even though arithmetic on
+        // a sparkline is `#VALUE!` — the asymmetry is Sheets', not ours.
+        Value::Sparkline(_)     => Value::Number(0.0),
         Value::Zoned(_)         => Value::Error(ErrorKind::Value),
         Value::Error(_) | Value::ErrorMsg(_, _) => val,
     }
@@ -72,6 +75,9 @@ pub fn type_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
         Value::Array(_)  => 64.0,
         Value::Empty     => 1.0, // Excel treats empty as number
         Value::Zoned(_)  => 1.0, // classify like Number/Date for the TYPE code
+        // 128 is outside TYPE's documented set (1/2/4/16/64): Sheets reports a
+        // sparkline as a value kind of its own (google.tsv).
+        Value::Sparkline(_) => 128.0,
     };
     Value::Number(code)
 }
@@ -152,7 +158,7 @@ pub fn cell_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
                 Value::Zoned(_)     => Value::Text("n".to_string()),
                 Value::Error(e)     => Value::Error(e),
                 Value::ErrorMsg(e, m) => Value::ErrorMsg(e, m),
-                Value::Array(_)     => Value::Error(ErrorKind::NA),
+                Value::Array(_) | Value::Sparkline(_) => Value::Error(ErrorKind::NA),
             }
         }
         "col" => {

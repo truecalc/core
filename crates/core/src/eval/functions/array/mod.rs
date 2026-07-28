@@ -490,6 +490,11 @@ fn compare_values_sort(a: &Value, b: &Value) -> std::cmp::Ordering {
         (Value::Bool(x), Value::Bool(y)) => x.cmp(y),
         // Zone-aware instants sort by the absolute instant.
         (Value::Zoned(x), Value::Zoned(y)) => x.utc_nanos.cmp(&y.utc_nanos),
+        // Sparklines: only equality is observed (google.tsv), and no ordering
+        // between two different ones is — matching the `=`/`<`/`>` operators and
+        // their EQ/LT/GT aliases, which report no ordering relation either. The
+        // sort is stable, so sparklines keep their input order.
+        (Value::Sparkline(_), Value::Sparkline(_)) => std::cmp::Ordering::Equal,
         _ => std::cmp::Ordering::Equal,
     }
 }

@@ -40,6 +40,14 @@ pub fn to_text_fn(args: &[Value]) -> Value {
         Value::Bool(b)   => Value::Text(if *b { "TRUE".to_string() } else { "FALSE".to_string() }),
         Value::Text(s)   => Value::Text(s.clone()),
         Value::Error(_) | Value::ErrorMsg(_, _)  => args[0].clone(),
+        // Canonical statement for the whole `TO_*` family (`TO_TEXT`,
+        // `TO_PERCENT`, `TO_DOLLARS`, `TO_PURE_NUMBER`, `TO_DATE`): every member
+        // reads a sparkline as the empty string (google.tsv). The family is
+        // uniform, but nothing *outside* it can be inferred from that —
+        // `DOLLAR` rejects a sparkline while `TO_DOLLARS` does not. The other
+        // members point here rather than restating it; see also the coercion
+        // section of `crate::eval::functions::google`.
+        Value::Sparkline(_) => Value::Text(String::new()),
         _                => Value::Error(ErrorKind::Value),
     }
 }

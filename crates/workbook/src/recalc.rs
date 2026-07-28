@@ -1291,6 +1291,7 @@ fn core_to_workbook(v: CoreValue) -> Value {
         CoreValue::Empty => Value::Empty,
         CoreValue::Date(n) => Value::Date(n),
         CoreValue::Zoned(z) => Value::Zoned(z),
+        CoreValue::Sparkline(spec) => Value::Sparkline(spec),
         CoreValue::Array(elems) => core_array_to_workbook(elems),
     }
 }
@@ -1334,6 +1335,7 @@ fn workbook_to_core(v: &Value) -> CoreValue {
         Value::Empty => CoreValue::Empty,
         Value::Date(n) => CoreValue::Date(*n),
         Value::Zoned(z) => CoreValue::Zoned(z.clone()),
+        Value::Sparkline(spec) => CoreValue::Sparkline(spec.clone()),
         Value::Array(rows) => CoreValue::Array(
             rows.iter()
                 .map(|row| CoreValue::Array(row.iter().map(workbook_to_core).collect()))

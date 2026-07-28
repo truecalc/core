@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::io::{self, BufRead, Write};
 
+use truecalc_core::types::{SparklineChartType, SparklineSpec, SparklineValue};
 use truecalc_core::{Engine, Expr, Registry, Value};
 use truecalc_workbook::{Address, CellInput, EngineFlavor as WbEngine, RecalcContext, Value as WbValue, Workbook};
 use serde_json::{json, Value as JsonValue};
@@ -492,6 +493,7 @@ fn wb_value_to_json(v: &WbValue) -> JsonValue {
         WbValue::Empty => json!({ "type": "empty", "value": null }),
         WbValue::Date(d) => json!({ "type": "date", "value": d }),
         WbValue::Zoned(z) => json!({ "type": "zoned", "value": z.to_rfc9557() }),
+        WbValue::Sparkline(spec) => json!({ "type": "sparkline", "value": sparkline_to_json(spec) }),
         WbValue::Array(rows) => {
             let arr: Vec<Vec<JsonValue>> = rows.iter()
                 .map(|r| r.iter().map(wb_value_to_json).collect())
@@ -499,6 +501,57 @@ fn wb_value_to_json(v: &WbValue) -> JsonValue {
             json!({ "type": "array", "value": arr })
         }
     }
+}
+
+/// One sparkline data point / option value, read back from the shape
+/// [`sparkline_to_json`] emits for it.
+fn json_to_sparkline_value(v: &JsonValue) -> Option<SparklineValue> {
+    let obj = v.as_object()?;
+    match obj.get("type")?.as_str()? {
+        "number" => Some(SparklineValue::number(obj.get("value")?.as_f64()?)),
+        "text" => Some(SparklineValue::Text(obj.get("value")?.as_str()?.to_owned())),
+        "bool" => Some(SparklineValue::Bool(obj.get("value")?.as_bool()?)),
+        "empty" => Some(SparklineValue::Blank),
+        _ => None,
+    }
+}
+
+/// Read the payload of a `{ "type": "sparkline", "value": {...} }` object back
+/// into a spec, so a sparkline this server emitted can be handed back as a
+/// variable unchanged. Without it the object would silently arrive as `empty`.
+fn json_to_sparkline(spec: &JsonValue) -> Option<SparklineSpec> {
+    let obj = spec.as_object()?;
+    let chart_type = SparklineChartType::parse(obj.get("charttype")?.as_str()?)?;
+    let raw_data = obj.get("data")?.as_array()?;
+    // The evaluator answers `#N/A` for a `data` argument with fewer than two
+    // points, so a shorter spec is not something it can emit — reject it here
+    // too, exactly as the workbook decoder does.
+    if raw_data.len() < 2 {
+        return None;
+    }
+    let mut data = Vec::new();
+    for raw in raw_data {
+        data.push(json_to_sparkline_value(raw)?);
+    }
+    let mut options = Vec::new();
+    for raw in obj.get("options")?.as_array()? {
+        let pair = raw.as_array()?;
+        if pair.len() != 2 {
+            return None;
+        }
+        let key = pair[0].as_str()?.to_ascii_lowercase();
+        // `charttype` is lifted into the spec's own field, never left in the
+        // option list — so a payload carrying it there was not emitted by us.
+        if key == "charttype" {
+            return None;
+        }
+        options.push((key, json_to_sparkline_value(&pair[1])?));
+    }
+    Some(SparklineSpec {
+        chart_type,
+        data,
+        options,
+    })
 }
 
 fn parse_variables(vars_json: &JsonValue) -> HashMap<String, Value> {
@@ -528,12 +581,44 @@ fn parse_variables(vars_json: &JsonValue) -> HashMap<String, Value> {
                         None => continue,
                     }
                 }
+                // Self-describing sparkline: { "type": "sparkline", "value": {...} }.
+                JsonValue::Object(o)
+                    if o.get("type").and_then(|t| t.as_str()) == Some("sparkline") =>
+                {
+                    match o.get("value").and_then(json_to_sparkline) {
+                        Some(spec) => Value::Sparkline(Box::new(spec)),
+                        None => continue,
+                    }
+                }
                 _ => continue,
             };
             map.insert(k.clone(), val);
         }
     }
     map
+}
+
+/// The plain-value projection of a sparkline data point / option value, so a
+/// spec is emitted in the same vocabulary as any other value.
+fn sparkline_cell(v: &SparklineValue) -> Value {
+    match v {
+        SparklineValue::Number(n) => Value::Number(*n),
+        SparklineValue::Text(s) => Value::Text(s.clone()),
+        SparklineValue::Bool(b) => Value::Bool(*b),
+        SparklineValue::Blank => Value::Empty,
+    }
+}
+
+/// A sparkline's parsed spec, carried in full: it is the value's identity, so
+/// no surface projects it to text (every text projection of it is empty).
+fn sparkline_to_json(spec: &SparklineSpec) -> JsonValue {
+    let data: Vec<JsonValue> = spec.data.iter().map(|d| value_to_json(&sparkline_cell(d))).collect();
+    let options: Vec<JsonValue> = spec
+        .options
+        .iter()
+        .map(|(k, v)| json!([k, value_to_json(&sparkline_cell(v))]))
+        .collect();
+    json!({ "charttype": spec.chart_type.as_str(), "data": data, "options": options })
 }
 
 fn value_to_json(v: &Value) -> JsonValue {
@@ -550,6 +635,7 @@ fn value_to_json(v: &Value) -> JsonValue {
             let items: Vec<JsonValue> = arr.iter().map(value_to_json).collect();
             json!({ "value": items, "type": "array" })
         }
+        Value::Sparkline(spec) => json!({ "value": sparkline_to_json(spec), "type": "sparkline" }),
     }
 }
 

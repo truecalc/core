@@ -39,7 +39,7 @@ pub fn zoned_extreme(args: &[Value], want_min: bool) -> Option<Value> {
                     *error = Some(v.clone());
                 }
             }
-            Value::Empty => {}
+            Value::Empty | Value::Sparkline(_) => {}
             Value::Array(elems) => {
                 for e in elems {
                     walk(e, best, saw_zoned, saw_numeric, error, want_min);
@@ -122,7 +122,7 @@ fn collect_nums_a_into_checked(args: &[Value], out: &mut Vec<f64>) -> Option<Val
             Value::Error(e) => return Some(Value::Error(e.clone())),
             Value::ErrorMsg(e, m) => return Some(Value::ErrorMsg(e.clone(), m.clone())),
             Value::Empty => {}
-            Value::Zoned(_) => {}
+            Value::Zoned(_) | Value::Sparkline(_) => {}
         }
     }
     None
@@ -171,6 +171,9 @@ pub fn collect_nums_a_checked(args: &[Value]) -> Result<Vec<f64>, Value> {
                     return Err(err);
                 }
             }
+            // Aggregates skip a sparkline (google.tsv:
+            // `=MAX(SPARKLINE({1,2,3}),1)` and `=SUM(...)` are both 1).
+            Value::Sparkline(_) => {}
             Value::Zoned(_) => return Err(Value::Error(ErrorKind::Value)),
             Value::Error(e) => return Err(Value::Error(e.clone())),
             Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
@@ -219,6 +222,9 @@ pub fn collect_nums_direct(args: &[Value]) -> Result<Vec<f64>, Value> {
                     return Err(err);
                 }
             }
+            // Aggregates skip a sparkline (google.tsv:
+            // `=MAX(SPARKLINE({1,2,3}),1)` and `=SUM(...)` are both 1).
+            Value::Sparkline(_) => {}
             Value::Zoned(_) => return Err(Value::Error(ErrorKind::Value)),
             Value::Error(e) => return Err(Value::Error(e.clone())),
             Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
@@ -268,6 +274,9 @@ pub fn collect_nums_a_direct(args: &[Value]) -> Result<Vec<f64>, Value> {
                 // Array context: bools coerce, text→0
                 collect_nums_a_into(inner, &mut nums);
             }
+            // Aggregates skip a sparkline (google.tsv:
+            // `=MAX(SPARKLINE({1,2,3}),1)` and `=SUM(...)` are both 1).
+            Value::Sparkline(_) => {}
             Value::Zoned(_) => return Err(Value::Error(ErrorKind::Value)),
             Value::Error(e) => return Err(Value::Error(e.clone())),
             Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
@@ -294,7 +303,7 @@ pub fn collect_nums_a_into(args: &[Value], out: &mut Vec<f64>) {
             Value::Array(inner) => collect_nums_a_into(inner, out),
             Value::Empty => {}
             Value::Error(_) | Value::ErrorMsg(_, _) => {}
-            Value::Zoned(_) => {}
+            Value::Zoned(_) | Value::Sparkline(_) => {}
         }
     }
 }
