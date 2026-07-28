@@ -138,3 +138,53 @@ fn malformed_specs_are_rejected_on_decode() {
         );
     }
 }
+
+#[test]
+fn a_non_canonical_charttype_is_rejected_on_decode() {
+    // `SPARKLINE`'s own argument matching is case-insensitive, so
+    // `{"charttype","LINE"}` evaluates; the wire form is canonical-only, as it
+    // already is for option keys. Accepting a non-canonical spelling here would
+    // load a document the published schema calls malformed.
+    for charttype in ["Line", "LINE", "WinLoss", "Bar"] {
+        let json = format!(
+            r#"{{"type":"sparkline","value":{{"charttype":"{charttype}","data":[{{"type":"number","value":1.0}},{{"type":"number","value":2.0}}],"options":[]}}}}"#
+        );
+        assert!(
+            serde_json::from_str::<Value>(&json).is_err(),
+            "should have been rejected: {json}"
+        );
+    }
+}
+
+/// `SparklineSpec` is a public struct, so a spec the evaluator can never
+/// produce is constructible. Encoding one would emit bytes that neither the
+/// decoder nor the published schema accepts, so the encoder refuses — the same
+/// guard `Value::Array` applies to its own shape rules.
+#[test]
+fn malformed_specs_are_rejected_on_encode() {
+    let bad = [
+        // `parse_data` answers #REF! for no points and #N/A for one, so neither
+        // exists in serialized form.
+        spec(SparklineChartType::Line, Vec::new(), Vec::new()),
+        spec(SparklineChartType::Line, nums(&[1.0]), Vec::new()),
+        spec(
+            SparklineChartType::Line,
+            nums(&[1.0, 2.0]),
+            vec![("COLOR".to_owned(), SparklineValue::Text("red".to_owned()))],
+        ),
+        spec(
+            SparklineChartType::Line,
+            nums(&[1.0, 2.0]),
+            vec![(
+                "charttype".to_owned(),
+                SparklineValue::Text("bar".to_owned()),
+            )],
+        ),
+    ];
+    for value in bad {
+        assert!(
+            serde_json::to_string(&value).is_err(),
+            "should have been rejected: {value:?}"
+        );
+    }
+}
