@@ -15,8 +15,15 @@ use crate::types::{ErrorKind, Value};
 ///   lands with the others.
 ///
 /// MIN needs no code for the second rule — it already falls through to 0.
-/// An array holding only *blanks* is a third case, unprobed, left at the 0
-/// MIN has always given it.
+/// An array holding only *blanks* — what `=MIN(A1:A3)` over an untouched
+/// column materializes as — is 0 too, and is now captured rather than assumed:
+/// seven range shapes, each with a populated control, are laid out on
+/// [`stat_helpers::is_blank_only_array`] along with the note that those rows
+/// are not in this repo yet. MIN was the one of the four already giving that
+/// answer, so it needs no code for this rule either — the predicate is not
+/// called from here at all; MAX, MAXA and MINA were brought to it.
+///
+/// [`stat_helpers::is_blank_only_array`]: super::stat_helpers::is_blank_only_array
 pub fn min_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);

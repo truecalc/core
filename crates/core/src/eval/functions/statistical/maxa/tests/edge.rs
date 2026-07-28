@@ -54,6 +54,38 @@ fn maxa_empty_array_is_ref_error() {
 }
 
 #[test]
+fn maxa_array_of_only_blanks_is_zero() {
+    // `=MAXA(A1:A3)` over empty cells is 0 in Google Sheets — the same answer
+    // MAX, MIN and MINA give it. MAXA used to answer #N/A here.
+    //
+    // Captured across seven range shapes, each with a populated control, but
+    // **none of those rows are in this repo yet** — they land in a separate
+    // fixtures-only PR (see `stat_helpers::is_blank_only_array` for the shapes
+    // and the branch). Read from this repo alone, this test pins the
+    // behaviour, not the Sheets answer.
+    assert_eq!(
+        maxa_fn(&[Value::Array(vec![Value::Empty, Value::Empty, Value::Empty])]),
+        Value::Number(0.0)
+    );
+    // Same through the nested-row shape a vertical range materializes as.
+    assert_eq!(
+        maxa_fn(&[Value::Array(vec![
+            Value::Array(vec![Value::Empty]),
+            Value::Array(vec![Value::Empty]),
+        ])]),
+        Value::Number(0.0)
+    );
+}
+
+#[test]
+fn maxa_blank_without_an_array_is_still_na() {
+    // The rule is confined to the range form. A bare blank argument is
+    // unprobed, so it keeps the #N/A MAXA has always given it.
+    assert_eq!(maxa_fn(&[Value::Empty]), Value::Error(ErrorKind::NA));
+    assert_eq!(maxa_fn(&[Value::Empty, Value::Empty]), Value::Error(ErrorKind::NA));
+}
+
+#[test]
 fn maxa_text_only_array_is_zero() {
     // `=MAXA({"a","b"})` is 0 — text counts as zero rather than being
     // skipped, so this needs no separate rule.
