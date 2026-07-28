@@ -13,6 +13,12 @@
 //!    by [`every_variant_validates_against_the_schema`], which fails until the
 //!    schema describes it.
 //!
+//! The two gates are not fully redundant: gate 2 recognises only the tuple and
+//! unit forms (`Name(..)` / `Name,`), so a struct-form variant would slip past
+//! it and be caught by gate 1 alone. Gate 1 covers every shape, so nothing
+//! escapes both — but gate 2 is the one that survives a careless `_ =>` arm,
+//! and it does not see a struct variant.
+//!
 //! Samples are checked as *serializer output*, never as hand-written JSON: the
 //! schema has to describe what the serializer emits, and the two drift silently
 //! otherwise.
@@ -157,7 +163,11 @@ fn every_variant_round_trips_and_still_validates() {
             .unwrap_or_else(|e| panic!("`Value::{name}` failed to reparse: {e:?} ({text})"));
         let again = reparsed.to_json().unwrap();
         assert_eq!(again, text, "`Value::{name}` did not round-trip");
-        assert!(validator.is_valid(&serde_json::from_str(&again).unwrap()));
+        assert!(
+            validator.is_valid(&serde_json::from_str(&again).unwrap()),
+            "the re-serialized form of `Value::{name}` does not validate against \
+             the published schema: {again}"
+        );
     }
 }
 
@@ -223,6 +233,16 @@ fn the_zoned_branch_accepts_the_spellings_the_reader_accepts() {
         "2026-01-01T12:00:00Z[UTC]",
         "2026-01-01T12:00:00.5+02:00",
         "2026-01-01T12:00:00+02:00[+02:00]",
+        // A lower-case separator, a space separator, and a leap second are all
+        // RFC-3339 spellings the reader normalizes on the way in.
+        "2026-01-01t12:00:00z",
+        "2026-01-01 12:00:00Z",
+        "2016-12-31T23:59:60Z",
+        // The reader's offset bound is +/-23:59, not the +/-14:00 of a real zone.
+        "2026-01-01T12:00:00+23:59",
+        "2026-01-01T12:00:00-00:00",
+        "2026-01-01T12:00:00+02:00[Etc/GMT+5]",
+        "2026-01-01T12:00:00+02:00[America/Port-au-Prince]",
     ] {
         let text = document_with_value(&format!(r#"{{"type":"zoned","value":"{value}"}}"#));
         assert!(
@@ -253,6 +273,21 @@ fn the_new_branches_reject_what_the_deserializer_rejects() {
         // RFC-3339 requires an offset; the reader refuses a bare wall clock.
         r#"{"type":"zoned","value":"2026-01-01T12:00:00"}"#,
         r#"{"type":"zoned","value":"2026-01-01T12:00:00+02:00[Europe/Berlin"}"#,
+        // Out-of-range fields. The pattern bounds every field it can; calendar
+        // validity (`2026-04-31`) and the representable instant range
+        // (`9999-01-01`) are the two it genuinely cannot, and the branch's
+        // description says so.
+        r#"{"type":"zoned","value":"2026-99-99T99:99:99+99:99"}"#,
+        r#"{"type":"zoned","value":"2026-01-01T12:00:00+24:00"}"#,
+        // Whitespace padding: the wire is canonical-only, so the reader refuses
+        // to absorb it even though the formula-level parser trims.
+        r#"{"type":"zoned","value":" 2026-01-01T12:00:00Z"}"#,
+        r#"{"type":"zoned","value":"2026-01-01T12:00:00Z\n"}"#,
+        r#"{"type":"zoned","value":"2026-01-01T12:00:00+02:00[ Europe/Berlin ]"}"#,
+        // A charttype is canonical lower-case on the wire, even though
+        // SPARKLINE's own argument matching is case-insensitive.
+        r#"{"type":"sparkline","value":{"charttype":"Line","data":[{"type":"number","value":1},{"type":"number","value":2}],"options":[]}}"#,
+        r#"{"type":"sparkline","value":{"charttype":"WINLOSS","data":[{"type":"number","value":1},{"type":"number","value":2}],"options":[]}}"#,
         // A single data point is unrepresentable (the evaluator answers #N/A).
         r#"{"type":"sparkline","value":{"charttype":"line","data":[{"type":"number","value":1}],"options":[]}}"#,
         r#"{"type":"sparkline","value":{"charttype":"bogus","data":[{"type":"number","value":1},{"type":"number","value":2}],"options":[]}}"#,

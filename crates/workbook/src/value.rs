@@ -21,6 +21,12 @@ use truecalc_core::types::{SparklineChartType, SparklineSpec, SparklineValue, Zo
 ///   array is collapsed to its scalar element before storage, schema spec
 ///   §6), and holds only scalar values (never a nested `Array`). It appears
 ///   only as a spill anchor's value (schema spec §5).
+/// - `Sparkline` plots at least two points, and its option keys are lower-case
+///   and never `charttype`. The serializer rejects a spec that breaks this and
+///   the deserializer refuses one, so a spec that can be written can be read.
+/// - `Zoned` is written, and must be read, as an unpadded RFC-9557 string: the
+///   wire form is canonical, even where the formula-level parsers it delegates
+///   to are lenient about casing and surrounding whitespace.
 #[derive(Debug, Clone)]
 pub enum Value {
     /// Finite IEEE-754 f64.
@@ -221,6 +227,30 @@ struct SparklineSpecWire<'a>(&'a SparklineSpec);
 
 impl Serialize for SparklineSpecWire<'_> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        // Enforce the reader's invariants at the writing end too, exactly as
+        // the `Array` arm of `Value`'s serializer does for its own shape rules:
+        // a `SparklineSpec` is a public struct, so it can be hand-built in a
+        // state the evaluator never produces, and emitting it would yield bytes
+        // that neither `parse_sparkline` nor the published schema accepts —
+        // breaking this crate's round-trip guarantee.
+        if self.0.data.len() < 2 {
+            return Err(S::Error::custom(
+                "a sparkline plots at least two points; a shorter spec does not exist \
+                 in serialized form (the evaluator answers #N/A for one point)",
+            ));
+        }
+        for (key, _) in &self.0.options {
+            if *key != key.to_ascii_lowercase() {
+                return Err(S::Error::custom(format!(
+                    "a sparkline option key must be lower-case, got {key:?}"
+                )));
+            }
+            if key == "charttype" {
+                return Err(S::Error::custom(
+                    "charttype is carried by the sparkline's own field, not in options",
+                ));
+            }
+        }
         let data: Vec<Value> = self.0.data.iter().map(sparkline_value_to_value).collect();
         let options: Vec<(&str, Value)> = self
             .0
@@ -365,9 +395,7 @@ fn parse_value(raw: &serde_json::Value) -> Result<Value, String> {
         "number" => Ok(Value::Number(parse_finite_f64(payload, kind)?)),
         "date" => Ok(Value::Date(parse_finite_f64(payload, kind)?)),
         "zoned" => match payload.as_str() {
-            Some(s) => parse_rfc9557(s)
-                .map(|zi| Value::Zoned(Box::new(zi)))
-                .ok_or_else(|| format!("a zoned value must be a valid RFC-9557 string, got {s:?}")),
+            Some(s) => parse_zoned(s),
             None => Err("a zoned value must be a JSON string".to_string()),
         },
         "text" => match payload.as_str() {
@@ -414,6 +442,28 @@ fn parse_finite_f64(payload: &serde_json::Value, kind: &str) -> Result<f64, Stri
     Ok(if n == 0.0 { 0.0 } else { n })
 }
 
+/// Parse the payload of a `zoned` value: the canonical RFC-9557 string, in the
+/// same shape the serializer emits.
+///
+/// `parse_rfc9557` trims the string, and trims the bracketed zone inside it,
+/// because the *formula* level has to accept a padded argument. The wire is
+/// canonical-only, so padding is rejected here rather than silently absorbed —
+/// the serializer never emits it, and accepting it would put a document on disk
+/// that the published schema calls malformed.
+fn parse_zoned(s: &str) -> Result<Value, String> {
+    let zone = s
+        .split_once('[')
+        .and_then(|(_, rest)| rest.strip_suffix(']'));
+    if s.trim() != s || zone.is_some_and(|z| z.trim() != z) {
+        return Err(format!(
+            "a zoned value must not be padded with whitespace, got {s:?}"
+        ));
+    }
+    parse_rfc9557(s)
+        .map(|zi| Value::Zoned(Box::new(zi)))
+        .ok_or_else(|| format!("a zoned value must be a valid RFC-9557 string, got {s:?}"))
+}
+
 /// Parse the payload of a `sparkline` value: the full parsed spec, in the same
 /// shape [`SparklineSpecWire`] emits.
 fn parse_sparkline(payload: &serde_json::Value) -> Result<Value, String> {
@@ -434,8 +484,20 @@ fn parse_sparkline(payload: &serde_json::Value) -> Result<Value, String> {
     let raw_chart_type = obj["charttype"]
         .as_str()
         .ok_or_else(|| "a sparkline charttype must be a JSON string".to_string())?;
+    // `SparklineChartType::parse` is ASCII case-insensitive because the
+    // *formula* level has to accept `=SPARKLINE({1,2},{"charttype","LINE"})`.
+    // The wire is canonical-only — as it already is for option keys below — so
+    // a non-canonical spelling is rejected here rather than silently
+    // normalized: the serializer never emits one, and accepting one would put
+    // a document on disk that the published schema calls malformed.
     let chart_type = SparklineChartType::parse(raw_chart_type)
         .ok_or_else(|| format!("unknown sparkline charttype {raw_chart_type:?}"))?;
+    if chart_type.as_str() != raw_chart_type {
+        return Err(format!(
+            "a sparkline charttype must be spelled in its canonical lower-case \
+             form, got {raw_chart_type:?}"
+        ));
+    }
 
     let raw_data = obj["data"]
         .as_array()
