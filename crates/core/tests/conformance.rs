@@ -766,16 +766,16 @@ fn every_registered_function_has_conformance_coverage() {
     // fixture values are forbidden. Remove from this set once QUERY has
     // pipeline-verified fixture rows.
     //
-    // SPARKLINE (issue #766) is here for a different, purely mechanical reason:
-    // its 103 pipeline-verified rows exist and land in the immediately
-    // following fixtures-only PR. The "Check fixture / code separation" CI job
-    // rejects any PR touching both `fixtures/google_sheets/*.tsv` and code, and
-    // the two orderings deadlock — code first leaves a registered function with
-    // no rows (this test), fixtures first leaves rows for a function the engine
-    // does not have. This entry breaks that tie for exactly one merge, and is
-    // removed in the follow-up that lands the rows.
-    let pending_fixture_verification: std::collections::HashSet<&str> =
-        ["QUERY", "SPARKLINE"].iter().copied().collect();
+    // A new function whose rows DO exist still cannot land in one PR: the
+    // "Check fixture / code separation" job rejects a PR touching both the
+    // canonical TSVs and code, so code-first leaves a registered function with
+    // no rows (this test) and fixtures-first leaves rows for a function the
+    // engine does not have. Add the name here for exactly that one merge, then
+    // remove it in a third PR once the rows have landed — otherwise the
+    // function stays permanently exempt from the very guard this test is.
+    // SPARKLINE (issue #766) went through that sequence and is enforced again
+    // as of this commit.
+    let pending_fixture_verification: std::collections::HashSet<&str> = ["QUERY"].iter().copied().collect();
 
     let gdir = fixture_dir();
     let vars: HashMap<String, Value> = HashMap::new();
