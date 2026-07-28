@@ -28,6 +28,10 @@ pub fn to_number(v: Value) -> Result<f64, Value> {
         // Zoned instants have no naive numeric value; force an explicit TZSERIAL
         // downcast rather than silently mixing naive/aware time.
         Value::Zoned(_)  => Err(Value::Error(ErrorKind::Value)),
+        // Arithmetic rejects a sparkline: `=SPARKLINE({1,2,3})+1` is `#VALUE!`
+        // (google.tsv). `N()` (0) and the aggregates (which skip it) do not come
+        // through here.
+        Value::Sparkline(_) => Err(Value::Error(ErrorKind::Value)),
     }
 }
 
@@ -49,6 +53,12 @@ pub fn to_string_val(v: Value) -> Result<String, Value> {
         Value::Array(_) => Err(Value::Error(ErrorKind::Value)),
         // Self-describing canonical RFC-9557 form so concatenation is lossless.
         Value::Zoned(z) => Ok(z.to_rfc9557()),
+        // Text contexts are permissive: a sparkline reads as empty text
+        // (google.tsv: `LEN` is `0`, `LEFT` and `TEXT` and `TEXTJOIN` are `""`,
+        // `CONCATENATE(sparkline,"x")` is `"x"`, `EXACT(sparkline,"")` is
+        // `TRUE`). The `&` *operator* is the one carved-out exception and
+        // rejects it before reaching here — see `eval_binary`.
+        Value::Sparkline(_) => Ok(String::new()),
     }
 }
 
@@ -74,6 +84,8 @@ pub fn to_bool(v: Value) -> Result<bool, Value> {
         Value::Empty => Err(Value::Error(ErrorKind::Value)),
         // A zoned instant has no truthiness.
         Value::Zoned(_) => Err(Value::Error(ErrorKind::Value)),
+        // A sparkline is falsy (google.tsv: `=IF(SPARKLINE({1,2,3}),1,2)` is 2).
+        Value::Sparkline(_) => Ok(false),
         // Array condition: use the top-left (anchor) element — same as the
         // unspilled-array collapse the workbook layer applies.
         Value::Array(mut elems) => {

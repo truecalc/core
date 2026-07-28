@@ -1,4 +1,5 @@
 use super::error::ErrorKind;
+use super::sparkline::SparklineSpec;
 use super::zoned::ZonedInstant;
 
 #[derive(Debug, Clone)]
@@ -27,6 +28,18 @@ pub enum Value {
     /// `Value` is cloned heavily on the hot numeric path. Equality/ordering for
     /// the engine's comparison operators is defined on the instant only.
     Zoned(Box<ZonedInstant>),
+    /// A sparkline: the parsed, validated render spec produced by `SPARKLINE`.
+    /// Google Sheets models this as a value kind of its own — `TYPE()` reports
+    /// the undocumented code `128` and `ISERROR()` is `FALSE` — so it is
+    /// neither text nor an error here either. Boxed for the same reason as
+    /// `Zoned`: the payload is large and `Value` is cloned heavily.
+    ///
+    /// Like [`Value::ErrorMsg`], the payload is excluded from equality: in
+    /// Sheets **any** two sparklines compare equal under `=`, whatever they
+    /// plot. The spec is still carried in full by every surface, because
+    /// `COUNTUNIQUE` does distinguish two different sparklines — Sheets keys
+    /// uniqueness off something deeper than `=` compares.
+    Sparkline(Box<SparklineSpec>),
 }
 
 impl Value {
@@ -69,6 +82,12 @@ impl PartialEq for Value {
             (Value::Array(a), Value::Array(b)) => a == b,
             (Value::Date(a), Value::Date(b)) => a == b,
             (Value::Zoned(a), Value::Zoned(b)) => a == b,
+            // Any two sparklines are equal, whatever they plot: google.tsv
+            // records `=SPARKLINE({1,2,3})=SPARKLINE({9,9,9})` as TRUE, as well
+            // as the same row for differing charttypes and options. The spec is
+            // still carried (COUNTUNIQUE distinguishes two sparklines with a
+            // deeper key than `=` uses) — it just is not what `==` compares.
+            (Value::Sparkline(_), Value::Sparkline(_)) => true,
             // Both error variants: equal iff same kind (message ignored).
             _ => match (self.error_kind(), other.error_kind()) {
                 (Some(ka), Some(kb)) => ka == kb,

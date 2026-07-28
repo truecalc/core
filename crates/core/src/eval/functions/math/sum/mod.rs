@@ -37,6 +37,9 @@ fn sum_top_level(v: &Value) -> Result<f64, Value> {
             s.trim().parse::<f64>()
                 .map_err(|_| Value::Error(crate::types::ErrorKind::Value))
         }
+        // Aggregates skip a sparkline rather than erroring on it, direct
+        // argument or not (google.tsv: `=SUM(SPARKLINE({1,2,3}),1)` is 1).
+        Value::Sparkline(_) => Ok(0.0),
         // Direct non-array arg: full to_number coercion (Bool -> 0/1)
         other => to_number(other.clone()),
     }
@@ -55,8 +58,8 @@ fn sum_array_value(v: &Value) -> Result<f64, Value> {
         }
         // In array context: booleans and text are silently skipped
         Value::Bool(_) | Value::Text(_) | Value::Empty => Ok(0.0),
-        // In array context: zoned instants are silently skipped
-        Value::Zoned(_) => Ok(0.0),
+        // In array context: zoned instants and sparklines are silently skipped
+        Value::Zoned(_) | Value::Sparkline(_) => Ok(0.0),
         // Errors propagate
         Value::Error(_) | Value::ErrorMsg(_, _) => Err(v.clone()),
         // Numbers and Dates contribute their value

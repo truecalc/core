@@ -44,6 +44,9 @@ fn sumsq_value(v: &Value, in_array: bool) -> Result<f64, Value> {
             if let Ok(n) = s.trim().parse::<f64>() { Ok(n * n) }
             else { Err(Value::Error(crate::types::ErrorKind::Value)) }
         }
+        // Aggregates skip a sparkline in any position (google.tsv: SUM and MAX
+        // both skip a direct sparkline argument).
+        Value::Sparkline(_) => Ok(0.0),
         Value::Zoned(_) if in_array => Ok(0.0), // skipped in array context
         Value::Zoned(_) => Err(Value::Error(crate::types::ErrorKind::Value)),
         Value::Error(_) | Value::ErrorMsg(_, _) => Err(v.clone()),

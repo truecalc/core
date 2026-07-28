@@ -92,6 +92,9 @@ fn infer_type(v: &Value) -> &'static str {
         Value::Error(_) | Value::ErrorMsg(_, _) => "error",
         Value::Array(_) => "array",
         Value::Empty => "string",
+        // Sheets reports a sparkline as its own kind (TYPE code 128); the
+        // fixtures record its *displayed* value, which is always empty.
+        Value::Sparkline(_) => "sparkline",
     }
 }
 

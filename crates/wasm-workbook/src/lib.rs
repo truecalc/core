@@ -2,6 +2,7 @@ use serde::Serialize;
 use tsify_next::Tsify;
 use wasm_bindgen::prelude::*;
 
+use truecalc_core::types::SparklineValue;
 use truecalc_core::Engine;
 use truecalc_workbook::{
     Address, CellInput, Change, EngineFlavor, RecalcContext, Resolved, Value, Workbook, Worksheet,
@@ -61,6 +62,30 @@ fn value_to_json(v: &Value) -> serde_json::Value {
                 .map(|row| row.iter().map(value_to_json).collect())
                 .collect();
             serde_json::json!({"type": "array", "value": arr})
+        }
+        // The sparkline's parsed spec, carried in full: it is the value's
+        // identity, and every text projection of it is empty.
+        Value::Sparkline(spec) => {
+            let cell = |v: &SparklineValue| match v {
+                SparklineValue::Number(n) => value_to_json(&Value::Number(*n)),
+                SparklineValue::Text(s) => value_to_json(&Value::Text(s.clone())),
+                SparklineValue::Bool(b) => value_to_json(&Value::Boolean(*b)),
+                SparklineValue::Blank => value_to_json(&Value::Empty),
+            };
+            let data: Vec<serde_json::Value> = spec.data.iter().map(&cell).collect();
+            let options: Vec<serde_json::Value> = spec
+                .options
+                .iter()
+                .map(|(k, v)| serde_json::json!([k, cell(v)]))
+                .collect();
+            serde_json::json!({
+                "type": "sparkline",
+                "value": {
+                    "charttype": spec.chart_type.as_str(),
+                    "data": data,
+                    "options": options,
+                }
+            })
         }
     }
 }

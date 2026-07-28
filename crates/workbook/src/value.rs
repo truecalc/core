@@ -4,7 +4,7 @@ use serde::de::Error as _;
 use serde::ser::{Error as _, SerializeMap};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use truecalc_core::types::zoned::parse_rfc9557;
-use truecalc_core::types::ZonedInstant;
+use truecalc_core::types::{SparklineChartType, SparklineSpec, SparklineValue, ZonedInstant};
 
 /// An evaluated cell value — one of the seven types of schema spec §6.
 ///
@@ -54,6 +54,23 @@ pub enum Value {
     /// A zone-aware instant (Model B). Serialized as its canonical, self-
     /// describing RFC-9557 string, e.g. `2026-07-14T11:00:00+02:00[Europe/Berlin]`.
     Zoned(Box<ZonedInstant>),
+    /// A sparkline: the parsed, validated render spec produced by `SPARKLINE`
+    /// (Google Sheets models it as a value kind of its own — `TYPE()` reports
+    /// the undocumented code `128`).
+    ///
+    /// Sheets keeps *two* notions of sameness for a sparkline, and this type
+    /// carries the deeper one. The `=` operator reports any two sparklines
+    /// equal, whatever they plot (that is the engine's
+    /// [`truecalc_core::Value`] equality); `COUNTUNIQUE` nonetheless counts two
+    /// different sparklines as 2 and two identical ones as 1. Storage needs the
+    /// deeper notion: recalc writes a recomputed cell back only when the new
+    /// value differs from the old, so if every sparkline compared equal here a
+    /// changed chart would silently keep its stale spec. Equality and hashing
+    /// therefore compare the whole spec, and canonical JSON carries it in
+    /// full — serializing it lossily (as `""`, or by dropping it and
+    /// recomputing from the formula) would collapse two genuinely different
+    /// sparklines into one canonical form.
+    Sparkline(Box<SparklineSpec>),
 }
 
 /// Bit pattern of a finite f64 with `-0.0` normalized to `0.0`, so that
@@ -102,6 +119,9 @@ impl PartialEq for Value {
             (Value::Array(a), Value::Array(b)) => a == b,
             (Value::Date(a), Value::Date(b)) => a == b,
             (Value::Zoned(a), Value::Zoned(b)) => a == b,
+            // Storage identity is the deep (COUNTUNIQUE-grade) one, not the
+            // `=` operator's — see the variant's doc comment.
+            (Value::Sparkline(a), Value::Sparkline(b)) => a == b,
             _ => match (self.error_code(), other.error_code()) {
                 (Some(a), Some(b)) => a == b,
                 _ => false,
@@ -138,9 +158,81 @@ impl Hash for Value {
                     }
                 }
             }
+            // Hash the whole spec: it is this value's identity, so two
+            // sparklines that compare equal must hash equal.
+            Value::Sparkline(spec) => {
+                spec.chart_type.as_str().hash(state);
+                spec.data.len().hash(state);
+                for point in &spec.data {
+                    hash_sparkline_value(point, state);
+                }
+                spec.options.len().hash(state);
+                for (key, value) in &spec.options {
+                    key.hash(state);
+                    hash_sparkline_value(value, state);
+                }
+            }
             // Handled above via `error_code()`.
             Value::Error(_) | Value::ErrorMsg(_, _) => unreachable!(),
         }
+    }
+}
+
+/// A sparkline data point / option value as an ordinary scalar cell value, so
+/// a spec serializes in the same vocabulary as every other value on the wire.
+fn sparkline_value_to_value(v: &SparklineValue) -> Value {
+    match v {
+        SparklineValue::Number(n) => Value::Number(if *n == 0.0 { 0.0 } else { *n }),
+        SparklineValue::Text(s) => Value::Text(s.clone()),
+        SparklineValue::Bool(b) => Value::Boolean(*b),
+        SparklineValue::Blank => Value::Empty,
+    }
+}
+
+/// The inverse of [`sparkline_value_to_value`]; only scalar cell values can be
+/// a data point or an option value.
+fn value_to_sparkline_value(v: &Value) -> Result<SparklineValue, String> {
+    match v {
+        Value::Number(n) => Ok(SparklineValue::number(*n)),
+        Value::Text(s) => Ok(SparklineValue::Text(s.clone())),
+        Value::Boolean(b) => Ok(SparklineValue::Bool(*b)),
+        Value::Empty => Ok(SparklineValue::Blank),
+        _ => Err(
+            "a sparkline data point or option value must be a number, text, boolean or empty"
+                .to_string(),
+        ),
+    }
+}
+
+fn hash_sparkline_value<H: Hasher>(v: &SparklineValue, state: &mut H) {
+    std::mem::discriminant(v).hash(state);
+    match v {
+        SparklineValue::Number(n) => normalized_bits(*n).hash(state),
+        SparklineValue::Text(s) => s.hash(state),
+        SparklineValue::Bool(b) => b.hash(state),
+        SparklineValue::Blank => {}
+    }
+}
+
+/// Canonical wire form of a parsed sparkline spec. Keys are emitted in
+/// lexicographic order (`charttype` < `data` < `options`) so the encoding is
+/// canonical (JCS) like every other value in this module.
+struct SparklineSpecWire<'a>(&'a SparklineSpec);
+
+impl Serialize for SparklineSpecWire<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let data: Vec<Value> = self.0.data.iter().map(sparkline_value_to_value).collect();
+        let options: Vec<(&str, Value)> = self
+            .0
+            .options
+            .iter()
+            .map(|(k, v)| (k.as_str(), sparkline_value_to_value(v)))
+            .collect();
+        let mut map = serializer.serialize_map(Some(3))?;
+        map.serialize_entry("charttype", self.0.chart_type.as_str())?;
+        map.serialize_entry("data", &data)?;
+        map.serialize_entry("options", &options)?;
+        map.end()
     }
 }
 
@@ -176,6 +268,15 @@ impl Serialize for Value {
                 let mut map = serializer.serialize_map(Some(2))?;
                 map.serialize_entry("type", "text")?;
                 map.serialize_entry("value", s)?;
+                map.end()
+            }
+            // The full parsed spec, never a lossy projection: it is the value's
+            // identity, so a canonical form that dropped it would make two
+            // different sparklines indistinguishable.
+            Value::Sparkline(spec) => {
+                let mut map = serializer.serialize_map(Some(2))?;
+                map.serialize_entry("type", "sparkline")?;
+                map.serialize_entry("value", &SparklineSpecWire(spec))?;
                 map.end()
             }
             Value::Boolean(b) => {
@@ -289,6 +390,7 @@ fn parse_value(raw: &serde_json::Value) -> Result<Value, String> {
             }
         }
         "array" => parse_array(payload),
+        "sparkline" => parse_sparkline(payload),
         other => Err(format!("unknown value type {other:?}")),
     }
 }
@@ -310,6 +412,72 @@ fn parse_finite_f64(payload: &serde_json::Value, kind: &str) -> Result<f64, Stri
     }
     // Normalize -0.0 to 0.0 at the value level (schema spec §8).
     Ok(if n == 0.0 { 0.0 } else { n })
+}
+
+/// Parse the payload of a `sparkline` value: the full parsed spec, in the same
+/// shape [`SparklineSpecWire`] emits.
+fn parse_sparkline(payload: &serde_json::Value) -> Result<Value, String> {
+    let obj = payload
+        .as_object()
+        .ok_or_else(|| "a sparkline value must be a JSON object".to_string())?;
+    if obj.len() != 3
+        || !obj.contains_key("charttype")
+        || !obj.contains_key("data")
+        || !obj.contains_key("options")
+    {
+        return Err(
+            "a sparkline value must have exactly the fields \"charttype\", \"data\" and \"options\""
+                .to_string(),
+        );
+    }
+
+    let raw_chart_type = obj["charttype"]
+        .as_str()
+        .ok_or_else(|| "a sparkline charttype must be a JSON string".to_string())?;
+    let chart_type = SparklineChartType::parse(raw_chart_type)
+        .ok_or_else(|| format!("unknown sparkline charttype {raw_chart_type:?}"))?;
+
+    let raw_data = obj["data"]
+        .as_array()
+        .ok_or_else(|| "sparkline data must be a JSON array".to_string())?;
+    // The evaluator rejects a single-point `data` argument with `#N/A`, so a
+    // shorter spec is unrepresentable and must not round-trip in.
+    if raw_data.len() < 2 {
+        return Err("sparkline data must hold at least two points".to_string());
+    }
+    let mut data = Vec::with_capacity(raw_data.len());
+    for raw in raw_data {
+        data.push(value_to_sparkline_value(&parse_value(raw)?)?);
+    }
+
+    let raw_options = obj["options"]
+        .as_array()
+        .ok_or_else(|| "sparkline options must be a JSON array".to_string())?;
+    let mut options = Vec::with_capacity(raw_options.len());
+    for raw in raw_options {
+        let pair = raw
+            .as_array()
+            .filter(|p| p.len() == 2)
+            .ok_or_else(|| "a sparkline option must be a [key, value] pair".to_string())?;
+        let key = pair[0]
+            .as_str()
+            .ok_or_else(|| "a sparkline option key must be a JSON string".to_string())?;
+        if key != key.to_ascii_lowercase() {
+            return Err(format!("a sparkline option key must be lower-case, got {key:?}"));
+        }
+        if key == "charttype" {
+            return Err(
+                "charttype is carried by the sparkline's own field, not in options".to_string(),
+            );
+        }
+        options.push((key.to_owned(), value_to_sparkline_value(&parse_value(&pair[1])?)?));
+    }
+
+    Ok(Value::Sparkline(Box::new(SparklineSpec {
+        chart_type,
+        data,
+        options,
+    })))
 }
 
 fn parse_array(payload: &serde_json::Value) -> Result<Value, String> {

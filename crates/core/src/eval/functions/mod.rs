@@ -4,6 +4,7 @@ pub mod date;
 pub mod engineering;
 pub mod filter;
 pub mod financial;
+pub mod google;
 pub mod logical;
 pub mod lookup;
 pub mod math;
@@ -248,6 +249,7 @@ impl Registry {
         database::register_database(&mut r);
         lookup::register_lookup(&mut r);
         query::register_query(&mut r);
+        google::register_google(&mut r);
         web::register_web(&mut r);
         timezone::register_timezone(&mut r);
         r

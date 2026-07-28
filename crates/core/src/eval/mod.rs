@@ -267,6 +267,9 @@ fn type_rank(v: &Value) -> u8 {
         // Error and Array cannot reach compare_values through the normal eval path
         // (eval_binary guards against errors before calling compare_values).
         Value::Error(_) | Value::ErrorMsg(_, _) | Value::Array(_) => 3,
+        // A sparkline outranks every scalar (google.tsv: `>1`, `>"zzzz"` and
+        // `>TRUE` are all TRUE, and `=SPARKLINE(...)=""` is FALSE).
+        Value::Sparkline(_) => 4,
     }
 }
 
@@ -351,6 +354,14 @@ fn eval_binary(op: &BinaryOp, lv: Value, rv: Value) -> Value {
 
         // ── Concatenation ───────────────────────────────────────────────────
         BinaryOp::Concat => {
+            // The `&` *operator* rejects a sparkline (google.tsv:
+            // `="x"&SPARKLINE({1,2,3})` is `#VALUE!`) even though `CONCATENATE`
+            // of the same value concatenates it as empty text. That asymmetry
+            // is Sheets'; it lives here because every other text context goes
+            // through the permissive `to_string_val`.
+            if matches!(lv, Value::Sparkline(_)) || matches!(rv, Value::Sparkline(_)) {
+                return Value::Error(ErrorKind::Value);
+            }
             let ls = match to_string_val(lv) { Ok(s) => s, Err(e) => return e };
             let rs = match to_string_val(rv) { Ok(s) => s, Err(e) => return e };
             Value::Text(ls + &rs)
@@ -385,6 +396,12 @@ fn compare_values(op: &BinaryOp, lv: &Value, rv: &Value) -> bool {
         // Zoned instants compare on the absolute instant only (same moment in a
         // different zone compares equal). Cross-type Zoned is rejected in eval_binary.
         (Value::Zoned(a),  Value::Zoned(b))  => apply_cmp(op, Some(a.utc_nanos.cmp(&b.utc_nanos))),
+        // Any two sparklines compare equal, whatever they plot (google.tsv:
+        // `=SPARKLINE({1,2,3})=SPARKLINE({9,9,9})` is TRUE, `<>` is FALSE, and
+        // `<`/`>` between two sparklines are both FALSE while `>=` is TRUE).
+        (Value::Sparkline(_), Value::Sparkline(_)) => {
+            apply_cmp(op, Some(std::cmp::Ordering::Equal))
+        }
         (Value::Text(a),   Value::Text(b))   => apply_cmp(op, Some(a.cmp(b))),
         (Value::Bool(a),   Value::Bool(b))   => apply_cmp(op, Some(a.cmp(b))),
         (Value::Empty,     Value::Empty)     => apply_cmp(op, Some(std::cmp::Ordering::Equal)),

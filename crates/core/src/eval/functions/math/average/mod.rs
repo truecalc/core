@@ -24,6 +24,8 @@ pub fn average_fn(args: &[Value]) -> Value {
                 }
             }
             Value::Empty => {} // skip
+            // Aggregates skip a sparkline (google.tsv: SUM/MAX skip it).
+            Value::Sparkline(_) => {}
             Value::Zoned(_) => return Value::Error(ErrorKind::Value),
             Value::Error(_) | Value::ErrorMsg(_, _) => return arg.clone(),
             Value::Array(elems) => {

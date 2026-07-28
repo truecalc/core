@@ -299,6 +299,20 @@ pub fn text_fn(args: &[Value]) -> Value {
     if let Value::Bool(b) = raw {
         return Value::Text(if b { "TRUE".to_string() } else { "FALSE".to_string() });
     }
+    // google.tsv: `=TEXT(SPARKLINE({1,2,3}),"0")` is the empty string, so TEXT
+    // needs its own answer — it reads its value as a number, which a sparkline
+    // is not. Note this is *not* "as if empty text" either: `TEXT("","0")`
+    // formats as "0".
+    //
+    // There is no rule to derive this from: the whole `TO_*` family also answers
+    // "" while `DOLLAR` and `FIXED` answer `#VALUE!` — `DOLLAR` and
+    // `TO_DOLLARS` differ despite the names. The set of exceptions is
+    // empirical: see the coercion map in `crate::eval::functions::google` for
+    // which functions were probed in which direction, and extend that list from
+    // the oracle rather than by analogy.
+    if matches!(raw, Value::Sparkline(_)) {
+        return Value::Text(String::new());
+    }
     let n = match &raw {
         Value::Date(d) => *d,
         Value::Number(n) => *n,

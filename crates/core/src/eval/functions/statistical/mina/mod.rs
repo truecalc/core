@@ -11,8 +11,11 @@ pub fn mina_fn(args: &[Value]) -> Value {
         return Value::Error(ErrorKind::NA);
     }
     let mut result: Option<f64> = None;
+    // See `fold_array_min` for why this flag exists.
+    let mut skipped_sparkline = false;
     for arg in args {
         match arg {
+            Value::Sparkline(_) => skipped_sparkline = true,
             Value::Number(n) => {
                 result = Some(result.map_or(*n, |cur: f64| cur.min(*n)));
             }
@@ -26,7 +29,7 @@ pub fn mina_fn(args: &[Value]) -> Value {
                 // In array context: Numbers included, Bool→1/0, Text→0, Empty→skip.
                 // Recurses into nested arrays (e.g. a vertical range
                 // materializes as nested one-element row arrays).
-                if let Err(e) = fold_array_min(inner, &mut result) {
+                if let Err(e) = fold_array_min(inner, &mut result, &mut skipped_sparkline) {
                     return e;
                 }
             }
@@ -37,6 +40,7 @@ pub fn mina_fn(args: &[Value]) -> Value {
     }
     match result {
         Some(n) => Value::Number(n),
+        None if skipped_sparkline => Value::Number(0.0),
         None    => Value::Error(ErrorKind::NA),
     }
 }
@@ -44,15 +48,28 @@ pub fn mina_fn(args: &[Value]) -> Value {
 /// Recurse into nested arrays (e.g. a vertical range materializes as nested
 /// one-element row arrays) so every cell is visited, folding into `result`
 /// with MINA's array-context coercion rules.
-fn fold_array_min(arr: &[Value], result: &mut Option<f64>) -> Result<(), Value> {
+/// A sparkline is skipped wherever it appears, and an aggregate whose scope
+/// holds nothing else answers 0 — the same answer whether it arrived as a
+/// direct argument or through a range (google.tsv: `=MINA(SPARKLINE({1,2,3}))`
+/// and `=MINA(Data!K1:K1)` are both 0). The flag is what distinguishes "skipped a
+/// sparkline" from "saw nothing usable at all", which stay different answers.
+fn fold_array_min(
+    arr: &[Value],
+    result: &mut Option<f64>,
+    skipped_sparkline: &mut bool,
+) -> Result<(), Value> {
     for v in arr {
         let n = match v {
+            Value::Sparkline(_) => {
+                *skipped_sparkline = true;
+                continue;
+            }
             Value::Number(n) => *n,
             Value::Bool(b) => if *b { 1.0 } else { 0.0 },
             Value::Text(_) => 0.0,
             Value::Empty => continue,
             Value::Array(inner) => {
-                fold_array_min(inner, result)?;
+                fold_array_min(inner, result, skipped_sparkline)?;
                 continue;
             }
             Value::Error(e) => return Err(Value::Error(e.clone())),

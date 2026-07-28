@@ -9,14 +9,68 @@ use tsify_next::Tsify;
 use wasm_bindgen::prelude::*;
 
 use truecalc_core::types::zoned::parse_rfc9557;
+use truecalc_core::types::{SparklineChartType, SparklineSpec, SparklineValue};
 use truecalc_core::Value;
+
+/// One sparkline data point / option value, read back from the shape
+/// [`value_to_result`] emits for it.
+fn json_to_sparkline_value(v: &serde_json::Value) -> Option<SparklineValue> {
+    let obj = v.as_object()?;
+    match obj.get("type")?.as_str()? {
+        "number" => Some(SparklineValue::number(obj.get("value")?.as_f64()?)),
+        "text" => Some(SparklineValue::Text(obj.get("value")?.as_str()?.to_owned())),
+        "bool" => Some(SparklineValue::Bool(obj.get("value")?.as_bool()?)),
+        "empty" => Some(SparklineValue::Blank),
+        _ => None,
+    }
+}
+
+/// Read a `{ type: "sparkline", value: SparklineSpecResult }` object back into a
+/// spec, so an emitted sparkline can be fed back in as a variable unchanged.
+fn json_to_sparkline(spec: &serde_json::Value) -> Option<SparklineSpec> {
+    let obj = spec.as_object()?;
+    let chart_type = SparklineChartType::parse(obj.get("charttype")?.as_str()?)?;
+    let raw_data = obj.get("data")?.as_array()?;
+    // The evaluator answers `#N/A` for a `data` argument with fewer than two
+    // points, so a shorter spec is not something it can emit — reject it here
+    // too, exactly as the workbook decoder does.
+    if raw_data.len() < 2 {
+        return None;
+    }
+    let mut data = Vec::new();
+    for raw in raw_data {
+        data.push(json_to_sparkline_value(raw)?);
+    }
+    let mut options = Vec::new();
+    for raw in obj.get("options")?.as_array()? {
+        let pair = raw.as_array()?;
+        if pair.len() != 2 {
+            return None;
+        }
+        let key = pair[0].as_str()?.to_ascii_lowercase();
+        // `charttype` is lifted into the spec's own field, never left in the
+        // option list — so a payload carrying it there was not emitted by us.
+        if key == "charttype" {
+            return None;
+        }
+        options.push((key, json_to_sparkline_value(&pair[1])?));
+    }
+    Some(SparklineSpec {
+        chart_type,
+        data,
+        options,
+    })
+}
 
 /// Convert a JSON value (from JS) into a truecalc-core Value.
 ///
 /// A zoned instant round-trips in via the self-describing object
 /// `{ "type": "zoned", "value": "<RFC-9557>" }` (the same shape `value_to_result`
-/// emits), so an emitted `Zoned` can be fed back as a variable.
-fn json_to_value(v: &serde_json::Value) -> Value {
+/// emits), so an emitted `Zoned` can be fed back as a variable. A sparkline
+/// round-trips the same way, through `{ "type": "sparkline", "value": {...} }`:
+/// without it an emitted sparkline would silently read back as `empty`, and
+/// `TYPE(x)` would answer 1 instead of 128.
+pub fn json_to_value(v: &serde_json::Value) -> Value {
     match v {
         serde_json::Value::Number(n) => n
             .as_f64()
@@ -33,6 +87,11 @@ fn json_to_value(v: &serde_json::Value) -> Value {
                     .and_then(parse_rfc9557)
                 {
                     return Value::Zoned(Box::new(zi));
+                }
+            }
+            if map.get("type").and_then(|t| t.as_str()) == Some("sparkline") {
+                if let Some(spec) = map.get("value").and_then(json_to_sparkline) {
+                    return Value::Sparkline(Box::new(spec));
                 }
             }
             Value::Empty
@@ -91,6 +150,35 @@ pub enum EvalResult {
     /// An (unspilled) array result. Recursive: 2-D arrays are arrays of `array`
     /// rows. Cells carry their own type, including nested `date`/`error`/`empty`.
     Array { value: Vec<EvalResult> },
+    /// A sparkline: the parsed, validated render spec produced by `SPARKLINE`.
+    /// Google Sheets models this as a value kind of its own (`TYPE()` reports
+    /// the undocumented code `128`), and the spec is the value's identity, so
+    /// it is carried in full rather than projected to text.
+    Sparkline { value: SparklineSpecResult },
+}
+
+/// A parsed sparkline render spec on the WASM surface. `data` points and
+/// option values are ordinary [`EvalResult`] cells (a blank cell inside the
+/// source range is `empty`).
+#[derive(Tsify, Serialize, Debug)]
+pub struct SparklineSpecResult {
+    /// `line` (the default), `bar`, `column` or `winloss`.
+    pub charttype: String,
+    /// The points to plot, row-major.
+    pub data: Vec<EvalResult>,
+    /// The remaining option key/value pairs, in the order given, keys
+    /// lower-cased. Keys the engine does not recognise are kept, not rejected:
+    /// Sheets ignores an unknown option key rather than erroring.
+    pub options: Vec<(String, EvalResult)>,
+}
+
+fn sparkline_value_to_result(v: &SparklineValue) -> EvalResult {
+    match v {
+        SparklineValue::Number(n) => EvalResult::Number { value: *n },
+        SparklineValue::Text(s) => EvalResult::Text { value: s.clone() },
+        SparklineValue::Bool(b) => EvalResult::Bool { value: *b },
+        SparklineValue::Blank => EvalResult::Empty,
+    }
 }
 
 /// Map a `truecalc-core` `Value` onto the WASM `EvalResult` surface shape.
@@ -109,6 +197,17 @@ pub fn value_to_result(value: Value) -> EvalResult {
         Value::Empty => EvalResult::Empty,
         Value::Array(items) => EvalResult::Array {
             value: items.into_iter().map(value_to_result).collect(),
+        },
+        Value::Sparkline(spec) => EvalResult::Sparkline {
+            value: SparklineSpecResult {
+                charttype: spec.chart_type.as_str().to_string(),
+                data: spec.data.iter().map(sparkline_value_to_result).collect(),
+                options: spec
+                    .options
+                    .iter()
+                    .map(|(k, v)| (k.clone(), sparkline_value_to_result(v)))
+                    .collect(),
+            },
         },
     }
 }

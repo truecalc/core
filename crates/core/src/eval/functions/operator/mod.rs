@@ -117,6 +117,9 @@ fn type_rank(v: &Value) -> u8 {
         Value::Text(_) => 1,
         Value::Bool(_) => 2,
         Value::Zoned(_) => 3,
+        // A sparkline outranks every scalar, matching `crate::eval::type_rank`
+        // (google.tsv: `>1`, `>"zzzz"` and `>TRUE` are all TRUE).
+        Value::Sparkline(_) => 4,
         _ => 255,
     }
 }
@@ -132,6 +135,11 @@ fn compare_values(a: &Value, b: &Value) -> std::cmp::Ordering {
         // Zoned instants order on the absolute instant only (same moment in a
         // different zone compares equal). Cross-type Zoned is rejected upstream.
         (Value::Zoned(x), Value::Zoned(y)) => x.utc_nanos.cmp(&y.utc_nanos),
+        // Any two sparklines compare equal, whatever they plot — the same answer
+        // `crate::eval::compare_values` gives the `=`/`<`/`>` operators these
+        // functions are Sheets' aliases for (google.tsv records `EQ` TRUE, `NE`
+        // FALSE and `GTE` TRUE across two *different* sparklines).
+        (Value::Sparkline(_), Value::Sparkline(_)) => std::cmp::Ordering::Equal,
         _ => type_rank(a).cmp(&type_rank(b)),
     }
 }
@@ -145,6 +153,7 @@ fn same_type(a: &Value, b: &Value) -> bool {
             | (Value::Bool(_), Value::Bool(_))
             | (Value::Empty, Value::Empty)
             | (Value::Zoned(_), Value::Zoned(_))
+            | (Value::Sparkline(_), Value::Sparkline(_))
     )
 }
 
