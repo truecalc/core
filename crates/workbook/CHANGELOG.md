@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.0.0](https://github.com/truecalc/core/compare/truecalc-workbook-v6.1.0...truecalc-workbook-v7.0.0) - 2026-07-28
+
+### Added
+
+- *(google)* [**breaking**] SPARKLINE — parse and validate the in-cell chart ([#766](https://github.com/truecalc/core/pull/766))
+
+### Other
+
+- Merge pull request #770 from truecalc/feat/766-sparkline-code
+
 ## [6.1.0](https://github.com/truecalc/core/compare/truecalc-workbook-v6.0.1...truecalc-workbook-v6.1.0) - 2026-07-25
 
 ### Fixed
