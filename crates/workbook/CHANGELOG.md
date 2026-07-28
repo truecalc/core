@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.0.1](https://github.com/truecalc/core/compare/truecalc-workbook-v7.0.0...truecalc-workbook-v7.0.1) - 2026-07-28
+
+### Fixed
+
+- *(workbook)* make the zoned and sparkline wire forms canonical-only ([#768](https://github.com/truecalc/core/pull/768))
+- *(workbook)* describe zoned and sparkline in the published schema ([#768](https://github.com/truecalc/core/pull/768))
+
 ## [7.0.0](https://github.com/truecalc/core/compare/truecalc-workbook-v6.1.0...truecalc-workbook-v7.0.0) - 2026-07-28
 
 ### Added
