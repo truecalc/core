@@ -1,8 +1,9 @@
 use crate::types::{ErrorKind, Value};
 
 /// `MIN(value1, ...)` — smallest numeric value in the arguments.
-/// Direct args: Numbers, Bool (TRUE=1, FALSE=0), parseable text coerced to number.
-/// Array elements: Numbers only; text/Bool → skip; errors propagate.
+/// Direct args: Numbers, Dates, Bool (TRUE=1, FALSE=0), parseable text coerced
+/// to number.
+/// Array elements: Numbers and Dates; text/Bool → skip; errors propagate.
 ///
 /// "No numbers" is *two* rules, not one:
 ///
@@ -29,9 +30,39 @@ use crate::types::{ErrorKind, Value};
 /// range answers the earliest date, a date beside a plain number is compared on
 /// the serial with no special casing (so a small plain number beats every
 /// date), and the result is date-typed whenever a date took part — even when
-/// the plain number won. Captured in Google Sheets over a date-only column, a
-/// date/number column, and array literals of both shapes; the typing was read
-/// back through the cell holding the result. The rows land separately.
+/// the plain number won.
+///
+/// Captured and extrapolated are not the same thing here, so keep them apart:
+///
+/// - **Values** are captured in Google Sheets for every form — a date-only
+///   column, a date/number column, array literals of both shapes, and dates
+///   passed as direct arguments.
+/// - **Typing** is captured for the *range* forms only, read back through the
+///   cell that holds the result (`=MIN(<date-only range>)` and
+///   `=MIN(<date/number range>)` both come back `date` — the second even
+///   though a plain 5 won). The literal and direct-argument rows report
+///   `number`, but that is an artifact of the capture harness reading them
+///   through an `INDEX(...,1,1)` wrapper, which drops the cell's date format —
+///   it is not a Sheets answer. So the date typing of
+///   `=MIN({DATE(...),DATE(...)})` is **extrapolated** from the range forms,
+///   not probed.
+///
+/// **None of those rows are in this repo yet.** They come off the
+/// conformance-fixtures pipeline and land in a separate fixtures-only PR —
+/// they fail until this code exists, and CI rejects a PR that mixes fixture
+/// TSVs with code. Same arrangement as the blank-only rows described on
+/// `stat_helpers::is_blank_only_array`. A reviewer working from this repo
+/// alone can check the unit tests and this comment; the Sheets answers
+/// themselves have to be taken from that pipeline.
+///
+/// Two consequences are filed rather than fixed here:
+///
+/// - `COUNT` does not count dates, so `=COUNT(MIN(<date range>))` answers 0
+///   where it used to answer 1 — a pre-existing `COUNT` gap this change makes
+///   reachable. See #780.
+/// - `MAXA`/`MINA` silently drop a `Zoned` sitting beside a `Date`, where
+///   `MAX`/`MIN` route the same input through `zoned_extreme` and error.
+///   Unprobed on both sides. See #781.
 pub fn min_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);

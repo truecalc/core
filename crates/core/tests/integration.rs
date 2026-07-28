@@ -544,6 +544,17 @@ fn extremes_over_dates_agree_and_stay_date_typed() {
     // All four functions agree on every date input: the extreme serial, typed
     // as a date. MAX used to answer #REF! here and MIN a silent 0 that renders
     // as a date in 1899.
+    //
+    // Evidence split, so these assertions are not all the same strength:
+    //  - the *serials* below are captured Google Sheets answers for exactly
+    //    these array-literal and direct-argument forms;
+    //  - the *date typing* is captured for the range forms only
+    //    (`=MAX(<date range>)` read back through the cell holding it). The
+    //    literal rows came back reporting `number`, but only because the
+    //    capture harness reads them through an `INDEX(...,1,1)` wrapper that
+    //    drops the cell's date format — not a Sheets answer. The ISDATE
+    //    assertion below is therefore **extrapolated** from the range capture,
+    //    not probed in this shape.
     for (f, expected) in [
         ("MAX", 44197.0),
         ("MAXA", 44197.0),
@@ -562,6 +573,7 @@ fn extremes_over_dates_agree_and_stay_date_typed() {
             Value::Date(expected),
             "{f} over date arguments"
         );
+        // Extrapolated from the range capture — see the note above.
         assert_eq!(
             helpers::eval(&format!("=ISDATE({f}({{DATE(2020,1,1),DATE(2021,1,1)}}))")),
             Value::Bool(true),
@@ -575,6 +587,12 @@ fn extremes_compare_dates_and_numbers_as_bare_serials() {
     // A plain number and a date are compared on the serial with no special
     // casing, so 5 beats every date for MIN/MINA — and the answer is still
     // date-typed, because a date took part.
+    //
+    // Same evidence split as above: the serials are captured for this literal
+    // form, while the date typing is captured only for the equivalent *range*
+    // form (a date/number column, where MIN answers the plain 5 and the cell
+    // still reads back as `date`). The `Value::Date` expectations here are
+    // extrapolated from that.
     for f in ["MAX", "MAXA"] {
         assert_eq!(
             helpers::eval(&format!("={f}({{DATE(2020,1,1),5}})")),

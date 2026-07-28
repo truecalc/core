@@ -141,6 +141,18 @@ evaluate('TODAY()')
 >   treating the result as a number, also accept `type === 'date'` (the `value`
 >   encoding is identical — a serial number).
 
+> #### Result-type change: `MAX` / `MIN` / `MAXA` / `MINA` over dates
+>
+> Dates now take part in these four aggregates, and the result is **date-typed**
+> whenever a date took part — including when a plain number won the comparison.
+> `evaluate('MAX(A1:A10)')` over a column of dates returns
+> `{ type: 'date', value }` where it previously returned `{ type: 'number', value }`
+> (`MAX` over a date-only array literal previously returned an `#REF!` error and
+> `MIN` a silent `0`). The `value` encoding is unchanged — still a serial number;
+> only `type` moved. This matches Google Sheets, which formats the result cell as
+> a date. If you branch on `type`, accept `'date'` anywhere you accepted
+> `'number'` from these functions. See issue #776.
+
 ### `validate(formula)`
 
 Checks whether a formula is syntactically valid without evaluating it.

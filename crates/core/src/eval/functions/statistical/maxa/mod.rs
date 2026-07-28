@@ -12,9 +12,38 @@ use crate::types::{ErrorKind, Value};
 /// **Dates participate as bare serials** and carry their type out, exactly as
 /// they do for MAX: a date-only range answers the latest date, a date beside a
 /// plain number is compared on the serial, and the result is date-typed
-/// whenever a date took part — even when a plain number won. Captured in
-/// Google Sheets alongside the MAX/MIN forms, which agree on every date input;
-/// the rows land separately.
+/// whenever a date took part — even when a plain number won.
+///
+/// Captured alongside the MAX/MIN forms, which agree with MAXA on every date
+/// input — but captured and extrapolated are not the same thing here:
+///
+/// - **Values** are captured in Google Sheets for every form — a date-only
+///   column, a date/number column, array literals of both shapes, and dates
+///   passed as direct arguments.
+/// - **Typing** is captured for the *range* forms only, read back through the
+///   cell that holds the result. The literal and direct-argument rows report
+///   `number`, but that is an artifact of the capture harness reading them
+///   through an `INDEX(...,1,1)` wrapper, which drops the cell's date format —
+///   it is not a Sheets answer. So the date typing of
+///   `=MAXA({DATE(...),DATE(...)})` is **extrapolated** from the range forms,
+///   not probed.
+///
+/// **None of those rows are in this repo yet.** They come off the
+/// conformance-fixtures pipeline and land in a separate fixtures-only PR —
+/// they fail until this code exists, and CI rejects a PR that mixes fixture
+/// TSVs with code. Same arrangement as the blank-only rows described on
+/// `stat_helpers::is_blank_only_array`. A reviewer working from this repo
+/// alone can check the unit tests and this comment; the Sheets answers
+/// themselves have to be taken from that pipeline.
+///
+/// Two consequences are filed rather than fixed here:
+///
+/// - `COUNT` does not count dates, so `=COUNT(MAXA(<date range>))` answers 0
+///   where it used to answer 1 — a pre-existing `COUNT` gap this change makes
+///   reachable. See #780.
+/// - A `Zoned` sitting beside a `Date` is silently dropped by the loop below,
+///   where `MAX`/`MIN` route the same input through `zoned_extreme` and error.
+///   MAXA/MINA never consult that path. Unprobed on both sides. See #781.
 pub fn maxa_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);
@@ -48,7 +77,9 @@ pub fn maxa_fn(args: &[Value]) -> Value {
                 if inner.is_empty() {
                     return Value::Error(ErrorKind::Ref);
                 }
-                // In array context: Numbers included, Bool→1/0, Text→0, Empty→skip.
+                // In array context: Numbers included, Dates included as their
+                // bare serial (and they type the answer), Bool→1/0, Text→0,
+                // Empty→skip.
                 // Recurses into nested arrays (e.g. a vertical range
                 // materializes as nested one-element row arrays).
                 if let Err(e) =
