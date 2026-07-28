@@ -97,3 +97,44 @@ fn mina_text_only_array_is_zero() {
         Value::Number(0.0)
     );
 }
+
+#[test]
+fn dates_participate_and_type_the_answer() {
+    // MINA agrees with MIN on every date input: a date-only array answers the
+    // smallest serial (it was #N/A before dates were captured), a small plain
+    // number beats every date, and the answer is date-typed whenever a date
+    // took part — including when the plain number won.
+    assert_eq!(
+        mina_fn(&[Value::Array(vec![
+            Value::Date(43831.0),
+            Value::Date(44197.0)
+        ])]),
+        Value::Date(43831.0)
+    );
+    assert_eq!(
+        mina_fn(&[Value::Date(43831.0), Value::Date(44197.0)]),
+        Value::Date(43831.0)
+    );
+    assert_eq!(
+        mina_fn(&[Value::Array(vec![Value::Date(43831.0), Value::Number(5.0)])]),
+        Value::Date(5.0)
+    );
+    // A nested-row range materialization takes the same path.
+    assert_eq!(
+        mina_fn(&[Value::Array(vec![Value::Array(vec![Value::Date(43831.0)])])]),
+        Value::Date(43831.0)
+    );
+    // No date in scope: still a plain number.
+    assert_eq!(
+        mina_fn(&[Value::Number(5.0), Value::Bool(true)]),
+        Value::Number(1.0)
+    );
+    // An all-blank array is a separate, captured case and answers 0, not the
+    // date rule and not #N/A — see `mina_array_of_only_blanks_is_zero`. Kept
+    // here as the contrast: a date in scope types the answer, an array with
+    // nothing in it but blanks does not.
+    assert_eq!(
+        mina_fn(&[Value::Array(vec![Value::Empty, Value::Empty])]),
+        Value::Number(0.0)
+    );
+}

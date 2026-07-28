@@ -66,15 +66,25 @@ fn max_array_of_only_blanks_is_zero() {
 }
 
 #[test]
-fn max_blank_beside_something_else_numberless_is_still_ref_error() {
+fn max_blank_beside_something_else_does_not_become_the_blank_only_zero() {
     // The blank-only rule is decided over the arguments as a whole, not by a
     // per-element flag, so a blank cannot on its own pull an array that holds
-    // something else into the blank-only 0. Pinned with a date element because
-    // that is where MAX leaves such an array today; if that ever moves it has
-    // to move deliberately, not as fallout from this rule.
+    // something else into the blank-only 0.
+    //
+    // This was pinned with a date element and `#REF!`, on the note that "if
+    // that ever moves it has to move deliberately, not as fallout from this
+    // rule". It moved deliberately: dates now participate, so this array
+    // answers the date. The invariant the pin exists for is unchanged and
+    // still discriminating — the answer is the date, *not* the blank-only 0.
+    //
+    // There is no longer any variant that reaches MAX's numberless `#REF!`
+    // through a populated array: text and booleans set `array_had_content`,
+    // dates contribute a number, a sparkline sets its own flag, and a zoned
+    // instant is intercepted by `zoned_extreme` before the loop runs. The
+    // empty-array assertion below is what still carries the `#REF!` side.
     assert_eq!(
         max_fn(&[Value::Array(vec![Value::Empty, Value::Date(43831.0)])]),
-        Value::Error(ErrorKind::Ref)
+        Value::Date(43831.0)
     );
     // An empty array argument stays #REF! even alongside an all-blank one.
     assert_eq!(
@@ -84,24 +94,65 @@ fn max_blank_beside_something_else_numberless_is_still_ref_error() {
 }
 
 #[test]
-fn max_array_of_only_dates_is_unchanged_at_ref_error() {
-    // `max_array_into` folds only `Value::Number`, so a date-only array has
-    // never produced a result and has always answered #REF!. That is almost
-    // certainly wrong against Sheets — but it is pre-existing, unprobed, and
-    // must not be quietly turned into a plausible-looking 0 by the
-    // text-and-boolean carve-out. `had_content` is set by text and booleans
-    // only, never by a catch-all, and this pins that.
+fn max_array_of_only_dates_returns_the_latest_date() {
+    // Was #REF! until dates were captured: a date-only array now answers the
+    // largest serial, date-typed. Replaces the pin that recorded the old
+    // #REF! as unprobed.
     assert_eq!(
         max_fn(&[Value::Array(vec![
             Value::Date(43831.0),
             Value::Date(44197.0)
         ])]),
-        Value::Error(ErrorKind::Ref)
+        Value::Date(44197.0)
     );
     // Same for a date arriving through a nested-row range materialization.
     assert_eq!(
         max_fn(&[Value::Array(vec![Value::Array(vec![Value::Date(43831.0)])])]),
-        Value::Error(ErrorKind::Ref)
+        Value::Date(43831.0)
+    );
+}
+
+#[test]
+fn max_dates_compare_as_bare_serials_and_type_the_answer() {
+    // A plain number and a date are compared on the serial with no special
+    // casing, and the answer is date-typed because a date took part — even
+    // when the plain number is the one that won (that is the MIN direction;
+    // pinned in min's tests, mirrored here for the losing-date direction).
+    assert_eq!(
+        max_fn(&[Value::Array(vec![Value::Date(43831.0), Value::Number(5.0)])]),
+        Value::Date(43831.0)
+    );
+    // Direct (non-array) arguments take the same rule.
+    assert_eq!(
+        max_fn(&[Value::Date(43831.0), Value::Date(44197.0)]),
+        Value::Date(44197.0)
+    );
+    assert_eq!(
+        max_fn(&[Value::Date(43831.0), Value::Number(5.0)]),
+        Value::Date(43831.0)
+    );
+    // No date in scope: the answer stays a plain number.
+    assert_eq!(
+        max_fn(&[Value::Number(5.0), Value::Number(1.0)]),
+        Value::Number(5.0)
+    );
+}
+
+#[test]
+fn max_date_beside_a_blank_no_longer_falls_into_the_ref_rule() {
+    // A date leaves a number behind, so the "populated but numberless" #REF!
+    // rule can no longer be reached with a date in scope.
+    assert_eq!(
+        max_fn(&[Value::Array(vec![Value::Date(43831.0), Value::Empty])]),
+        Value::Date(43831.0)
+    );
+    // An all-blank array is a separate, captured case and answers 0, not the
+    // date rule and not #REF! — see `max_array_of_only_blanks_is_zero`. Kept
+    // here as the contrast: a date in scope types the answer, an array with
+    // nothing in it but blanks does not.
+    assert_eq!(
+        max_fn(&[Value::Array(vec![Value::Empty, Value::Empty])]),
+        Value::Number(0.0)
     );
 }
 
