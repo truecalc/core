@@ -43,7 +43,10 @@ fn mina_empty_array_is_ref_error() {
     // `=MINA({})` is #REF!, as it is for MIN and MAX. Reached by the
     // empty-argument check alone: text folds in as 0 here, so a populated
     // array is never numberless in the first place.
-    assert_eq!(mina_fn(&[Value::Array(vec![])]), Value::Error(ErrorKind::Ref));
+    assert_eq!(
+        mina_fn(&[Value::Array(vec![])]),
+        Value::Error(ErrorKind::Ref)
+    );
     assert_eq!(
         mina_fn(&[Value::Number(1.0), Value::Array(vec![])]),
         Value::Error(ErrorKind::Ref)

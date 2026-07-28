@@ -18,7 +18,10 @@ fn min_text_in_args_returns_value_error() {
 fn min_empty_array_is_ref_error() {
     // Matches MAX and Google Sheets: an empty array argument is #REF!,
     // not a silent 0.
-    assert_eq!(min_fn(&[Value::Array(vec![])]), Value::Error(ErrorKind::Ref));
+    assert_eq!(
+        min_fn(&[Value::Array(vec![])]),
+        Value::Error(ErrorKind::Ref)
+    );
 }
 
 #[test]

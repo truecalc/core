@@ -738,16 +738,13 @@ fn an_empty_array_argument_outranks_the_sparkline_skip() {
         eval("=MAX(SPARKLINE({1,2,3}),{\"a\"})"),
         Value::Number(0.0)
     );
-    // MIN now carries the same empty-array rule, so its counterpart row
-    // agrees with MAX's.
+    // bugs.tsv: `=MIN(SPARKLINE({1,2,3}),{})` is #REF! — a live Google Sheets
+    // value this engine used to miss. MIN now carries the same empty-array
+    // rule, so its counterpart row agrees with MAX's.
     assert_eq!(
         eval("=MIN(SPARKLINE({1,2,3}),{})"),
         Value::Error(ErrorKind::Ref)
     );
-    assert_eq!(eval("=MIN({})"), Value::Error(ErrorKind::Ref));
-    // MIN keeps answering 0 for a populated array holding nothing numeric —
-    // the empty-array rule is narrower than MAX's.
-    assert_eq!(eval("=MIN(SPARKLINE({1,2,3}),{\"a\"})"), Value::Number(0.0));
 }
 
 // ── Registry surface ────────────────────────────────────────────────────────

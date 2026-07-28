@@ -4,18 +4,19 @@ use crate::types::{ErrorKind, Value};
 /// Direct args: Numbers, Bool (TRUE=1, FALSE=0), parseable text coerced to number.
 /// Array elements: Numbers only; text/Bool → skip; errors propagate.
 ///
-/// "No numbers" is *two* rules, not one — the fixtures separate them:
+/// "No numbers" is *two* rules, not one:
 ///
-/// - an **empty** array argument is `#REF!`: `=MAX({})`;
+/// - an **empty** array argument is `#REF!`: `=MAX({})` — the one rule with
+///   an in-repo row (statistical.tsv);
 /// - a **populated** array holding nothing numeric is 0: `=MAX({"a","b"})`
 ///   and `=MAX({TRUE,FALSE})` are both 0, even though neither text nor
-///   booleans contribute a number in array context.
+///   booleans contribute a number in array context. Captured in Google
+///   Sheets; the rows land separately, since they fail until this code exists.
 ///
-/// An array holding only *blanks* is a third case, and it is unprobed — no
-/// captured row covers it. `array_had_content` ignores `Empty` precisely so
-/// that case keeps the `#REF!` MAX has always given it; the flag exists to
-/// carve text and booleans *out* of the old rule, not because blanks were
-/// measured.
+/// Everything else numberless — blanks, dates, zoned instants — is unprobed
+/// and keeps the `#REF!` MAX has always given it. `array_had_content` is set
+/// by text and booleans alone, so it exempts exactly what was captured and
+/// makes no claim past it.
 pub fn max_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);
@@ -72,19 +73,18 @@ pub fn max_fn(args: &[Value]) -> Value {
         }
     }
     // A skipped sparkline is not "nothing usable": the aggregate had something
-    // in scope, so it answers 0 rather than falling into the rule below. A
-    // sparkline *inside* an array now counts as content on its own, so this
-    // only still decides a direct sparkline argument sitting beside an
-    // otherwise-blank array — a shape no fixture row covers, left answering 0
-    // as it always has.
+    // in scope, so it answers 0 rather than falling into the rule below
+    // (google.tsv: `=MAX(Data!K1:K1)` is 0). This runs first, so it decides
+    // every sparkline case before `array_had_content` is consulted at all.
     if skipped_sparkline && result.is_none() {
         return Value::Number(0.0);
     }
-    // An array holding text or booleans is present-but-unusable and answers 0
-    // (`=MAX({"a","b"})` and `=MAX({TRUE,FALSE})` are both 0). Anything the
-    // fold saw nothing in at all — an array of blanks — keeps the long-standing
-    // #REF!. That half is unprobed; `array_had_content` is here to exempt
-    // text and booleans, not to make a claim about blanks.
+    // An array holding text or booleans answers 0 (`=MAX({"a","b"})` and
+    // `=MAX({TRUE,FALSE})` are both 0). `array_had_content` is set by exactly
+    // those two variants and nothing else, so every other numberless array —
+    // blanks, dates, zoned instants — keeps the long-standing #REF!. Those are
+    // unprobed; the flag exempts what the capture covers and makes no claim
+    // beyond it.
     if had_array && !array_had_content && result.is_none() {
         return Value::Error(ErrorKind::Ref);
     }
@@ -99,12 +99,12 @@ pub fn max_fn(args: &[Value]) -> Value {
 /// and `=MAX(Data!K1:K1)` are both 0). The flag is what distinguishes "skipped a
 /// sparkline" from "saw nothing usable at all", which stay different answers.
 ///
-/// `had_content` records whether the array held *anything* other than a
-/// blank. Text and booleans do not contribute a number here, but they do make
-/// the array usable enough to answer 0, which is what lifts
-/// `=MAX({"a","b"})` and `=MAX({TRUE,FALSE})` out of the `#REF!` rule. An
-/// all-blank array sets nothing and so keeps that `#REF!` — unprobed, and
-/// unchanged from what MAX has always done.
+/// `had_content` is set by text and booleans *only* — the two variants the
+/// capture covers (`=MAX({"a","b"})` and `=MAX({TRUE,FALSE})` are both 0).
+/// It is deliberately not a catch-all: every other non-numeric variant, most
+/// notably `Date`, leaves it alone and so keeps the `#REF!` MAX has always
+/// answered. Listing the variants rather than falling through also stops a
+/// future `Value` kind inheriting content-hood by accident.
 fn max_array_into(
     elems: &[Value],
     result: &mut Option<f64>,
@@ -114,20 +114,14 @@ fn max_array_into(
     for elem in elems {
         match elem {
             Value::Number(n) => {
-                *had_content = true;
                 *result = Some(result.map_or(*n, |cur: f64| cur.max(*n)));
             }
-            Value::Sparkline(_) => {
-                *had_content = true;
-                *skipped_sparkline = true;
-            }
+            Value::Text(_) | Value::Bool(_) => *had_content = true,
+            Value::Sparkline(_) => *skipped_sparkline = true,
             Value::Error(e) => return Err(Value::Error(e.clone())),
             Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
-            Value::Array(inner) => {
-                max_array_into(inner, result, skipped_sparkline, had_content)?
-            }
-            Value::Empty => {}
-            _ => *had_content = true,
+            Value::Array(inner) => max_array_into(inner, result, skipped_sparkline, had_content)?,
+            _ => {}
         }
     }
     Ok(())

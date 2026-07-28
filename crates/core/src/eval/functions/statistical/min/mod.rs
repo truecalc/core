@@ -4,15 +4,19 @@ use crate::types::{ErrorKind, Value};
 /// Direct args: Numbers, Bool (TRUE=1, FALSE=0), parseable text coerced to number.
 /// Array elements: Numbers only; text/Bool → skip; errors propagate.
 ///
-/// "No numbers" is *two* rules, not one — the fixtures separate them:
+/// "No numbers" is *two* rules, not one:
 ///
-/// - an **empty** array argument is `#REF!`: `=MIN({})`;
-/// - a **populated** array holding nothing numeric is 0: `=MIN({"a","b"})`,
-///   and `=IFERROR(MIN({"a","b","c"}),"no numbers")` is pinned to the number
-///   0.
+/// - an **empty** array argument is `#REF!`: `=MIN({})`. Captured in Google
+///   Sheets; the row lands separately, since it fails until this code exists.
+/// - a **populated** array holding nothing numeric is 0. The in-repo evidence
+///   is indirect but sufficient: statistical.tsv pins
+///   `=IFERROR(MIN({"a","b","c"}),"no numbers")` to the *number* 0, so MIN
+///   cannot have errored. A direct `=MIN({"a","b"})` row is captured and
+///   lands with the others.
 ///
-/// An array holding only *blanks* is a third case, and it is unprobed — no
-/// captured row covers it. MIN leaves it answering 0 as it always has.
+/// MIN needs no code for the second rule — it already falls through to 0.
+/// An array holding only *blanks* is a third case, unprobed, left at the 0
+/// MIN has always given it.
 pub fn min_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);
