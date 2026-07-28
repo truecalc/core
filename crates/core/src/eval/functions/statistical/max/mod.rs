@@ -21,11 +21,19 @@ use crate::types::{ErrorKind, Value};
 /// `array_had_content` is deliberate: a blank sitting next to something else
 /// numberless changes nothing.
 ///
-/// This change moves the blank-only array and nothing else. `array_had_content`
-/// is still set by text and booleans alone, so it exempts exactly what those
-/// captures cover and makes no claim past them.
+/// `array_had_content` is still set by text and booleans alone, so it exempts
+/// exactly what those captures cover and makes no claim past them. A zoned
+/// instant is the remaining numberless case: unprobed, and still `#REF!`.
 ///
 /// [`stat_helpers::is_blank_only_array`]: super::stat_helpers::is_blank_only_array
+///
+/// **Dates participate as bare serials** and carry their type out. A date-only
+/// range answers the latest date, a date beside a plain number is compared on
+/// the serial with no special casing, and the result is date-typed whenever a
+/// date took part — even when a plain number won the comparison. Captured in
+/// Google Sheets over a date-only column, a date/number column, and array
+/// literals of both shapes; the typing was read back through the cell holding
+/// the result. The rows land separately.
 pub fn max_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);
@@ -39,10 +47,15 @@ pub fn max_fn(args: &[Value]) -> Value {
     let mut had_array = false;
     let mut array_had_content = false;
     let mut skipped_sparkline = false;
+    let mut saw_date = false;
     for arg in args {
         match arg {
             Value::Sparkline(_) => skipped_sparkline = true,
             Value::Number(n) => {
+                result = Some(result.map_or(*n, |cur: f64| cur.max(*n)));
+            }
+            Value::Date(n) => {
+                saw_date = true;
                 result = Some(result.map_or(*n, |cur: f64| cur.max(*n)));
             }
             Value::Bool(b) => {
@@ -72,13 +85,18 @@ pub fn max_fn(args: &[Value]) -> Value {
                     &mut result,
                     &mut skipped_sparkline,
                     &mut array_had_content,
+                    &mut saw_date,
                 ) {
                     return e;
                 }
             }
             Value::Error(e) => return Value::Error(e.clone()),
             Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
-            _ => {}
+            // Listed rather than a catch-all so a new `Value` variant is a
+            // compile error here instead of a silent skip. A `Zoned` only
+            // reaches this loop when no other argument was zone-aware, which
+            // `zoned_extreme` above has already ruled on.
+            Value::Zoned(_) => {}
         }
     }
     // A skipped sparkline is not "nothing usable": the aggregate had something
@@ -91,7 +109,8 @@ pub fn max_fn(args: &[Value]) -> Value {
     // An array holding text or booleans answers 0 (`=MAX({"a","b"})` and
     // `=MAX({TRUE,FALSE})` are both 0). `array_had_content` is set by exactly
     // those two variants and nothing else, so it exempts what that capture
-    // covers and makes no claim beyond it.
+    // covers and makes no claim beyond it. Dates never reach here: they
+    // contribute a number, so `result` is `Some` whenever one was seen.
     if had_array && !array_had_content && result.is_none() {
         // An array of nothing but blanks is a further exemption, and it is
         // captured: `=MAX(A1:A3)` over empty cells is 0, the same answer MIN,
@@ -104,7 +123,13 @@ pub fn max_fn(args: &[Value]) -> Value {
         }
         return Value::Error(ErrorKind::Ref);
     }
-    Value::Number(result.unwrap_or(0.0))
+    match result {
+        // A date anywhere in scope makes the answer date-typed, whether or not
+        // the date is the value that won.
+        Some(n) if saw_date => Value::Date(n),
+        Some(n) => Value::Number(n),
+        None => Value::Number(0.0),
+    }
 }
 
 /// Recursively fold a nested array's numbers into `result` for MAX's
@@ -115,31 +140,46 @@ pub fn max_fn(args: &[Value]) -> Value {
 /// and `=MAX(Data!K1:K1)` are both 0). The flag is what distinguishes "skipped a
 /// sparkline" from "saw nothing usable at all", which stay different answers.
 ///
+/// A `Date` folds in as its bare serial and raises `saw_date`, which types the
+/// answer; it never touches `had_content`, since a date always leaves a number
+/// behind and so can never reach the numberless rule.
+///
 /// `had_content` is set by text and booleans *only* — the two variants the
 /// capture covers (`=MAX({"a","b"})` and `=MAX({TRUE,FALSE})` are both 0).
-/// It is deliberately not a catch-all: every other non-numeric variant, most
-/// notably `Date`, leaves it alone and so keeps the `#REF!` MAX has always
-/// answered. Listing the variants rather than falling through also stops a
-/// future `Value` kind inheriting content-hood by accident. An all-blank array
-/// no longer ends at `#REF!` either, but it gets there without this flag — see
-/// the blank-only check in `max_fn`.
+/// It is deliberately not a catch-all: every other non-numeric variant leaves
+/// it alone and so keeps the `#REF!` MAX has always answered. Listing the
+/// variants rather than falling through also stops a future `Value` kind
+/// inheriting content-hood by accident. Two variants no longer end at `#REF!`,
+/// and neither gets there through this flag: an all-blank array is decided by
+/// the blank-only check in `max_fn`, and a `Date` contributes a number so the
+/// numberless rule is never reached at all.
 fn max_array_into(
     elems: &[Value],
     result: &mut Option<f64>,
     skipped_sparkline: &mut bool,
     had_content: &mut bool,
+    saw_date: &mut bool,
 ) -> Result<(), Value> {
     for elem in elems {
         match elem {
             Value::Number(n) => {
                 *result = Some(result.map_or(*n, |cur: f64| cur.max(*n)));
             }
+            Value::Date(n) => {
+                *saw_date = true;
+                *result = Some(result.map_or(*n, |cur: f64| cur.max(*n)));
+            }
             Value::Text(_) | Value::Bool(_) => *had_content = true,
             Value::Sparkline(_) => *skipped_sparkline = true,
             Value::Error(e) => return Err(Value::Error(e.clone())),
             Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
-            Value::Array(inner) => max_array_into(inner, result, skipped_sparkline, had_content)?,
-            _ => {}
+            Value::Array(inner) => {
+                max_array_into(inner, result, skipped_sparkline, had_content, saw_date)?
+            }
+            // Listed rather than a catch-all so a new `Value` variant is a
+            // compile error here instead of inheriting "skipped, and not
+            // content either" by accident.
+            Value::Empty | Value::Zoned(_) => {}
         }
     }
     Ok(())

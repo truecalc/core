@@ -24,6 +24,14 @@ use crate::types::{ErrorKind, Value};
 /// called from here at all; MAX, MAXA and MINA were brought to it.
 ///
 /// [`stat_helpers::is_blank_only_array`]: super::stat_helpers::is_blank_only_array
+///
+/// **Dates participate as bare serials** and carry their type out. A date-only
+/// range answers the earliest date, a date beside a plain number is compared on
+/// the serial with no special casing (so a small plain number beats every
+/// date), and the result is date-typed whenever a date took part — even when
+/// the plain number won. Captured in Google Sheets over a date-only column, a
+/// date/number column, and array literals of both shapes; the typing was read
+/// back through the cell holding the result. The rows land separately.
 pub fn min_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);
@@ -34,9 +42,14 @@ pub fn min_fn(args: &[Value]) -> Value {
         return r;
     }
     let mut result: Option<f64> = None;
+    let mut saw_date = false;
     for arg in args {
         match arg {
             Value::Number(n) => {
+                result = Some(result.map_or(*n, |cur: f64| cur.min(*n)));
+            }
+            Value::Date(n) => {
+                saw_date = true;
                 result = Some(result.map_or(*n, |cur: f64| cur.min(*n)));
             }
             Value::Bool(b) => {
@@ -64,30 +77,56 @@ pub fn min_fn(args: &[Value]) -> Value {
                 // Recurse into nested arrays (e.g. a vertical range
                 // materializes as nested one-element row arrays) so every
                 // cell is visited.
-                if let Err(e) = min_array_into(elems, &mut result) {
+                if let Err(e) = min_array_into(elems, &mut result, &mut saw_date) {
                     return e;
                 }
             }
             Value::Error(e) => return Value::Error(e.clone()),
             Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
-            _ => {}
+            // Listed rather than a catch-all so a new `Value` variant is a
+            // compile error here instead of a silent skip. A `Zoned` only
+            // reaches this loop when no other argument was zone-aware, which
+            // `zoned_extreme` above has already ruled on.
+            Value::Zoned(_) | Value::Sparkline(_) => {}
         }
     }
-    Value::Number(result.unwrap_or(0.0))
+    match result {
+        // A date anywhere in scope makes the answer date-typed, whether or not
+        // the date is the value that won.
+        Some(n) if saw_date => Value::Date(n),
+        Some(n) => Value::Number(n),
+        None => Value::Number(0.0),
+    }
 }
 
 /// Recursively fold a nested array's numbers into `result` for MIN's
 /// array-context rules (Bool/Text/Empty skipped, errors propagate).
-fn min_array_into(elems: &[Value], result: &mut Option<f64>) -> Result<(), Value> {
+/// A `Date` folds in as its bare serial and raises `saw_date`, which types the
+/// answer; every other variant keeps the arm it already had.
+fn min_array_into(
+    elems: &[Value],
+    result: &mut Option<f64>,
+    saw_date: &mut bool,
+) -> Result<(), Value> {
     for elem in elems {
         match elem {
             Value::Number(n) => {
                 *result = Some(result.map_or(*n, |cur: f64| cur.min(*n)));
             }
+            Value::Date(n) => {
+                *saw_date = true;
+                *result = Some(result.map_or(*n, |cur: f64| cur.min(*n)));
+            }
             Value::Error(e) => return Err(Value::Error(e.clone())),
             Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
-            Value::Array(inner) => min_array_into(inner, result)?,
-            _ => {}
+            Value::Array(inner) => min_array_into(inner, result, saw_date)?,
+            // Listed rather than a catch-all so a new `Value` variant is a
+            // compile error here instead of inheriting "skipped" by accident.
+            Value::Text(_)
+            | Value::Bool(_)
+            | Value::Empty
+            | Value::Zoned(_)
+            | Value::Sparkline(_) => {}
         }
     }
     Ok(())

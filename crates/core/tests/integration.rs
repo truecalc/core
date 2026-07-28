@@ -536,3 +536,65 @@ fn makearray_larger_result_still_array() {
         Value::Array(vec![Value::Number(2.0), Value::Number(3.0)])
     );
 }
+
+// ── MAX/MIN/MAXA/MINA over dates (#776) ─────────────────────────────────────
+
+#[test]
+fn extremes_over_dates_agree_and_stay_date_typed() {
+    // All four functions agree on every date input: the extreme serial, typed
+    // as a date. MAX used to answer #REF! here and MIN a silent 0 that renders
+    // as a date in 1899.
+    for (f, expected) in [
+        ("MAX", 44197.0),
+        ("MAXA", 44197.0),
+        ("MIN", 43831.0),
+        ("MINA", 43831.0),
+    ] {
+        assert_eq!(
+            helpers::eval(&format!("={f}({{DATE(2020,1,1),DATE(2021,1,1)}})")),
+            Value::Date(expected),
+            "{f} over a date-only array"
+        );
+        // Same answer whether the dates arrive as array elements or as
+        // separate arguments.
+        assert_eq!(
+            helpers::eval(&format!("={f}(DATE(2020,1,1),DATE(2021,1,1))")),
+            Value::Date(expected),
+            "{f} over date arguments"
+        );
+        assert_eq!(
+            helpers::eval(&format!("=ISDATE({f}({{DATE(2020,1,1),DATE(2021,1,1)}}))")),
+            Value::Bool(true),
+            "{f} result is date-typed"
+        );
+    }
+}
+
+#[test]
+fn extremes_compare_dates_and_numbers_as_bare_serials() {
+    // A plain number and a date are compared on the serial with no special
+    // casing, so 5 beats every date for MIN/MINA — and the answer is still
+    // date-typed, because a date took part.
+    for f in ["MAX", "MAXA"] {
+        assert_eq!(
+            helpers::eval(&format!("={f}({{DATE(2020,1,1),5}})")),
+            Value::Date(43831.0),
+            "{f} of a date and 5"
+        );
+    }
+    for f in ["MIN", "MINA"] {
+        assert_eq!(
+            helpers::eval(&format!("={f}({{DATE(2020,1,1),5}})")),
+            Value::Date(5.0),
+            "{f} of a date and 5"
+        );
+    }
+    // Without a date in scope the answer stays a plain number.
+    for f in ["MAX", "MAXA", "MIN", "MINA"] {
+        assert_eq!(
+            helpers::eval(&format!("=ISDATE({f}({{1,2,3}}))")),
+            Value::Bool(false),
+            "{f} over plain numbers is not date-typed"
+        );
+    }
+}

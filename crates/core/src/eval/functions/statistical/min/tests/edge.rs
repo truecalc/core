@@ -79,6 +79,59 @@ fn min_array_of_only_blanks_is_zero() {
 }
 
 #[test]
+fn min_array_of_only_dates_returns_the_earliest_date() {
+    // Was a silent 0 — the exact hazard of a numberless fold: it renders as a
+    // date in 1899 and looks like an answer. Now the smallest serial, typed.
+    assert_eq!(
+        min_fn(&[Value::Array(vec![
+            Value::Date(43831.0),
+            Value::Date(44197.0)
+        ])]),
+        Value::Date(43831.0)
+    );
+    assert_eq!(
+        min_fn(&[Value::Array(vec![Value::Array(vec![Value::Date(43831.0)])])]),
+        Value::Date(43831.0)
+    );
+}
+
+#[test]
+fn min_dates_compare_as_bare_serials_and_type_the_answer() {
+    // A small plain number beats every date, because the comparison is on the
+    // bare serial — and the answer is still date-typed, since a date took part.
+    assert_eq!(
+        min_fn(&[Value::Array(vec![Value::Date(43831.0), Value::Number(5.0)])]),
+        Value::Date(5.0)
+    );
+    assert_eq!(
+        min_fn(&[Value::Date(43831.0), Value::Number(5.0)]),
+        Value::Date(5.0)
+    );
+    assert_eq!(
+        min_fn(&[Value::Date(43831.0), Value::Date(44197.0)]),
+        Value::Date(43831.0)
+    );
+    // No date in scope: the answer stays a plain number.
+    assert_eq!(
+        min_fn(&[Value::Number(5.0), Value::Number(1.0)]),
+        Value::Number(1.0)
+    );
+}
+
+#[test]
+fn min_date_beside_a_blank_is_the_date_not_zero() {
+    assert_eq!(
+        min_fn(&[Value::Array(vec![Value::Date(43831.0), Value::Empty])]),
+        Value::Date(43831.0)
+    );
+    // An all-blank array is a separate, still-unprobed case and keeps its 0.
+    assert_eq!(
+        min_fn(&[Value::Array(vec![Value::Empty, Value::Empty])]),
+        Value::Number(0.0)
+    );
+}
+
+#[test]
 fn min_negative_numbers() {
     assert_eq!(
         min_fn(&[Value::Number(-3.0), Value::Number(-1.0), Value::Number(-5.0)]),
