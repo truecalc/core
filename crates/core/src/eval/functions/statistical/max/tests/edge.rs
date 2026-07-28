@@ -45,6 +45,12 @@ fn max_non_empty_array_without_numbers_returns_zero() {
 fn max_array_of_only_blanks_is_zero() {
     // `=MAX(A1:A3)` over empty cells is 0 in Google Sheets — the same answer
     // MIN, MAXA and MINA give it. MAX used to be alone at #REF! here.
+    //
+    // That answer is captured across seven range shapes, each with a populated
+    // control, but **none of those rows are in this repo yet**: they land in a
+    // separate fixtures-only PR (see `stat_helpers::is_blank_only_array` for
+    // the shapes and the branch). Read from this repo alone, this test pins
+    // the behaviour, not the Sheets answer.
     assert_eq!(
         max_fn(&[Value::Array(vec![Value::Empty, Value::Empty, Value::Empty])]),
         Value::Number(0.0)
@@ -62,8 +68,10 @@ fn max_array_of_only_blanks_is_zero() {
 #[test]
 fn max_blank_beside_something_else_numberless_is_still_ref_error() {
     // The blank-only rule is decided over the arguments as a whole, not by a
-    // per-element flag, so one blank cannot lift an otherwise-unprobed array
-    // out of #REF! — a date-and-blank column must not quietly answer 0.
+    // per-element flag, so a blank cannot on its own pull an array that holds
+    // something else into the blank-only 0. Pinned with a date element because
+    // that is where MAX leaves such an array today; if that ever moves it has
+    // to move deliberately, not as fallout from this rule.
     assert_eq!(
         max_fn(&[Value::Array(vec![Value::Empty, Value::Date(43831.0)])]),
         Value::Error(ErrorKind::Ref)

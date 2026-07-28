@@ -57,6 +57,12 @@ fn mina_empty_array_is_ref_error() {
 fn mina_array_of_only_blanks_is_zero() {
     // `=MINA(A1:A3)` over empty cells is 0 in Google Sheets — the same answer
     // MAX, MIN and MAXA give it. MINA used to answer #N/A here.
+    //
+    // Captured across seven range shapes, each with a populated control, but
+    // **none of those rows are in this repo yet** — they land in a separate
+    // fixtures-only PR (see `stat_helpers::is_blank_only_array` for the shapes
+    // and the branch). Read from this repo alone, this test pins the
+    // behaviour, not the Sheets answer.
     assert_eq!(
         mina_fn(&[Value::Array(vec![Value::Empty, Value::Empty, Value::Empty])]),
         Value::Number(0.0)

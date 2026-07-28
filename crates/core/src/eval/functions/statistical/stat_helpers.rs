@@ -70,8 +70,40 @@ pub fn zoned_extreme(args: &[Value], want_min: bool) -> Option<Value> {
 /// True when every argument is blank *and* at least one of them arrived as an
 /// array — the shape a range over empty cells materializes as, which is what
 /// `=MAX(A1:A3)` over an untouched column evaluates. Google Sheets answers the
-/// number 0 here for `MAX`, `MIN`, `MAXA` and `MINA` alike; the captured rows
-/// land separately, since three of the four fail until this code exists.
+/// number 0 here for `MAX`, `MIN`, `MAXA` and `MINA` alike.
+///
+/// # What was captured
+///
+/// The rule is broader than any one range shape, so more than one shape was
+/// probed. All four functions were run over a sheet of empty cells in each of
+/// these arrangements, and every one answered 0:
+///
+/// - `=FN(Data!A1:A1)` — a single-cell range
+/// - `=FN(Data!A1:A3)` — a single column
+/// - `=FN(Data!A1:B1)` — a single row across columns
+/// - `=FN(Data!A1:B2)` — two-dimensional
+/// - `=FN(Data!A1:A100)` — reaching far past the used area
+/// - `=FN(Data!A1,Data!A1:A3)` — a blank scalar, then a blank range
+/// - `=FN(Data!A1:A3,Data!A1)` — the same two reversed
+///
+/// Each shape carried a populated control — the identical formula with one
+/// cell holding `7` — and every control returned `7`, so the range really did
+/// resolve rather than silently failing to. Blankness was asserted rather than
+/// assumed (`=COUNTA(Data!A1:B100)` → 0, `=COUNTBLANK(Data!A1:A100)` → 100),
+/// and the answer was read back through a real cell (`=Data!R1` → `0`, type
+/// **number**), so it is a plain zero and not a date-formatted one.
+///
+/// # What is not in this repo
+///
+/// None of those rows are here yet. They live on the conformance-fixtures
+/// pipeline branch `feat/stat-range-probe` and land in a separate
+/// fixtures-only PR, both because three of the four fail until this code
+/// exists and because CI rejects a PR that mixes fixture TSVs with code.
+/// Nothing under `tests/fixtures/google_sheets/` covers a blank-only array
+/// today — the nearest rows are `=MAX({})` → `#REF!` and the sparkline
+/// `Data!K1:K1` rows, and neither is this case. A reviewer working from this
+/// repo alone can check the unit tests and this predicate; the Sheets answer
+/// itself has to be taken from that branch.
 ///
 /// Requiring an array confines the rule to that range form. A bare blank
 /// argument with no array in sight (`=MAXA(A1)` on an empty cell) is unprobed

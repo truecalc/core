@@ -59,6 +59,12 @@ fn min_non_empty_array_without_numbers_still_returns_zero() {
 fn min_array_of_only_blanks_is_zero() {
     // `=MIN(A1:A3)` over empty cells is 0 in Google Sheets. MIN was already
     // there; MAX, MAXA and MINA were brought to the same answer.
+    //
+    // Captured across seven range shapes, each with a populated control, but
+    // **none of those rows are in this repo yet** — they land in a separate
+    // fixtures-only PR (see `stat_helpers::is_blank_only_array` for the shapes
+    // and the branch). Read from this repo alone, this test pins the
+    // behaviour, not the Sheets answer.
     assert_eq!(
         min_fn(&[Value::Array(vec![Value::Empty, Value::Empty, Value::Empty])]),
         Value::Number(0.0)
