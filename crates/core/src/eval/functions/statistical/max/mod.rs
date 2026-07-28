@@ -3,7 +3,20 @@ use crate::types::{ErrorKind, Value};
 /// `MAX(value1, ...)` — largest numeric value in the arguments.
 /// Direct args: Numbers, Bool (TRUE=1, FALSE=0), parseable text coerced to number.
 /// Array elements: Numbers only; text/Bool → skip; errors propagate.
-/// Empty array arg → #REF!. No numbers → 0.0.
+///
+/// "No numbers" is *two* rules, not one:
+///
+/// - an **empty** array argument is `#REF!`: `=MAX({})` — the one rule with
+///   an in-repo row (statistical.tsv);
+/// - a **populated** array holding nothing numeric is 0: `=MAX({"a","b"})`
+///   and `=MAX({TRUE,FALSE})` are both 0, even though neither text nor
+///   booleans contribute a number in array context. Captured in Google
+///   Sheets; the rows land separately, since they fail until this code exists.
+///
+/// Everything else numberless — blanks, dates, zoned instants — is unprobed
+/// and keeps the `#REF!` MAX has always given it. `array_had_content` is set
+/// by text and booleans alone, so it exempts exactly what was captured and
+/// makes no claim past it.
 pub fn max_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);
@@ -15,6 +28,7 @@ pub fn max_fn(args: &[Value]) -> Value {
     }
     let mut result: Option<f64> = None;
     let mut had_array = false;
+    let mut array_had_content = false;
     let mut skipped_sparkline = false;
     for arg in args {
         match arg {
@@ -44,7 +58,12 @@ pub fn max_fn(args: &[Value]) -> Value {
                 // Recurse into nested arrays (e.g. a vertical range
                 // materializes as nested one-element row arrays) so every
                 // cell is visited.
-                if let Err(e) = max_array_into(elems, &mut result, &mut skipped_sparkline) {
+                if let Err(e) = max_array_into(
+                    elems,
+                    &mut result,
+                    &mut skipped_sparkline,
+                    &mut array_had_content,
+                ) {
                     return e;
                 }
             }
@@ -54,14 +73,19 @@ pub fn max_fn(args: &[Value]) -> Value {
         }
     }
     // A skipped sparkline is not "nothing usable": the aggregate had something
-    // in scope, so it answers 0 rather than falling into the numberless-array
-    // rule below (google.tsv: `=MAX(Data!K1:K1)` is 0). Scoped to a sparkline
-    // so `=MAX({"a"})` and friends keep their pre-existing `#REF!`.
+    // in scope, so it answers 0 rather than falling into the rule below
+    // (google.tsv: `=MAX(Data!K1:K1)` is 0). This runs first, so it decides
+    // every sparkline case before `array_had_content` is consulted at all.
     if skipped_sparkline && result.is_none() {
         return Value::Number(0.0);
     }
-    // Empty array with no numbers → Ref
-    if had_array && result.is_none() {
+    // An array holding text or booleans answers 0 (`=MAX({"a","b"})` and
+    // `=MAX({TRUE,FALSE})` are both 0). `array_had_content` is set by exactly
+    // those two variants and nothing else, so every other numberless array —
+    // blanks, dates, zoned instants — keeps the long-standing #REF!. Those are
+    // unprobed; the flag exempts what the capture covers and makes no claim
+    // beyond it.
+    if had_array && !array_had_content && result.is_none() {
         return Value::Error(ErrorKind::Ref);
     }
     Value::Number(result.unwrap_or(0.0))
@@ -74,20 +98,29 @@ pub fn max_fn(args: &[Value]) -> Value {
 /// direct argument or through a range (google.tsv: `=MAX(SPARKLINE({1,2,3}))`
 /// and `=MAX(Data!K1:K1)` are both 0). The flag is what distinguishes "skipped a
 /// sparkline" from "saw nothing usable at all", which stay different answers.
+///
+/// `had_content` is set by text and booleans *only* — the two variants the
+/// capture covers (`=MAX({"a","b"})` and `=MAX({TRUE,FALSE})` are both 0).
+/// It is deliberately not a catch-all: every other non-numeric variant, most
+/// notably `Date`, leaves it alone and so keeps the `#REF!` MAX has always
+/// answered. Listing the variants rather than falling through also stops a
+/// future `Value` kind inheriting content-hood by accident.
 fn max_array_into(
     elems: &[Value],
     result: &mut Option<f64>,
     skipped_sparkline: &mut bool,
+    had_content: &mut bool,
 ) -> Result<(), Value> {
     for elem in elems {
         match elem {
             Value::Number(n) => {
                 *result = Some(result.map_or(*n, |cur: f64| cur.max(*n)));
             }
+            Value::Text(_) | Value::Bool(_) => *had_content = true,
             Value::Sparkline(_) => *skipped_sparkline = true,
             Value::Error(e) => return Err(Value::Error(e.clone())),
             Value::ErrorMsg(e, m) => return Err(Value::ErrorMsg(e.clone(), m.clone())),
-            Value::Array(inner) => max_array_into(inner, result, skipped_sparkline)?,
+            Value::Array(inner) => max_array_into(inner, result, skipped_sparkline, had_content)?,
             _ => {}
         }
     }
