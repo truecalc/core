@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.0.1](https://github.com/truecalc/core/compare/truecalc-core-v7.0.0...truecalc-core-v7.0.1) - 2026-07-28
+
+### Fixed
+
+- *(statistical)* stop a date-only array answering 0 in MAX
+- *(statistical)* withdraw the blank-array rule, keep the empty-array one
+- *(statistical)* apply the absent-vs-numberless rule to MAX, MINA and MAXA
+- *(statistical)* MIN returns #REF! for an empty array, matching MAX
+
 ## [7.0.0](https://github.com/truecalc/core/compare/truecalc-core-v6.1.0...truecalc-core-v7.0.0) - 2026-07-28
 
 ### Added
