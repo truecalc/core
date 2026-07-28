@@ -15,6 +15,43 @@ fn min_text_in_args_returns_value_error() {
 }
 
 #[test]
+fn min_empty_array_is_ref_error() {
+    // Matches MAX and Google Sheets: an empty array argument is #REF!,
+    // not a silent 0.
+    assert_eq!(min_fn(&[Value::Array(vec![])]), Value::Error(ErrorKind::Ref));
+}
+
+#[test]
+fn min_empty_array_beside_a_number_is_ref_error() {
+    assert_eq!(
+        min_fn(&[Value::Number(1.0), Value::Array(vec![])]),
+        Value::Error(ErrorKind::Ref)
+    );
+    assert_eq!(
+        min_fn(&[Value::Array(vec![]), Value::Number(1.0)]),
+        Value::Error(ErrorKind::Ref)
+    );
+}
+
+#[test]
+fn min_non_empty_array_without_numbers_still_returns_zero() {
+    // Distinct from the empty-array rule: the fixtures pin
+    // `=IFERROR(MIN({"a","b","c"}),"no numbers")` to the number 0, so a
+    // populated-but-numberless array must not become #REF!.
+    assert_eq!(
+        min_fn(&[Value::Array(vec![
+            Value::Text("a".to_string()),
+            Value::Text("b".to_string()),
+        ])]),
+        Value::Number(0.0)
+    );
+    assert_eq!(
+        min_fn(&[Value::Array(vec![Value::Empty, Value::Empty])]),
+        Value::Number(0.0)
+    );
+}
+
+#[test]
 fn min_negative_numbers() {
     assert_eq!(
         min_fn(&[Value::Number(-3.0), Value::Number(-1.0), Value::Number(-5.0)]),

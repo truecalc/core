@@ -3,7 +3,13 @@ use crate::types::{ErrorKind, Value};
 /// `MIN(value1, ...)` — smallest numeric value in the arguments.
 /// Direct args: Numbers, Bool (TRUE=1, FALSE=0), parseable text coerced to number.
 /// Array elements: Numbers only; text/Bool → skip; errors propagate.
-/// No numbers → 0.0.
+/// Empty array arg → `#REF!` (matching MAX). No numbers → 0.0.
+///
+/// Note the two rules are distinct: an *empty* array is `#REF!`, but a
+/// non-empty array holding nothing numeric still answers 0 — the fixtures
+/// pin `=IFERROR(MIN({"a","b","c"}),"no numbers")` to the number 0, so MIN
+/// deliberately does not carry MAX's broader "saw an array, found no
+/// numbers → #REF!" rule.
 pub fn min_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);
@@ -34,6 +40,9 @@ pub fn min_fn(args: &[Value]) -> Value {
             }
             Value::Empty => {}
             Value::Array(elems) => {
+                if elems.is_empty() {
+                    return Value::Error(ErrorKind::Ref);
+                }
                 // Recurse into nested arrays (e.g. a vertical range
                 // materializes as nested one-element row arrays) so every
                 // cell is visited.
