@@ -765,7 +765,17 @@ fn every_registered_function_has_conformance_coverage() {
     // fixtures pipeline this repo's CI does not have access to — self-verified
     // fixture values are forbidden. Remove from this set once QUERY has
     // pipeline-verified fixture rows.
-    let pending_fixture_verification: std::collections::HashSet<&str> = ["QUERY"].iter().copied().collect();
+    //
+    // SPARKLINE (issue #766) is here for a different, purely mechanical reason:
+    // its 103 pipeline-verified rows exist and land in the immediately
+    // following fixtures-only PR. The "Check fixture / code separation" CI job
+    // rejects any PR touching both `fixtures/google_sheets/*.tsv` and code, and
+    // the two orderings deadlock — code first leaves a registered function with
+    // no rows (this test), fixtures first leaves rows for a function the engine
+    // does not have. This entry breaks that tie for exactly one merge, and is
+    // removed in the follow-up that lands the rows.
+    let pending_fixture_verification: std::collections::HashSet<&str> =
+        ["QUERY", "SPARKLINE"].iter().copied().collect();
 
     let gdir = fixture_dir();
     let vars: HashMap<String, Value> = HashMap::new();
