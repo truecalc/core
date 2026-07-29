@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.0.2](https://github.com/truecalc/core/compare/truecalc-core-v7.0.1...truecalc-core-v7.0.2) - 2026-07-29
+
+### Fixed
+
+- *(google)* graduate the passing MIN-with-sparkline row out of bugs.tsv
+- *(statistical)* captured MAX/MIN/MAXA/MINA blank, date and empty-array rows
+- *(conformance)* duplicate the guard locally instead of super::
+- *(statistical)* let dates participate in MAX/MIN/MAXA/MINA
+- *(statistical)* MAX/MAXA/MINA answer 0 for an all-blank array
+
+### Other
+
+- *(conformance)* give the reporter the authored-cells guard the runners have
+- *(statistical)* separate captured from extrapolated in the date rule
+- *(statistical)* state the blank-only capture and where its rows live
+
 ## [7.0.1](https://github.com/truecalc/core/compare/truecalc-core-v7.0.0...truecalc-core-v7.0.1) - 2026-07-28
 
 ### Fixed
