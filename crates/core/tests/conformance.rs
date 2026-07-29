@@ -295,8 +295,11 @@ fn infer_type(v: &Value) -> &'static str {
 /// instead (see `tests/sparkline.rs`, and `tests/workbook_inputs_conformance.rs`
 /// for `workbook.tsv`'s equivalent rows).
 ///
-/// Scope: in the two runners this only affects `google.tsv`, the only category
-/// file with such rows. The per-function coverage scan below also applies it,
+/// Scope: `google.tsv` and `statistical.tsv` both carry such rows (the latter
+/// gained the blank-range family with #775/#776). All three consumers apply
+/// it — the two blocking runners and `conformance_reporter`, which would
+/// otherwise publish a report showing those rows as failures. The per-function
+/// coverage scan below also applies it,
 /// where it additionally drops `workbook.tsv`'s 24 sheet-qualified rows from
 /// the credit scan — harmless today (every function they mention is credited by
 /// many other rows) but not a no-op, and it is deliberate: a row that matches
