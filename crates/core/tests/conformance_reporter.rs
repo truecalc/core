@@ -258,6 +258,19 @@ pub fn collect_tsv_fixture_results(path: &Path, category: &str, report: &mut Con
         if is_volatile_formula(&formula) {
             continue;
         }
+        // Same guard the two blocking runners apply (`conformance.rs`'s
+        // `needs_authored_input_cells`): a row reading a sheet-qualified
+        // reference needs authored input cells this standalone evaluator has
+        // no way to create, so it resolves to nothing. Without this the
+        // reporter counts every such row as a failure and the published
+        // report shows a regression the engine did not cause — 62 of them
+        // once `statistical.tsv` gained its blank-range family. Duplicated
+        // rather than shared because the parent's copy is private to that
+        // module; if a third consumer appears, hoist it instead of copying
+        // again.
+        if super::needs_authored_input_cells(&formula) {
+            continue;
+        }
 
         let expected = match parse_expected(&expected_str, &expected_type) {
             Some(v) => v,
