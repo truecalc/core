@@ -126,4 +126,5 @@ AVERAGE over a range holding only a sparkline cell	=AVERAGE(Data!K1:K1)	#DIV/0!	
 COUNTUNIQUE over a range holding a sparkline	=COUNTUNIQUE(Data!K1:K2)	2	edge	number
 MIN with a sparkline as the only argument	=MIN(SPARKLINE({1,2,3}))	0	edge	number
 MAX with a sparkline and an empty array	=MAX(SPARKLINE({1,2,3}),{})	#REF!	edge	error
+MIN with a sparkline and an empty array	=MIN(SPARKLINE({1,2,3}),{})	#REF!	edge	error
 MAX with a sparkline and a text-only array	=MAX(SPARKLINE({1,2,3}),{"a"})	0	edge	number
