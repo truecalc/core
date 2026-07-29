@@ -150,6 +150,27 @@ fn is_volatile_formula(formula: &str) -> bool {
     upper.contains("RAND()") || upper.contains("RANDBETWEEN(") || upper.contains("RANDARRAY(")
 }
 
+/// True if `formula` reads a sheet-qualified cell/range reference (e.g. `Data!A1`).
+/// This standalone evaluator has no way to author such input cells, so the read
+/// resolves to nothing and the row would fail for a harness reason rather than a
+/// conformance one. Duplicated from `conformance.rs`'s `needs_authored_input_cells`
+/// rather than shared via `super::`, because this file compiles twice — once as its
+/// own crate root (`tests/conformance_reporter.rs` is a standalone integration test
+/// binary) and once as a `mod` of `conformance.rs` — and `super::` only resolves in
+/// the second context.
+fn needs_authored_input_cells(formula: &str) -> bool {
+    let Ok(expr) = truecalc_core::Engine::sheets().parse(formula) else {
+        return false;
+    };
+    truecalc_core::extract_refs(&expr).iter().any(|r| {
+        matches!(
+            r,
+            truecalc_core::Ref::Cell { sheet: Some(_), .. }
+                | truecalc_core::Ref::Range { sheet: Some(_), .. }
+        )
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Report types
 // ---------------------------------------------------------------------------
@@ -268,7 +289,7 @@ pub fn collect_tsv_fixture_results(path: &Path, category: &str, report: &mut Con
         // rather than shared because the parent's copy is private to that
         // module; if a third consumer appears, hoist it instead of copying
         // again.
-        if super::needs_authored_input_cells(&formula) {
+        if needs_authored_input_cells(&formula) {
             continue;
         }
 
