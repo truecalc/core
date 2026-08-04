@@ -37,17 +37,33 @@ use crate::types::{ErrorKind, Value};
 /// alone can check the unit tests and this comment; the Sheets answers
 /// themselves have to be taken from that pipeline.
 ///
-/// Two consequences are filed rather than fixed here:
+/// # Zone-aware values (#781)
 ///
-/// - `COUNT` does not count dates, so `=COUNT(MINA(<date range>))` answers 0
-///   where it used to answer 1 — a pre-existing `COUNT` gap this change makes
-///   reachable. See #780.
-/// - A `Zoned` sitting beside a `Date` is silently dropped by the loop below,
-///   where `MAX`/`MIN` route the same input through `zoned_extreme` and error.
-///   MAXA/MINA never consult that path. Unprobed on both sides. See #781.
+/// MINA consults [`stat_helpers::zoned_extreme`] before its argument loop,
+/// exactly as MIN does: zoned instants on their own answer the earliest,
+/// preserving its zone; a zoned instant mixed with anything that contributes a
+/// number — `Number`, `Date`, `Bool` or `Text` — is `#VALUE!`.
+///
+/// This is a **deliberate truecalc-only decision, not a captured Sheets
+/// answer** — `Zoned` has no Sheets equivalent, so the conformance oracle
+/// cannot settle it. The reasoning is set out in full on [`maxa_fn`]; the same
+/// rule applies to all four of MAX, MIN, MAXA and MINA so that the answer does
+/// not depend on which member of the family is called.
+///
+/// The check runs **before** the argument loop, so it precedes the empty-array
+/// `#REF!`, the sparkline-only 0 and the blank-only 0 — the same ordering MIN
+/// has always had.
+///
+/// [`stat_helpers::zoned_extreme`]: super::stat_helpers::zoned_extreme
+/// [`maxa_fn`]: super::maxa::maxa_fn
 pub fn mina_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);
+    }
+    // Zone-aware participation, decided identically to MIN — see `maxa_fn` for
+    // why the A-variants do not get their own rule.
+    if let Some(r) = super::stat_helpers::zoned_extreme(args, true) {
+        return r;
     }
     let mut result: Option<f64> = None;
     // See `fold_array_min` for why this flag exists.
@@ -92,7 +108,9 @@ pub fn mina_fn(args: &[Value]) -> Value {
             Value::Error(e) => return Value::Error(e.clone()),
             Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
             // Listed rather than a catch-all so a new `Value` variant is a
-            // compile error here instead of a silent skip.
+            // compile error here instead of a silent skip. A `Zoned` only
+            // reaches this loop when no argument was zone-aware, which
+            // `zoned_extreme` above has already ruled on.
             Value::Zoned(_) => {}
         }
     }

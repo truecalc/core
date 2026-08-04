@@ -1,12 +1,20 @@
 use crate::types::{ErrorKind, Value, ZonedInstant};
 
-/// Resolve `MIN`/`MAX` over zone-aware values.
+/// Resolve `MIN`/`MAX`/`MINA`/`MAXA` over zone-aware values.
 ///
 /// Returns `None` when no `Zoned` value participates (the caller falls through
 /// to the numeric path). Otherwise: a propagated error if one is present;
 /// `#VALUE!` if `Zoned` is mixed with any numeric-contributing value
-/// (Number/Bool/Text); else the earliest (`want_min`) or latest `Zoned`,
+/// (Number/Date/Bool/Text); else the earliest (`want_min`) or latest `Zoned`,
 /// preserving the winning value's own zone.
+///
+/// All four callers consult this, so a zoned instant answers the same thing
+/// whichever of the family is asked. The A-variants did not until #781; the
+/// rule they now share is a deliberate truecalc-only decision — `Zoned` has no
+/// Google Sheets equivalent, so no captured row can settle it. The reasoning
+/// is recorded on [`maxa_fn`].
+///
+/// [`maxa_fn`]: super::maxa::maxa_fn
 pub fn zoned_extreme(args: &[Value], want_min: bool) -> Option<Value> {
     fn walk(
         v: &Value,

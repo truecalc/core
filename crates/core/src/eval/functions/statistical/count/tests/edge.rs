@@ -141,6 +141,103 @@ fn count_range_variable_skips_bool_and_text() {
     assert_eq!(run("=COUNT(R)", vars), Value::Number(4.0));
 }
 
+/// Regression for #780: COUNT counts dates, as a direct argument and inside an
+/// array alike.
+///
+/// Captured from Google Sheets on the conformance-fixtures pipeline
+/// (2026-08-04, locale `en_US`, timezone `Etc/GMT`), alongside the control
+/// `=COUNT(5)` → 1 that proves the probe resolved:
+///
+/// ```text
+/// =COUNT(DATE(2020,1,1))                     1
+/// =COUNT(DATE(2020,1,1),DATE(2021,1,1))      2
+/// =COUNT({DATE(2020,1,1),DATE(2021,1,1)})    2
+/// =COUNT({DATE(2020,1,1),5})                 2
+/// =COUNT(<a range of three dates>)           3
+/// =COUNT(<a range of two dates and a 5>)     3
+/// =COUNT({DATE(2020,1,1),TRUE})              1   (booleans still skipped in an array)
+/// =COUNT({DATE(2020,1,1),"a"})               1   (text still skipped in an array)
+/// =COUNT(DATE(2020,1,1),TRUE)                2   (a direct boolean still counts)
+/// ```
+///
+/// The same list is on [`count_lazy_fn`]; both are the one 2026-08-04 capture.
+///
+/// Those rows are not in this repo: they come off the conformance-fixtures
+/// pipeline and land in a separate fixtures-only PR, because CI rejects a PR
+/// that mixes fixture TSVs with code. Read from this repo alone, this test
+/// pins the behaviour, not the Sheets answer.
+#[test]
+fn count_counts_dates() {
+    assert_eq!(run("=COUNT(DATE(2020,1,1))", HashMap::new()), Value::Number(1.0));
+    assert_eq!(
+        run("=COUNT(DATE(2020,1,1),DATE(2021,1,1))", HashMap::new()),
+        Value::Number(2.0)
+    );
+    assert_eq!(
+        run("=COUNT({DATE(2020,1,1),DATE(2021,1,1)})", HashMap::new()),
+        Value::Number(2.0)
+    );
+    assert_eq!(
+        run("=COUNT({DATE(2020,1,1),5})", HashMap::new()),
+        Value::Number(2.0)
+    );
+    // The eager helper keeps the same rule as the registered lazy one.
+    assert_eq!(count_fn(&[Value::Date(43831.0)]), Value::Number(1.0));
+    assert_eq!(
+        count_fn(&[Value::Date(43831.0), Value::Number(5.0)]),
+        Value::Number(2.0)
+    );
+}
+
+/// Regression for #780: a date arriving through a range — the shape
+/// `=COUNT(Orders!A:A)` materializes as — is counted too, and the extremes
+/// taken over a date range stay countable.
+///
+/// `=COUNT(MAX(<date range>))` answering 0 was the reported failure: a "how
+/// many results did I get" guard silently reading zero.
+#[test]
+fn count_counts_dates_arriving_through_a_range() {
+    let vars: HashMap<_, _> = [(
+        "R".to_string(),
+        Value::Array(vec![
+            Value::Array(vec![Value::Date(43831.0)]),
+            Value::Array(vec![Value::Date(44197.0)]),
+            Value::Array(vec![Value::Number(5.0)]),
+        ]),
+    )]
+    .into();
+    assert_eq!(run("=COUNT(R)", vars.clone()), Value::Number(3.0));
+    assert_eq!(run("=COUNT(MAX(R))", vars.clone()), Value::Number(1.0));
+    assert_eq!(run("=COUNT(MIN(R))", vars.clone()), Value::Number(1.0));
+    assert_eq!(run("=COUNT(MAXA(R))", vars.clone()), Value::Number(1.0));
+    assert_eq!(run("=COUNT(MINA(R))", vars), Value::Number(1.0));
+    assert_eq!(
+        run("=COUNT(MAX({DATE(2020,1,1),5}))", HashMap::new()),
+        Value::Number(1.0)
+    );
+}
+
+/// Counting a date must not drag anything else into COUNT's scope: booleans
+/// and text keep the direct-arg / array-context split they already had.
+#[test]
+fn counting_a_date_does_not_move_bools_or_text() {
+    // Direct arguments: booleans counted (statistical.tsv: `=COUNT(TRUE,FALSE,1)`
+    // is 3), and a date beside one is captured as 2.
+    assert_eq!(
+        run("=COUNT(DATE(2020,1,1),TRUE)", HashMap::new()),
+        Value::Number(2.0)
+    );
+    // Array context: booleans and text are still skipped, so only the date counts.
+    assert_eq!(
+        run("=COUNT({DATE(2020,1,1),TRUE})", HashMap::new()),
+        Value::Number(1.0)
+    );
+    assert_eq!(
+        run("=COUNT({DATE(2020,1,1),\"a\"})", HashMap::new()),
+        Value::Number(1.0)
+    );
+}
+
 #[test]
 fn counta_array_variable_counts_non_empty() {
     // COUNTA with a variable holding an array → recursively counts non-empty

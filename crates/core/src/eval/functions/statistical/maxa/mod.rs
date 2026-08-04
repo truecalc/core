@@ -36,17 +36,52 @@ use crate::types::{ErrorKind, Value};
 /// alone can check the unit tests and this comment; the Sheets answers
 /// themselves have to be taken from that pipeline.
 ///
-/// Two consequences are filed rather than fixed here:
+/// # Zone-aware values (#781)
 ///
-/// - `COUNT` does not count dates, so `=COUNT(MAXA(<date range>))` answers 0
-///   where it used to answer 1 — a pre-existing `COUNT` gap this change makes
-///   reachable. See #780.
-/// - A `Zoned` sitting beside a `Date` is silently dropped by the loop below,
-///   where `MAX`/`MIN` route the same input through `zoned_extreme` and error.
-///   MAXA/MINA never consult that path. Unprobed on both sides. See #781.
+/// MAXA consults [`stat_helpers::zoned_extreme`] before its argument loop,
+/// exactly as MAX does: zoned instants on their own answer the latest,
+/// preserving its zone; a zoned instant mixed with anything that contributes a
+/// number — `Number`, `Date`, `Bool` or `Text` — is `#VALUE!`.
+///
+/// This is a **deliberate truecalc-only decision, not a captured Sheets
+/// answer.** `Zoned` is a truecalc extension with no Sheets equivalent, so the
+/// conformance oracle cannot settle it. Two answers were defensible — error
+/// like the siblings, or teach all four to compare a zoned instant against a
+/// naive serial — and the first was chosen because:
+///
+/// - MAX and MIN already answer `#VALUE!` here, and `MAXA(<zoned>, <date>)`
+///   answering a confident date while `MAX` of the same arguments errors is a
+///   difference no caller can predict from the function name;
+/// - the alternative requires inventing a naive-vs-aware comparison rule with
+///   no ground truth behind it, which is strictly more invention;
+/// - the collectors that were checked already refuse a zoned instant —
+///   `collect_nums_direct`, `collect_nums_a_direct` and `collect_nums_a_checked`
+///   all return `#VALUE!` — so erroring is not a new rule for this family.
+///   That is three collectors, not all of them: several others still skip a
+///   `Zoned` silently, and squaring them up is out of scope here;
+/// - the behaviour it replaces was the failure mode both #780 and #781 are
+///   about — a zone-aware value silently dropped, leaving a plausible-looking
+///   number in place of a visible error.
+///
+/// The check runs **before** the argument loop, so it precedes the empty-array
+/// `#REF!`, the sparkline-only 0 and the blank-only 0. A `Zoned` mixed with any
+/// of those three therefore answers by the zoned rule rather than by theirs —
+/// which is exactly the ordering MAX and MIN have always had, and the point of
+/// this change is that the four agree.
+///
+/// [`stat_helpers::zoned_extreme`]: super::stat_helpers::zoned_extreme
+///
+/// This costs a second recursive pass over the arguments on the common
+/// no-zoned path, where it always returns `None`. Accepted deliberately: MAX
+/// and MIN already pay it, and paying it is what makes the four answer alike.
 pub fn maxa_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);
+    }
+    // Zone-aware participation, decided identically to MAX — see the doc
+    // comment above for why the A-variant does not get its own rule.
+    if let Some(r) = super::stat_helpers::zoned_extreme(args, false) {
+        return r;
     }
     let mut result: Option<f64> = None;
     // See `fold_array_max` for why this flag exists.
@@ -91,7 +126,9 @@ pub fn maxa_fn(args: &[Value]) -> Value {
             Value::Error(e) => return Value::Error(e.clone()),
             Value::ErrorMsg(e, m) => return Value::ErrorMsg(e.clone(), m.clone()),
             // Listed rather than a catch-all so a new `Value` variant is a
-            // compile error here instead of a silent skip.
+            // compile error here instead of a silent skip. A `Zoned` only
+            // reaches this loop when no argument was zone-aware, which
+            // `zoned_extreme` above has already ruled on.
             Value::Zoned(_) => {}
         }
     }
