@@ -23,6 +23,20 @@
 //!
 //! The test evaluates the formula with `Engine::sheets().evaluate` and compares
 //! against the canonical value.  Number comparisons allow 1e-4 relative tolerance.
+//!
+//! # Empty and whitespace expected values (core#767)
+//!
+//! An empty `expected_value` is a *recorded* value, not a missing one: every row
+//! in these files came from the pipeline, and an empty cell is what Sheets
+//! displayed.  It is enforced like any other value, and matches three engine
+//! results — `Text("")`, a blank, and a value with no text projection at all
+//! (today only `Sparkline`, which Sheets renders as a chart).  The recorded
+//! value is never trimmed either, so `=CHAR(32)`'s single space is compared as
+//! written.
+//!
+//! Rows the runner does *not* enforce are counted, categorised and printed by
+//! [`RowTally`]; a row that is skipped for any reason other than "reads authored
+//! cells" or "volatile" fails the run.
 
 use truecalc_core::{ErrorKind, Value};
 use std::collections::HashMap;
@@ -252,6 +266,13 @@ pub fn values_match(actual: &Value, expected: &Value, expected_type: &str) -> bo
         (Value::Text(s), Value::Text(e)) if e.is_empty() => {
             s.chars().all(|c| (c as u32) < 32)
         }
+        // core#767: a recorded value of "" says the cell displayed nothing.
+        // Two engine values project to nothing besides `Text("")`: a blank
+        // result, and a value with no text projection at all — today only
+        // `Sparkline`, which Sheets renders as a chart and reports as its own
+        // TYPE code, never as text. Without these arms such a row fails for a
+        // harness reason rather than a conformance one.
+        (Value::Empty, Value::Text(e)) | (Value::Sparkline(_), Value::Text(e)) => e.is_empty(),
         (Value::Text(s), Value::Text(e)) => {
             if s == e {
                 return true;
@@ -309,7 +330,7 @@ fn needs_authored_input_cells(formula: &str) -> bool {
     // Engine-explicit: the free `parse` is deprecated in favor of
     // `Engine::sheets().parse` (ADR 2026-04-27), same as `evaluate` below.
     let Ok(expr) = truecalc_core::Engine::sheets().parse(formula) else {
-        return false;
+        return quotes_sheet_qualified_ref(formula);
     };
     truecalc_core::extract_refs(&expr).iter().any(|r| {
         matches!(
@@ -317,7 +338,82 @@ fn needs_authored_input_cells(formula: &str) -> bool {
             truecalc_core::Ref::Cell { sheet: Some(_), .. }
                 | truecalc_core::Ref::Range { sheet: Some(_), .. }
         )
+    }) || quotes_sheet_qualified_ref(formula)
+}
+
+/// True when a *quoted string literal* inside `formula` is itself a
+/// sheet-qualified reference — `=IFERROR(INDIRECT("Sheet1!A1"),0)`.
+///
+/// `extract_refs` cannot see these: the reference is a string until INDIRECT
+/// resolves it at evaluation time, so the parse above reports no refs and the
+/// row looks self-contained. It is not — it needs the same authored input cells,
+/// and standalone it resolves to nothing. `lookup.tsv` has four such rows, and
+/// they show both failure modes core#767 names. All four are now skipped here
+/// and reported as "reads authored cells":
+///
+/// - `=IFERROR(INDIRECT("Sheet1!A1"),0)` records `""` (that cell is empty in the
+///   fixture workbook). Standalone the INDIRECT errors, IFERROR yields `0`, and
+///   the row fails for a harness reason — hidden until now only because the
+///   recorded empty value skipped the row before it was ever evaluated.
+/// - `=IFERROR(SHEET(INDIRECT("Sheet1!A1")),1)` (twice) records `1` and passes —
+///   but by taking the IFERROR fallback, not by reading a sheet. The variant
+///   with `"NoSuchSheet!A1"` is the same shape: with no workbook behind us we
+///   cannot tell "no such sheet" from "no sheets at all".
+fn quotes_sheet_qualified_ref(formula: &str) -> bool {
+    // Every odd-indexed piece of a split on `"` is the inside of a literal.
+    formula.split('"').skip(1).step_by(2).any(|literal| {
+        literal.contains('!')
+            && truecalc_core::Engine::sheets()
+                .parse(literal)
+                .is_ok_and(|expr| {
+                    truecalc_core::extract_refs(&expr).iter().any(|r| {
+                        matches!(
+                            r,
+                            truecalc_core::Ref::Cell { sheet: Some(_), .. }
+                                | truecalc_core::Ref::Range { sheet: Some(_), .. }
+                        )
+                    })
+                })
     })
+}
+
+/// Rows whose recorded value is right and whose engine result is not.
+///
+/// core#767 un-skipped every row with an empty recorded value, and seven of them
+/// turned out to be real divergences the skip had been hiding. The normal home
+/// for an acknowledged gap is `bugs.tsv`, but these rows already sit in a
+/// blocking category file and the fixture TSVs are immutable ground truth — a
+/// row cannot be moved between them. So the gap is acknowledged here instead.
+///
+/// This is not a skip. The row is evaluated and reported like any other; only
+/// the *failure* is expected. If one starts passing while its entry is still
+/// listed, the run fails and says so — an entry cannot outlive its fix, and the
+/// suite is never quieter than the truth.
+///
+/// Keyed by (fixture file, exact formula text), with the issue tracking the fix.
+const KNOWN_ENGINE_GAPS: &[(&str, &str, &str)] = &[
+    // #787 — `ignore=1` drops empty strings, which Sheets keeps, so the spill
+    // shifts up and the anchor cell reads `1` instead of empty.
+    ("array.tsv", r#"=TOCOL({"",1;"",2},1)"#, "#787"),
+    ("array.tsv", r#"=TOROW({"",1;"",2},1)"#, "#787"),
+    // #788 — MIDB reads `starting_at` as a byte offset; Sheets returns empty for
+    // these four, which the surrounding (passing) DBCS rows make unambiguous.
+    ("text.tsv", r#"=MIDB("农历新年",FINDB("新","农历新年"),2)"#, "#788"),
+    ("text.tsv", r#"=MIDB("熊本",3,2)"#, "#788"),
+    ("text.tsv", r#"=MIDB("熊本",3,LENB("熊本"))"#, "#788"),
+    ("text.tsv", r#"=MIDB("农历新年",SEARCHB("新","农历新年"),2)"#, "#788"),
+    // #789 — an empty format string renders nothing in Sheets; we fall back to
+    // the default rendering.
+    ("text.tsv", r#"=TEXT(1234,"")"#, "#789"),
+];
+
+/// The issue tracking `formula`'s divergence in `path`, if it is a known gap.
+fn known_engine_gap(path: &Path, formula: &str) -> Option<&'static str> {
+    let name = path.file_name()?.to_str()?;
+    KNOWN_ENGINE_GAPS
+        .iter()
+        .find(|(file, f, _)| *file == name && *f == formula)
+        .map(|(_, _, issue)| *issue)
 }
 
 /// Returns true if a formula contains volatile functions.
@@ -346,56 +442,174 @@ fn pinned_now_serial(path: &Path) -> Option<f64> {
 // TSV runner
 // ---------------------------------------------------------------------------
 
+/// The five `expected_type` values the fixtures pipeline emits, plus `array`.
+/// A row declaring anything else is not a usable test case — see
+/// [`RowTally::malformed`].
+fn is_recognized_expected_type(t: &str) -> bool {
+    matches!(t, "number" | "string" | "boolean" | "error" | "array" | "date")
+}
+
+/// Physically damaged rows tolerated per fixture file (core#767).
+///
+/// The pipeline writes the recorded value verbatim into a tab-separated file,
+/// so a value that *is* a raw control character destroys its own record.
+/// `text.tsv` has exactly three such rows: `=CHAR(10)`'s line feed splits its
+/// record across two physical lines (a 5-column stub plus an orphan
+/// `\tedge\tstring` continuation whose "formula" column reads `edge`), and
+/// `=CHAR(9)`'s tab is eaten as a column separator, shifting `edge` into the
+/// `expected_type` column. Those rows cannot be enforced without inventing the
+/// value the format lost, and the fixtures are immutable ground truth, so they
+/// are skipped — but the count is pinned, so a fourth damaged row fails the
+/// run instead of quietly joining them.
+///
+/// `bugs.tsv` carries one such row and is report-only; its baseline is
+/// recorded here for the same reason.
+fn tolerated_malformed_rows(path: &Path) -> usize {
+    match path.file_name().and_then(|n| n.to_str()) {
+        Some("text.tsv") => 3,
+        Some("bugs.tsv") => 1,
+        _ => 0,
+    }
+}
+
 /// Per-file accounting of what the runner actually checked.
 ///
-/// Both runners skip rows silently, for several unrelated reasons, and a green
-/// test says nothing about how many rows were inert — that is the defect
-/// core#767 tracks (rows that look enforced and assert nothing). This does not
-/// fix it: the rows are still skipped. It is a narrow mitigation that makes the
-/// skipping *visible*, so someone adding a row does not get a silent pass where
-/// they expected a check. The real fix is to evaluate these rows, which needs a
-/// display-value projection and a seeded resolver in this harness.
+/// A skipped row is indistinguishable from a passing one in test output, so
+/// before core#767 a whole block could go inert unnoticed. Every row now lands
+/// in exactly one bucket, the buckets are printed, and the `malformed` bucket
+/// is asserted against [`tolerated_malformed_rows`] — an unexplained skip is a
+/// hard failure, not a line of output nobody reads.
 #[derive(Default)]
 struct RowTally {
     rows: usize,
     enforced: usize,
-    /// The expected-value column is blank *after trimming*. The TSV format
-    /// cannot say whether that means "observed to be empty" or "never probed",
-    /// so this bucket holds both — that conflation is core#767's first point.
-    ///
-    /// It is *not* a "no text projection" bucket. `text.tsv`'s 46 rows here are
-    /// 41 with a genuinely empty recorded value (`=LEFT("hello",0)`) plus 5
-    /// whose recorded value is whitespace (`=CHAR(32)`, `=UNICHAR(32)`,
-    /// `=LEFT("   ",2)`, `=RIGHT("   ",1)`, `=CONCATENATE(" "," ")`) — those 5
-    /// *do* have a recorded value and are skipped only because of the `trim()`
-    /// noted at the predicate below. Counts measured over the fixture files,
-    /// not estimated.
-    no_expected_value: usize,
-    no_formula: usize,
+    /// Reads a sheet-qualified reference this standalone runner cannot author.
+    /// Enforced instead by `tests/sparkline.rs` and
+    /// `tests/workbook_inputs_conformance.rs` against a seeded resolver.
     authored_cells: usize,
+    /// Non-deterministic by construction (`RAND`, `RANDBETWEEN`, `RANDARRAY`).
     volatile: usize,
-    unparseable_expected: usize,
-    not_a_formula: usize,
+    /// The row is not a usable test case: no formula, a formula column that is
+    /// not a formula, an unrecognised `expected_type`, or a recorded value that
+    /// cannot be parsed as its declared type. Listed in full, and fatal beyond
+    /// the pinned per-file baseline.
+    malformed: Vec<String>,
+    /// Evaluated, failed, and expected to fail — see [`KNOWN_ENGINE_GAPS`].
+    /// Counted inside `enforced`, since the row does assert something.
+    known_gaps: Vec<String>,
 }
 
 impl RowTally {
+    fn note_malformed(&mut self, row: usize, desc: &str, formula: &str, reason: &str) {
+        self.malformed
+            .push(format!("  row {row}  {desc}  [{reason}]\n        formula:  {formula}"));
+    }
+
     fn summary(&self, path: &Path) -> String {
         let name = path.file_name().unwrap_or_default().to_string_lossy();
         let mut parts = vec![format!("{} enforced", self.enforced)];
         for (count, reason) in [
-            (self.no_expected_value, "no recorded expected value"),
             (self.authored_cells, "reads authored cells"),
             (self.volatile, "volatile"),
-            (self.unparseable_expected, "unparseable expected value"),
-            (self.no_formula, "no formula"),
-            (self.not_a_formula, "not a formula"),
+            (self.malformed.len(), "malformed row"),
         ] {
             if count > 0 {
                 parts.push(format!("{count} skipped ({reason})"));
             }
         }
+        if !self.known_gaps.is_empty() {
+            parts.push(format!("{} known engine gaps", self.known_gaps.len()));
+        }
         format!("{name}: {} rows — {}", self.rows, parts.join(", "))
     }
+
+    /// Panics when the file carries more malformed rows than its pinned
+    /// baseline, listing every one of them.
+    fn assert_malformed_within_baseline(&self, path: &Path) {
+        let allowed = tolerated_malformed_rows(path);
+        assert!(
+            self.malformed.len() <= allowed,
+            "\n{} malformed rows in {} (baseline {allowed}) — a row that is not a usable \
+             test case asserts nothing:\n\n{}\n",
+            self.malformed.len(),
+            path.file_name().unwrap_or_default().to_string_lossy(),
+            self.malformed.join("\n"),
+        );
+    }
+}
+
+/// A classified fixture row: either something to evaluate, or a row that was
+/// skipped for a reason already recorded in the tally.
+enum Row<'a> {
+    Enforce {
+        desc: &'a str,
+        formula: &'a str,
+        expected: Value,
+        expected_type: &'a str,
+    },
+    Skipped,
+}
+
+/// Decide what to do with one fixture row, recording it in `tally`.
+///
+/// core#767: an empty `expected_value` used to skip the row, which conflated
+/// "recorded as empty" with "never probed" and silently disabled 95 rows across
+/// the blocking fixtures. Every row in these files came from the pipeline, so an
+/// empty recorded value *is* the observed value — the cell displayed nothing.
+/// It is enforced like any other, and `values_match` carries the arms for the
+/// two ways a result can display as nothing (an empty text projection, and a
+/// value with no text projection at all, such as a sparkline).
+///
+/// The recorded value is deliberately not trimmed: `=CHAR(32)` records a single
+/// space, and trimming it away was what made those rows look unprobed.
+fn classify_row<'a>(record: &'a csv::StringRecord, row_no: usize, tally: &mut RowTally) -> Row<'a> {
+    let desc = record[0].trim();
+    let formula = record[1].trim();
+    // NOTE: do NOT trim expected_str — values like "  Hello World" have meaningful
+    // leading whitespace (e.g. PROPER("  hello world") preserves leading spaces).
+    let expected_str = &record[2];
+    let _test_category = record[3].trim();
+    let expected_type = record[4].trim();
+
+    if formula.is_empty() {
+        tally.note_malformed(row_no, desc, formula, "no formula");
+        return Row::Skipped;
+    }
+    if !formula.starts_with('=') {
+        tally.note_malformed(row_no, desc, formula, "formula column is not a formula");
+        return Row::Skipped;
+    }
+    if !is_recognized_expected_type(expected_type) {
+        tally.note_malformed(
+            row_no,
+            desc,
+            formula,
+            &format!("unrecognised expected_type {expected_type:?}"),
+        );
+        return Row::Skipped;
+    }
+
+    if is_volatile_formula(formula) {
+        tally.volatile += 1;
+        return Row::Skipped;
+    }
+    if needs_authored_input_cells(formula) {
+        tally.authored_cells += 1;
+        return Row::Skipped;
+    }
+
+    let Some(expected) = parse_expected(expected_str, expected_type) else {
+        tally.note_malformed(
+            row_no,
+            desc,
+            formula,
+            &format!("recorded value {expected_str:?} is not a valid {expected_type}"),
+        );
+        return Row::Skipped;
+    };
+
+    tally.enforced += 1;
+    Row::Enforce { desc, formula, expected, expected_type }
 }
 
 fn run_tsv_fixture(path: &Path) {
@@ -420,64 +634,33 @@ fn run_tsv_fixture(path: &Path) {
         }
         tally.rows += 1;
 
-        let desc          = record[0].trim();
-        let formula       = record[1].trim();
-        // NOTE: do NOT trim expected_str — values like "  Hello World" have meaningful
-        // leading whitespace (e.g. PROPER("  hello world") preserves leading spaces).
-        let expected_str  = &record[2];
-        let _test_category = record[3].trim();
-        let expected_type = record[4].trim();
-
-        if formula.is_empty() {
-            tally.no_formula += 1;
+        let Row::Enforce { desc, formula, expected, expected_type } =
+            classify_row(&record, row_idx + 2, &mut tally)
+        else {
             continue;
-        }
-        // NOTE the `trim()` here contradicts the comment above about preserving
-        // leading whitespace: a recorded value of `" "` is treated as absent and
-        // skipped. That is 5 rows in text.tsv today (`=CHAR(32)` and the four
-        // listed on `RowTally::no_expected_value`), which is why that field's
-        // name says "no *recorded* expected value" rather than "empty result" —
-        // the bucket mixes both. Pre-existing, and part of what core#767 has to
-        // untangle; the tally at least stops it being silent.
-        if expected_str.trim().is_empty() {
-            tally.no_expected_value += 1;
-            continue;
-        }
-
-        // Skip malformed rows where formula column doesn't contain a formula
-        if !formula.starts_with('=') {
-            tally.not_a_formula += 1;
-            continue;
-        }
-
-        if is_volatile_formula(formula) {
-            tally.volatile += 1;
-            continue;
-        }
-        if needs_authored_input_cells(formula) {
-            tally.authored_cells += 1;
-            continue;
-        }
-
-        let expected = match parse_expected(expected_str, expected_type) {
-            Some(v) => v,
-            None => {
-                tally.unparseable_expected += 1;
-                continue;
-            }
         };
 
-        tally.enforced += 1;
         let actual = match pinned_now {
             Some(now) => truecalc_core::Engine::sheets().evaluate_at(formula, &vars, now),
             None => evaluate(formula, &vars),
         };
 
-        if !values_match(&actual, &expected, expected_type) {
-            failures.push(format!(
+        let matched = values_match(&actual, &expected, expected_type);
+        match (matched, known_engine_gap(path, formula)) {
+            (true, None) => {}
+            (false, Some(issue)) => tally.known_gaps.push(format!(
+                "  row {}  {desc}  (known gap, {issue})\n        formula:  {formula}",
+                row_idx + 2,
+            )),
+            (true, Some(issue)) => failures.push(format!(
+                "  STALE known-engine-gap entry ({issue}) — row {} now PASSES; delete it from \
+                 KNOWN_ENGINE_GAPS\n        formula:  {formula}",
+                row_idx + 2,
+            )),
+            (false, None) => failures.push(format!(
                 "  FAIL  row {}  {desc}\n        formula:  {formula}\n        expected: {expected:?}\n        actual:   {actual:?}",
                 row_idx + 2,
-            ));
+            )),
         }
     }
 
@@ -487,6 +670,10 @@ fn run_tsv_fixture(path: &Path) {
     // replayed), and CI, whose nextest `ci` profile carries a
     // `success-output = 'final'` override for this binary (.config/nextest.toml).
     println!("{}", tally.summary(path));
+    for gap in &tally.known_gaps {
+        println!("{gap}");
+    }
+    tally.assert_malformed_within_baseline(path);
 
     if !failures.is_empty() {
         panic!(
@@ -525,52 +712,11 @@ fn run_tsv_fixture_report(path: &Path) {
         }
         tally.rows += 1;
 
-        let desc           = record[0].trim();
-        let formula        = record[1].trim();
-        let expected_str   = &record[2];
-        let _test_category = record[3].trim();
-        let expected_type  = record[4].trim();
-
-        if formula.is_empty() {
-            tally.no_formula += 1;
+        let Row::Enforce { desc, formula, expected, expected_type } =
+            classify_row(&record, row_idx + 2, &mut tally)
+        else {
             continue;
-        }
-        // NOTE the `trim()` here contradicts the comment above about preserving
-        // leading whitespace: a recorded value of `" "` is treated as absent and
-        // skipped. That is 5 rows in text.tsv today (`=CHAR(32)` and the four
-        // listed on `RowTally::no_expected_value`), which is why that field's
-        // name says "no *recorded* expected value" rather than "empty result" —
-        // the bucket mixes both. Pre-existing, and part of what core#767 has to
-        // untangle; the tally at least stops it being silent.
-        if expected_str.trim().is_empty() {
-            tally.no_expected_value += 1;
-            continue;
-        }
-
-        // Skip malformed rows where formula column doesn't contain a formula
-        if !formula.starts_with('=') {
-            tally.not_a_formula += 1;
-            continue;
-        }
-
-        if is_volatile_formula(formula) {
-            tally.volatile += 1;
-            continue;
-        }
-        if needs_authored_input_cells(formula) {
-            tally.authored_cells += 1;
-            continue;
-        }
-
-        let expected = match parse_expected(expected_str, expected_type) {
-            Some(v) => v,
-            None => {
-                tally.unparseable_expected += 1;
-                continue;
-            }
         };
-
-        tally.enforced += 1;
 
         let actual = match pinned_now {
             Some(now) => truecalc_core::Engine::sheets().evaluate_at(formula, &vars, now),
@@ -594,6 +740,9 @@ fn run_tsv_fixture_report(path: &Path) {
     // and neither number is visible without it (core#767). Surfaced in CI by
     // the `success-output` override in .config/nextest.toml.
     println!("{}", tally.summary(path));
+    // A failing row here is an acknowledged engine gap and does not block; a
+    // malformed row is a broken test case and does, in both runners.
+    tally.assert_malformed_within_baseline(path);
 }
 
 // ---------------------------------------------------------------------------
@@ -842,15 +991,15 @@ fn every_registered_function_has_conformance_coverage() {
             if record.len() < 5 {
                 continue;
             }
-            let expected_str = record[2].trim();
+            // Not trimmed, and no longer skipped when empty: a recorded empty
+            // value is the observed value, so such a row credits coverage like
+            // any other (core#767).
+            let expected_str = &record[2];
             let expected_type = record[4].trim();
             // Same guard as the runners: an unresolvable sheet-qualified read
             // can *match* its recorded value by accident, which would credit a
             // function with coverage it does not have.
-            if expected_str.is_empty()
-                || is_volatile_formula(formula)
-                || needs_authored_input_cells(formula)
-            {
+            if is_volatile_formula(formula) || needs_authored_input_cells(formula) {
                 continue;
             }
             let expected = match parse_expected(expected_str, expected_type) {
