@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.0.3](https://github.com/truecalc/core/compare/truecalc-core-v7.0.2...truecalc-core-v7.0.3) - 2026-08-04
+
+### Fixed
+
+- *(statistical)* count dates in COUNT, and route MAXA/MINA through zoned_extreme
+
+### Other
+
+- Merge pull request #793 from truecalc/fix/780-781-statistical-date-handling
+
 ## [7.0.2](https://github.com/truecalc/core/compare/truecalc-core-v7.0.1...truecalc-core-v7.0.2) - 2026-07-29
 
 ### Fixed
