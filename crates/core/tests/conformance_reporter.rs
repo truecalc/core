@@ -140,6 +140,10 @@ fn values_match(actual: &Value, expected: &Value, expected_type: &str) -> bool {
         }
         (Value::Text(s), Value::Text(e)) if e.is_empty() => s.chars().all(|c| (c as u32) < 32),
         (Value::Text(s), Value::Text(e)) => s == e,
+        // core#767: an empty recorded value says the cell displayed nothing —
+        // which a blank result and a sparkline (no text projection at all) also
+        // do. Mirrors `conformance.rs`.
+        (Value::Empty, Value::Text(e)) | (Value::Sparkline(_), Value::Text(e)) => e.is_empty(),
         (Value::Error(a), Value::Error(b)) => a == b,
         _ => actual == expected,
     }
@@ -160,7 +164,7 @@ fn is_volatile_formula(formula: &str) -> bool {
 /// the second context.
 fn needs_authored_input_cells(formula: &str) -> bool {
     let Ok(expr) = truecalc_core::Engine::sheets().parse(formula) else {
-        return false;
+        return quotes_sheet_qualified_ref(formula);
     };
     truecalc_core::extract_refs(&expr).iter().any(|r| {
         matches!(
@@ -168,6 +172,27 @@ fn needs_authored_input_cells(formula: &str) -> bool {
             truecalc_core::Ref::Cell { sheet: Some(_), .. }
                 | truecalc_core::Ref::Range { sheet: Some(_), .. }
         )
+    }) || quotes_sheet_qualified_ref(formula)
+}
+
+/// A sheet-qualified reference hidden inside a string literal, as INDIRECT
+/// takes it (`=INDIRECT("Sheet1!A1")`). `extract_refs` cannot see through the
+/// string, so the row looks self-contained while needing the same authored
+/// input cells. Duplicated from `conformance.rs` for the reason given above.
+fn quotes_sheet_qualified_ref(formula: &str) -> bool {
+    formula.split('"').skip(1).step_by(2).any(|literal| {
+        literal.contains('!')
+            && truecalc_core::Engine::sheets()
+                .parse(literal)
+                .is_ok_and(|expr| {
+                    truecalc_core::extract_refs(&expr).iter().any(|r| {
+                        matches!(
+                            r,
+                            truecalc_core::Ref::Cell { sheet: Some(_), .. }
+                                | truecalc_core::Ref::Range { sheet: Some(_), .. }
+                        )
+                    })
+                })
     })
 }
 
@@ -270,10 +295,13 @@ pub fn collect_tsv_fixture_results(path: &Path, category: &str, report: &mut Con
 
         let desc          = record[0].trim().to_string();
         let formula       = record[1].trim().to_string();
-        let expected_str  = record[2].trim().to_string();
+        // Not trimmed: `=CHAR(32)` records a single space, and an empty
+        // recorded value means the cell displayed nothing — both are values,
+        // not absences (core#767). Only a formula-less row is skipped here.
+        let expected_str  = record[2].to_string();
         let expected_type = record[4].trim().to_string();
 
-        if formula.is_empty() || expected_str.is_empty() {
+        if formula.is_empty() {
             continue;
         }
         if is_volatile_formula(&formula) {
