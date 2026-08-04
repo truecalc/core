@@ -1,5 +1,13 @@
 use super::super::mina_fn;
-use crate::types::{ErrorKind, Value};
+use crate::eval::functions::statistical::min::min_fn;
+use crate::types::{ErrorKind, Value, ZoneId, ZonedInstant};
+
+fn zoned(utc_nanos: i64) -> Value {
+    Value::Zoned(Box::new(ZonedInstant::from_instant(
+        utc_nanos,
+        ZoneId::Iana(chrono_tz::Tz::UTC),
+    )))
+}
 
 #[test]
 fn empty_values_skipped() {
@@ -137,4 +145,75 @@ fn dates_participate_and_type_the_answer() {
         mina_fn(&[Value::Array(vec![Value::Empty, Value::Empty])]),
         Value::Number(0.0)
     );
+}
+
+/// Regression for #781: MINA answers a zone-aware value exactly as MIN does.
+///
+/// `Zoned` is a truecalc extension with no Google Sheets equivalent, so the
+/// conformance oracle cannot settle this and no captured row exists. The rule
+/// below is therefore a **deliberate truecalc-only decision**, recorded on
+/// [`mina_fn`] with its reasoning — not an observed Sheets answer.
+///
+/// What it pins is agreement: whatever the pair answers, it answers the same
+/// thing. MINA used to drop the zoned value silently and hand back a
+/// confident number where MIN errored.
+#[test]
+fn zoned_values_take_the_same_route_as_min() {
+    let earlier = zoned(0);
+    let later = zoned(1_000_000_000);
+
+    // A zoned instant beside a naive serial is #VALUE! — the answer MIN has
+    // always given it, now MINA's too.
+    let mixed = [earlier.clone(), Value::Date(43831.0)];
+    assert_eq!(mina_fn(&mixed), Value::Error(ErrorKind::Value));
+    assert_eq!(mina_fn(&mixed), min_fn(&mixed));
+
+    let mixed_number = [earlier.clone(), Value::Number(5.0)];
+    assert_eq!(mina_fn(&mixed_number), Value::Error(ErrorKind::Value));
+    assert_eq!(mina_fn(&mixed_number), min_fn(&mixed_number));
+
+    // MINA-only coercions do not create an exception: a boolean and text both
+    // contribute a number here, so both still collide with the zoned value.
+    let mixed_bool = [earlier.clone(), Value::Bool(true)];
+    assert_eq!(mina_fn(&mixed_bool), Value::Error(ErrorKind::Value));
+    assert_eq!(mina_fn(&mixed_bool), min_fn(&mixed_bool));
+    let mixed_text = [
+        Value::Array(vec![earlier.clone(), Value::Text("a".to_string())]),
+    ];
+    assert_eq!(mina_fn(&mixed_text), Value::Error(ErrorKind::Value));
+    assert_eq!(mina_fn(&mixed_text), min_fn(&mixed_text));
+
+    // Zoned values on their own compare as instants and answer the earliest,
+    // keeping its own zone — again the same as MIN.
+    let zoned_only = [earlier.clone(), later.clone()];
+    assert_eq!(mina_fn(&zoned_only), earlier);
+    assert_eq!(mina_fn(&zoned_only), min_fn(&zoned_only));
+
+    // Through an array (the shape a range materializes as) too.
+    let through_range = [Value::Array(vec![earlier.clone(), later])];
+    assert_eq!(mina_fn(&through_range), earlier);
+    assert_eq!(mina_fn(&through_range), min_fn(&through_range));
+
+    // An error still wins over the zoned rule, as it does for MIN.
+    let with_error = [earlier.clone(), Value::Error(ErrorKind::NA)];
+    assert_eq!(mina_fn(&with_error), Value::Error(ErrorKind::NA));
+    assert_eq!(mina_fn(&with_error), min_fn(&with_error));
+
+    // The zoned check sits before the argument loop, so it precedes the
+    // empty-array #REF!, the sparkline-only 0 and the blank-only 0. Those three
+    // answers move when a zoned instant is in scope — deliberately, because it
+    // is the ordering MIN has always had. Pinned so a later reordering is a
+    // test failure, not a surprise.
+    let with_empty_array = [earlier.clone(), Value::Array(vec![])];
+    assert_eq!(mina_fn(&with_empty_array), earlier);
+    assert_eq!(mina_fn(&with_empty_array), min_fn(&with_empty_array));
+
+    let with_blank_array = [earlier.clone(), Value::Array(vec![Value::Empty])];
+    assert_eq!(mina_fn(&with_blank_array), earlier);
+    assert_eq!(mina_fn(&with_blank_array), min_fn(&with_blank_array));
+
+    // And a zoned instant on its own is the zoned instant, where MINA used to
+    // answer #N/A.
+    assert_eq!(mina_fn(&[earlier.clone()]), earlier);
+    assert_eq!(mina_fn(&[earlier.clone()]), min_fn(&[earlier]));
 }

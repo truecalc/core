@@ -55,14 +55,15 @@ use crate::types::{ErrorKind, Value};
 /// alone can check the unit tests and this comment; the Sheets answers
 /// themselves have to be taken from that pipeline.
 ///
-/// Two consequences are filed rather than fixed here:
+/// Two consequences were filed separately and are now closed:
 ///
-/// - `COUNT` does not count dates, so `=COUNT(MAX(<date range>))` answers 0
-///   where it used to answer 1 — a pre-existing `COUNT` gap this change makes
-///   reachable. See #780.
-/// - `MAXA`/`MINA` silently drop a `Zoned` sitting beside a `Date`, where
-///   `MAX`/`MIN` route the same input through `zoned_extreme` and error.
-///   Unprobed on both sides. See #781.
+/// - `COUNT` did not count dates, so `=COUNT(MAX(<date range>))` answered 0
+///   where it used to answer 1. Fixed in `count` against captured Sheets rows
+///   (#780).
+/// - `MAXA`/`MINA` silently dropped a `Zoned` sitting beside a `Date`, where
+///   `MAX`/`MIN` route the same input through `zoned_extreme` and error. The
+///   A-variants now consult the same helper, so all four agree; the rule is a
+///   deliberate truecalc-only decision recorded on `maxa_fn` (#781).
 pub fn max_fn(args: &[Value]) -> Value {
     if args.is_empty() {
         return Value::Error(ErrorKind::NA);
