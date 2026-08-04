@@ -35,8 +35,9 @@
 //! written.
 //!
 //! Rows the runner does *not* enforce are counted, categorised and printed by
-//! [`RowTally`]; a row that is skipped for any reason other than "reads authored
-//! cells" or "volatile" fails the run.
+//! [`RowTally`]. In the blocking runner, a row skipped for any reason other than
+//! "reads authored cells" or "volatile" fails the run, beyond a pinned per-file
+//! baseline for records the TSV format itself destroyed.
 
 use truecalc_core::{ErrorKind, Value};
 use std::collections::HashMap;
@@ -272,6 +273,16 @@ pub fn values_match(actual: &Value, expected: &Value, expected_type: &str) -> bo
         // `Sparkline`, which Sheets renders as a chart and reports as its own
         // TYPE code, never as text. Without these arms such a row fails for a
         // harness reason rather than a conformance one.
+        //
+        // Two limits, both inherent to a format that records only the displayed
+        // value. The row cannot distinguish "empty text projection" from "no
+        // text projection", so a regression where `=TO_TEXT(SPARKLINE(...))`
+        // yielded the sparkline itself instead of `""` would still pass here —
+        // `tests/sparkline.rs` pins that one on the value, not the display. And
+        // an unresolved *unqualified* reference is `Empty` too, so a future row
+        // recording `""` for `=A1` would pass without reading anything;
+        // `needs_authored_input_cells` only guards the sheet-qualified form. No
+        // such row exists today.
         (Value::Empty, Value::Text(e)) | (Value::Sparkline(_), Value::Text(e)) => e.is_empty(),
         (Value::Text(s), Value::Text(e)) => {
             if s == e {
@@ -332,13 +343,18 @@ fn needs_authored_input_cells(formula: &str) -> bool {
     let Ok(expr) = truecalc_core::Engine::sheets().parse(formula) else {
         return quotes_sheet_qualified_ref(formula);
     };
-    truecalc_core::extract_refs(&expr).iter().any(|r| {
+    has_sheet_qualified_ref(&expr) || quotes_sheet_qualified_ref(formula)
+}
+
+/// True when a parsed expression reads a sheet-qualified cell or range.
+fn has_sheet_qualified_ref(expr: &truecalc_core::Expr) -> bool {
+    truecalc_core::extract_refs(expr).iter().any(|r| {
         matches!(
             r,
             truecalc_core::Ref::Cell { sheet: Some(_), .. }
                 | truecalc_core::Ref::Range { sheet: Some(_), .. }
         )
-    }) || quotes_sheet_qualified_ref(formula)
+    })
 }
 
 /// True when a *quoted string literal* inside `formula` is itself a
@@ -359,21 +375,18 @@ fn needs_authored_input_cells(formula: &str) -> bool {
 ///   but by taking the IFERROR fallback, not by reading a sheet. The variant
 ///   with `"NoSuchSheet!A1"` is the same shape: with no workbook behind us we
 ///   cannot tell "no such sheet" from "no sheets at all".
+///
+/// Diverting those last three costs three green rows. They were green for a
+/// reason the assertion does not describe, which is the failure mode core#767
+/// exists to remove, and losing them is now visible in the per-file tally rather
+/// than silent.
 fn quotes_sheet_qualified_ref(formula: &str) -> bool {
     // Every odd-indexed piece of a split on `"` is the inside of a literal.
     formula.split('"').skip(1).step_by(2).any(|literal| {
         literal.contains('!')
             && truecalc_core::Engine::sheets()
                 .parse(literal)
-                .is_ok_and(|expr| {
-                    truecalc_core::extract_refs(&expr).iter().any(|r| {
-                        matches!(
-                            r,
-                            truecalc_core::Ref::Cell { sheet: Some(_), .. }
-                                | truecalc_core::Ref::Range { sheet: Some(_), .. }
-                        )
-                    })
-                })
+                .is_ok_and(|expr| has_sheet_qualified_ref(&expr))
     })
 }
 
@@ -387,8 +400,10 @@ fn quotes_sheet_qualified_ref(formula: &str) -> bool {
 ///
 /// This is not a skip. The row is evaluated and reported like any other; only
 /// the *failure* is expected. If one starts passing while its entry is still
-/// listed, the run fails and says so — an entry cannot outlive its fix, and the
-/// suite is never quieter than the truth.
+/// listed, the run fails and says so, and
+/// `known_engine_gaps_all_match_a_live_row` fails if an entry stops matching any
+/// row at all — an entry cannot outlive its fix, and the suite is never quieter
+/// than the truth.
 ///
 /// Keyed by (fixture file, exact formula text), with the issue tracking the fix.
 const KNOWN_ENGINE_GAPS: &[(&str, &str, &str)] = &[
@@ -462,12 +477,12 @@ fn is_recognized_expected_type(t: &str) -> bool {
 /// are skipped — but the count is pinned, so a fourth damaged row fails the
 /// run instead of quietly joining them.
 ///
-/// `bugs.tsv` carries one such row and is report-only; its baseline is
-/// recorded here for the same reason.
+/// Only the blocking runner consults this, and it is only ever handed a file
+/// from `fixture_dir()`, so matching on the bare file name cannot collide with a
+/// same-named file under `lab/`.
 fn tolerated_malformed_rows(path: &Path) -> usize {
     match path.file_name().and_then(|n| n.to_str()) {
         Some("text.tsv") => 3,
-        Some("bugs.tsv") => 1,
         _ => 0,
     }
 }
@@ -476,16 +491,20 @@ fn tolerated_malformed_rows(path: &Path) -> usize {
 ///
 /// A skipped row is indistinguishable from a passing one in test output, so
 /// before core#767 a whole block could go inert unnoticed. Every row now lands
-/// in exactly one bucket, the buckets are printed, and the `malformed` bucket
-/// is asserted against [`tolerated_malformed_rows`] — an unexplained skip is a
-/// hard failure, not a line of output nobody reads.
+/// in exactly one bucket, the buckets are printed, and in the blocking runner
+/// the `malformed` bucket is asserted against [`tolerated_malformed_rows`] — an
+/// unexplained skip is a hard failure, not a line of output nobody reads.
 #[derive(Default)]
 struct RowTally {
     rows: usize,
     enforced: usize,
     /// Reads a sheet-qualified reference this standalone runner cannot author.
-    /// Enforced instead by `tests/sparkline.rs` and
-    /// `tests/workbook_inputs_conformance.rs` against a seeded resolver.
+    /// Some of these are enforced against a seeded resolver elsewhere —
+    /// `google.tsv`'s by `tests/sparkline.rs`, `workbook.tsv`'s by
+    /// `tests/workbook_inputs_conformance.rs`. The rest, including
+    /// `statistical.tsv`'s blank-range family and `lookup.tsv`'s INDIRECT rows,
+    /// have no seeded runner yet and are genuinely unenforced; the tally is what
+    /// keeps that visible.
     authored_cells: usize,
     /// Non-deterministic by construction (`RAND`, `RANDBETWEEN`, `RANDARRAY`).
     volatile: usize,
@@ -518,23 +537,24 @@ impl RowTally {
             }
         }
         if !self.known_gaps.is_empty() {
-            parts.push(format!("{} known engine gaps", self.known_gaps.len()));
+            parts.push(format!("{} of them known engine gaps", self.known_gaps.len()));
         }
         format!("{name}: {} rows — {}", self.rows, parts.join(", "))
     }
 
-    /// Panics when the file carries more malformed rows than its pinned
-    /// baseline, listing every one of them.
-    fn assert_malformed_within_baseline(&self, path: &Path) {
+    /// The malformed rows this file is not allowed to have, as a failure entry
+    /// for the runner's panic, or `None` when it is within its pinned baseline.
+    fn malformed_over_baseline(&self, path: &Path) -> Option<String> {
         let allowed = tolerated_malformed_rows(path);
-        assert!(
-            self.malformed.len() <= allowed,
-            "\n{} malformed rows in {} (baseline {allowed}) — a row that is not a usable \
-             test case asserts nothing:\n\n{}\n",
+        if self.malformed.len() <= allowed {
+            return None;
+        }
+        Some(format!(
+            "  {} malformed rows (baseline {allowed}) — a row that is not a usable test case \
+             asserts nothing:\n{}",
             self.malformed.len(),
-            path.file_name().unwrap_or_default().to_string_lossy(),
             self.malformed.join("\n"),
-        );
+        ))
     }
 }
 
@@ -589,15 +609,8 @@ fn classify_row<'a>(record: &'a csv::StringRecord, row_no: usize, tally: &mut Ro
         return Row::Skipped;
     }
 
-    if is_volatile_formula(formula) {
-        tally.volatile += 1;
-        return Row::Skipped;
-    }
-    if needs_authored_input_cells(formula) {
-        tally.authored_cells += 1;
-        return Row::Skipped;
-    }
-
+    // Before the two structural skips, so a row that is broken *and* volatile is
+    // reported as broken rather than disappearing into the explained bucket.
     let Some(expected) = parse_expected(expected_str, expected_type) else {
         tally.note_malformed(
             row_no,
@@ -607,6 +620,15 @@ fn classify_row<'a>(record: &'a csv::StringRecord, row_no: usize, tally: &mut Ro
         );
         return Row::Skipped;
     };
+
+    if is_volatile_formula(formula) {
+        tally.volatile += 1;
+        return Row::Skipped;
+    }
+    if needs_authored_input_cells(formula) {
+        tally.authored_cells += 1;
+        return Row::Skipped;
+    }
 
     tally.enforced += 1;
     Row::Enforce { desc, formula, expected, expected_type }
@@ -673,8 +695,17 @@ fn run_tsv_fixture(path: &Path) {
     for gap in &tally.known_gaps {
         println!("{gap}");
     }
-    tally.assert_malformed_within_baseline(path);
 
+    // A file that enforces nothing at all is the worst case core#767 describes,
+    // and it survives every per-row check: a header that lost a column makes
+    // every record too short to classify.
+    assert!(
+        tally.enforced > 0,
+        "{} enforced no rows — fixture or header is broken",
+        path.file_name().unwrap().to_string_lossy(),
+    );
+
+    failures.extend(tally.malformed_over_baseline(path));
     if !failures.is_empty() {
         panic!(
             "\n{}/{} conformance failures in {}:\n\n{}\n\n{}\n",
@@ -740,9 +771,14 @@ fn run_tsv_fixture_report(path: &Path) {
     // and neither number is visible without it (core#767). Surfaced in CI by
     // the `success-output` override in .config/nextest.toml.
     println!("{}", tally.summary(path));
-    // A failing row here is an acknowledged engine gap and does not block; a
-    // malformed row is a broken test case and does, in both runners.
-    tally.assert_malformed_within_baseline(path);
+    // Report-only, so malformed rows are listed rather than asserted: `bugs.tsv`
+    // carries one damaged row it cannot shed (fixtures are immutable), and `lab/`
+    // is explicitly non-blocking — panicking here would also abort the loop over
+    // the remaining lab files, hiding them. Only the blocking runner treats a
+    // malformed row as fatal.
+    for row in &tally.malformed {
+        println!("  SKIPPED (malformed)\n{row}");
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -803,6 +839,36 @@ conformance_tsv_test!(google_conformance,       "google.tsv");
 #[test]
 fn bugs_conformance() {
     run_tsv_fixture_report(&fixture("bugs.tsv"));
+}
+
+/// A `KNOWN_ENGINE_GAPS` entry that matches no row is dead: it would never fire,
+/// so the "it fails once the row passes" guarantee would quietly stop applying.
+/// That happens if the formula text is mistyped, the row is removed, or the file
+/// is switched to the report-only runner.
+#[test]
+fn known_engine_gaps_all_match_a_live_row() {
+    let mut orphans = Vec::new();
+    for (file, formula, issue) in KNOWN_ENGINE_GAPS {
+        let path = fixture(file);
+        let mut rdr = csv::ReaderBuilder::new()
+            .delimiter(b'\t')
+            .has_headers(true)
+            .from_path(&path)
+            .unwrap_or_else(|e| panic!("failed to open {path:?}: {e}"));
+        let found = rdr
+            .records()
+            .filter_map(|r| r.ok())
+            .any(|r| r.len() >= 2 && r[1].trim() == *formula);
+        if !found {
+            orphans.push(format!("  {file}  {formula}  ({issue})"));
+        }
+    }
+    assert!(
+        orphans.is_empty(),
+        "KNOWN_ENGINE_GAPS entries matching no fixture row — delete them or fix the formula \
+         text:\n{}",
+        orphans.join("\n"),
+    );
 }
 
 /// Recursively collect all `.tsv` files under `dir`.
