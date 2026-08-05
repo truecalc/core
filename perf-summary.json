@@ -3,45 +3,45 @@
   "benchmarks": [
     {
       "name": "full_recalc/chain/100",
-      "mean_ns": 32406829,
-      "stddev_ns": 605799,
-      "vs_baseline_pct": 3.78
+      "mean_ns": 32411359,
+      "stddev_ns": 3801525,
+      "vs_baseline_pct": 3.79
     },
     {
       "name": "full_recalc/chain/1000",
-      "mean_ns": 336578375,
-      "stddev_ns": 4971618,
-      "vs_baseline_pct": 7.7
+      "mean_ns": 335809524,
+      "stddev_ns": 3555890,
+      "vs_baseline_pct": 7.46
     },
     {
       "name": "full_recalc/chain/5000",
-      "mean_ns": 1672951166,
-      "stddev_ns": 19277045,
-      "vs_baseline_pct": 5.8
+      "mean_ns": 1709032543,
+      "stddev_ns": 11673093,
+      "vs_baseline_pct": 8.08
     },
     {
       "name": "incremental_recalc/edit_root/100",
-      "mean_ns": 881767,
-      "stddev_ns": 15295,
-      "vs_baseline_pct": 3.86
+      "mean_ns": 892127,
+      "stddev_ns": 2217,
+      "vs_baseline_pct": 5.08
     },
     {
       "name": "incremental_recalc/edit_root/1000",
-      "mean_ns": 4683644,
-      "stddev_ns": 29734,
-      "vs_baseline_pct": 3.88
+      "mean_ns": 4664949,
+      "stddev_ns": 17259,
+      "vs_baseline_pct": 3.47
     },
     {
       "name": "from_json/500rows",
-      "mean_ns": 1604482,
-      "stddev_ns": 32456,
-      "vs_baseline_pct": 13.22
+      "mean_ns": 1671035,
+      "stddev_ns": 15366,
+      "vs_baseline_pct": 17.92
     },
     {
       "name": "to_json/500rows",
-      "mean_ns": 1004011,
-      "stddev_ns": 16589,
-      "vs_baseline_pct": 0.67
+      "mean_ns": 990148,
+      "stddev_ns": 9890,
+      "vs_baseline_pct": -0.72
     }
   ]
 }
