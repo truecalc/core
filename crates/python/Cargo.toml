@@ -1,0 +1,29 @@
+[package]
+name = "truecalc-python"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false  # published to PyPI via maturin, not crates.io
+description = "Python bindings for the truecalc spreadsheet formula engine"
+repository.workspace = true
+
+[lib]
+name = "_truecalc"
+# `rlib` alongside `cdylib` lets the native test harness link the crate so the
+# value mapping can be exercised by `cargo test` — same rationale as crates/wasm.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+truecalc-core = { path = "../core" }
+
+# abi3-py39: build ONE wheel per platform that serves every CPython >= 3.9,
+# instead of one wheel per (platform, interpreter) pair.
+#
+# `extension-module` is deliberately NOT enabled here: it drops the libpython
+# link, which is correct for a wheel but breaks `cargo test` on Linux (the test
+# binary then has no interpreter to link against). maturin turns it on via the
+# `[tool.maturin] features` key in pyproject.toml.
+pyo3 = { version = "0.29", features = ["abi3-py39"] }
+
+[features]
+extension-module = ["pyo3/extension-module"]

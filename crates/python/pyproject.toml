@@ -1,0 +1,34 @@
+[build-system]
+requires = ["maturin>=1.9,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "truecalc-core"
+description = "Formula engine with exact Google Sheets semantics — stateless, embeddable evaluator"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [{ name = "truecalc" }]
+keywords = ["spreadsheet", "formula", "google-sheets", "excel", "evaluator"]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Office/Business :: Financial :: Spreadsheet",
+    "Typing :: Typed",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/truecalc/core"
+Repository = "https://github.com/truecalc/core"
+Issues = "https://github.com/truecalc/core/issues"
+
+[tool.maturin]
+module-name = "truecalc.core._truecalc"
+python-source = "python"
+features = ["pyo3/extension-module"]
+# The workspace release profile sets `panic = "abort"`. PyO3 converts a Rust
+# panic into a Python exception, which requires unwinding — under `abort` any
+# panic would take down the host interpreter instead. Cargo cannot override
+# `panic` per package, so the wheel is built with a dedicated profile.
+profile = "release-python"
