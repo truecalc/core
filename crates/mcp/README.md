@@ -1,5 +1,7 @@
 # truecalc-mcp
 
+<!-- mcp-name: io.github.truecalc/truecalc-mcp -->
+
 [![truecalc-core](https://img.shields.io/crates/v/truecalc-core?label=truecalc-core)](https://crates.io/crates/truecalc-core)
 [![truecalc-mcp](https://img.shields.io/crates/v/truecalc-mcp?label=truecalc-mcp)](https://crates.io/crates/truecalc-mcp)
 [![crates.io downloads](https://img.shields.io/crates/d/truecalc-mcp)](https://crates.io/crates/truecalc-mcp)
