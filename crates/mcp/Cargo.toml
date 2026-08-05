@@ -13,6 +13,15 @@ categories = ["command-line-utilities"]
 name = "truecalc-mcp"
 path = "src/main.rs"
 
+# release.yml only ever dispatches off truecalc-core's tag (every crate in this
+# workspace shares one version, so core always releases alongside mcp) — the
+# prebuilt binaries this points at are attached to that truecalc-core release,
+# not a truecalc-mcp-tagged one, so the tag prefix below is hardcoded rather
+# than templated from { name }.
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/truecalc-core-v{ version }/{ name }-{ target }{ binary-ext }"
+pkg-fmt = "bin"
+
 [dependencies]
 truecalc-core = { path = "../core", version = "7.0" }
 truecalc-workbook = { path = "../workbook", version = "7.0" }
