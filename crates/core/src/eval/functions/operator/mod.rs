@@ -238,23 +238,13 @@ pub fn lte_fn(args: &[Value]) -> Value {
 
 // ── Issue #53 — Unary/power aliases ───────────────────────────────────────────
 
+/// The `^` operator. Delegates to `POWER()` so the two stay identical by
+/// construction (core#846) — `^` and `POWER(x,y)` are documented equivalents
+/// and previously diverged on a negative base with a fractional exponent
+/// (POWER used a real odd-root, `^` used `libm::pow` directly and rejected
+/// the same input as `#NUM!`).
 pub fn pow_fn(args: &[Value]) -> Value {
-    if let Some(e) = check_exact(args, 2) {
-        return e;
-    }
-    let base = match to_number(args[0].clone()) {
-        Ok(v) => v,
-        Err(e) => return e,
-    };
-    let exp = match to_number(args[1].clone()) {
-        Ok(v) => v,
-        Err(e) => return e,
-    };
-    let result = libm::pow(base, exp);
-    if !result.is_finite() {
-        return Value::Error(ErrorKind::Num);
-    }
-    Value::Number(result)
+    crate::eval::functions::math::power::power_fn(args)
 }
 
 pub fn concat_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
