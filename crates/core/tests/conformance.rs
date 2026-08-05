@@ -411,9 +411,6 @@ const KNOWN_ENGINE_GAPS: &[(&str, &str, &str)] = &[
     // shifts up and the anchor cell reads `1` instead of empty.
     ("array.tsv", r#"=TOCOL({"",1;"",2},1)"#, "#787"),
     ("array.tsv", r#"=TOROW({"",1;"",2},1)"#, "#787"),
-    // #789 — an empty format string renders nothing in Sheets; we fall back to
-    // the default rendering.
-    ("text.tsv", r#"=TEXT(1234,"")"#, "#789"),
 ];
 
 /// The issue tracking `formula`'s divergence in `path`, if it is a known gap.
