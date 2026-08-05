@@ -53,7 +53,10 @@ jobs:
 
       - name: Test
         run: |
-          cargo nextest run --workspace --profile ci 2>&1 | tee nextest-output.txt
+          # truecalc-python is excluded: with `extension-module` its test binary
+          # cannot link libpython, and the crate has no Rust tests — its
+          # surface is exercised by the Python suite in the `python` job.
+          cargo nextest run --workspace --exclude truecalc-python --profile ci 2>&1 | tee nextest-output.txt
           exit ${PIPESTATUS[0]}
 
       - name: Write test summary

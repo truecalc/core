@@ -22,3 +22,10 @@
 # generated docs (except superpowers specs/plans)
 docs/*
 !docs/superpowers
+
+# Python bindings (crates/python): maturin develop installs the built
+# extension in-tree, and pytest leaves bytecode caches next to the sources.
+__pycache__/
+*.py[cod]
+*.abi3.so
+.pytest_cache/
