@@ -11,10 +11,10 @@ errors flow through expressions). Opt into exceptions per call when you want
 them::
 
     >>> engine.evaluate("=1/0")
-    Error('#DIV/0!')
+    Error("#DIV/0!")
     >>> engine.evaluate("=1/0", raise_on_error=True)
     Traceback (most recent call last):
-    ZeroDivisionError: #DIV/0!
+    truecalc.core.FormulaError: #DIV/0!
 
 Note that `truecalc` is a PEP 420 namespace package: `truecalc.core` and
 `truecalc.workbook` ship as separate distributions and install side by side.

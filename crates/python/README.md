@@ -43,14 +43,15 @@ Opt into exceptions per call when that suits the calling code better:
 
 ```python
 engine.evaluate("=1/0", raise_on_error=True)
-# ZeroDivisionError: #DIV/0!
-
-engine.evaluate("=NA()", raise_on_error=True)
-# truecalc.core.FormulaError: #N/A
+# truecalc.core.FormulaError: #DIV/0!
 ```
 
-A formula that does not *parse* raises `ValueError` either way — that is
-malformed input, not a spreadsheet result.
+Every spreadsheet error raises the same `FormulaError`, so one `except` clause
+catches all of them.
+
+A formula that does not parse is *also* a value — `Error('#VALUE!')` — matching
+the Rust and JS surfaces and Sheets itself, which shows an error in the cell
+rather than refusing the input. Call `validate()` if you want to check first.
 
 ## Types
 
@@ -64,6 +65,7 @@ malformed input, not a spreadsheet result.
 | date | `Date` — carries `.serial`, converts via `.to_datetime()` |
 | zoned instant | `Zoned` — RFC-9557 string |
 | error | `Error` — `.code`, `.message` |
+| sparkline | `Sparkline` — `.chart_type`, `.data`, `.options` |
 
 `Date` is deliberately not a bare `float`: the engine distinguishes a serial
 date from a plain number (`ISDATE` tells them apart), and collapsing them would

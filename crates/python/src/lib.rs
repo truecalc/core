@@ -28,13 +28,14 @@
 //! exception control flow opt in per call with `raise_on_error=True`, which
 //! raises [`FormulaError`].
 //!
-//! Note that this is separate from *malformed input*: a formula that does not
-//! parse raises `ValueError` regardless, because there is no spreadsheet value
-//! to represent it.
+//! A formula that does not parse is a value too — `#VALUE!` — for the same
+//! reason: Sheets shows an error in the cell rather than rejecting the input,
+//! and both the Rust and JS surfaces return it. `ValueError` is reserved for an
+//! unusable *variable*, which no spreadsheet value can represent.
 
 use std::collections::HashMap;
 
-use pyo3::exceptions::{PyValueError, PyZeroDivisionError};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyFloat, PyList, PyString};
 
@@ -122,7 +123,7 @@ pub struct Date {
 #[pymethods]
 impl Date {
     fn __repr__(&self) -> String {
-        format!("Date({})", self.serial)
+        format!("Date({:?})", self.serial)
     }
 
     fn __float__(&self) -> f64 {
@@ -137,6 +138,10 @@ impl Date {
         // them as different types, and silently equating them here would hide
         // exactly the distinction this class exists to preserve.
         false
+    }
+
+    fn __hash__(&self) -> u64 {
+        self.serial.to_bits()
     }
 
     /// Convert to a `datetime.datetime`, interpreting the serial under the
@@ -189,6 +194,15 @@ impl Zoned {
         }
         false
     }
+
+    fn __hash__(&self) -> u64 {
+        let mut h: u64 = 1469598103934665603;
+        for b in self.value.as_bytes() {
+            h ^= *b as u64;
+            h = h.wrapping_mul(1099511628211);
+        }
+        h
+    }
 }
 
 /// A parsed `SPARKLINE` render spec.
@@ -196,7 +210,7 @@ impl Zoned {
 pub struct Sparkline {
     /// `"line"` (the default), `"bar"`, `"column"` or `"winloss"`.
     #[pyo3(get)]
-    charttype: String,
+    chart_type: String,
     /// The points to plot, row-major.
     #[pyo3(get)]
     data: Py<PyList>,
@@ -208,7 +222,7 @@ pub struct Sparkline {
 #[pymethods]
 impl Sparkline {
     fn __repr__(&self) -> String {
-        format!("Sparkline(charttype={:?})", self.charttype)
+        format!("Sparkline(chart_type={:?})", self.chart_type)
     }
 }
 
@@ -255,7 +269,7 @@ fn value_to_py<'py>(py: Python<'py>, value: Value) -> PyResult<Bound<'py, PyAny>
                 options.append((k.clone(), sparkline_value_to_py(py, v)?))?;
             }
             Sparkline {
-                charttype: spec.chart_type.as_str().to_string(),
+                chart_type: spec.chart_type.as_str().to_string(),
                 data: data.unbind(),
                 options: options.unbind(),
             }
@@ -274,19 +288,20 @@ fn py_to_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
     if obj.is_none() {
         return Ok(Value::Empty);
     }
+    // Order is load-bearing twice over, and both traps are silent:
+    //
+    //   * `bool` subclasses `int`, so a numeric extraction would take `True`
+    //     first and hand the engine 1 — changing IF/AND semantics.
+    //   * `Date` and `Zoned` define `__float__`/`__str__`, so a numeric or
+    //     string extraction would take them first and erase the very type
+    //     distinction those classes exist to carry (`ISDATE` would go False).
+    //
+    // Every wrapper type is therefore matched before any native coercion.
     if let Ok(b) = obj.cast::<PyBool>() {
         return Ok(Value::Bool(b.is_true()));
     }
-    if let Ok(n) = obj.extract::<f64>() {
-        if !n.is_finite() {
-            // The engine's Number invariant forbids NaN/inf; surface it as the
-            // spreadsheet error rather than constructing an invalid Value.
-            return Ok(Value::Error(truecalc_core::ErrorKind::Num));
-        }
-        return Ok(Value::Number(n));
-    }
-    if let Ok(s) = obj.extract::<String>() {
-        return Ok(Value::Text(s));
+    if let Ok(d) = obj.extract::<PyRef<'_, Date>>() {
+        return Ok(Value::Date(d.serial));
     }
     if let Ok(e) = obj.extract::<PyRef<'_, Error>>() {
         for kind in truecalc_core::ErrorKind::LITERAL_KINDS {
@@ -294,10 +309,24 @@ fn py_to_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
                 return Ok(Value::Error(kind));
             }
         }
-        return Ok(Value::Error(truecalc_core::ErrorKind::Value));
+        // `#UNSUPPORTED!` is engine-internal and excluded from LITERAL_KINDS, so
+        // it has no round-trip. Defaulting to `#VALUE!` would silently change
+        // the error code; refuse instead.
+        return Err(PyValueError::new_err(format!(
+            "error value {} cannot be passed back in as a variable",
+            e.code
+        )));
     }
-    if let Ok(d) = obj.extract::<PyRef<'_, Date>>() {
-        return Ok(Value::Date(d.serial));
+    if let Ok(n) = obj.extract::<f64>() {
+        if !n.is_finite() {
+            // The engine's Number invariant forbids NaN/inf; surface the
+            // spreadsheet error rather than constructing an invalid Value.
+            return Ok(Value::Error(truecalc_core::ErrorKind::Num));
+        }
+        return Ok(Value::Number(n));
+    }
+    if let Ok(s) = obj.extract::<String>() {
+        return Ok(Value::Text(s));
     }
     Err(PyValueError::new_err(format!(
         "unsupported variable type {}: expected float, int, str, bool, None, Date or Error",
@@ -328,11 +357,11 @@ fn raise_for_error(value: &Bound<'_, PyAny>) -> PyResult<()> {
             Some(m) => format!("{}: {}", err.code, m),
             None => err.code.clone(),
         };
-        return Err(if err.code == "#DIV/0!" {
-            PyZeroDivisionError::new_err(detail)
-        } else {
-            FormulaError::new_err(detail)
-        });
+        // One exception type for every spreadsheet error. Mapping `#DIV/0!` onto
+        // Python's ZeroDivisionError read nicely in isolation but split the
+        // hierarchy: ZeroDivisionError derives from ArithmeticError, so
+        // `except FormulaError` silently missed the most common error of all.
+        return Err(FormulaError::new_err(detail));
     }
     Ok(())
 }
@@ -374,11 +403,12 @@ impl Engine {
 
     /// Evaluate `formula`, resolving references against `variables`.
     ///
-    /// Returns a spreadsheet error as an [`Error`] value. Pass
-    /// `raise_on_error=True` to raise instead.
+    /// Returns a spreadsheet error as an [`Error`] value, including for a
+    /// formula that does not parse (`#VALUE!`) — matching the Rust and JS
+    /// surfaces. Pass `raise_on_error=True` to raise [`FormulaError`] instead.
     ///
-    /// Raises `ValueError` if the formula does not parse — that is malformed
-    /// input rather than a spreadsheet result.
+    /// `ValueError` is raised only for an unusable *variable*, e.g. a value of
+    /// a type the engine has no representation for.
     #[pyo3(signature = (formula, variables = None, *, raise_on_error = false))]
     fn evaluate<'py>(
         &self,
@@ -388,12 +418,11 @@ impl Engine {
         raise_on_error: bool,
     ) -> PyResult<Bound<'py, PyAny>> {
         let vars = variables_from_py(variables)?;
-        if let Err(e) = self.inner.validate(formula) {
-            return Err(PyValueError::new_err(format!(
-                "could not parse formula: {}",
-                e
-            )));
-        }
+        // No pre-validation: a formula that does not parse evaluates to an
+        // error *value*, exactly as it does on the Rust and JS surfaces (and in
+        // Sheets itself, which shows `#ERROR!` in the cell). Raising here would
+        // have made this the one surface that refuses input the others answer.
+        // Callers who want a parse check ahead of time call `validate()`.
         let result = py.detach(|| self.inner.evaluate(formula, &vars));
         let obj = value_to_py(py, result)?;
         if raise_on_error {

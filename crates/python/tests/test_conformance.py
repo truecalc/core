@@ -15,7 +15,11 @@ Rows deliberately not enforced (counted and reported, never silently dropped):
 * ``array`` -- the Rust harness compares these via ARRAYTOTEXT canonicalisation.
   Reimplementing that here would duplicate subtle logic and risk a weaker check.
 * volatile formulas -- ``NOW``/``TODAY``/``RAND`` have no fixed expected value.
-* rows with a recorded-empty ``expected_value``.
+
+A recorded-empty ``expected_value`` is deliberately *not* skipped: core#767
+established that an empty value is the observed value, and skipping it there
+silently disabled 95 rows. Those rows are also the only ones that exercise the
+``Empty -> None`` mapping.
 """
 
 from __future__ import annotations
@@ -27,7 +31,7 @@ from pathlib import Path
 
 import pytest
 
-from truecalc.core import Date, Engine, Error, Zoned
+from truecalc.core import Date, Engine, Error, Sparkline, Zoned
 
 # crates/python/tests/ -> parents[2] is crates/
 FIXTURES = (
@@ -49,6 +53,17 @@ ENFORCED_FILES = [
     "google.tsv",
 ]
 
+# The five types the fixtures pipeline emits, plus `array`. A row carrying
+# anything else has a damaged expected_type column (two in text.tsv hold an
+# empty string and the *category* value "edge"). The Rust runner counts these
+# as malformed against a pinned baseline rather than enforcing them; same here.
+RECOGNIZED_TYPES = {"number", "string", "boolean", "error", "date", "array"}
+
+REPRESENTABLE_ERRORS = {
+    "#DIV/0!", "#VALUE!", "#REF!", "#NAME?", "#NUM!", "#N/A", "#NULL!",
+    "#UNSUPPORTED!",
+}
+
 # Volatile functions read the ambient clock, so no fixed expectation can hold.
 VOLATILE = ("NOW(", "TODAY(", "RAND(", "RANDBETWEEN(", "RANDARRAY(")
 
@@ -68,14 +83,21 @@ def known_engine_gaps() -> set[tuple[str, str]]:
         r"const KNOWN_ENGINE_GAPS:[^=]*=\s*&\[(.*?)\n\];", src, re.S
     )
     if not block:
-        return set()
+        raise AssertionError(
+            "KNOWN_ENGINE_GAPS not found in conformance.rs -- the const was "
+            "renamed or reformatted, and this sweep would silently stop "
+            "honouring engine-gap exemptions"
+        )
     out = set()
+    # A raw literal terminates on `"#`, not on the first `"` -- the fixture
+    # formulas contain nested quotes (MIDB("农历新年",FINDB("新",...))) and a
+    # naive non-greedy match truncates them into entries that match no row.
     for m in re.finditer(
-        r'\(\s*"([^"]+\.tsv)"\s*,\s*r?#*"(.*?)"#*\s*,\s*"[^"]*"\s*\)',
+        r'\(\s*"([^"]+\.tsv)"\s*,\s*(?:r#"(.*?)"#|"((?:[^"\\]|\\.)*)")\s*,\s*"[^"]*"\s*\)',
         block.group(1),
         re.S,
     ):
-        out.add((m.group(1), m.group(2)))
+        out.add((m.group(1), m.group(2) if m.group(2) is not None else m.group(3)))
     return out
 
 
@@ -86,8 +108,14 @@ def reads_sheet_qualified_ref(formula: str) -> bool:
     pass for the wrong reason when an empty read happens to produce the recorded
     value. Same hazard applies here.
     """
-    stripped = re.sub(r'"[^"]*"', "", formula)
-    return bool(re.search(r"[A-Za-z0-9_\u00c0-\uffff']\s*!", stripped))
+    pattern = r"[A-Za-z0-9_\u00c0-\uffff']\s*!"
+    outside = re.sub(r'"[^"]*"', "", formula)
+    if re.search(pattern, outside):
+        return True
+    # Also inside literals: INDIRECT("Sheet1!A1") reads a sheet-qualified ref
+    # that stripping literals would hide (mirrors the Rust runner, which scans
+    # literal contents for exactly this).
+    return any(re.search(pattern, lit) for lit in formula.split('"')[1::2])
 
 
 def top_left(value):
@@ -157,6 +185,16 @@ def _matches(actual, expected: str, expected_type: str) -> bool:
         return isinstance(actual, bool) and actual is (expected.upper() == "TRUE")
 
     if expected_type == "string":
+        if expected == "":
+            # Three engine values project to nothing on screen, each with a
+            # purpose-built arm in the Rust `values_match`:
+            #   * blank            -> Empty
+            #   * a sparkline      -> Sheets renders a chart, never text
+            #   * control chars    -> Sheets strips them from the display
+            if actual is None or isinstance(actual, Sparkline):
+                return True
+            if isinstance(actual, str):
+                return all(ord(c) < 32 for c in actual)
         if isinstance(actual, Zoned):
             actual = str(actual)
         if actual is None:
@@ -185,8 +223,8 @@ def engine():
 def test_fixture_sweep(engine):
     checked = failures = 0
     skipped = {
-        "array": 0, "volatile": 0, "empty_expected": 0, "unparsable": 0,
-        "sheet_qualified": 0, "known_engine_gap": 0,
+        "array": 0, "volatile": 0, "sheet_qualified": 0, "known_engine_gap": 0,
+        "unrepresentable_error": 0, "malformed_row": 0,
     }
     gaps = known_engine_gaps()
     unexpected_pass: list[str] = []
@@ -196,6 +234,9 @@ def test_fixture_sweep(engine):
         expected_type = (row.get("expected_type") or "").strip()
         expected = row.get("expected_value")
 
+        if expected_type not in RECOGNIZED_TYPES:
+            skipped["malformed_row"] += 1
+            continue
         if expected_type == "array":
             skipped["array"] += 1
             continue
@@ -205,17 +246,12 @@ def test_fixture_sweep(engine):
         if reads_sheet_qualified_ref(formula):
             skipped["sheet_qualified"] += 1
             continue
-        if expected is None or expected == "":
-            skipped["empty_expected"] += 1
+        if expected_type == "error" and expected not in REPRESENTABLE_ERRORS:
+            # `#ERROR!` is Sheets' parse-failure display; the engine has no such
+            # ErrorKind, so the row cannot be enforced either side.
+            skipped["unrepresentable_error"] += 1
             continue
-
-        try:
-            actual = engine.evaluate(formula)
-        except ValueError:
-            # The fixtures include intentionally malformed input; the binding
-            # raising ValueError there is correct behaviour, not a failure.
-            skipped["unparsable"] += 1
-            continue
+        actual = engine.evaluate(formula)
 
         if (filename, formula) in gaps:
             skipped["known_engine_gap"] += 1
@@ -236,8 +272,22 @@ def test_fixture_sweep(engine):
         f"\nconformance sweep: {checked} rows enforced, {failures} failed, "
         f"skipped {skipped}"
     )
-    # A binding that translates nothing would trivially "pass" an empty sweep.
-    assert checked > 3000, f"sweep enforced only {checked} rows -- fixtures not loading?"
+    # Pinned, not a floor: a regression that silently stopped enforcing rows --
+    # or a skip bucket that quietly grew -- must fail rather than pass smaller.
+    # Raise these numbers when fixtures are added; never lower them silently.
+    assert checked >= 10660, f"sweep enforced only {checked} rows (expected >= 10660)"
+    assert skipped["array"] <= 39, f"array skips grew to {skipped['array']}"
+    # Pinned exactly as the Rust runner pins its own malformed-row baseline: a
+    # fourth damaged row must fail the suite, not be absorbed silently.
+    assert skipped["malformed_row"] <= 2, (
+        f"malformed fixture rows grew to {skipped['malformed_row']}"
+    )
+    assert skipped["unrepresentable_error"] <= 1, (
+        f"unrepresentable-error skips grew to {skipped['unrepresentable_error']}"
+    )
+    assert skipped["sheet_qualified"] <= 103, (
+        f"sheet-qualified skips grew to {skipped['sheet_qualified']}"
+    )
     assert failures == 0, "translation mismatches:\n" + "\n".join(detail)
     # An entry must not outlive its fix, same rule the Rust suite enforces.
     assert not unexpected_pass, (
@@ -254,9 +304,57 @@ def test_bool_is_not_a_number(engine):
     assert engine.evaluate("=ISNUMBER(A1)", {"A1": 1}) is True
 
 
+def test_wrapper_types_survive_a_round_trip(engine):
+    """A `Date` passed back in must still be a date to the engine.
+
+    Regression test: `Date` defines `__float__`, so a numeric extraction ordered
+    before the `Date` check silently converted it to a plain number on the way
+    in and `ISDATE` went False -- erasing the exact distinction the class exists
+    to carry. The wrapper types are now matched before any native coercion.
+    """
+    d = engine.evaluate("=DATE(2026,8,5)")
+    assert isinstance(d, Date)
+    assert engine.evaluate("=ISDATE(A1)", {"A1": d}) is True
+    # Date arithmetic preserves date-ness, so this comes back a Date, and
+    # Date != float by design -- compare the serial.
+    assert engine.evaluate("=A1+1", {"A1": d}).serial == d.serial + 1
+
+    err = engine.evaluate("=1/0")
+    assert engine.evaluate("=ISERROR(A1)", {"A1": err}) is True
+    # `#UNSUPPORTED!` has no literal form, so it must be refused rather than
+    # silently downgraded to `#VALUE!`.
+    import pytest as _pytest
+    with _pytest.raises(ValueError):
+        engine.evaluate("=A1", {"A1": Engine.excel().evaluate("=1+1")})
+
+
+def test_unparsable_formula_is_a_value_not_an_exception(engine):
+    """Parity with the Rust and JS surfaces, and with Sheets itself."""
+    assert isinstance(engine.evaluate("=SUM("), Error)
+    assert engine.validate("=SUM(") is not None
+
+
 def test_date_stays_distinct_from_number(engine):
     d = engine.evaluate("=DATE(2026,8,5)")
     assert isinstance(d, Date)
     assert engine.evaluate("=ISDATE(DATE(2026,8,5))") is True
     # Equality with a bare float must not hold, or the distinction is cosmetic.
     assert d != float(d.serial)
+
+
+def test_known_engine_gaps_all_match_a_live_row():
+    """Every parsed gap entry must match a real fixture row.
+
+    Mirrors the Rust suite's check of the same name. Without it, a regex that
+    silently truncates an entry (or a formula edited in the fixture) leaves a
+    dead exemption behind, and the sweep reports a tracked engine gap as a
+    binding translation defect.
+    """
+    gaps = known_engine_gaps()
+    assert gaps, "KNOWN_ENGINE_GAPS parsed to nothing"
+    live = {(name, formula) for name, _row, formula in _rows()}
+    orphans = sorted(g for g in gaps if g not in live)
+    assert not orphans, (
+        "KNOWN_ENGINE_GAPS entries match no fixture row (stale or mis-parsed):\n"
+        + "\n".join(f"  {f}: {formula!r}" for f, formula in orphans)
+    )

@@ -19,11 +19,23 @@ truecalc-core = { path = "../core" }
 # abi3-py39: build ONE wheel per platform that serves every CPython >= 3.9,
 # instead of one wheel per (platform, interpreter) pair.
 #
-# `extension-module` is deliberately NOT enabled here: it drops the libpython
-# link, which is correct for a wheel but breaks `cargo test` on Linux (the test
-# binary then has no interpreter to link against). maturin turns it on via the
-# `[tool.maturin] features` key in pyproject.toml.
 pyo3 = { version = "0.29", features = ["abi3-py39"] }
 
 [features]
+# Off by default, and the crate is excluded from `cargo nextest run --workspace`
+# in CI as a result. Both halves are deliberate:
+#
+#   * With `extension-module` ON, the cdylib links no libpython and resolves
+#     those symbols at load time — correct for a wheel, and what maturin enables
+#     via `[tool.maturin] features`. But a Rust *test binary* then has no
+#     interpreter to resolve against and cannot link at all.
+#   * With it OFF, linking needs a libpython on the build machine. On macOS it
+#     additionally needs `-undefined dynamic_lookup`, which could only be set as
+#     workspace-wide rustflags — relaxing undefined-symbol checking for every
+#     other binary here, including truecalc-mcp. Not worth it for one crate.
+#
+# So: off by default (maturin turns it on), and excluded from the workspace test
+# run rather than papered over. `cargo clippy --workspace` is unaffected because
+# it never links. This crate has no Rust tests — its surface is the Python one,
+# covered by crates/python/tests/ — so nothing is lost by the exclusion.
 extension-module = ["pyo3/extension-module"]
