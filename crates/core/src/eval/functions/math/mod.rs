@@ -57,7 +57,7 @@ pub fn register_math(registry: &mut Registry) {
     registry.register_eager("MOD",        mod_fn::mod_fn,               FunctionMeta { category: "math",        signature: "MOD(number, divisor)",                  description: "Remainder after division" });
     registry.register_eager("POWER",      power::power_fn,              FunctionMeta { category: "math",        signature: "POWER(number, power)",                  description: "Number raised to a power" });
     registry.register_eager("SQRT",       sqrt::sqrt_fn,                FunctionMeta { category: "math",        signature: "SQRT(number)",                          description: "Square root" });
-    registry.register_eager("LOG",        log::log_fn,                  FunctionMeta { category: "math",        signature: "LOG(number, base)",                     description: "Logarithm to specified base" });
+    registry.register_eager("LOG",        log::log_fn,                  FunctionMeta { category: "math",        signature: "LOG(number, [base])",                     description: "Logarithm to specified base" });
     registry.register_eager("LOG10",      log::log10_fn,                FunctionMeta { category: "math",        signature: "LOG10(number)",                         description: "Base-10 logarithm" });
     registry.register_eager("LN",         log::ln_fn,                   FunctionMeta { category: "math",        signature: "LN(number)",                            description: "Natural logarithm" });
     registry.register_eager("EXP",        exp::exp_fn,                  FunctionMeta { category: "math",        signature: "EXP(number)",                           description: "e raised to a power" });

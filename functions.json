@@ -1232,6 +1232,10 @@
       {
         "formula": "=COUNTA(4,26,1,2,3)",
         "result": "5"
+      },
+      {
+        "formula": "=COUNTA(Data!A1:B100)",
+        "result": "0"
       }
     ]
   },
@@ -2483,7 +2487,7 @@
   {
     "name": "FIND",
     "category": "text",
-    "syntax": "FIND(find_text, within_text, start)",
+    "syntax": "FIND(find_text, within_text, [start])",
     "description": "Case-sensitive position search",
     "examples": [
       {
@@ -2729,7 +2733,7 @@
   {
     "name": "FV",
     "category": "financial",
-    "syntax": "FV(rate, nper, pmt)",
+    "syntax": "FV(rate, nper, pmt, [pv], [type])",
     "description": "Future value",
     "examples": [
       {
@@ -3792,7 +3796,7 @@
   {
     "name": "LEFT",
     "category": "text",
-    "syntax": "LEFT(text, num_chars)",
+    "syntax": "LEFT(text, [num_chars])",
     "description": "Left portion of a string",
     "examples": []
   },
@@ -3889,7 +3893,7 @@
   {
     "name": "LOG",
     "category": "math",
-    "syntax": "LOG(number, base)",
+    "syntax": "LOG(number, [base])",
     "description": "Logarithm to specified base",
     "examples": [
       {
@@ -4116,6 +4120,10 @@
       {
         "formula": "=MAXA({1,2,3},{4,5,6},4,26)",
         "result": "26"
+      },
+      {
+        "formula": "=MAXA(Data!M4)",
+        "result": "1"
       }
     ]
   },
@@ -4356,12 +4364,7 @@
     "category": "statistical",
     "syntax": "MODE.MULT(value1,...)",
     "description": "All most frequent values",
-    "examples": [
-      {
-        "formula": "=MODE.MULT({10,15,20,30,10,15})",
-        "result": "10"
-      }
-    ]
+    "examples": []
   },
   {
     "name": "MODE.SNGL",
@@ -4681,7 +4684,7 @@
   {
     "name": "NPER",
     "category": "financial",
-    "syntax": "NPER(rate, pmt, pv)",
+    "syntax": "NPER(rate, pmt, pv, [fv], [type])",
     "description": "Number of payment periods",
     "examples": [
       {
@@ -4981,7 +4984,7 @@
   {
     "name": "PMT",
     "category": "financial",
-    "syntax": "PMT(rate, nper, pv)",
+    "syntax": "PMT(rate, nper, pv, [fv], [type])",
     "description": "Periodic payment for a loan",
     "examples": [
       {
@@ -5172,7 +5175,7 @@
   {
     "name": "PV",
     "category": "financial",
-    "syntax": "PV(rate, nper, pmt)",
+    "syntax": "PV(rate, nper, pmt, [fv], [type])",
     "description": "Present value",
     "examples": [
       {
@@ -5244,6 +5247,13 @@
         "result": "5.5"
       }
     ]
+  },
+  {
+    "name": "QUERY",
+    "category": "query",
+    "syntax": "QUERY(data, query, [headers])",
+    "description": "Run a pseudo-SQL query (select/where/group by/order by/limit/label) over a range",
+    "examples": []
   },
   {
     "name": "QUOTIENT",
@@ -5357,7 +5367,7 @@
   {
     "name": "RATE",
     "category": "financial",
-    "syntax": "RATE(nper, pmt, pv)",
+    "syntax": "RATE(nper, pmt, pv, [fv], [type], [guess])",
     "description": "Interest rate per period",
     "examples": [
       {
@@ -5447,7 +5457,7 @@
   {
     "name": "RIGHT",
     "category": "text",
-    "syntax": "RIGHT(text, num_chars)",
+    "syntax": "RIGHT(text, [num_chars])",
     "description": "Right portion of a string",
     "examples": []
   },
@@ -5955,6 +5965,13 @@
     ]
   },
   {
+    "name": "SPARKLINE",
+    "category": "google",
+    "syntax": "SPARKLINE(data, [options])",
+    "description": "Miniature in-cell chart over a range, as a render spec",
+    "examples": []
+  },
+  {
     "name": "SPLIT",
     "category": "text",
     "syntax": "SPLIT(text, delimiter, [split_by_each], [remove_empty])",
@@ -6101,7 +6118,7 @@
   {
     "name": "SUBSTITUTE",
     "category": "text",
-    "syntax": "SUBSTITUTE(text, old, new, instance)",
+    "syntax": "SUBSTITUTE(text, old, new, [instance])",
     "description": "Replace occurrences of a substring",
     "examples": []
   },
@@ -6254,7 +6271,7 @@
   {
     "name": "SWITCH",
     "category": "logical",
-    "syntax": "SWITCH(expr, val1, result1,...)",
+    "syntax": "SWITCH(expr, case1, value1, ..., [default])",
     "description": "Match expression against values",
     "examples": []
   },

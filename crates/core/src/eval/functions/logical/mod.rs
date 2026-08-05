@@ -22,7 +22,7 @@ pub fn register_logical(registry: &mut Registry) {
     registry.register_lazy("IFERROR",   iferror::iferror_fn,        FunctionMeta { category: "logical", signature: "IFERROR(value, value_if_error)",        description: "Return alternate value on error" });
     registry.register_lazy("IFNA",      iferror::ifna_fn,           FunctionMeta { category: "logical", signature: "IFNA(value, value_if_na)",              description: "Return alternate value on #N/A" });
     registry.register_lazy("IFS",       ifs::ifs_fn,                FunctionMeta { category: "logical", signature: "IFS(cond1, val1,...)",                  description: "First value whose condition is true" });
-    registry.register_lazy("SWITCH",    switch::switch_fn,          FunctionMeta { category: "logical", signature: "SWITCH(expr, val1, result1,...)",       description: "Match expression against values" });
+    registry.register_lazy("SWITCH",    switch::switch_fn,          FunctionMeta { category: "logical", signature: "SWITCH(expr, case1, value1, ..., [default])",       description: "Match expression against values" });
     registry.register_lazy("ISNUMBER",  is_checks::isnumber_lazy_fn,FunctionMeta { category: "logical", signature: "ISNUMBER(value)",                      description: "True if value is a number" });
     registry.register_lazy("ISTEXT",    is_checks::istext_lazy_fn,  FunctionMeta { category: "logical", signature: "ISTEXT(value)",                        description: "True if value is text" });
     registry.register_lazy("ISERROR",   is_checks::iserror_lazy_fn, FunctionMeta { category: "logical", signature: "ISERROR(value)",                       description: "True if value is an error" });

@@ -1,6 +1,3 @@
-// json! macro depth for the list_functions array (62 entries) exceeds the default 128
-#![recursion_limit = "256"]
-
 use std::collections::HashMap;
 
 use serde::Serialize;
@@ -219,7 +216,7 @@ pub struct ValidateResult {
     pub error: Option<String>,
 }
 
-#[derive(Tsify, Serialize, serde::Deserialize)]
+#[derive(Tsify, Serialize)]
 #[tsify(into_wasm_abi)]
 pub struct FunctionInfo {
     pub name: String,

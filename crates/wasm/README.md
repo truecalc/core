@@ -164,17 +164,25 @@ validate('SUM(A1,')      // => { valid: false, error: '...' }
 
 ### `list_functions()`
 
-Returns metadata for all built-in functions as an array of `{ name, category, syntax, description }`.
+Returns metadata for every built-in function as an array of
+`{ name, category, syntax, description }`, sorted by name.
 
 ```js
 const fns = list_functions();
+fns.length;
+// 518
+
 // [
-//   { name: 'SUM',     category: 'math',     syntax: 'SUM(value1, ...)',   description: 'Sum of all arguments' },
-//   { name: 'AVERAGE', category: 'math',     syntax: 'AVERAGE(value1, ...)', description: 'Arithmetic mean of all arguments' },
-//   { name: 'IF',      category: 'logical',  syntax: 'IF(condition, value_if_true, value_if_false)', description: 'Conditional evaluation' },
+//   { name: 'ABS',  category: 'math',      syntax: 'ABS(number)',                       description: 'Absolute value of a number' },
+//   { name: 'LEFT', category: 'text',      syntax: 'LEFT(text, [num_chars])',           description: 'Left portion of a string' },
+//   { name: 'PMT',  category: 'financial', syntax: 'PMT(rate, nper, pv, [fv], [type])', description: 'Periodic payment for a loan' },
 //   ...
 // ]
 ```
+
+Optional arguments appear in `[brackets]`. Categories are drawn from the engine
+registry — there are 17, including `array`, `database`, `filter`, `lookup`,
+`parser`, `query` and `timezone` alongside the familiar `math`/`text`/`logical`.
 
 See the full, live function list at [truecalc.github.io/core](https://truecalc.github.io/core/).
 
