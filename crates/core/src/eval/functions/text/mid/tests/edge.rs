@@ -53,3 +53,15 @@ fn splits_surrogate_pair_by_utf16_unit_position() {
         Value::Text("X".to_string())
     );
 }
+
+// Exact example from #848: "👍🏽" is two astral codepoints (base emoji U+1F44D
+// + skin-tone modifier U+1F3FD), each a surrogate pair, so it's 4 UTF-16
+// units. MID(...,1,2) takes only the first 2 units — the base emoji without
+// its modifier — matching Google Sheets' UTF-16-unit slicing.
+#[test]
+fn splits_emoji_from_its_modifier_across_multi_codepoint_grapheme() {
+    assert_eq!(
+        mid_fn(&[Value::Text("👍🏽abc".to_string()), Value::Number(1.0), Value::Number(2.0)]),
+        Value::Text("👍".to_string())
+    );
+}
