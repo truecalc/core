@@ -53,7 +53,7 @@ modelled.
 | `evaluate(formula, variables)` | Evaluate against Google Sheets conformance |
 | `createEngine(target)` | An engine locked to a flavor (`"google-sheets"`) |
 | `validate(formula)` | Parse check without evaluating |
-| `list_functions()` | A hardcoded subset (64) of the function catalogue — see [#810](https://github.com/truecalc/core/issues/810) |
+| `list_functions()` | Every function the engine implements, with category, syntax and description |
 | `translate_formula(formula, dRow, dCol)` | Fill / copy reference adjustment |
 | `rename_sheet_refs(formula, old, new)` | Sheet-rename reference rewrite |
 
