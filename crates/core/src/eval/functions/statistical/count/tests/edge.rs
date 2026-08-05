@@ -253,3 +253,52 @@ fn counta_array_variable_counts_non_empty() {
     .into();
     assert_eq!(run("=COUNTA(A)", vars), Value::Number(3.0));
 }
+
+/// Sheets counts a direct text argument it can read as a number *or* as a
+/// date/time. Every case here mirrors a recorded conformance row.
+#[test]
+fn direct_date_and_time_text_is_counted() {
+    for formula in [
+        "=COUNT(\"2020-01-01\")",
+        "=COUNT(\"1/1/2020\")",
+        "=COUNT(\"1-Jan-2020\")",
+        "=COUNT(\"13:45:00\")",
+        "=COUNT(\"13:45\")",
+        "=COUNT(\"1:45 PM\")",
+        "=COUNT(\"2020-01-01 13:45\")",
+        // Surrounding whitespace is tolerated.
+        "=COUNT(\" 2020-01-01 \")",
+        // Controls: numeric text and a plain number already agreed.
+        "=COUNT(\"5\")",
+        "=COUNT(5)",
+    ] {
+        assert_eq!(run(formula, HashMap::new()), Value::Number(1.0), "{formula}");
+    }
+    assert_eq!(
+        run("=COUNT(\"2020-01-01\",5)", HashMap::new()),
+        Value::Number(2.0)
+    );
+}
+
+/// The negative controls: this is real parsing, not a shape match. An invalid
+/// month is not a date, and text that is not a number stays uncounted.
+#[test]
+fn direct_text_that_is_not_a_number_or_date_is_not_counted() {
+    for formula in ["=COUNT(\"2020-13-01\")", "=COUNT(\"abc\")", "=COUNT(\"\")"] {
+        assert_eq!(run(formula, HashMap::new()), Value::Number(0.0), "{formula}");
+    }
+}
+
+/// Array context is captured as already correct and must not move: text of any
+/// shape is skipped inside an array, date-shaped or not.
+#[test]
+fn array_context_still_skips_date_text() {
+    assert_eq!(
+        run("=COUNT({\"2020-01-01\"})", HashMap::new()),
+        Value::Number(0.0)
+    );
+    assert_eq!(
+        run("=COUNT({\"2020-01-01\",5})", HashMap::new()),
+        Value::Number(1.0)
+    );
+}

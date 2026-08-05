@@ -1,5 +1,6 @@
 use crate::eval::evaluate_expr;
 use crate::eval::functions::EvalCtx;
+use crate::eval::functions::date::serial::{text_to_date_serial, text_to_time_serial};
 use crate::parser::ast::Expr;
 use crate::types::{ErrorKind, Value};
 
@@ -83,6 +84,29 @@ pub fn count_lazy_fn(args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
     Value::Number(n as f64)
 }
 
+/// Whether a direct text argument is one Sheets reads as a number.
+///
+/// Sheets counts direct text it can read as a number *or* as a date or time,
+/// which the captured rows spell out: ISO dates, `M/D/YYYY`, `D-MMM-YYYY`,
+/// times with and without seconds, AM/PM, datetimes, and any of those with
+/// surrounding whitespace. `"2020-13-01"` and `"abc"` are not counted, so this
+/// is real parsing rather than a shape match.
+///
+/// Deliberately narrower than `VALUE()`, which also accepts `"12%"`, `"$42"`
+/// and `"1,234.56"`. Nothing recorded says whether Sheets counts those, so
+/// they stay out until they are probed.
+fn reads_as_number_or_datetime(s: &str) -> bool {
+    let trimmed = s.trim();
+    // Empty text is not a number: `=COUNT("")` is 0, and the time parser would
+    // otherwise accept it.
+    if trimmed.is_empty() {
+        return false;
+    }
+    trimmed.parse::<f64>().is_ok()
+        || text_to_date_serial(trimmed).is_some()
+        || text_to_time_serial(trimmed).is_some()
+}
+
 /// COUNT's direct-argument rules.
 ///
 /// Every `Value` variant is spelled out rather than swept up by a catch-all,
@@ -100,7 +124,7 @@ fn count_direct(v: &Value, n: &mut usize) {
         // it. See [`count_lazy_fn`] for the captured rows.
         Value::Date(_) => *n += 1,
         Value::Bool(_) => *n += 1,
-        Value::Text(s) if s.parse::<f64>().is_ok() => *n += 1,
+        Value::Text(s) if reads_as_number_or_datetime(s) => *n += 1,
         Value::Text(_) => {}
         // A zone-aware instant carries no serial and is not a number anywhere
         // else in this family either — every statistical collector treats it
