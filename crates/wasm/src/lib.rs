@@ -208,20 +208,35 @@ pub fn value_to_result(value: Value) -> EvalResult {
     }
 }
 
+/// The outcome of a [`validate`] call.
+///
+/// `{ valid: true }` when the formula parses, otherwise
+/// `{ valid: false, error: "..." }`.
 #[derive(Tsify, Serialize)]
 #[tsify(into_wasm_abi)]
 pub struct ValidateResult {
+    /// `true` when the formula parses.
     pub valid: bool,
+    /// The parse error message. Absent when `valid` is `true`.
     #[tsify(optional)]
     pub error: Option<String>,
 }
 
+/// Metadata for one built-in function, as returned by [`list_functions`].
+///
+/// Derived from the engine's function registry, so it always reflects what the
+/// engine actually implements.
 #[derive(Tsify, Serialize)]
 #[tsify(into_wasm_abi)]
 pub struct FunctionInfo {
+    /// The function name in upper case, e.g. `"SUM"`.
     pub name: String,
+    /// The registry category, e.g. `"math"`, `"text"`, `"financial"`.
     pub category: String,
+    /// The call signature, e.g. `"PMT(rate, nper, pv, [fv], [type])"`.
+    /// Optional arguments appear in square brackets.
     pub syntax: String,
+    /// A one-line description of what the function does.
     pub description: String,
 }
 
@@ -256,11 +271,16 @@ pub fn validate(formula: &str) -> ValidateResult {
     }
 }
 
+/// The outcome of a [`translate_formula`] call.
+///
+/// Exactly one of `formula` or `error` is present.
 #[derive(Tsify, Serialize)]
 #[tsify(into_wasm_abi)]
 pub struct TranslateResult {
+    /// The rewritten formula. Absent when the input failed to parse.
     #[tsify(optional)]
     pub formula: Option<String>,
+    /// The parse error message. Absent on success.
     #[tsify(optional)]
     pub error: Option<String>,
 }
@@ -278,11 +298,16 @@ pub fn translate_formula(formula: &str, d_row: i32, d_col: i32) -> TranslateResu
     }
 }
 
+/// The outcome of a [`rename_sheet_refs`] call.
+///
+/// Exactly one of `formula` or `error` is present.
 #[derive(Tsify, Serialize)]
 #[tsify(into_wasm_abi)]
 pub struct RenameSheetRefsResult {
+    /// The rewritten formula. Absent when the input failed to parse.
     #[tsify(optional)]
     pub formula: Option<String>,
+    /// The parse error message. Absent on success.
     #[tsify(optional)]
     pub error: Option<String>,
 }
