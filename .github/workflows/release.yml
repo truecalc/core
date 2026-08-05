@@ -16,6 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Build the tag being released, not whatever main happens to be.
+          # Without this every job races merges landing after dispatch, and
+          # JSR versions are immutable — a wrong publish cannot be replaced.
+          ref: ${{ github.event.inputs.tag }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -50,6 +55,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Build the tag being released, not whatever main happens to be.
+          # Without this every job races merges landing after dispatch, and
+          # JSR versions are immutable — a wrong publish cannot be replaced.
+          ref: ${{ github.event.inputs.tag }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -106,6 +116,11 @@ jobs:
             entry: truecalc_wasm_workbook.js
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Build the tag being released, not whatever main happens to be.
+          # Without this every job races merges landing after dispatch, and
+          # JSR versions are immutable — a wrong publish cannot be replaced.
+          ref: ${{ github.event.inputs.tag }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -138,13 +153,28 @@ jobs:
       - name: Drop wasm-pack's generated .gitignore
         run: rm -f crates/${{ matrix.crate }}/pkg/.gitignore
 
-      # The version is DERIVED from the workspace, never typed in: a hand-edited
-      # jsr.json is exactly how registries drift out of lockstep (#797).
-      - name: Write jsr.json with the workspace version
+      # wasm-pack copies the crate README into pkg/, and JSR ships it as the
+      # package page. That README documents the *npm* build — which for
+      # wasm-workbook is a `--target web` build requiring `await init()`, an API
+      # that does not exist here (bundler output has no default export at all).
+      # Shipping it would give Deno users instructions that fail on first run.
+      - name: Use the Deno-specific README
+        run: cp crates/${{ matrix.crate }}/README.jsr.md crates/${{ matrix.crate }}/pkg/README.md
+
+      # The version is DERIVED, never typed in — a hand-edited jsr.json is
+      # exactly how registries drift out of lockstep (#797). It is read from the
+      # package.json wasm-pack just generated, which is the identical file the
+      # npm job publishes from, so npm and JSR agree by construction rather than
+      # by both happening to parse Cargo.toml the same way.
+      - name: Write jsr.json with the published version
         run: |
           set -euo pipefail
-          VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
-          if [ -z "$VERSION" ]; then echo "could not read workspace version"; exit 1; fi
+          cd crates/${{ matrix.crate }}/pkg
+          VERSION=$(jq -er .version package.json)
+          case "$VERSION" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "refusing to publish non-semver version: '$VERSION'"; exit 1 ;;
+          esac
           echo "publishing ${{ matrix.package }}@$VERSION"
           # publish.exclude "!*.wasm" is REQUIRED, not defensive: this repo's
           # root .gitignore has `*.wasm`, JSR honours gitignore when collecting
@@ -157,10 +187,16 @@ jobs:
             --arg entry "./${{ matrix.entry }}" \
             '{name: $name, version: $version, license: "MIT", exports: $entry,
               publish: {exclude: ["!*.wasm"]}}' \
-            > crates/${{ matrix.crate }}/pkg/jsr.json
+            > jsr.json
 
+      # `deno publish`, not `npx jsr@latest publish`. The npx wrapper ignores
+      # PATH and downloads its own Deno at run time, so setup-deno above was
+      # dead weight and its version pin never applied — and it put two unpinned
+      # executables inside the only job holding an OIDC token for the @truecalc
+      # scope. Using Deno directly also restores type checking, which the
+      # wrapper silently disables with --no-check.
       - name: Publish to JSR
-        run: npx --yes jsr@latest publish --allow-dirty
+        run: deno publish --allow-dirty
         working-directory: crates/${{ matrix.crate }}/pkg
 
   build-binaries:
@@ -179,6 +215,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Build the tag being released, not whatever main happens to be.
+          # Without this every job races merges landing after dispatch, and
+          # JSR versions are immutable — a wrong publish cannot be replaced.
+          ref: ${{ github.event.inputs.tag }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -203,6 +244,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Build the tag being released, not whatever main happens to be.
+          # Without this every job races merges landing after dispatch, and
+          # JSR versions are immutable — a wrong publish cannot be replaced.
+          ref: ${{ github.event.inputs.tag }}
 
       - uses: actions/download-artifact@v4
         with:
