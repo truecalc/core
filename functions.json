@@ -4200,8 +4200,8 @@
   {
     "name": "MIDB",
     "category": "text",
-    "syntax": "MIDB(text, start_byte, num_bytes)",
-    "description": "Substring by byte position",
+    "syntax": "MIDB(text, starting_at, num_bytes)",
+    "description": "Substring from a character position, limited to N bytes",
     "examples": []
   },
   {

@@ -411,12 +411,6 @@ const KNOWN_ENGINE_GAPS: &[(&str, &str, &str)] = &[
     // shifts up and the anchor cell reads `1` instead of empty.
     ("array.tsv", r#"=TOCOL({"",1;"",2},1)"#, "#787"),
     ("array.tsv", r#"=TOROW({"",1;"",2},1)"#, "#787"),
-    // #788 — MIDB reads `starting_at` as a byte offset; Sheets returns empty for
-    // these four, which the surrounding (passing) DBCS rows make unambiguous.
-    ("text.tsv", r#"=MIDB("农历新年",FINDB("新","农历新年"),2)"#, "#788"),
-    ("text.tsv", r#"=MIDB("熊本",3,2)"#, "#788"),
-    ("text.tsv", r#"=MIDB("熊本",3,LENB("熊本"))"#, "#788"),
-    ("text.tsv", r#"=MIDB("农历新年",SEARCHB("新","农历新年"),2)"#, "#788"),
     // #789 — an empty format string renders nothing in Sheets; we fall back to
     // the default rendering.
     ("text.tsv", r#"=TEXT(1234,"")"#, "#789"),
