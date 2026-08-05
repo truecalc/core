@@ -36,6 +36,62 @@ const result = evaluate('SUM(A1, B1)', { A1: 100, B1: 200 });
 // => { type: 'number', value: 300 }
 ```
 
+### Bun
+
+Bun resolves to a separate build that requires an explicit `init()` first:
+
+```js
+import init, { evaluate } from '@truecalc/core';
+
+await init();
+evaluate('SUM(A1, B1)', { A1: 100, B1: 200 });
+// => { type: 'number', value: 300 }
+```
+
+That extra call is not optional and not needed on any other runtime. The main
+build relies on WebAssembly ESM integration, which Node and Deno support and
+Bun does not — under Bun it fails with `malloc is not a function`. So
+`package.json` routes Bun to a `--target web` build, which works but must be
+initialised explicitly.
+
+**TypeScript:** add `"customConditions": ["bun"]` to your `tsconfig.json`
+`compilerOptions`. TypeScript does not match the `bun` export condition on its
+own — not even under the tsconfig `bun init` generates — so without it the
+snippet above reports *"Module has no default export"* and `init` is missing
+from autocomplete. Runtime is unaffected either way.
+
+**`bun build` bundling:** the wasm is not emitted as a sibling asset, so
+`await init()` cannot find it and fails with `ERR_BODY_ALREADY_USED`. Pass the
+bytes explicitly instead:
+
+```js
+import init, { evaluate } from '@truecalc/core';
+import wasmPath from '@truecalc/core/truecalc_wasm_bg.wasm' with { type: 'file' };
+
+// Resolve against import.meta.url — the imported path is relative to the
+// process's working directory, so a bare `Bun.file(wasmPath)` only works when
+// you happen to run from the output directory.
+await init(await Bun.file(new URL(wasmPath, import.meta.url)).arrayBuffer());
+```
+
+Only `bun build --target=bun` is affected; `--target=node` and
+`--target=browser` resolve the default build and bundle normally.
+
+Nothing changes for Node, Deno or bundlers, which continue to resolve the
+init-free build. `@truecalc/workbook` is unaffected: it already ships in the
+form Bun can consume, and its `init()` is part of its documented API.
+
+### Writing a library on top of this
+
+Because only the Bun build has a default export, a library that must work on
+every runtime cannot call `init()` unconditionally:
+
+```js
+const mod = await import('@truecalc/core');
+if (typeof mod.default === 'function') await mod.default();  // Bun only
+mod.evaluate('SUM(A1, B1)', { A1: 100, B1: 200 });
+```
+
 ### Vite
 
 Install the wasm plugin first:
