@@ -7,6 +7,14 @@ use crate::types::Value;
 
 /// Apply a format string to a number value, returning the formatted string.
 fn apply_format(n: f64, fmt: &str) -> String {
+    // GS: a format with nothing left to render renders nothing. This belongs to
+    // the formatter rather than to `TEXT`'s argument handling, which is what
+    // makes `=TEXT(0.285,"%")` come out as "%": the percent branch below strips
+    // the sign and recurses with an empty remainder, so the number is never
+    // rendered and only the literal "%" survives. Recorded, both of them.
+    if fmt.is_empty() {
+        return String::new();
+    }
     // GS: asterisk fill formats (*<char>) are not supported; return "0"
     if fmt.starts_with('*') {
         return "0".to_string();
