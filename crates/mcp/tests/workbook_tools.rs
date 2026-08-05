@@ -147,3 +147,40 @@ fn workbook_session_limit_enforced() {
         last["error"]
     );
 }
+
+#[test]
+fn workbook_get_on_never_written_cell_matches_formula_indirection_to_it() {
+    // H1 = '=H2', H2 never set. Reading H1 (via the formula) and H2 (directly)
+    // must return the identical {"type":"empty","value":null} shape — issue #844.
+    let results = run_session(&[
+        call(1, "workbook_import", json!({ "json": empty_workbook_json() })),
+        call(2, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "H1", "value": "=H2" })),
+        call(3, "workbook_recalc", json!({ "workbook_id": "wb_0" })),
+        call(4, "workbook_get", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "H1" })),
+        call(5, "workbook_get", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "H2" })),
+    ]);
+
+    assert!(results[0].get("workbook_id").is_some(), "import: {}", results[0]);
+    assert_eq!(results[1]["ok"], json!(true), "set H1: {}", results[1]);
+
+    let h1 = &results[3];
+    let h2 = &results[4];
+    assert_eq!(h1["type"], "empty", "H1 (via formula) get: {h1}");
+    assert_eq!(h1["value"], JsonValue::Null, "H1 (via formula) get: {h1}");
+    assert_eq!(h2.get("error"), None, "H2 (direct, never-written) should not be a tool error: {h2}");
+    assert_eq!(h2["type"], "empty", "H2 (direct, never-written) get: {h2}");
+    assert_eq!(h2["value"], JsonValue::Null, "H2 (direct, never-written) get: {h2}");
+}
+
+#[test]
+fn workbook_get_invalid_sheet_still_errors() {
+    // A read against a sheet that doesn't exist must remain a tool-level error
+    // (acceptance criteria: only truly invalid reads stay errors).
+    let results = run_session(&[
+        call(1, "workbook_import", json!({ "json": empty_workbook_json() })),
+        call(2, "workbook_get", json!({ "workbook_id": "wb_0", "sheet": "NoSuchSheet", "cell": "A1" })),
+    ]);
+
+    assert!(results[0].get("workbook_id").is_some(), "import: {}", results[0]);
+    assert!(results[1].get("error").is_some(), "expected error for invalid sheet, got: {}", results[1]);
+}

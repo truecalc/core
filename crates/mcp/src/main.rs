@@ -414,9 +414,17 @@ fn tool_workbook_get(args: &JsonValue, store: &mut SessionStore) -> JsonValue {
         None => return json!({ "error": format!("invalid cell address: {}", cell) }),
     };
 
+    if wb.sheet(sheet).is_none() {
+        return json!({ "error": format!("sheet not found: {}", sheet) });
+    }
+
+    // `resolved` returns `None` for a genuinely empty address (never authored,
+    // not covered by a spill) once the sheet itself is known to exist — that is
+    // a normal empty read, not an invalid one, and must return the same shape
+    // recalc/formula-indirection already return for an empty value.
     match wb.resolved(sheet, addr) {
         Some(resolved) => wb_value_to_json(&resolved.value),
-        None => json!({ "error": "cell is empty or not found" }),
+        None => wb_value_to_json(&WbValue::Empty),
     }
 }
 
