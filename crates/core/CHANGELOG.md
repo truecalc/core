@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.0.6](https://github.com/truecalc/core/compare/truecalc-core-v7.0.5...truecalc-core-v7.0.6) - 2026-08-05
+
+### Fixed
+
+- *(array)* TOCOL/TOROW ignore modes keep empty strings
+- *(text)* an empty number format renders nothing, in the formatter
+- *(text)* take MIDB characters whole until the byte budget is met
+- *(text)* read MIDB starting_at as a character index
+
+### Other
+
+- Merge pull request #827 from truecalc/fix/787-tocol-torow-ignore-empty-strings
+- Merge pull request #821 from truecalc/fix/790-count-date-text
+
 ## [7.0.5](https://github.com/truecalc/core/compare/truecalc-core-v7.0.3...truecalc-core-v7.0.5) - 2026-08-05
 
 ### Fixed
