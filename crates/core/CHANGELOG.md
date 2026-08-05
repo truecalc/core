@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.0.5](https://github.com/truecalc/core/compare/truecalc-core-v7.0.3...truecalc-core-v7.0.5) - 2026-08-05
+
+### Fixed
+
+- *(core,wasm)* restore optional args in signatures; address review findings
+
+### Other
+
+- release v7.0.4
+
 ## [7.0.4](https://github.com/truecalc/core/compare/truecalc-core-v7.0.3...truecalc-core-v7.0.4) - 2026-08-05
 
 ### Fixed
