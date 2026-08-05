@@ -664,3 +664,30 @@ fn extremes_compare_dates_and_numbers_as_bare_serials() {
         );
     }
 }
+
+// #841: MAX/MIN symmetry over a range/array with no numeric values, evaluated
+// through the full formula pipeline (not the `_fn` unit level) since that is
+// how the bug was originally observed.
+//
+// Google Sheets conformance (statistical.tsv) pins all four of these: an
+// empty array argument is `#REF!` for *both* MAX and MIN — `=MAX({})` and
+// `=MIN({})` agree, neither answers 0 — while a populated-but-numberless
+// array (all text) is 0 for both. The two rules are easy to conflate; #841
+// reported them as asymmetric (MAX `#REF!`, MIN 0) for the *empty*-array
+// case, but Sheets treats an empty array and a numberless-but-populated one
+// differently, and MAX and MIN already agree on each.
+#[test]
+fn max_min_symmetric_over_no_numeric_values() {
+    for f in ["MAX", "MIN"] {
+        assert_eq!(
+            helpers::eval(&format!("={f}({{}})")),
+            Value::Error(ErrorKind::Ref),
+            "{f}({{}}) — empty array"
+        );
+        assert_eq!(
+            helpers::eval(&format!("={f}({{\"a\",\"b\"}})")),
+            Value::Number(0.0),
+            "{f}({{\"a\",\"b\"}}) — all-text array"
+        );
+    }
+}
