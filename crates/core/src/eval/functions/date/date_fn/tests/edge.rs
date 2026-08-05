@@ -37,6 +37,24 @@ fn negative_day() {
 }
 
 #[test]
+fn negative_month_rolls_back_across_epoch_to_negative_serial() {
+    // DATE(1900,-1,1) -> Nov 1, 1899 = -59 (issue #849). Equivalent to
+    // DATE(1900,1,1)-61: DATE(1900,1,1)=2, 2-61=-59. The engine already
+    // supports negative (pre-epoch) serials via arithmetic, YEAR/MONTH/DAY,
+    // and TEXT — DATE()'s own month rollover must be consistent with that.
+    let args = [Value::Number(1900.0), Value::Number(-1.0), Value::Number(1.0)];
+    assert_eq!(date_fn(&args), Value::Date(-59.0));
+}
+
+#[test]
+fn month_zero_rolls_back_across_epoch_to_negative_serial() {
+    // DATE(1900,0,1) -> Dec 1, 1899 = -29, i.e. DATE(1900,1,1) (=2) minus
+    // December 1899's 31 days: 2 - 31 = -29 (issue #849).
+    let args = [Value::Number(1900.0), Value::Number(0.0), Value::Number(1.0)];
+    assert_eq!(date_fn(&args), Value::Date(-29.0));
+}
+
+#[test]
 fn max_date() {
     // DATE(9999,12,31) = 2958465
     let args = [Value::Number(9999.0), Value::Number(12.0), Value::Number(31.0)];

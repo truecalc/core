@@ -54,9 +54,12 @@ pub fn date_fn(args: &[Value]) -> Value {
         None => return Value::Error(ErrorKind::Num),
     };
 
-    // Ensure within valid spreadsheet range
+    // Ensure within valid spreadsheet range. Negative serials (pre-epoch
+    // dates, before Dec 30, 1899) are valid — the engine supports them
+    // consistently via arithmetic, YEAR/MONTH/DAY, and TEXT (issue #849),
+    // so DATE()'s own month/day rollover must not reject them.
     let serial = date_to_serial(date);
-    if serial < 0.0 || date.year() > 9999 {
+    if date.year() > 9999 {
         return Value::Error(ErrorKind::Num);
     }
 
