@@ -394,3 +394,57 @@ jobs:
           git add Formula/truecalc-mcp.rb
           git commit -m "truecalc-mcp $VERSION"
           git push origin main
+
+  # Lists/updates truecalc-mcp in the official MCP Registry. Auth is GitHub
+  # OIDC (mcp-publisher login github-oidc) — no secret needed: running as a
+  # GitHub Action on a repo under the truecalc org is itself what lets this
+  # claim the io.github.truecalc namespace, per the registry's publishing
+  # docs (github.com/modelcontextprotocol/registry).
+  #
+  # server.json is rendered here, not hand-maintained, for the same reason
+  # jsr.json is above (#797): a hand-edited version is how registries drift
+  # out of lockstep. Only cargo is listed as a package today — npm/pypi
+  # entries belong here once #799/#798 exist.
+  publish-mcp-registry:
+    needs: attach-binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # OIDC — how the MCP Registry authenticates this workflow
+    steps:
+      - name: Install mcp-publisher
+        run: |
+          set -euo pipefail
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Render server.json
+        env:
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#truecalc-core-v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "refusing to publish registry listing for non-semver tag: '$TAG'"
+            exit 1
+          fi
+
+          jq -n --arg version "$VERSION" '{
+            "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+            name: "io.github.truecalc/truecalc-mcp",
+            description: "MCP server exposing TrueCalc spreadsheet formula evaluation as tools for AI assistants.",
+            version: $version,
+            repository: { url: "https://github.com/truecalc/core", source: "github", subfolder: "crates/mcp" },
+            packages: [
+              {
+                registryType: "cargo",
+                identifier: "truecalc-mcp",
+                version: $version,
+                transport: { type: "stdio" }
+              }
+            ]
+          }' > server.json
+
+      - name: Publish to MCP Registry
+        run: |
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish server.json
