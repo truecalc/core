@@ -35,5 +35,5 @@ jobs:
               print(r['tag'])
           ")
           if [ -n "$TAG" ]; then
-            gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --field "tag=$TAG"
+            gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG" --field "tag=$TAG"
           fi
