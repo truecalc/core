@@ -916,6 +916,16 @@ fn generate_conformance_report() {
         collect_tsv_fixture_results(&path, cat, &mut report);
     }
 
+    // The report-only corpus, collected into its own bucket rather than into
+    // `by_category`. Downstream consumers (docs, the marketing site) were
+    // otherwise forced to hard-code these numbers from local test output,
+    // which drifts the moment anyone fixes a gap.
+    {
+        let mut tracked = ConformanceReport::default();
+        collect_tsv_fixture_results(&gdir.join("bugs.tsv"), "bugs", &mut tracked);
+        report.tracked = tracked.by_category.remove("bugs");
+    }
+
     // Write JSON to target/
     let out_dir = manifest.join("../../target");
     std::fs::create_dir_all(&out_dir).ok();

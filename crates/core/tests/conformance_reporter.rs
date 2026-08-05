@@ -211,6 +211,16 @@ pub struct CategoryResult {
 pub struct ConformanceReport {
     pub by_category: HashMap<String, CategoryResult>,
     pub known_deviations: Vec<KnownDeviation>,
+    /// The report-only corpus (`bugs.tsv`): canonical Google Sheets reference
+    /// rows that are known gaps rather than merge gates.
+    ///
+    /// Held apart from `by_category` on purpose. `total`/`passed` — and so the
+    /// README badge and the published report — mean "the enforced suite", and
+    /// folding these rows in would silently redefine that. Consumers that want
+    /// the whole picture add `tracked` to `overall` themselves; the point is
+    /// that both numbers now come from this one file instead of being
+    /// maintained by hand somewhere downstream.
+    pub tracked: Option<CategoryResult>,
 }
 
 #[derive(Debug, Clone)]
@@ -247,6 +257,12 @@ impl ConformanceReport {
             ));
         }
         s.push_str("  },\n");
+        if let Some(tracked) = &self.tracked {
+            s.push_str(&format!(
+                "  \"tracked\": {{ \"passed\": {}, \"total\": {} }},\n",
+                tracked.passed, tracked.total
+            ));
+        }
         s.push_str("  \"known_deviations\": [\n");
         for (i, dev) in self.known_deviations.iter().enumerate() {
             let comma = if i + 1 < self.known_deviations.len() { "," } else { "" };
