@@ -42,16 +42,16 @@ pub mod split_fn;
 pub mod textjoin;
 
 pub fn register_text(registry: &mut Registry) {
-    registry.register_eager("LEFT",        left::left_fn,              FunctionMeta { category: "text", signature: "LEFT(text, num_chars)",                      description: "Left portion of a string" });
+    registry.register_eager("LEFT",        left::left_fn,              FunctionMeta { category: "text", signature: "LEFT(text, [num_chars])",                      description: "Left portion of a string" });
     registry.register_eager("MID",         mid::mid_fn,                FunctionMeta { category: "text", signature: "MID(text, start, num_chars)",                description: "Substring from middle of text" });
-    registry.register_eager("RIGHT",       right::right_fn,            FunctionMeta { category: "text", signature: "RIGHT(text, num_chars)",                     description: "Right portion of a string" });
+    registry.register_eager("RIGHT",       right::right_fn,            FunctionMeta { category: "text", signature: "RIGHT(text, [num_chars])",                     description: "Right portion of a string" });
     registry.register_eager("LEN",         len::len_fn,                FunctionMeta { category: "text", signature: "LEN(text)",                                  description: "Number of characters in text" });
     registry.register_eager("LOWER",       lower::lower_fn,            FunctionMeta { category: "text", signature: "LOWER(text)",                                description: "Convert to lowercase" });
     registry.register_eager("UPPER",       upper::upper_fn,            FunctionMeta { category: "text", signature: "UPPER(text)",                                description: "Convert to uppercase" });
     registry.register_eager("TRIM",        trim::trim_fn,              FunctionMeta { category: "text", signature: "TRIM(text)",                                 description: "Remove extra whitespace" });
     registry.register_eager("CONCATENATE", concatenate::concatenate_fn,FunctionMeta { category: "text", signature: "CONCATENATE(value1,...)",                    description: "Concatenate values (legacy)" });
-    registry.register_eager("FIND",        find::find_fn,              FunctionMeta { category: "text", signature: "FIND(find_text, within_text, start)",        description: "Case-sensitive position search" });
-    registry.register_eager("SUBSTITUTE",  substitute::substitute_fn,  FunctionMeta { category: "text", signature: "SUBSTITUTE(text, old, new, instance)",       description: "Replace occurrences of a substring" });
+    registry.register_eager("FIND",        find::find_fn,              FunctionMeta { category: "text", signature: "FIND(find_text, within_text, [start])",        description: "Case-sensitive position search" });
+    registry.register_eager("SUBSTITUTE",  substitute::substitute_fn,  FunctionMeta { category: "text", signature: "SUBSTITUTE(text, old, new, [instance])",       description: "Replace occurrences of a substring" });
     registry.register_eager("REPLACE",     replace::replace_fn,        FunctionMeta { category: "text", signature: "REPLACE(text, start, num_chars, new_text)",  description: "Replace portion of text" });
     registry.register_eager("TEXT",        text_fn::text_fn,           FunctionMeta { category: "text", signature: "TEXT(value, format)",                        description: "Format number as text" });
     registry.register_eager("VALUE",       value_fn::value_fn,         FunctionMeta { category: "text", signature: "VALUE(text)",                                description: "Convert text to number" });
