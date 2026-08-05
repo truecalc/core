@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.0.7](https://github.com/truecalc/core/compare/truecalc-mcp-v7.0.6...truecalc-mcp-v7.0.7) - 2026-08-05
+
+### Other
+
+- Merge pull request #828 from truecalc/feat/800-mcp-registry-listing
+- *(mcp)* list truecalc-mcp in the official MCP Registry on release
+
 ## [7.0.6](https://github.com/truecalc/core/compare/truecalc-mcp-v7.0.5...truecalc-mcp-v7.0.6) - 2026-08-05
 
 ### Other
