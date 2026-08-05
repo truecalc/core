@@ -156,10 +156,22 @@ jobs:
               "categories": categories,
               "overall": {"passed": report["passed"], "total": report["total"]},
           }
+          # The report-only corpus, published alongside `overall` rather than
+          # folded into it: `overall` means "the enforced suite", which is what
+          # the badge asserts. Consumers wanting the whole picture add the two.
+          # Published so docs and the marketing site read one file instead of
+          # hard-coding figures that drift the moment a gap is fixed.
+          if report.get("tracked"):
+              summary["tracked"] = {
+                  "passed": report["tracked"]["passed"],
+                  "total": report["tracked"]["total"],
+              }
           with open("/tmp/conformance-summary.json", "w") as f:
               json.dump(summary, f, indent=2)
               f.write("\n")
-          print(f"conformance-summary.json: {report['passed']}/{report['total']} passed, {len(categories)} categories")
+          tracked = summary.get("tracked")
+          tracked_note = f", tracked {tracked['passed']}/{tracked['total']}" if tracked else ""
+          print(f"conformance-summary.json: {report['passed']}/{report['total']} passed, {len(categories)} categories{tracked_note}")
 
       - name: Publish conformance report to gh-pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
