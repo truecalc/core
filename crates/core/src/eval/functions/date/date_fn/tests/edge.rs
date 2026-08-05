@@ -67,3 +67,21 @@ fn decimal_inputs_truncated() {
     let args = [Value::Number(2024.9), Value::Number(6.9), Value::Number(15.9)];
     assert_eq!(date_fn(&args), Value::Date(45458.0));
 }
+
+#[test]
+fn extreme_negative_day_rollover_below_year_zero_errors() {
+    // DATE(1900,1,-5000000): day argument rolls the date back roughly 13,700
+    // years, past year 0 — this must still error like the symmetric extreme
+    // positive case (below), not silently succeed just because the result
+    // has a negative serial. Guards against reintroducing an unbounded
+    // negative range while fixing issue #849's near-epoch rollover case.
+    let args = [Value::Number(1900.0), Value::Number(1.0), Value::Number(-5000000.0)];
+    assert_eq!(date_fn(&args), Value::Error(ErrorKind::Num));
+}
+
+#[test]
+fn extreme_positive_day_rollover_above_year_9999_errors() {
+    // DATE(1900,1,5000000) -> year far beyond 9999, still rejected.
+    let args = [Value::Number(1900.0), Value::Number(1.0), Value::Number(5000000.0)];
+    assert_eq!(date_fn(&args), Value::Error(ErrorKind::Num));
+}
