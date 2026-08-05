@@ -314,7 +314,9 @@ fn tocol_fn(args: &[Value]) -> Value {
     };
 
     let filtered: Vec<Value> = flat.into_iter().filter(|v| {
-        let is_blank = matches!(v, Value::Empty) || matches!(v, Value::Text(s) if s.is_empty());
+        // Only a genuinely blank cell counts as blank: an empty string is a
+        // value, so `ignore` modes 1 and 3 keep it.
+        let is_blank = matches!(v, Value::Empty);
         let is_error = v.is_error();
         if ignore == 1 && is_blank { return false; }
         if ignore == 2 && is_error { return false; }
@@ -361,7 +363,9 @@ fn torow_fn(args: &[Value]) -> Value {
     };
 
     let filtered: Vec<Value> = flat.into_iter().filter(|v| {
-        let is_blank = matches!(v, Value::Empty) || matches!(v, Value::Text(s) if s.is_empty());
+        // Only a genuinely blank cell counts as blank: an empty string is a
+        // value, so `ignore` modes 1 and 3 keep it.
+        let is_blank = matches!(v, Value::Empty);
         let is_error = v.is_error();
         if ignore == 1 && is_blank { return false; }
         if ignore == 2 && is_error { return false; }

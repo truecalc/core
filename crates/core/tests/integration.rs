@@ -269,7 +269,55 @@ fn tocol_single_element() {
     assert_eq!(top_left(helpers::eval("=TOCOL({5})")), Value::Number(5.0));
 }
 
+// #787: `ignore` modes 1 and 3 drop blank cells only. An empty string is a
+// value, not a blank, so it survives — the same way it does under the default
+// mode 0. Sheets ground truth for the mode-1 case is pinned by the
+// `=TOCOL({"",1;"",2},1)` / `=TOROW({"",1;"",2},1)` rows in array.tsv; the tests
+// below state the rule directly, including the two halves no fixture can reach
+// (a genuinely blank cell, which only a range can produce, and mode 3).
+
+#[test]
+fn tocol_ignore_blanks_keeps_empty_strings() {
+    // ["", 1, "", 2] with mode 1 -> unchanged, so the anchor is the empty string.
+    assert_eq!(top_left(helpers::eval(r#"=TOCOL({"",1;"",2},1)"#)), Value::Text(String::new()));
+}
+
+#[test]
+fn tocol_ignore_blanks_drops_blank_cells() {
+    // A range is the only input that can carry a genuinely blank cell.
+    let range = Value::Array(vec![Value::Empty, Value::Number(1.0), Value::Empty, Value::Number(2.0)]);
+    assert_eq!(
+        top_left(helpers::eval_with("=TOCOL(A1:A4,1)", [("A1:A4", range)])),
+        Value::Number(1.0)
+    );
+}
+
+#[test]
+fn tocol_ignore_blanks_and_errors_keeps_empty_strings() {
+    // Mode 3 drops the error but keeps the empty string.
+    assert_eq!(top_left(helpers::eval(r#"=TOCOL({"",1/0;2,3},3)"#)), Value::Text(String::new()));
+}
+
 // ── TOROW ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn torow_ignore_blanks_keeps_empty_strings() {
+    assert_eq!(top_left(helpers::eval(r#"=TOROW({"",1;"",2},1)"#)), Value::Text(String::new()));
+}
+
+#[test]
+fn torow_ignore_blanks_drops_blank_cells() {
+    let range = Value::Array(vec![Value::Empty, Value::Number(1.0), Value::Empty, Value::Number(2.0)]);
+    assert_eq!(
+        top_left(helpers::eval_with("=TOROW(A1:A4,1)", [("A1:A4", range)])),
+        Value::Number(1.0)
+    );
+}
+
+#[test]
+fn torow_ignore_blanks_and_errors_keeps_empty_strings() {
+    assert_eq!(top_left(helpers::eval(r#"=TOROW({"",1/0;2,3},3)"#)), Value::Text(String::new()));
+}
 
 #[test]
 fn torow_flattens_column_to_row() {

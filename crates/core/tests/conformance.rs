@@ -406,12 +406,7 @@ fn quotes_sheet_qualified_ref(formula: &str) -> bool {
 /// than the truth.
 ///
 /// Keyed by (fixture file, exact formula text), with the issue tracking the fix.
-const KNOWN_ENGINE_GAPS: &[(&str, &str, &str)] = &[
-    // #787 — `ignore=1` drops empty strings, which Sheets keeps, so the spill
-    // shifts up and the anchor cell reads `1` instead of empty.
-    ("array.tsv", r#"=TOCOL({"",1;"",2},1)"#, "#787"),
-    ("array.tsv", r#"=TOROW({"",1;"",2},1)"#, "#787"),
-];
+const KNOWN_ENGINE_GAPS: &[(&str, &str, &str)] = &[];
 
 /// The issue tracking `formula`'s divergence in `path`, if it is a known gap.
 fn known_engine_gap(path: &Path, formula: &str) -> Option<&'static str> {
