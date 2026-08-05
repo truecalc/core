@@ -9,8 +9,9 @@ use crate::types::{ErrorKind, Value};
 /// The two arguments are measured in different units, which is what the recorded
 /// Google Sheets behaviour requires: `starting_at` counts characters, while the
 /// length budget counts DBCS bytes (1 for single-byte, 2 for double-byte). A
-/// start past the last character yields an empty string, and a trailing
-/// character that does not fit the remaining byte budget is dropped.
+/// start past the last character yields an empty string, and characters are
+/// taken whole until the byte budget is met or exceeded — the last one may
+/// overrun it.
 pub fn midb_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 3, 3) {
         return err;
@@ -43,16 +44,16 @@ pub fn midb_fn(args: &[Value]) -> Value {
     // `chars()` (Unicode scalar values) is the same iteration `dbcs_char_width`
     // is defined over, so the index and the byte widths stay in step.
     for c in text.chars().skip(skip_chars) {
-        let w = dbcs_char_width(c);
-        if bytes_taken + w > budget {
-            // Partial char at end — skip
+        // The budget is tested *before* a character, never after: a character is
+        // taken whole whenever the budget has not already been met, even if it
+        // overruns. `=MIDB("あい",1,3)` is `あい`, not `あ`, and `=MIDB("あab",1,1)`
+        // is `あ`, not empty — so a character is never split or dropped for
+        // being too wide, only for arriving after the budget was spent.
+        if bytes_taken >= budget {
             break;
         }
         result.push(c);
-        bytes_taken += w;
-        if bytes_taken == budget {
-            break;
-        }
+        bytes_taken += dbcs_char_width(c);
     }
     Value::Text(result)
 }

@@ -53,3 +53,26 @@ fn ascii_is_unaffected() {
         Value::Text("world".to_string())
     );
 }
+
+/// The budget is tested before a character, never after, so a character is
+/// never split or dropped for being too wide — only for arriving once the
+/// budget was already spent. All four recorded.
+#[test]
+fn a_character_is_taken_whole_until_the_budget_is_met() {
+    // 1 byte requested, `あ` is 2 — still returned whole.
+    assert_eq!(midb("あab", 1.0, 1.0), Value::Text("あ".to_string()));
+    // Budget met exactly by `あ`, so `い` is not reached.
+    assert_eq!(midb("あい", 1.0, 2.0), Value::Text("あ".to_string()));
+    // Budget *not* met after `あ`, so `い` is taken and overruns it.
+    assert_eq!(midb("あい", 1.0, 3.0), Value::Text("あい".to_string()));
+    // Same across mixed widths: `a` leaves 1 byte unspent, so `あ` is taken.
+    assert_eq!(midb("aあ", 1.0, 2.0), Value::Text("aあ".to_string()));
+}
+
+/// A zero budget is the one case that yields nothing, since it is met before
+/// the first character.
+#[test]
+fn zero_byte_budget_is_empty() {
+    assert_eq!(midb("あい", 1.0, 0.0), Value::Text(String::new()));
+    assert_eq!(midb("hello", 1.0, 0.0), Value::Text(String::new()));
+}
