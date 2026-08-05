@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.1.0](https://github.com/truecalc/core/compare/truecalc-core-v7.0.8...truecalc-core-v7.1.0) - 2026-08-05
+
+### Added
+
+- *(conformance)* publish the report-only corpus in the summary
+
 ## [7.0.6](https://github.com/truecalc/core/compare/truecalc-core-v7.0.5...truecalc-core-v7.0.6) - 2026-08-05
 
 ### Fixed
