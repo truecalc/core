@@ -80,6 +80,89 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+  # JSR (Deno). Deliberately part of the release workflow rather than the
+  # `on: push: branches: [main]` job JSR's own docs suggest: JSR versions are
+  # immutable and duplicates are rejected, so publishing on every merge would
+  # turn every non-release push to main red, and any merge that did carry a
+  # version bump would publish with no release gate.
+  #
+  # No secret is needed — the package is linked to this repo on JSR and
+  # authenticates over OIDC, which is what `id-token: write` below is for.
+  publish-jsr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # OIDC — how JSR authenticates this workflow
+    strategy:
+      # Fail one package without silently skipping the other.
+      fail-fast: false
+      matrix:
+        include:
+          - crate: wasm
+            package: "@truecalc/core"
+            entry: truecalc_wasm.js
+          - crate: wasm-workbook
+            package: "@truecalc/workbook"
+            entry: truecalc_wasm_workbook.js
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Install wasm-pack
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+
+      # `--target bundler` (not `web`): Deno 2 consumes that output natively via
+      # wasm ESM integration, so consumers need no `init()` call and no runtime
+      # permissions. A `web` build would fetch the .wasm at load and force
+      # `--allow-net` on every caller of a pure-computation library.
+      #
+      # This is a separate build from the npm one on purpose — it leaves the
+      # published npm artifacts byte-for-byte unchanged.
+      - name: Build WASM for JSR
+        run: wasm-pack build crates/${{ matrix.crate }} --target bundler
+
+      # wasm-pack writes a `.gitignore` containing `*` into pkg/, and JSR honours
+      # gitignore when collecting files — without this, publish fails with every
+      # module "excluded from publishing".
+      - name: Drop wasm-pack's generated .gitignore
+        run: rm -f crates/${{ matrix.crate }}/pkg/.gitignore
+
+      # The version is DERIVED from the workspace, never typed in: a hand-edited
+      # jsr.json is exactly how registries drift out of lockstep (#797).
+      - name: Write jsr.json with the workspace version
+        run: |
+          set -euo pipefail
+          VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          if [ -z "$VERSION" ]; then echo "could not read workspace version"; exit 1; fi
+          echo "publishing ${{ matrix.package }}@$VERSION"
+          # publish.exclude "!*.wasm" is REQUIRED, not defensive: this repo's
+          # root .gitignore has `*.wasm`, JSR honours gitignore when collecting
+          # files, and the export graph references the .wasm — so without the
+          # negative glob the publish fails with `excluded-module`, having
+          # otherwise looked completely healthy.
+          jq -n \
+            --arg name "${{ matrix.package }}" \
+            --arg version "$VERSION" \
+            --arg entry "./${{ matrix.entry }}" \
+            '{name: $name, version: $version, license: "MIT", exports: $entry,
+              publish: {exclude: ["!*.wasm"]}}' \
+            > crates/${{ matrix.crate }}/pkg/jsr.json
+
+      - name: Publish to JSR
+        run: npx --yes jsr@latest publish --allow-dirty
+        working-directory: crates/${{ matrix.crate }}/pkg
+
   build-binaries:
     strategy:
       matrix:
