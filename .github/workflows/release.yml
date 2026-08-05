@@ -43,15 +43,26 @@ jobs:
       - name: Build WASM (bundler — Node, Deno, bundlers)
         run: wasm-pack build crates/wasm --target bundler
 
+      # Only the JS glue is copied, not the wasm: both targets emit a
+      # byte-identical truecalc_wasm_bg.wasm, and the web glue locates it with
+      # `new URL('truecalc_wasm_bg.wasm', import.meta.url)` — so at the package
+      # root it resolves to the one already there. Shipping a second copy would
+      # add 2 MB and roughly double the tarball for every Node and Deno user.
+      # The hash check makes that assumption fail loudly if it ever stops
+      # holding, rather than silently serving Bun a mismatched module.
       - name: Build WASM (web — Bun only)
         run: |
           set -euo pipefail
           wasm-pack build crates/wasm --target web --out-dir pkg-bun
-          mkdir -p crates/wasm/pkg/bun
-          cp crates/wasm/pkg-bun/truecalc_wasm.js \
-             crates/wasm/pkg-bun/truecalc_wasm_bg.wasm \
-             crates/wasm/pkg-bun/truecalc_wasm.d.ts \
-             crates/wasm/pkg/bun/
+          a=$(sha256sum crates/wasm/pkg/truecalc_wasm_bg.wasm | cut -d" " -f1)
+          b=$(sha256sum crates/wasm/pkg-bun/truecalc_wasm_bg.wasm | cut -d" " -f1)
+          if [ "$a" != "$b" ]; then
+            echo "bundler and web targets emitted different wasm ($a vs $b);"
+            echo "the Bun glue can no longer share the root wasm — ship it separately"
+            exit 1
+          fi
+          cp crates/wasm/pkg-bun/truecalc_wasm.js   crates/wasm/pkg/truecalc_wasm_bun.js
+          cp crates/wasm/pkg-bun/truecalc_wasm.d.ts crates/wasm/pkg/truecalc_wasm_bun.d.ts
 
       - name: Set npm package name and exports
         run: node scripts/npm-package-json.mjs crates/wasm/pkg
