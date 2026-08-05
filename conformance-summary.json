@@ -1,7 +1,7 @@
 {
-  "generated": "2026-08-05T20:17:26Z",
+  "generated": "2026-08-05T20:27:01Z",
   "version": "7.0.8",
-  "git_sha": "1bb9725",
+  "git_sha": "3201dae",
   "categories": [
     {
       "name": "array",
@@ -97,5 +97,9 @@
   "overall": {
     "passed": 10646,
     "total": 10649
+  },
+  "tracked": {
+    "passed": 2025,
+    "total": 2236
   }
 }
