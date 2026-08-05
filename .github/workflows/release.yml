@@ -290,6 +290,107 @@ jobs:
           name: truecalc-mcp-${{ matrix.target }}
           path: truecalc-mcp-${{ matrix.target }}${{ matrix.ext }}
 
+  # Packages each build-binaries artifact as an npm platform package
+  # (@truecalc/mcp-<platform>-<arch>, using Node's process.platform/
+  # process.arch vocabulary, not the Rust target triple's) and publishes it.
+  # @truecalc/mcp (the npx-facing wrapper) depends on all five as
+  # optionalDependencies and is published last — see publish-npm-mcp-wrapper
+  # below — so npm's dependency resolution never points at a version that
+  # doesn't exist yet.
+  publish-npm-mcp-platforms:
+    needs: build-binaries
+    strategy:
+      # Fail one platform package without silently skipping the rest.
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            platform: linux
+            arch: x64
+          - target: aarch64-unknown-linux-gnu
+            platform: linux
+            arch: arm64
+          - target: x86_64-apple-darwin
+            platform: darwin
+            arch: x64
+          - target: aarch64-apple-darwin
+            platform: darwin
+            arch: arm64
+          - target: x86_64-pc-windows-msvc
+            platform: win32
+            arch: x64
+            ext: .exe
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Build the tag being released, not whatever main happens to be.
+          # Without this every job races merges landing after dispatch, and
+          # JSR versions are immutable — a wrong publish cannot be replaced.
+          ref: ${{ github.event.inputs.tag }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: truecalc-mcp-${{ matrix.target }}
+          path: artifacts/
+
+      - name: Build platform package
+        env:
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#truecalc-core-v}"
+          node crates/mcp/npm/scripts/make-platform-package.mjs \
+            "pkg-${{ matrix.platform }}-${{ matrix.arch }}" \
+            "${{ matrix.platform }}" \
+            "${{ matrix.arch }}" \
+            "$VERSION" \
+            "artifacts/truecalc-mcp-${{ matrix.target }}${{ matrix.ext }}"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish platform package
+        run: npm publish --provenance --access public
+        working-directory: pkg-${{ matrix.platform }}-${{ matrix.arch }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # The npx-facing wrapper (`npx -y @truecalc/mcp`). Published only after
+  # every platform package above has succeeded, so its optionalDependencies
+  # always resolve to versions that already exist on the registry.
+  publish-npm-mcp-wrapper:
+    needs: publish-npm-mcp-platforms
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Build the tag being released, not whatever main happens to be.
+          # Without this every job races merges landing after dispatch, and
+          # JSR versions are immutable — a wrong publish cannot be replaced.
+          ref: ${{ github.event.inputs.tag }}
+
+      - name: Stamp version
+        env:
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#truecalc-core-v}"
+          node crates/mcp/npm/scripts/stamp-version.mjs crates/mcp/npm/wrapper/package.json "$VERSION"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish wrapper package
+        run: npm publish --provenance --access public
+        working-directory: crates/mcp/npm/wrapper
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
   attach-binaries:
     needs: build-binaries
     runs-on: ubuntu-latest

@@ -5,6 +5,7 @@ Registered with the [MCP Registry](https://registry.modelcontextprotocol.io) via
 [![truecalc-core](https://img.shields.io/crates/v/truecalc-core?label=truecalc-core)](https://crates.io/crates/truecalc-core)
 [![truecalc-mcp](https://img.shields.io/crates/v/truecalc-mcp?label=truecalc-mcp)](https://crates.io/crates/truecalc-mcp)
 [![crates.io downloads](https://img.shields.io/crates/d/truecalc-mcp)](https://crates.io/crates/truecalc-mcp)
+[![npm](https://img.shields.io/npm/v/%40truecalc%2Fmcp?label=%40truecalc%2Fmcp)](https://www.npmjs.com/package/@truecalc/mcp)
 [![license](https://img.shields.io/crates/l/truecalc-mcp)](LICENSE)
 [![functions](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/truecalc/core/gh-pages/functions-badge.json)](https://truecalc.github.io/core/)
 
@@ -20,6 +21,18 @@ A comprehensive spreadsheet function library (see the live count above) — eval
 
 ## Install
 
+### npx (no install step)
+
+```sh
+npx -y @truecalc/mcp
+```
+
+Resolves the prebuilt `truecalc-mcp` binary for your OS/CPU via
+[`@truecalc/mcp`](https://www.npmjs.com/package/@truecalc/mcp) — same Rust
+binary as the crate below, no Rust toolchain required.
+
+### cargo
+
 ```sh
 cargo install truecalc-mcp --force
 ```
@@ -27,6 +40,19 @@ cargo install truecalc-mcp --force
 ## Claude Desktop setup
 
 Add the server to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "truecalc": {
+      "command": "npx",
+      "args": ["-y", "@truecalc/mcp"]
+    }
+  }
+}
+```
+
+Using a `cargo install`ed binary instead:
 
 ```json
 {
@@ -97,6 +123,7 @@ Covers math, logical, text, financial, and statistical categories. For the full 
 
 - [`truecalc-core`](https://crates.io/crates/truecalc-core) — the underlying formula engine (Rust library)
 - [`@truecalc/core`](https://www.npmjs.com/package/@truecalc/core) — WebAssembly package for JavaScript/TypeScript
+- [`@truecalc/mcp`](https://www.npmjs.com/package/@truecalc/mcp) — this server, published to npm for `npx`
 
 ## Documentation
 
