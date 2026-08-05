@@ -36,6 +36,28 @@ const result = evaluate('SUM(A1, B1)', { A1: 100, B1: 200 });
 // => { type: 'number', value: 300 }
 ```
 
+### Bun
+
+Bun resolves to a separate build that requires an explicit `init()` first:
+
+```js
+import init, { evaluate } from '@truecalc/core';
+
+await init();
+evaluate('SUM(A1, B1)', { A1: 100, B1: 200 });
+// => { type: 'number', value: 300 }
+```
+
+That extra call is not optional and not needed on any other runtime. The main
+build relies on WebAssembly ESM integration, which Node and Deno support and
+Bun does not — under Bun it fails with `malloc is not a function`, and bundling
+with `bun build` does not help. So `package.json` routes Bun to a `--target
+web` build, which works but must be initialised explicitly.
+
+Nothing changes for Node, Deno or bundlers, which continue to resolve the
+init-free build. `@truecalc/workbook` is unaffected: it already ships in the
+form Bun can consume, and its `init()` is part of its documented API.
+
 ### Vite
 
 Install the wasm plugin first:

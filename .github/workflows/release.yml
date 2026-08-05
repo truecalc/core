@@ -33,12 +33,28 @@ jobs:
         with:
           tool: wasm-pack
 
-      - name: Build WASM
+      # Two builds on purpose. `bundler` is the primary artifact: it relies on
+      # WebAssembly ESM integration, so Deno and Node need no `init()` call and
+      # no permissions. Bun does not support that and throws `malloc is not a
+      # function` (core#815) — and `bun build --target=bun` does not rescue it,
+      # so callers cannot bundle their way out. A `web` build works in Bun, at
+      # the cost of an `await init()`, and is exposed only to Bun via the
+      # conditional export written below.
+      - name: Build WASM (bundler — Node, Deno, bundlers)
         run: wasm-pack build crates/wasm --target bundler
 
-      - name: Set npm package name
-        run: node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('package.json')); p.name='@truecalc/core'; p.license='MIT'; fs.writeFileSync('package.json', JSON.stringify(p, null, 2)+'\n')"
-        working-directory: crates/wasm/pkg
+      - name: Build WASM (web — Bun only)
+        run: |
+          set -euo pipefail
+          wasm-pack build crates/wasm --target web --out-dir pkg-bun
+          mkdir -p crates/wasm/pkg/bun
+          cp crates/wasm/pkg-bun/truecalc_wasm.js \
+             crates/wasm/pkg-bun/truecalc_wasm_bg.wasm \
+             crates/wasm/pkg-bun/truecalc_wasm.d.ts \
+             crates/wasm/pkg/bun/
+
+      - name: Set npm package name and exports
+        run: node scripts/npm-package-json.mjs crates/wasm/pkg
 
       - uses: actions/setup-node@v4
         with:
