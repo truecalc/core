@@ -1,0 +1,19 @@
+# .config/nextest.toml
+[profile.ci]
+fail-fast = false
+
+[profile.ci.junit]
+path = "junit.xml"
+
+# Surface the conformance runners' stdout even when they pass.
+#
+# Each TSV runner prints how many of its rows it actually enforced and how many
+# it skipped, and why (core#767: a row the runner skips looks enforced and
+# asserts nothing). nextest captures a passing test's output by default, so
+# without this the accounting is invisible in CI — the only place it matters.
+# Scoped by binary *id*, not name: `binary(conformance)` matches that binary
+# name in every package, so any crate adding a `tests/conformance.rs` would
+# silently inherit this.
+[[profile.ci.overrides]]
+filter = 'binary_id(truecalc-core::conformance)'
+success-output = 'final'

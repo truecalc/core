@@ -1,0 +1,488 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://truecalc.dev/schema/workbook.v1.schema.json",
+  "title": "TrueCalc Workbook v1",
+  "description": "Structural schema for a TrueCalc workbook document (schema spec v1). Rules that JSON Schema cannot express -- canonical key ordering, ECMAScript number formatting, spill reconstruction, duplicate-key rejection, simple-case-fold uniqueness, named-range ref canonicality, and resource limits -- are governed by the prose spec and enforced by Workbook::from_json, not here. Validate with a draft 2020-12 validator: a draft-07 validator silently ignores the `prefixItems` keyword used by `sparklineOption`, which drops all inner validation of a sparkline's option pairs and quietly accepts pairs this schema rejects.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "engine",
+    "names",
+    "sheets",
+    "version"
+  ],
+  "properties": {
+    "engine": {
+      "enum": [
+        "sheets",
+        "excel"
+      ]
+    },
+    "version": {
+      "const": "1"
+    },
+    "names": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/namedRange"
+      }
+    },
+    "sheets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/worksheet"
+      }
+    }
+  },
+  "$defs": {
+    "worksheet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cells",
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "cells": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[A-Z]{1,3}[1-9][0-9]{0,7}$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/cell"
+          }
+        }
+      }
+    },
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value"
+      ],
+      "properties": {
+        "formula": {
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/value"
+        }
+      }
+    },
+    "namedRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "ref"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "ref": {
+          "type": "string"
+        }
+      }
+    },
+    "value": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "number"
+            },
+            "value": {
+              "type": "number"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "text"
+            },
+            "value": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "boolean"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "error"
+          ],
+          "properties": {
+            "type": {
+              "const": "error"
+            },
+            "error": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "empty"
+            },
+            "value": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "date"
+            },
+            "value": {
+              "type": "number"
+            }
+          }
+        },
+        {
+          "$ref": "#/$defs/zonedValue"
+        },
+        {
+          "$ref": "#/$defs/sparklineValue"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "array"
+            },
+            "value": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/scalarValue"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "scalarValue": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "number"
+            },
+            "value": {
+              "type": "number"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "text"
+            },
+            "value": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "boolean"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "error"
+          ],
+          "properties": {
+            "type": {
+              "const": "error"
+            },
+            "error": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "empty"
+            },
+            "value": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "date"
+            },
+            "value": {
+              "type": "number"
+            }
+          }
+        },
+        {
+          "$ref": "#/$defs/zonedValue"
+        },
+        {
+          "$ref": "#/$defs/sparklineValue"
+        }
+      ]
+    },
+    "zonedValue": {
+      "description": "A zone-aware instant, carried as a self-describing RFC-9557 string: an RFC-3339 timestamp optionally suffixed with the zone in brackets. The serializer always emits one canonical spelling -- local wall clock, a `T` separator, whole seconds, a numeric +HH:MM / -HH:MM offset, and the bracketed zone for a named IANA zone but not for a bare fixed offset. The pattern is deliberately wider, because the reader accepts every RFC-3339 spelling and normalizes it: a lower-case `t`, a space separator, `Z`/`z` for UTC, fractional seconds, and a leap second (`:60`). It is sized to the reader on purpose -- a pattern narrower than the reader would report a loadable document as malformed. Three things it still cannot express, so a string may match here and be rejected on load: calendar validity (`2026-04-31` matches), the representable instant range (an i64 nanosecond count, so roughly 1677-09-21 to 2262-04-11 -- `9999-01-01` matches), and whether a bracketed name is a zone the pinned tzdb actually knows.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "value"
+      ],
+      "properties": {
+        "type": {
+          "const": "zoned"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])[Tt ]([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\\.[0-9]+)?([Zz]|[+-]([01][0-9]|2[0-3]):[0-5][0-9])(\\[[A-Za-z0-9_+:/-]+\\])?$"
+        }
+      }
+    },
+    "sparklineValue": {
+      "description": "A sparkline: the parsed, validated render spec produced by SPARKLINE, carried in full because it is part of the value's storage identity.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "value"
+      ],
+      "properties": {
+        "type": {
+          "const": "sparkline"
+        },
+        "value": {
+          "$ref": "#/$defs/sparklineSpec"
+        }
+      }
+    },
+    "sparklineSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "charttype",
+        "data",
+        "options"
+      ],
+      "properties": {
+        "charttype": {
+          "description": "Lifted out of the option list into its own field; `line` when the option was omitted. Canonical lower-case only: SPARKLINE's own argument matching is case-insensitive, but the wire form is not, exactly as for option keys.",
+          "enum": [
+            "line",
+            "bar",
+            "column",
+            "winloss"
+          ]
+        },
+        "data": {
+          "description": "The points to plot, flattened row-major from the data argument. A single-point sparkline is unrepresentable -- the evaluator answers #N/A -- so there are always at least two.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/sparklinePoint"
+          }
+        },
+        "options": {
+          "description": "The remaining option key/value pairs in the order given. Keys the engine does not recognise are kept rather than rejected, matching Sheets.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sparklineOption"
+          }
+        }
+      }
+    },
+    "sparklineOption": {
+      "description": "One [key, value] pair. Keys are stored ASCII-lower-cased, and `charttype` is never among them -- it has its own field.",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {
+          "type": "string",
+          "pattern": "^[^A-Z]*$",
+          "not": {
+            "const": "charttype"
+          }
+        },
+        {
+          "$ref": "#/$defs/sparklinePoint"
+        }
+      ]
+    },
+    "sparklinePoint": {
+      "description": "A sparkline data point or option value. Narrower than scalarValue: only these four value types can occupy either position.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "number"
+            },
+            "value": {
+              "type": "number"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "text"
+            },
+            "value": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "boolean"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "const": "empty"
+            },
+            "value": {
+              "type": "null"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

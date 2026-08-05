@@ -1,0 +1,63 @@
+{
+  "id": "spill_basic_and_blocked",
+  "engine": "sheets",
+  "meta": {
+    "locale": "en_US",
+    "timezone": "Etc/GMT",
+    "evaluatedAt": "2026-06-08T18:46:10.820Z"
+  },
+  "steps": [
+    {
+      "label": "initial",
+      "grid": {
+        "S": {
+          "A1": {
+            "value": "1",
+            "type": "number",
+            "serial": null
+          },
+          "A2": {
+            "value": "2",
+            "type": "number",
+            "serial": null
+          },
+          "A3": {
+            "value": "3",
+            "type": "number",
+            "serial": null
+          },
+          "C1": {
+            "value": "10",
+            "type": "number",
+            "serial": null
+          },
+          "C2": {
+            "value": "20",
+            "type": "number",
+            "serial": null
+          },
+          "D1": {
+            "value": "15",
+            "type": "number",
+            "serial": null
+          },
+          "D2": {
+            "value": "25",
+            "type": "number",
+            "serial": null
+          },
+          "F1": {
+            "value": "#REF!",
+            "type": "error",
+            "serial": null
+          },
+          "F2": {
+            "value": "blocker",
+            "type": "string",
+            "serial": null
+          }
+        }
+      }
+    }
+  ]
+}

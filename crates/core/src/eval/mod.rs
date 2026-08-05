@@ -1,0 +1,449 @@
+pub mod context;
+pub mod coercion;
+pub mod functions;
+pub mod resolver;
+
+pub use context::Context;
+pub use functions::{EvalCtx, EvalHook, EvalOp, FunctionMeta, Registry};
+pub use resolver::{extract_refs, Resolver};
+/// Re-exported so hook implementors don't need to reach into `crate::parser`.
+pub use crate::parser::ast::Span;
+
+use crate::parser::ast::{BinaryOp, Expr, UnaryOp};
+use crate::types::{ErrorKind, Value};
+
+use coercion::{to_number, to_string_val};
+use functions::{FunctionKind, FN_NAME_PLACEHOLDER};
+
+/// Fill the function-name placeholder in an arity diagnostic with the actual
+/// name of the function being dispatched. Arity errors are produced by
+/// `check_arity`, which does not know the caller's name, so the message carries
+/// [`FN_NAME_PLACEHOLDER`] until it reaches the dispatch site here. The name is
+/// upper-cased for Google-Sheets parity (`=date()` → "... to DATE ..."). Any
+/// value without the placeholder passes through untouched.
+fn finalize_call_result(v: Value, name: &str) -> Value {
+    match v {
+        Value::ErrorMsg(kind, msg) if msg.contains(FN_NAME_PLACEHOLDER) => {
+            Value::ErrorMsg(kind, msg.replace(FN_NAME_PLACEHOLDER, &name.to_uppercase()))
+        }
+        other => other,
+    }
+}
+
+/// Walk an expression tree and produce a [`Value`].
+///
+/// Variables are resolved from `ctx.ctx`; functions are dispatched through
+/// `ctx.registry`. Eager functions receive pre-evaluated arguments; lazy
+/// functions (e.g. `IF`) receive raw [`Expr`] nodes and control their own
+/// evaluation order.
+///
+/// This is the single per-node entry point: every node that is *reduced to a
+/// [`Value`]* flows through exactly one `evaluate_expr` call (recursion
+/// re-enters here), so the opt-in [`EvalHook`] fires once per such node in
+/// post-order (children before parents), carrying the node's own [`Span`] —
+/// see [`EvalHook`] for why the span is needed and how a consumer uses it to
+/// reconstruct a tree from the flat stream. Nodes that are structurally
+/// destructured rather than evaluated — e.g. the `LAMBDA(...)` callee of an
+/// `Apply`, which [`eval_apply`] pattern-matches without evaluating — never
+/// produce a value and so never fire *as a node in their own right*; each
+/// LAMBDA parameter is the one exception (see [`eval_apply`], and — for the
+/// six higher-order functions (MAP/REDUCE/BYROW/BYCOL/SCAN/MAKEARRAY) that
+/// bind lambda parameters through their own `apply_lambda` helper rather
+/// than `eval_apply` — `crate::eval::functions::array::apply_lambda`, which
+/// fires the same per-parameter event once per invocation). When
+/// [`EvalCtx::hook`] is `None` the observation costs a single branch and
+/// nothing else; the real tree-walk lives in [`eval_node`].
+pub fn evaluate_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
+    let value = eval_node(expr, ctx);
+    // Per-node observation seam (issue #732; span-carrying per D10). Opt-in:
+    // `None` ⇒ no descriptor is built. The hook receives shared/by-value data
+    // only — it observes the node's operation, span, and resulting value and
+    // can never alter `value`. `Span` is `Copy` (two `usize`s), so this is a
+    // cheap copy, not an allocation.
+    if let Some(hook) = ctx.hook.as_deref_mut() {
+        hook.on_node(EvalOp::of(expr), *expr.span(), &value);
+    }
+    value
+}
+
+/// Tree-walk one node to its [`Value`]. Recursion goes back through
+/// [`evaluate_expr`] (never here directly) so the per-node hook fires for every
+/// node exactly once.
+fn eval_node(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
+    match expr {
+        // ── Leaf nodes ──────────────────────────────────────────────────────
+        Expr::Number(n, _) => {
+            if n.is_finite() {
+                Value::Number(*n)
+            } else {
+                Value::Error(ErrorKind::Num)
+            }
+        }
+        Expr::Text(s, _)   => Value::Text(s.clone()),
+        Expr::Bool(b, _)   => Value::Bool(*b),
+        Expr::Error(kind, _) => Value::Error(kind.clone()),
+        // Bare identifiers: a local binding (LAMBDA parameter, caller-supplied
+        // variable, or canonical-text variable) wins; otherwise the name is
+        // classified into a `Ref` and read through the resolver (P1.3, #525).
+        // The local-binding lookup strips `$` (never legitimate in a bare
+        // name/parameter — only in a $-anchored cell/range reference, see
+        // `dollar_cell_ref`) so a binding set under `LET($A$1, ...)` is
+        // found; `Ref::classify` still gets the original `name` so the
+        // resolved `Ref`'s col_abs/row_abs flags are preserved.
+        Expr::Variable(name, _) => match ctx.ctx.lookup(&name.replace('$', "")) {
+            Some(v) => v,
+            None => ctx.resolve_ref(&crate::parser::refs::Ref::classify(name)),
+        },
+        // Sheet-qualified references: a binding under the canonical reference
+        // text wins (back-compat with variable-supplied refs); otherwise the
+        // reference is read through the resolver. Looked up via
+        // `relative_display` (not `to_string`) so `$` anchors don't affect
+        // which override binding is found.
+        Expr::Reference(r, _) => match ctx.ctx.lookup(&r.relative_display()) {
+            Some(v) => v,
+            None => ctx.resolve_ref(r),
+        },
+
+        // ── Unary ops ───────────────────────────────────────────────────────
+        Expr::UnaryOp { op, operand, .. } => {
+            let val = evaluate_expr(operand, ctx);
+            match to_number(val) {
+                Err(e) => e,
+                Ok(n)  => match op {
+                    UnaryOp::Neg     => Value::Number(-n),
+                    UnaryOp::Percent => Value::Number(n / 100.0),
+                },
+            }
+        }
+
+        // ── Binary ops ──────────────────────────────────────────────────────
+        Expr::BinaryOp { op, left, right, .. } => {
+            let lv = evaluate_expr(left, ctx);
+            let rv = evaluate_expr(right, ctx);
+            eval_binary(op, lv, rv)
+        }
+
+        // ── Array literals ──────────────────────────────────────────────────
+        Expr::Array(elems, _) => {
+            let mut values = Vec::with_capacity(elems.len());
+            for elem in elems {
+                let v = evaluate_expr(elem, ctx);
+                values.push(v);
+            }
+            Value::Array(values)
+        }
+
+        // ── Immediately-invoked apply: LAMBDA(x, body)(arg) ────────────────
+        Expr::Apply { func, call_args, .. } => {
+            eval_apply(func, call_args, ctx)
+        }
+
+        // ── Function calls ──────────────────────────────────────────────────
+        Expr::FunctionCall { name, args, .. } => {
+            match ctx.registry.get(name) {
+                None => Value::Error(ErrorKind::Name),
+                Some(FunctionKind::Lazy(f)) => {
+                    // Copy the fn pointer out to avoid holding a borrow on ctx.registry
+                    // while also mutably borrowing ctx itself.
+                    let f: functions::LazyFn = *f;
+                    finalize_call_result(f(args, ctx), name)
+                }
+                Some(FunctionKind::Eager(f)) => {
+                    let f: functions::EagerFn = *f;
+                    // Evaluate all args; return first error encountered.
+                    let mut evaluated = Vec::with_capacity(args.len());
+                    for arg in args {
+                        let v = evaluate_expr(arg, ctx);
+                        if v.is_error() {
+                            return v;
+                        }
+                        evaluated.push(v);
+                    }
+                    finalize_call_result(f(&evaluated), name)
+                }
+            }
+        }
+
+    }
+}
+
+/// Evaluate an immediately-invoked function application `func(call_args)`.
+///
+/// Hook coverage (D10 / review finding F2): the `LAMBDA(...)` callee itself
+/// is pattern-matched below, never passed through [`evaluate_expr`], so its
+/// `FunctionCall("LAMBDA")` node never fires — there's no [`Value`] that
+/// honestly represents a lambda. Each *parameter*, however, is bound to a
+/// real argument [`Value`] at call time, so once bound it fires as an
+/// ordinary [`EvalOp::Variable`] event carrying the parameter's own span
+/// (its position inside the `LAMBDA(...)` parameter list) and its bound
+/// value — giving a trace of e.g. `LAMBDA(x, x*2)(5)` an explicit `x = 5`
+/// event even if `body` never happens to read `x`. This is the same
+/// operation tag [`Expr::Variable`] nodes normally use, carrying the
+/// parameter exactly as written in the source (matching how an ordinary
+/// variable-read event names it) even though binding itself keys off an
+/// upper-cased, `$`-stripped form; it is fired directly here (not through
+/// `evaluate_expr`) because a parameter's "value" is the call-site argument,
+/// not the result of evaluating the parameter token itself (which is never
+/// evaluated — it's destructured).
+///
+/// This covers only the standalone `LAMBDA(...)(...)` call form (`Apply`).
+/// The six higher-order functions (MAP, REDUCE, BYROW, BYCOL, SCAN,
+/// MAKEARRAY) bind lambda parameters through a separate helper,
+/// `crate::eval::functions::array::apply_lambda`, which fires the same
+/// per-parameter [`EvalOp::Variable`] event — once per parameter, once per
+/// invocation (e.g. an N-element `MAP` fires N sets of parameter events, one
+/// per element, all sharing the parameter's span but each carrying that
+/// element's bound value).
+fn eval_apply(func: &Expr, call_args: &[Expr], ctx: &mut EvalCtx<'_>) -> Value {
+    // Each entry is (as-written name for the hook event, upper-cased/`$`-
+    // stripped bind key for `ctx.ctx`, the parameter token's own span).
+    let (lambda_params, body) = match func {
+        Expr::FunctionCall { name, args: lambda_args, .. } if name == "LAMBDA" => {
+            if lambda_args.is_empty() {
+                return Value::Error(ErrorKind::NA);
+            }
+            let param_count = lambda_args.len() - 1;
+            let mut params: Vec<(String, String, Span)> = Vec::with_capacity(param_count);
+            for param_expr in &lambda_args[..param_count] {
+                match param_expr {
+                    // Strip `$` for the same reason as the Variable read arm
+                    // above: a $-shaped bare token is now syntactically legal
+                    // (issue #708) but must bind/read under the same key.
+                    Expr::Variable(n, span) => {
+                        let bind_key = n.to_uppercase().replace('$', "");
+                        params.push((n.clone(), bind_key, *span));
+                    }
+                    _ => return Value::Error(ErrorKind::Name),
+                }
+            }
+            let body = &lambda_args[lambda_args.len() - 1];
+            (params, body)
+        }
+        _ => return Value::Error(ErrorKind::Value),
+    };
+
+    if call_args.len() != lambda_params.len() {
+        return Value::Error(ErrorKind::NA);
+    }
+
+    let mut evaluated_args: Vec<Value> = Vec::with_capacity(call_args.len());
+    for arg in call_args {
+        let v = evaluate_expr(arg, ctx);
+        if v.is_error() {
+            return v;
+        }
+        evaluated_args.push(v);
+    }
+
+    let mut saved: Vec<(String, Option<Value>)> = Vec::with_capacity(lambda_params.len());
+    for ((display_name, bind_key, span), val) in lambda_params.iter().zip(evaluated_args) {
+        // Parameter-binding event — see the function doc comment above.
+        if let Some(hook) = ctx.hook.as_deref_mut() {
+            hook.on_node(EvalOp::Variable(display_name), *span, &val);
+        }
+        let old = ctx.ctx.set(bind_key.clone(), val);
+        saved.push((bind_key.clone(), old));
+    }
+
+    let result = evaluate_expr(body, ctx);
+
+    for (name, old_val) in saved.into_iter().rev() {
+        match old_val {
+            Some(v) => { ctx.ctx.set(name, v); }
+            None    => { ctx.ctx.remove(&name); }
+        }
+    }
+
+    result
+}
+
+// ── Type ordering for cross-type comparisons (Excel semantics) ───────────────
+// Number < Text < Bool  (Empty counts as Number)
+fn type_rank(v: &Value) -> u8 {
+    match v {
+        Value::Number(_) | Value::Date(_) | Value::Empty | Value::Zoned(_) => 0,
+        Value::Text(_)                  => 1,
+        Value::Bool(_)                  => 2,
+        // Error and Array cannot reach compare_values through the normal eval path
+        // (eval_binary guards against errors before calling compare_values).
+        Value::Error(_) | Value::ErrorMsg(_, _) | Value::Array(_) => 3,
+        // A sparkline outranks every scalar (google.tsv: `>1`, `>"zzzz"` and
+        // `>TRUE` are all TRUE, and `=SPARKLINE(...)=""` is FALSE).
+        Value::Sparkline(_) => 4,
+    }
+}
+
+fn eval_binary(op: &BinaryOp, lv: Value, rv: Value) -> Value {
+    // ── Array broadcasting ───────────────────────────────────────────────────
+    match (&lv, &rv) {
+        (Value::Array(lelems), Value::Array(relems)) => {
+            // Element-wise operation when both operands are arrays of the same length.
+            if lelems.len() != relems.len() {
+                return Value::Error(ErrorKind::Value);
+            }
+            let result: Vec<Value> = lelems
+                .iter()
+                .zip(relems.iter())
+                .map(|(l, r)| eval_binary(op, l.clone(), r.clone()))
+                .collect();
+            return Value::Array(result);
+        }
+        (Value::Array(elems), _) => {
+            let result: Vec<Value> = elems
+                .iter()
+                .map(|e| eval_binary(op, e.clone(), rv.clone()))
+                .collect();
+            return Value::Array(result);
+        }
+        (_, Value::Array(elems)) => {
+            let result: Vec<Value> = elems
+                .iter()
+                .map(|e| eval_binary(op, lv.clone(), e.clone()))
+                .collect();
+            return Value::Array(result);
+        }
+        _ => {}
+    }
+    match op {
+        // ── Arithmetic ──────────────────────────────────────────────────────
+        BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Pow => {
+            // Date-type production (schema spec §6: date-typed iff Sheets keeps
+            // the result rendering as a date). Sheets treats date ± offset as a
+            // date:
+            //   - `+`: date + number (either operand order) stays a date
+            //     (workbook.tsv `=DATE(2026,6,7)+1` → date).
+            //   - `−`: date − number stays a date (a date a week earlier is still
+            //     a date), while date − date is a plain day count
+            //     (workbook.tsv `=DATE(2026,6,7)-DATE(2026,6,1)` → 6, number) and
+            //     number − date is a plain number.
+            // `×`, `÷`, `^` on a date are not date operations and stay numbers.
+            let date_typed = match op {
+                BinaryOp::Add => {
+                    matches!(lv, Value::Date(_)) != matches!(rv, Value::Date(_))
+                }
+                BinaryOp::Sub => {
+                    matches!(lv, Value::Date(_)) && !matches!(rv, Value::Date(_))
+                }
+                _ => false,
+            };
+            let ln = match to_number(lv) { Ok(n) => n, Err(e) => return e };
+            let rn = match to_number(rv) { Ok(n) => n, Err(e) => return e };
+            let result = match op {
+                BinaryOp::Add => ln + rn,
+                BinaryOp::Sub => ln - rn,
+                BinaryOp::Mul => ln * rn,
+                BinaryOp::Div => {
+                    if rn == 0.0 {
+                        return Value::Error(ErrorKind::DivByZero);
+                    }
+                    ln / rn
+                }
+                BinaryOp::Pow => libm::pow(ln, rn),
+                // Safety: outer match arm covers exactly Add|Sub|Mul|Div|Pow; Concat and comparison ops are handled separately.
+                _ => unreachable!(),
+            };
+            if !result.is_finite() {
+                return Value::Error(ErrorKind::Num);
+            }
+            if date_typed {
+                Value::Date(result)
+            } else {
+                Value::Number(result)
+            }
+        }
+
+        // ── Concatenation ───────────────────────────────────────────────────
+        BinaryOp::Concat => {
+            // The `&` *operator* rejects a sparkline (google.tsv:
+            // `="x"&SPARKLINE({1,2,3})` is `#VALUE!`) even though `CONCATENATE`
+            // of the same value concatenates it as empty text. That asymmetry
+            // is Sheets'; it lives here because every other text context goes
+            // through the permissive `to_string_val`.
+            if matches!(lv, Value::Sparkline(_)) || matches!(rv, Value::Sparkline(_)) {
+                return Value::Error(ErrorKind::Value);
+            }
+            let ls = match to_string_val(lv) { Ok(s) => s, Err(e) => return e };
+            let rs = match to_string_val(rv) { Ok(s) => s, Err(e) => return e };
+            Value::Text(ls + &rs)
+        }
+
+        // ── Comparisons ─────────────────────────────────────────────────────
+        BinaryOp::Eq | BinaryOp::Ne
+        | BinaryOp::Lt | BinaryOp::Gt
+        | BinaryOp::Le | BinaryOp::Ge => {
+            // Error propagation: left side first.
+            if lv.is_error() { return lv; }
+            if rv.is_error() { return rv; }
+            // Mixed naive/aware comparison is rejected (a zoned instant cannot be
+            // ordered against a naive value).
+            if matches!(&lv, Value::Zoned(_)) ^ matches!(&rv, Value::Zoned(_)) {
+                return Value::Error(ErrorKind::Value);
+            }
+
+            let result = compare_values(op, &lv, &rv);
+            Value::Bool(result)
+        }
+    }
+}
+
+/// Compare two (non-error) values with Excel ordering semantics.
+fn compare_values(op: &BinaryOp, lv: &Value, rv: &Value) -> bool {
+    match (lv, rv) {
+        (Value::Number(a), Value::Number(b)) => apply_cmp(op, a.partial_cmp(b)),
+        (Value::Date(a),   Value::Date(b))   => apply_cmp(op, a.partial_cmp(b)),
+        (Value::Date(a),   Value::Number(b)) => apply_cmp(op, a.partial_cmp(b)),
+        (Value::Number(a), Value::Date(b))   => apply_cmp(op, a.partial_cmp(b)),
+        // Zoned instants compare on the absolute instant only (same moment in a
+        // different zone compares equal). Cross-type Zoned is rejected in eval_binary.
+        (Value::Zoned(a),  Value::Zoned(b))  => apply_cmp(op, Some(a.utc_nanos.cmp(&b.utc_nanos))),
+        // Any two sparklines compare equal, whatever they plot (google.tsv:
+        // `=SPARKLINE({1,2,3})=SPARKLINE({9,9,9})` is TRUE, `<>` is FALSE, and
+        // `<`/`>` between two sparklines are both FALSE while `>=` is TRUE).
+        (Value::Sparkline(_), Value::Sparkline(_)) => {
+            apply_cmp(op, Some(std::cmp::Ordering::Equal))
+        }
+        (Value::Text(a),   Value::Text(b))   => apply_cmp(op, Some(a.cmp(b))),
+        (Value::Bool(a),   Value::Bool(b))   => apply_cmp(op, Some(a.cmp(b))),
+        (Value::Empty,     Value::Empty)     => apply_cmp(op, Some(std::cmp::Ordering::Equal)),
+        // Empty acts as Number(0)
+        (Value::Empty, Value::Number(b))     => apply_cmp(op, 0.0f64.partial_cmp(b)),
+        (Value::Number(a), Value::Empty)     => apply_cmp(op, a.partial_cmp(&0.0f64)),
+        // Cross-type: use type rank
+        _ => {
+            let lr = type_rank(lv);
+            let rr = type_rank(rv);
+            match op {
+                BinaryOp::Eq => false,
+                BinaryOp::Ne => true,
+                BinaryOp::Lt => lr < rr,
+                BinaryOp::Gt => lr > rr,
+                BinaryOp::Le => lr <= rr,
+                BinaryOp::Ge => lr >= rr,
+                // Safety: outer match arm covers exactly Eq|Ne|Lt|Gt|Le|Ge; arithmetic and Concat ops are handled separately.
+                _ => unreachable!(),
+            }
+        }
+    }
+}
+
+fn apply_cmp(op: &BinaryOp, ord: Option<std::cmp::Ordering>) -> bool {
+    match ord {
+        // NaN: per Value::Number invariant this should not occur after the is_finite() guard;
+        // returning false matches Excel semantics if it somehow does.
+        None => false,
+        Some(o) => match op {
+            BinaryOp::Eq => o.is_eq(),
+            BinaryOp::Ne => o.is_ne(),
+            BinaryOp::Lt => o.is_lt(),
+            BinaryOp::Gt => o.is_gt(),
+            BinaryOp::Le => o.is_le(),
+            BinaryOp::Ge => o.is_ge(),
+            // Safety: apply_cmp is only called from compare_values which is only called from eval_binary's comparison arm (Eq|Ne|Lt|Gt|Le|Ge).
+            _ => unreachable!(),
+        },
+    }
+}
+
+// ── Tests ────────────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests;

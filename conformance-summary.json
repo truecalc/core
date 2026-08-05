@@ -1,0 +1,101 @@
+{
+  "generated": "2026-08-05T06:04:47Z",
+  "version": "7.0.3",
+  "git_sha": "2969cd7",
+  "categories": [
+    {
+      "name": "array",
+      "passed": 550,
+      "total": 552,
+      "blocking": true
+    },
+    {
+      "name": "database",
+      "passed": 182,
+      "total": 182,
+      "blocking": true
+    },
+    {
+      "name": "date",
+      "passed": 418,
+      "total": 418,
+      "blocking": true
+    },
+    {
+      "name": "engineering",
+      "passed": 886,
+      "total": 888,
+      "blocking": true
+    },
+    {
+      "name": "filter",
+      "passed": 81,
+      "total": 81,
+      "blocking": true
+    },
+    {
+      "name": "financial",
+      "passed": 1208,
+      "total": 1208,
+      "blocking": true
+    },
+    {
+      "name": "info",
+      "passed": 256,
+      "total": 256,
+      "blocking": true
+    },
+    {
+      "name": "logical",
+      "passed": 267,
+      "total": 267,
+      "blocking": true
+    },
+    {
+      "name": "lookup",
+      "passed": 393,
+      "total": 393,
+      "blocking": true
+    },
+    {
+      "name": "math",
+      "passed": 2006,
+      "total": 2006,
+      "blocking": true
+    },
+    {
+      "name": "operator",
+      "passed": 251,
+      "total": 251,
+      "blocking": true
+    },
+    {
+      "name": "parser",
+      "passed": 93,
+      "total": 93,
+      "blocking": true
+    },
+    {
+      "name": "statistical",
+      "passed": 3176,
+      "total": 3176,
+      "blocking": true
+    },
+    {
+      "name": "text",
+      "passed": 773,
+      "total": 779,
+      "blocking": true
+    },
+    {
+      "name": "web",
+      "passed": 59,
+      "total": 59,
+      "blocking": true
+    }
+  ],
+  "overall": {
+    "passed": 10599,
+    "total": 10609
+  }
+}

@@ -1,0 +1,44 @@
+name: Fuzz
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      duration_secs:
+        description: "How long to fuzz each target (seconds)"
+        required: false
+        default: "86400"
+
+jobs:
+  fuzz:
+    name: Fuzz ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - fuzz_from_json
+          - fuzz_formula_set
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz
+
+      - name: Run fuzz target
+        working-directory: crates/workbook
+        env:
+          FUZZ_TARGET: ${{ matrix.target }}
+          DURATION_SECS: ${{ github.event.inputs.duration_secs || '86400' }}
+        run: |
+          # Validate that DURATION_SECS is a plain integer before shell expansion.
+          if ! [[ "$DURATION_SECS" =~ ^[0-9]+$ ]]; then
+            echo "ERROR: duration_secs must be a non-negative integer, got: $DURATION_SECS"
+            exit 1
+          fi
+          cargo +nightly fuzz run "$FUZZ_TARGET" -- "-max_total_time=$DURATION_SECS"

@@ -1,0 +1,43 @@
+name: WASM Determinism
+
+# Cross-runtime Rust/WASM byte-identity check (P5.2, issue #543).
+# Builds the crates/wasm-workbook WASM package, then runs
+# scripts/wasm-determinism.mjs which verifies that fromJSON->toJSON
+# produces byte-identical canonical JSON on every golden workbook file.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  wasm-determinism:
+    name: Rust/WASM byte-identity determinism
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable + wasm32 target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-pack
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+
+      - name: Build wasm-workbook (web target)
+        run: wasm-pack build crates/wasm-workbook --target web
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run WASM determinism check
+        run: node scripts/wasm-determinism.mjs

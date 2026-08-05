@@ -1,0 +1,15 @@
+[package]
+name = "workbook-budget"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Cookbook example: budget workbook with income/expense sheets"
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "workbook-budget"
+path = "src/main.rs"
+
+[dependencies]
+truecalc-workbook = { path = "../../crates/workbook" }

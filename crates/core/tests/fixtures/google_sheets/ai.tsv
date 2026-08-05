@@ -1,0 +1,10 @@
+description	formula_text	expected_value	test_category	expected_type
+basic prompt returns text	=AI("Respond with only the word hello")	#ERROR!	official	string
+prompt about math returns text	=AI("What is 2+2? Reply with just the number.")	#ERROR!	official	string
+prompt with explicit model param	=AI("Say yes",,"gemini-1.5-flash")	#N/A	official	error
+prompt asking for boolean-style answer	=AI("Reply with only TRUE or FALSE: is the sky blue?")	#ERROR!	official	string
+prompt requesting number only	=AI("What is 10 times 10? Reply with only the number.")	#ERROR!	official	string
+empty string prompt returns error	=AI("")	#ERROR!	edge	string
+no arguments returns error	=AI()	#N/A	error	error
+non-string first argument returns error	=AI(123)	#ERROR!	error	string
+GS-only — AI function not available in Excel	=AI("Hello")	#ERROR!	compatibility	string

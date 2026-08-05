@@ -1,0 +1,7504 @@
+[
+  {
+    "name": "ABS",
+    "category": "math",
+    "syntax": "ABS(number)",
+    "description": "Absolute value of a number",
+    "examples": [
+      {
+        "formula": "=ABS(-26)",
+        "result": "26"
+      },
+      {
+        "formula": "=ABS(-3.68)",
+        "result": "3.68"
+      },
+      {
+        "formula": "=ABS(-6/3)",
+        "result": "2"
+      }
+    ]
+  },
+  {
+    "name": "ACCRINT",
+    "category": "financial",
+    "syntax": "ACCRINT(issue, first_coupon, settlement, rate, par, frequency, [basis])",
+    "description": "Accrued interest for periodic coupon",
+    "examples": [
+      {
+        "formula": "=ACCRINT(DATE(2010,1,1),DATE(2010,2,1),DATE(2012,12,31),0.05,100,4)",
+        "result": "14.98611111111111"
+      },
+      {
+        "formula": "=ACCRINT(DATE(2010,1,1),DATE(2010,7,1),DATE(2015,6,30),0.06,1000,2)",
+        "result": "329.8333333333333"
+      },
+      {
+        "formula": "=ACCRINT(DATE(2010,1,1),DATE(2011,1,1),DATE(2020,12,31),0.04,500,1,1)",
+        "result": "219.94520547945206"
+      }
+    ]
+  },
+  {
+    "name": "ACCRINTM",
+    "category": "financial",
+    "syntax": "ACCRINTM(issue, settlement, rate, par, [basis])",
+    "description": "Accrued interest at maturity",
+    "examples": [
+      {
+        "formula": "=ACCRINTM(DATE(1969,12,31),DATE(1999,12,31),0.05,100,0)",
+        "result": "150"
+      },
+      {
+        "formula": "=ACCRINTM(DATE(1969,12,31),DATE(1999,12,31),0.05,100,1)",
+        "result": "150"
+      },
+      {
+        "formula": "=ACCRINTM(DATE(2008,4,1),DATE(2008,6,15),0.1,1000,3)",
+        "result": "20.54794520547945"
+      }
+    ]
+  },
+  {
+    "name": "ACOS",
+    "category": "math",
+    "syntax": "ACOS(number)",
+    "description": "Arccosine in radians",
+    "examples": [
+      {
+        "formula": "=ACOS(0)",
+        "result": "1.5707963267948966"
+      },
+      {
+        "formula": "=ACOS(1)",
+        "result": "0"
+      },
+      {
+        "formula": "=ACOS(-1)",
+        "result": "3.141592653589793"
+      }
+    ]
+  },
+  {
+    "name": "ACOSH",
+    "category": "math",
+    "syntax": "ACOSH(number)",
+    "description": "Inverse hyperbolic cosine",
+    "examples": [
+      {
+        "formula": "=ACOSH(2)",
+        "result": "1.3169578969248166"
+      },
+      {
+        "formula": "=ACOSH(1)",
+        "result": "0"
+      },
+      {
+        "formula": "=ACOSH(100)",
+        "result": "5.298292365610485"
+      }
+    ]
+  },
+  {
+    "name": "ACOT",
+    "category": "math",
+    "syntax": "ACOT(number)",
+    "description": "Inverse cotangent in radians",
+    "examples": [
+      {
+        "formula": "=ACOT(0)",
+        "result": "1.5707963267948966"
+      },
+      {
+        "formula": "=ACOT(-1)",
+        "result": "-0.7853981633974483"
+      },
+      {
+        "formula": "=ACOT(1)",
+        "result": "0.7853981633974483"
+      }
+    ]
+  },
+  {
+    "name": "ACOTH",
+    "category": "math",
+    "syntax": "ACOTH(number)",
+    "description": "Inverse hyperbolic cotangent",
+    "examples": [
+      {
+        "formula": "=ACOTH(4)",
+        "result": "0.25541281188299536"
+      },
+      {
+        "formula": "=ACOTH(-4)",
+        "result": "-0.25541281188299536"
+      },
+      {
+        "formula": "=ACOTH(10)",
+        "result": "0.10033534773107562"
+      }
+    ]
+  },
+  {
+    "name": "ADDRESS",
+    "category": "lookup",
+    "syntax": "ADDRESS(row, col, [abs_mode], [a1], [sheet_text])",
+    "description": "Returns a cell address string",
+    "examples": []
+  },
+  {
+    "name": "AMORLINC",
+    "category": "financial",
+    "syntax": "AMORLINC(cost, date_purchased, first_period, salvage, period, rate, [basis])",
+    "description": "Linear depreciation (French system)",
+    "examples": [
+      {
+        "formula": "=AMORLINC(1000,DATE(1969,7,20),DATE(1969,8,20),100,6,0.15)",
+        "result": "137.5"
+      },
+      {
+        "formula": "=AMORLINC(1000,DATE(1969,7,20),DATE(1969,8,20),100,6,0.15,1)",
+        "result": "137.2602739726027"
+      }
+    ]
+  },
+  {
+    "name": "AND",
+    "category": "logical",
+    "syntax": "AND(value1,...)",
+    "description": "True if all arguments are true",
+    "examples": []
+  },
+  {
+    "name": "ARABIC",
+    "category": "text",
+    "syntax": "ARABIC(roman_text)",
+    "description": "Convert Roman numeral to integer",
+    "examples": [
+      {
+        "formula": "=ARABIC(\"XIV\")",
+        "result": "14"
+      },
+      {
+        "formula": "=ARABIC(\"MMXIII\")",
+        "result": "2013"
+      },
+      {
+        "formula": "=ARABIC(\"I\")",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "ARRAYFORMULA",
+    "category": "array",
+    "syntax": "ARRAYFORMULA(array_formula)",
+    "description": "Evaluates a formula as an array formula",
+    "examples": [
+      {
+        "formula": "=ARRAYFORMULA({1,2,3}*2)",
+        "result": "2"
+      },
+      {
+        "formula": "=ARRAYFORMULA({1,2,3}+{10,20,30})",
+        "result": "11"
+      },
+      {
+        "formula": "=ARRAYFORMULA(SUM({1,2,3,4,5}))",
+        "result": "15"
+      }
+    ]
+  },
+  {
+    "name": "ARRAY_CONSTRAIN",
+    "category": "array",
+    "syntax": "ARRAY_CONSTRAIN(input, num_rows, num_cols)",
+    "description": "Constrains an array to a given number of rows and columns",
+    "examples": [
+      {
+        "formula": "=ARRAY_CONSTRAIN({1,2,3;4,5,6;7,8,9},2,2)",
+        "result": "1"
+      },
+      {
+        "formula": "=ARRAY_CONSTRAIN({10,20;30,40},1,1)",
+        "result": "10"
+      },
+      {
+        "formula": "=ARRAY_CONSTRAIN({1,2;3,4},2,2)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "ASC",
+    "category": "text",
+    "syntax": "ASC(text)",
+    "description": "Convert full-width chars to half-width",
+    "examples": []
+  },
+  {
+    "name": "ASIN",
+    "category": "math",
+    "syntax": "ASIN(number)",
+    "description": "Arcsine in radians",
+    "examples": [
+      {
+        "formula": "=ASIN(0)",
+        "result": "0"
+      },
+      {
+        "formula": "=ASIN(1)",
+        "result": "1.5707963267948966"
+      },
+      {
+        "formula": "=ASIN(-1)",
+        "result": "-1.5707963267948966"
+      }
+    ]
+  },
+  {
+    "name": "ASINH",
+    "category": "math",
+    "syntax": "ASINH(number)",
+    "description": "Inverse hyperbolic sine",
+    "examples": [
+      {
+        "formula": "=ASINH(0.9)",
+        "result": "0.8088669356527826"
+      },
+      {
+        "formula": "=ASINH(0)",
+        "result": "0"
+      },
+      {
+        "formula": "=ASINH(-0.9)",
+        "result": "-0.8088669356527826"
+      }
+    ]
+  },
+  {
+    "name": "ATAN",
+    "category": "math",
+    "syntax": "ATAN(number)",
+    "description": "Arctangent in radians",
+    "examples": [
+      {
+        "formula": "=ATAN(0)",
+        "result": "0"
+      },
+      {
+        "formula": "=ATAN(1)",
+        "result": "0.7853981633974483"
+      },
+      {
+        "formula": "=ATAN(-1)",
+        "result": "-0.7853981633974483"
+      }
+    ]
+  },
+  {
+    "name": "ATAN2",
+    "category": "math",
+    "syntax": "ATAN2(x, y)",
+    "description": "Arctangent of y/x in radians",
+    "examples": [
+      {
+        "formula": "=ATAN2(4,3)",
+        "result": "0.6435011087932844"
+      },
+      {
+        "formula": "=ATAN2(1,0)",
+        "result": "0"
+      },
+      {
+        "formula": "=ATAN2(0,1)",
+        "result": "1.5707963267948966"
+      }
+    ]
+  },
+  {
+    "name": "ATANH",
+    "category": "math",
+    "syntax": "ATANH(number)",
+    "description": "Inverse hyperbolic tangent",
+    "examples": [
+      {
+        "formula": "=ATANH(0.9)",
+        "result": "1.4722194895832204"
+      },
+      {
+        "formula": "=ATANH(0)",
+        "result": "0"
+      },
+      {
+        "formula": "=ATANH(-0.5)",
+        "result": "-0.5493061443340549"
+      }
+    ]
+  },
+  {
+    "name": "AVEDEV",
+    "category": "statistical",
+    "syntax": "AVEDEV(value1,...)",
+    "description": "Average of absolute deviations from the mean",
+    "examples": [
+      {
+        "formula": "=AVEDEV(1,2,3,4,5,6,7,8,9,10)",
+        "result": "2.5"
+      }
+    ]
+  },
+  {
+    "name": "AVERAGE",
+    "category": "statistical",
+    "syntax": "AVERAGE(value1,...)",
+    "description": "Arithmetic mean of arguments",
+    "examples": [
+      {
+        "formula": "=AVERAGE(PRICES)",
+        "result": "20"
+      },
+      {
+        "formula": "=AVERAGE(1,2,3,4,5,6,7,8,9,10,4,26)",
+        "result": "7.083333333333333"
+      },
+      {
+        "formula": "=AVERAGE(1,2,3,4,5,7,8,9,10,11,12)",
+        "result": "6.545454545454546"
+      }
+    ]
+  },
+  {
+    "name": "AVERAGE.WEIGHTED",
+    "category": "statistical",
+    "syntax": "AVERAGE.WEIGHTED(values,weights)",
+    "description": "Weighted average",
+    "examples": [
+      {
+        "formula": "=AVERAGE.WEIGHTED({2,4},{1,3})",
+        "result": "3.5"
+      },
+      {
+        "formula": "=AVERAGE.WEIGHTED(2,10,4,15)",
+        "result": "3.2"
+      },
+      {
+        "formula": "=AVERAGE.WEIGHTED({95,90,85,88,82},{0.25,0.10,0.15,0.20,0.30})",
+        "result": "87.7"
+      }
+    ]
+  },
+  {
+    "name": "AVERAGEA",
+    "category": "statistical",
+    "syntax": "AVERAGEA(value1,...)",
+    "description": "Average including booleans and text",
+    "examples": [
+      {
+        "formula": "=AVERAGEA(1,2,3,4,5,6,7,8,9,10,4,26)",
+        "result": "7.083333333333333"
+      },
+      {
+        "formula": "=AVERAGEA(1,2,3,4,5,7,8,9,10,11,12)",
+        "result": "6.545454545454546"
+      }
+    ]
+  },
+  {
+    "name": "AVERAGEIF",
+    "category": "statistical",
+    "syntax": "AVERAGEIF(range, criterion, [avg_range])",
+    "description": "Average cells where range matches criterion",
+    "examples": [
+      {
+        "formula": "=AVERAGEIF({5,10,15,25,30},\"<10\")",
+        "result": "5"
+      }
+    ]
+  },
+  {
+    "name": "AVERAGEIFS",
+    "category": "statistical",
+    "syntax": "AVERAGEIFS(avg_range,criteria_range1,criteria1,...)",
+    "description": "Conditional average with multiple criteria",
+    "examples": []
+  },
+  {
+    "name": "BASE",
+    "category": "math",
+    "syntax": "BASE(value, base, [min_length])",
+    "description": "Convert number to string in given base",
+    "examples": []
+  },
+  {
+    "name": "BETA.DIST",
+    "category": "statistical",
+    "syntax": "BETA.DIST(x,alpha,beta,cumulative,[lo],[hi])",
+    "description": "Beta distribution CDF/PDF",
+    "examples": []
+  },
+  {
+    "name": "BETA.INV",
+    "category": "statistical",
+    "syntax": "BETA.INV(p,alpha,beta,lo,hi)",
+    "description": "Beta inverse CDF",
+    "examples": [
+      {
+        "formula": "=BETA.INV(0.13,5,1,-1,1)",
+        "result": "0.32989902041949914"
+      },
+      {
+        "formula": "=BETA.INV(0.65,1.234,7,1,3)",
+        "result": "1.3408840515601412"
+      },
+      {
+        "formula": "=BETA.INV(0.3,5,1)",
+        "result": "0.7860030855966222"
+      }
+    ]
+  },
+  {
+    "name": "BETADIST",
+    "category": "statistical",
+    "syntax": "BETADIST(x,alpha,beta,lo,hi)",
+    "description": "Beta distribution CDF (legacy)",
+    "examples": [
+      {
+        "formula": "=BETADIST(0.3,5,1,-1,1)",
+        "result": "0.11602906249999986"
+      }
+    ]
+  },
+  {
+    "name": "BETAINV",
+    "category": "statistical",
+    "syntax": "BETAINV(p,alpha,beta,lo,hi)",
+    "description": "Beta inverse CDF (legacy)",
+    "examples": [
+      {
+        "formula": "=BETAINV(0.13,5,1,-1,1)",
+        "result": "0.32989902041949914"
+      }
+    ]
+  },
+  {
+    "name": "BIN2DEC",
+    "category": "engineering",
+    "syntax": "BIN2DEC(number)",
+    "description": "Convert binary to decimal",
+    "examples": [
+      {
+        "formula": "=BIN2DEC(\"101\")",
+        "result": "5"
+      },
+      {
+        "formula": "=BIN2DEC(\"1100100\")",
+        "result": "100"
+      },
+      {
+        "formula": "=BIN2DEC(\"1111111111\")",
+        "result": "-1"
+      }
+    ]
+  },
+  {
+    "name": "BIN2HEX",
+    "category": "engineering",
+    "syntax": "BIN2HEX(number, [places])",
+    "description": "Convert binary to hexadecimal",
+    "examples": []
+  },
+  {
+    "name": "BIN2OCT",
+    "category": "engineering",
+    "syntax": "BIN2OCT(number, [places])",
+    "description": "Convert binary to octal",
+    "examples": []
+  },
+  {
+    "name": "BINOM.DIST",
+    "category": "statistical",
+    "syntax": "BINOM.DIST(k,n,p,cumulative)",
+    "description": "Binomial CDF/PMF",
+    "examples": [
+      {
+        "formula": "=BINOM.DIST(4,100,0.005,FALSE)",
+        "result": "0.0015146682842220032"
+      },
+      {
+        "formula": "=BINOM.DIST(4,100,0.005,TRUE)",
+        "result": "0.9998414007611653"
+      }
+    ]
+  },
+  {
+    "name": "BINOM.INV",
+    "category": "statistical",
+    "syntax": "BINOM.INV(n,p,alpha)",
+    "description": "Binomial inverse CDF",
+    "examples": [
+      {
+        "formula": "=BINOM.INV(100,0.005,0.8)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "BINOMDIST",
+    "category": "statistical",
+    "syntax": "BINOMDIST(k,n,p,cumulative)",
+    "description": "Binomial CDF/PMF (legacy)",
+    "examples": [
+      {
+        "formula": "=BINOMDIST(4,100,0.005,FALSE)",
+        "result": "0.0015146682842220032"
+      }
+    ]
+  },
+  {
+    "name": "BITAND",
+    "category": "engineering",
+    "syntax": "BITAND(number1, number2)",
+    "description": "Bitwise AND of two integers",
+    "examples": [
+      {
+        "formula": "=BITAND(10,9)",
+        "result": "8"
+      },
+      {
+        "formula": "=BITAND(14,4)",
+        "result": "4"
+      },
+      {
+        "formula": "=BITAND(12,12)",
+        "result": "12"
+      }
+    ]
+  },
+  {
+    "name": "BITLSHIFT",
+    "category": "engineering",
+    "syntax": "BITLSHIFT(number, shift_amount)",
+    "description": "Left-shift an integer by a number of bits",
+    "examples": [
+      {
+        "formula": "=BITLSHIFT(2,2)",
+        "result": "8"
+      },
+      {
+        "formula": "=BITLSHIFT(1,4)",
+        "result": "16"
+      },
+      {
+        "formula": "=BITLSHIFT(9,2)",
+        "result": "36"
+      }
+    ]
+  },
+  {
+    "name": "BITOR",
+    "category": "engineering",
+    "syntax": "BITOR(number1, number2)",
+    "description": "Bitwise OR of two integers",
+    "examples": [
+      {
+        "formula": "=BITOR(9,5)",
+        "result": "13"
+      },
+      {
+        "formula": "=BITOR(8,1)",
+        "result": "9"
+      },
+      {
+        "formula": "=BITOR(12,12)",
+        "result": "12"
+      }
+    ]
+  },
+  {
+    "name": "BITRSHIFT",
+    "category": "engineering",
+    "syntax": "BITRSHIFT(number, shift_amount)",
+    "description": "Right-shift an integer by a number of bits",
+    "examples": [
+      {
+        "formula": "=BITRSHIFT(8,2)",
+        "result": "2"
+      },
+      {
+        "formula": "=BITRSHIFT(18,2)",
+        "result": "4"
+      },
+      {
+        "formula": "=BITRSHIFT(16,4)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "BITXOR",
+    "category": "engineering",
+    "syntax": "BITXOR(number1, number2)",
+    "description": "Bitwise XOR of two integers",
+    "examples": [
+      {
+        "formula": "=BITXOR(9,5)",
+        "result": "12"
+      },
+      {
+        "formula": "=BITXOR(2,4)",
+        "result": "6"
+      },
+      {
+        "formula": "=BITXOR(12,12)",
+        "result": "0"
+      }
+    ]
+  },
+  {
+    "name": "BYCOL",
+    "category": "array",
+    "syntax": "BYCOL(array, lambda)",
+    "description": "Applies a LAMBDA to each column of an array",
+    "examples": [
+      {
+        "formula": "=BYCOL({1,2;3,4},LAMBDA(col,SUM(col)))",
+        "result": "4"
+      },
+      {
+        "formula": "=BYCOL({1,2,3;4,5,6},LAMBDA(col,AVERAGE(col)))",
+        "result": "2.5"
+      },
+      {
+        "formula": "=BYCOL({3,1;4,2;5,3},LAMBDA(col,MAX(col)))",
+        "result": "5"
+      }
+    ]
+  },
+  {
+    "name": "BYROW",
+    "category": "array",
+    "syntax": "BYROW(array, lambda)",
+    "description": "Applies a LAMBDA to each row of an array",
+    "examples": [
+      {
+        "formula": "=BYROW({1,2;3,4},LAMBDA(row,SUM(row)))",
+        "result": "3"
+      },
+      {
+        "formula": "=BYROW({1,2;3,4;5,6},LAMBDA(row,AVERAGE(row)))",
+        "result": "1.5"
+      },
+      {
+        "formula": "=BYROW({3,1,5;4,2,6},LAMBDA(row,MAX(row)))",
+        "result": "5"
+      }
+    ]
+  },
+  {
+    "name": "CEILING",
+    "category": "math",
+    "syntax": "CEILING(number, significance)",
+    "description": "Round up to nearest multiple of significance",
+    "examples": [
+      {
+        "formula": "=CEILING(23.25,0.1)",
+        "result": "23.3"
+      },
+      {
+        "formula": "=CEILING(23.25,1)",
+        "result": "24"
+      },
+      {
+        "formula": "=CEILING(22,5)",
+        "result": "25"
+      }
+    ]
+  },
+  {
+    "name": "CEILING.MATH",
+    "category": "math",
+    "syntax": "CEILING.MATH(number, [significance], [mode])",
+    "description": "Round up to nearest multiple; handles negative numbers via mode",
+    "examples": [
+      {
+        "formula": "=CEILING.MATH(11.2)",
+        "result": "12"
+      },
+      {
+        "formula": "=CEILING.MATH(-8.8)",
+        "result": "-8"
+      },
+      {
+        "formula": "=CEILING.MATH(7.7,0.2)",
+        "result": "7.800000000000001"
+      }
+    ]
+  },
+  {
+    "name": "CEILING.PRECISE",
+    "category": "math",
+    "syntax": "CEILING.PRECISE(number, [significance])",
+    "description": "Round up to nearest multiple; sign of significance ignored",
+    "examples": [
+      {
+        "formula": "=CEILING.PRECISE(-10.5,1)",
+        "result": "-10"
+      },
+      {
+        "formula": "=CEILING.PRECISE(96,10)",
+        "result": "100"
+      },
+      {
+        "formula": "=CEILING.PRECISE(-23.25,0.1)",
+        "result": "-23.200000000000003"
+      }
+    ]
+  },
+  {
+    "name": "CELL",
+    "category": "logical",
+    "syntax": "CELL(info_type, [reference])",
+    "description": "Returns information about a cell",
+    "examples": [
+      {
+        "formula": "=CELL(\"col\",INDIRECT(\"B1\"))",
+        "result": "2"
+      },
+      {
+        "formula": "=CELL(\"row\",INDIRECT(\"A5\"))",
+        "result": "5"
+      }
+    ]
+  },
+  {
+    "name": "CHAR",
+    "category": "text",
+    "syntax": "CHAR(number)",
+    "description": "Character from ASCII/Unicode code",
+    "examples": []
+  },
+  {
+    "name": "CHIDIST",
+    "category": "statistical",
+    "syntax": "CHIDIST(x,df)",
+    "description": "Chi-squared right-tail CDF (legacy)",
+    "examples": [
+      {
+        "formula": "=CHIDIST(12.3,5)",
+        "result": "0.030900464635460922"
+      }
+    ]
+  },
+  {
+    "name": "CHIINV",
+    "category": "statistical",
+    "syntax": "CHIINV(p,df)",
+    "description": "Chi-squared right-tail inverse CDF (legacy)",
+    "examples": [
+      {
+        "formula": "=CHIINV(0.05,4)",
+        "result": "9.487729036781156"
+      }
+    ]
+  },
+  {
+    "name": "CHISQ.DIST",
+    "category": "statistical",
+    "syntax": "CHISQ.DIST(x,df,cumulative)",
+    "description": "Chi-squared CDF/PDF",
+    "examples": [
+      {
+        "formula": "=CHISQ.DIST(12.3,5,FALSE)",
+        "result": "0.012238703529441487"
+      }
+    ]
+  },
+  {
+    "name": "CHISQ.DIST.RT",
+    "category": "statistical",
+    "syntax": "CHISQ.DIST.RT(x,df)",
+    "description": "Chi-squared right-tail CDF",
+    "examples": [
+      {
+        "formula": "=CHISQ.DIST.RT(12.3,5)",
+        "result": "0.030900464635460922"
+      }
+    ]
+  },
+  {
+    "name": "CHISQ.INV",
+    "category": "statistical",
+    "syntax": "CHISQ.INV(p,df)",
+    "description": "Chi-squared inverse CDF",
+    "examples": [
+      {
+        "formula": "=CHISQ.INV(0.95,4)",
+        "result": "9.487729036781152"
+      }
+    ]
+  },
+  {
+    "name": "CHISQ.INV.RT",
+    "category": "statistical",
+    "syntax": "CHISQ.INV.RT(p,df)",
+    "description": "Chi-squared right-tail inverse CDF",
+    "examples": [
+      {
+        "formula": "=CHISQ.INV.RT(0.05,4)",
+        "result": "9.487729036781156"
+      }
+    ]
+  },
+  {
+    "name": "CHISQ.TEST",
+    "category": "statistical",
+    "syntax": "CHISQ.TEST(observed,expected)",
+    "description": "Chi-squared goodness of fit test",
+    "examples": [
+      {
+        "formula": "=CHISQ.TEST({11;15;8;10;2;14},{10;10;10;10;10;10})",
+        "result": "0.05137998348306949"
+      }
+    ]
+  },
+  {
+    "name": "CHITEST",
+    "category": "statistical",
+    "syntax": "CHITEST(observed,expected)",
+    "description": "Chi-squared test (legacy)",
+    "examples": [
+      {
+        "formula": "=CHITEST({11;15;8;10;2;14},{10;10;10;10;10;10})",
+        "result": "0.05137998348306949"
+      }
+    ]
+  },
+  {
+    "name": "CHOOSE",
+    "category": "lookup",
+    "syntax": "CHOOSE(index, value1, value2, ...)",
+    "description": "Returns the value at the given 1-based index",
+    "examples": [
+      {
+        "formula": "=CHOOSE(2,10,20,30)",
+        "result": "20"
+      },
+      {
+        "formula": "=CHOOSE(3,100,200,300)",
+        "result": "300"
+      },
+      {
+        "formula": "=CHOOSE(1,10,20,30)",
+        "result": "10"
+      }
+    ]
+  },
+  {
+    "name": "CHOOSECOLS",
+    "category": "array",
+    "syntax": "CHOOSECOLS(array, col_num1, ...)",
+    "description": "Returns selected columns from an array",
+    "examples": [
+      {
+        "formula": "=CHOOSECOLS({1,2,3;4,5,6},1)",
+        "result": "1"
+      },
+      {
+        "formula": "=CHOOSECOLS({1,2,3;4,5,6},3)",
+        "result": "3"
+      },
+      {
+        "formula": "=CHOOSECOLS({1,2,3;4,5,6},1,3)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "CHOOSEROWS",
+    "category": "array",
+    "syntax": "CHOOSEROWS(array, row_num1, ...)",
+    "description": "Returns selected rows from an array",
+    "examples": [
+      {
+        "formula": "=CHOOSEROWS({1,2;3,4;5,6},1)",
+        "result": "1"
+      },
+      {
+        "formula": "=CHOOSEROWS({1,2;3,4;5,6},3)",
+        "result": "5"
+      },
+      {
+        "formula": "=CHOOSEROWS({1,2;3,4;5,6},1,3)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "CLEAN",
+    "category": "text",
+    "syntax": "CLEAN(text)",
+    "description": "Remove non-printable characters from text",
+    "examples": []
+  },
+  {
+    "name": "CODE",
+    "category": "text",
+    "syntax": "CODE(text)",
+    "description": "Numeric code of first character",
+    "examples": [
+      {
+        "formula": "=CODE(\"a\")",
+        "result": "97"
+      },
+      {
+        "formula": "=CODE(\"A\")",
+        "result": "65"
+      },
+      {
+        "formula": "=CODE(\"ABC\")",
+        "result": "65"
+      }
+    ]
+  },
+  {
+    "name": "COLUMN",
+    "category": "lookup",
+    "syntax": "COLUMN([cell_ref])",
+    "description": "Returns the column number of a cell reference",
+    "examples": [
+      {
+        "formula": "=COLUMN(INDIRECT(\"A1\"))",
+        "result": "1"
+      },
+      {
+        "formula": "=COLUMN(INDIRECT(\"B1\"))",
+        "result": "2"
+      },
+      {
+        "formula": "=COLUMN(INDIRECT(\"C5\"))",
+        "result": "3"
+      }
+    ]
+  },
+  {
+    "name": "COLUMNS",
+    "category": "array",
+    "syntax": "COLUMNS(array)",
+    "description": "Returns the number of columns in an array or range",
+    "examples": [
+      {
+        "formula": "=COLUMNS(GRID)",
+        "result": "2"
+      },
+      {
+        "formula": "=COLUMNS(INDIRECT(\"A1:A5\"))",
+        "result": "1"
+      },
+      {
+        "formula": "=COLUMNS(INDIRECT(\"A1:C1\"))",
+        "result": "3"
+      }
+    ]
+  },
+  {
+    "name": "COMBIN",
+    "category": "math",
+    "syntax": "COMBIN(n, k)",
+    "description": "Number of combinations without repetition",
+    "examples": [
+      {
+        "formula": "=COMBIN(4,2)",
+        "result": "6"
+      },
+      {
+        "formula": "=COMBIN(10,3)",
+        "result": "120"
+      },
+      {
+        "formula": "=COMBIN(5,0)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "COMBINA",
+    "category": "math",
+    "syntax": "COMBINA(n, k)",
+    "description": "Number of combinations with repetition",
+    "examples": [
+      {
+        "formula": "=COMBINA(2,2)",
+        "result": "3"
+      },
+      {
+        "formula": "=COMBINA(5,3)",
+        "result": "35"
+      }
+    ]
+  },
+  {
+    "name": "COMPLEX",
+    "category": "engineering",
+    "syntax": "COMPLEX(real, imaginary, [suffix])",
+    "description": "Create a complex number string",
+    "examples": []
+  },
+  {
+    "name": "CONCATENATE",
+    "category": "text",
+    "syntax": "CONCATENATE(value1,...)",
+    "description": "Concatenate values (legacy)",
+    "examples": []
+  },
+  {
+    "name": "CONFIDENCE",
+    "category": "statistical",
+    "syntax": "CONFIDENCE(alpha,stdev,size)",
+    "description": "Confidence interval half-width (normal)",
+    "examples": [
+      {
+        "formula": "=CONFIDENCE(0.05,1.6,250)",
+        "result": "0.19833441049735873"
+      }
+    ]
+  },
+  {
+    "name": "CONFIDENCE.NORM",
+    "category": "statistical",
+    "syntax": "CONFIDENCE.NORM(alpha,stdev,size)",
+    "description": "Confidence interval half-width (normal)",
+    "examples": [
+      {
+        "formula": "=CONFIDENCE.NORM(0.05,1.6,250)",
+        "result": "0.19833441049735873"
+      }
+    ]
+  },
+  {
+    "name": "CONFIDENCE.T",
+    "category": "statistical",
+    "syntax": "CONFIDENCE.T(alpha,stdev,size)",
+    "description": "Confidence interval half-width (t-dist)",
+    "examples": [
+      {
+        "formula": "=CONFIDENCE.T(0.05,6.43,27)",
+        "result": "2.5436232841662854"
+      }
+    ]
+  },
+  {
+    "name": "CONVERT",
+    "category": "parser",
+    "syntax": "CONVERT(value,from_unit,to_unit)",
+    "description": "Converts a number from one unit of measurement to another",
+    "examples": [
+      {
+        "formula": "=CONVERT(1000,\"g\",\"kg\")",
+        "result": "1"
+      },
+      {
+        "formula": "=CONVERT(1,\"mi\",\"km\")",
+        "result": "1.609344"
+      },
+      {
+        "formula": "=CONVERT(0,\"C\",\"F\")",
+        "result": "32"
+      }
+    ]
+  },
+  {
+    "name": "CORREL",
+    "category": "statistical",
+    "syntax": "CORREL(array1,array2)",
+    "description": "Pearson correlation coefficient",
+    "examples": [
+      {
+        "formula": "=CORREL({3,2,4,5,6},{9,7,12,15,17})",
+        "result": "0.9970544855015816"
+      }
+    ]
+  },
+  {
+    "name": "COS",
+    "category": "math",
+    "syntax": "COS(angle)",
+    "description": "Cosine of an angle in radians",
+    "examples": [
+      {
+        "formula": "=COS(PI())",
+        "result": "-1"
+      },
+      {
+        "formula": "=COS(1)",
+        "result": "0.5403023058681398"
+      },
+      {
+        "formula": "=COS(0)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "COSH",
+    "category": "math",
+    "syntax": "COSH(number)",
+    "description": "Hyperbolic cosine",
+    "examples": [
+      {
+        "formula": "=COSH(1)",
+        "result": "1.5430806348152437"
+      },
+      {
+        "formula": "=COSH(0)",
+        "result": "1"
+      },
+      {
+        "formula": "=COSH(-1)",
+        "result": "1.5430806348152437"
+      }
+    ]
+  },
+  {
+    "name": "COT",
+    "category": "math",
+    "syntax": "COT(angle)",
+    "description": "Cotangent of an angle in radians",
+    "examples": [
+      {
+        "formula": "=COT(1)",
+        "result": "0.6420926159343306"
+      },
+      {
+        "formula": "=COT(-1)",
+        "result": "-0.6420926159343306"
+      },
+      {
+        "formula": "=COT(4)",
+        "result": "0.8636911544506167"
+      }
+    ]
+  },
+  {
+    "name": "COTH",
+    "category": "math",
+    "syntax": "COTH(number)",
+    "description": "Hyperbolic cotangent",
+    "examples": [
+      {
+        "formula": "=COTH(1)",
+        "result": "1.3130352854993315"
+      },
+      {
+        "formula": "=COTH(-1)",
+        "result": "-1.3130352854993315"
+      },
+      {
+        "formula": "=COTH(4)",
+        "result": "1.0006711504016825"
+      }
+    ]
+  },
+  {
+    "name": "COUNT",
+    "category": "statistical",
+    "syntax": "COUNT(value1,...)",
+    "description": "Count numeric values",
+    "examples": [
+      {
+        "formula": "=COUNT(PRICES)",
+        "result": "3"
+      },
+      {
+        "formula": "=COUNT(1,2,3,4,5)",
+        "result": "5"
+      },
+      {
+        "formula": "=COUNT(4,26,1,2,3)",
+        "result": "5"
+      }
+    ]
+  },
+  {
+    "name": "COUNTA",
+    "category": "statistical",
+    "syntax": "COUNTA(value1,...)",
+    "description": "Count non-empty values",
+    "examples": [
+      {
+        "formula": "=COUNTA(1,2,3,4,5)",
+        "result": "5"
+      },
+      {
+        "formula": "=COUNTA(4,26,1,2,3)",
+        "result": "5"
+      }
+    ]
+  },
+  {
+    "name": "COUNTBLANK",
+    "category": "statistical",
+    "syntax": "COUNTBLANK(range)",
+    "description": "Count blank/empty cells",
+    "examples": [
+      {
+        "formula": "=COUNTBLANK({1,\"\",3,\"\",5})",
+        "result": "2"
+      },
+      {
+        "formula": "=COUNTBLANK({\"\",\"\",\"\"})",
+        "result": "3"
+      },
+      {
+        "formula": "=COUNTBLANK({1,2,3})",
+        "result": "0"
+      }
+    ]
+  },
+  {
+    "name": "COUNTIF",
+    "category": "math",
+    "syntax": "COUNTIF(range, criterion)",
+    "description": "Count cells matching criterion",
+    "examples": [
+      {
+        "formula": "=COUNTIF({10,25,30,15,22},\">20\")",
+        "result": "3"
+      },
+      {
+        "formula": "=COUNTIF({\"Paid\",\"Unpaid\",\"Paid\",\"Pending\"},\"Paid\")",
+        "result": "2"
+      },
+      {
+        "formula": "=COUNTIF({\"apple\",\"application\",\"banana\",\"apricot\"},\"ap*\")",
+        "result": "3"
+      }
+    ]
+  },
+  {
+    "name": "COUNTIFS",
+    "category": "math",
+    "syntax": "COUNTIFS(range1, criterion1, ...)",
+    "description": "Count rows where all criteria match",
+    "examples": [
+      {
+        "formula": "=COUNTIFS({10,25,30,15,22},\">20\",{10,25,30,15,22},\"<30\")",
+        "result": "2"
+      },
+      {
+        "formula": "=COUNTIFS({\"Yes\",\"No\",\"Yes\",\"Yes\"},\"Yes\")",
+        "result": "3"
+      },
+      {
+        "formula": "=COUNTIFS({1,2,3,4,5},\">2\",{10,20,30,40,50},\"<45\")",
+        "result": "2"
+      }
+    ]
+  },
+  {
+    "name": "COUNTUNIQUE",
+    "category": "math",
+    "syntax": "COUNTUNIQUE(value1, ...)",
+    "description": "Count unique distinct values",
+    "examples": [
+      {
+        "formula": "=COUNTUNIQUE({1,1,2,3,5,8,13})",
+        "result": "6"
+      },
+      {
+        "formula": "=COUNTUNIQUE({1,\"one\",2,\"two\",1,\"one\"})",
+        "result": "4"
+      },
+      {
+        "formula": "=COUNTUNIQUE(1,1,2,3,5,8,13)",
+        "result": "6"
+      }
+    ]
+  },
+  {
+    "name": "COUPDAYBS",
+    "category": "financial",
+    "syntax": "COUPDAYBS(settlement, maturity, frequency, [basis])",
+    "description": "Days from coupon start to settlement",
+    "examples": [
+      {
+        "formula": "=COUPDAYBS(DATE(2010,2,1),DATE(2019,12,31),4)",
+        "result": "31"
+      },
+      {
+        "formula": "=COUPDAYBS(DATE(2010,2,1),DATE(2019,12,31),4,1)",
+        "result": "32"
+      }
+    ]
+  },
+  {
+    "name": "COUPDAYS",
+    "category": "financial",
+    "syntax": "COUPDAYS(settlement, maturity, frequency, [basis])",
+    "description": "Days in coupon period",
+    "examples": [
+      {
+        "formula": "=COUPDAYS(DATE(2010,2,1),DATE(2019,12,31),4)",
+        "result": "90"
+      },
+      {
+        "formula": "=COUPDAYS(DATE(2010,2,1),DATE(2019,12,31),4,1)",
+        "result": "90"
+      }
+    ]
+  },
+  {
+    "name": "COUPDAYSNC",
+    "category": "financial",
+    "syntax": "COUPDAYSNC(settlement, maturity, frequency, [basis])",
+    "description": "Days from settlement to next coupon",
+    "examples": [
+      {
+        "formula": "=COUPDAYSNC(DATE(2010,2,1),DATE(2019,12,31),4)",
+        "result": "59"
+      },
+      {
+        "formula": "=COUPDAYSNC(DATE(2011,1,25),DATE(2011,11,15),2,1)",
+        "result": "110"
+      }
+    ]
+  },
+  {
+    "name": "COUPNCD",
+    "category": "financial",
+    "syntax": "COUPNCD(settlement, maturity, frequency, [basis])",
+    "description": "Next coupon date after settlement",
+    "examples": [
+      {
+        "formula": "=COUPNCD(DATE(2010,2,1),DATE(2019,12,31),4)",
+        "result": "40268"
+      },
+      {
+        "formula": "=COUPNCD(DATE(2011,1,25),DATE(2011,11,15),2,1)",
+        "result": "40678"
+      }
+    ]
+  },
+  {
+    "name": "COUPNUM",
+    "category": "financial",
+    "syntax": "COUPNUM(settlement, maturity, frequency, [basis])",
+    "description": "Number of coupons between settlement and maturity",
+    "examples": [
+      {
+        "formula": "=COUPNUM(DATE(2010,2,1),DATE(2019,12,31),4)",
+        "result": "40"
+      },
+      {
+        "formula": "=COUPNUM(DATE(2007,1,25),DATE(2008,11,15),2,1)",
+        "result": "4"
+      }
+    ]
+  },
+  {
+    "name": "COUPPCD",
+    "category": "financial",
+    "syntax": "COUPPCD(settlement, maturity, frequency, [basis])",
+    "description": "Previous coupon date before settlement",
+    "examples": [
+      {
+        "formula": "=COUPPCD(DATE(2010,2,1),DATE(2019,12,31),4)",
+        "result": "40178"
+      },
+      {
+        "formula": "=COUPPCD(DATE(2011,1,25),DATE(2011,11,15),2,1)",
+        "result": "40497"
+      }
+    ]
+  },
+  {
+    "name": "COVAR",
+    "category": "statistical",
+    "syntax": "COVAR(array1,array2)",
+    "description": "Population covariance (legacy)",
+    "examples": [
+      {
+        "formula": "=COVAR({2,5,7,1,8},{4,3,6,1,5})",
+        "result": "3.72"
+      }
+    ]
+  },
+  {
+    "name": "COVARIANCE.P",
+    "category": "statistical",
+    "syntax": "COVARIANCE.P(array1,array2)",
+    "description": "Population covariance",
+    "examples": [
+      {
+        "formula": "=COVARIANCE.P({2,5,7,1,8},{4,3,6,1,5})",
+        "result": "3.72"
+      }
+    ]
+  },
+  {
+    "name": "COVARIANCE.S",
+    "category": "statistical",
+    "syntax": "COVARIANCE.S(array1,array2)",
+    "description": "Sample covariance",
+    "examples": [
+      {
+        "formula": "=COVARIANCE.S({2,5,7,1,8},{4,3,6,1,5})",
+        "result": "4.65"
+      },
+      {
+        "formula": "=COVARIANCE.S({1,3},{-1,6})",
+        "result": "7"
+      }
+    ]
+  },
+  {
+    "name": "CRITBINOM",
+    "category": "statistical",
+    "syntax": "CRITBINOM(n,p,alpha)",
+    "description": "Binomial inverse CDF (legacy)",
+    "examples": [
+      {
+        "formula": "=CRITBINOM(100,0.005,0.8)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "CSC",
+    "category": "math",
+    "syntax": "CSC(angle)",
+    "description": "Cosecant of an angle in radians",
+    "examples": [
+      {
+        "formula": "=CSC(1)",
+        "result": "1.1883951057781212"
+      },
+      {
+        "formula": "=CSC(-1)",
+        "result": "-1.1883951057781212"
+      },
+      {
+        "formula": "=CSC(4)",
+        "result": "-1.3213487088109024"
+      }
+    ]
+  },
+  {
+    "name": "CSCH",
+    "category": "math",
+    "syntax": "CSCH(number)",
+    "description": "Hyperbolic cosecant",
+    "examples": [
+      {
+        "formula": "=CSCH(1)",
+        "result": "0.8509181282393216"
+      },
+      {
+        "formula": "=CSCH(-1)",
+        "result": "-0.8509181282393216"
+      },
+      {
+        "formula": "=CSCH(4)",
+        "result": "0.036643570325865606"
+      }
+    ]
+  },
+  {
+    "name": "CUMIPMT",
+    "category": "financial",
+    "syntax": "CUMIPMT(rate, nper, pv, start, end, type)",
+    "description": "Cumulative interest paid",
+    "examples": [
+      {
+        "formula": "=CUMIPMT(0.12,12,100,1,5,0)",
+        "result": "-54.39423242396349"
+      },
+      {
+        "formula": "=CUMIPMT(0.12,12,100,1,12,0)",
+        "result": "-93.72416911279494"
+      }
+    ]
+  },
+  {
+    "name": "CUMPRINC",
+    "category": "financial",
+    "syntax": "CUMPRINC(rate, nper, pv, start, end, type)",
+    "description": "Cumulative principal paid",
+    "examples": [
+      {
+        "formula": "=CUMPRINC(0.12,12,100,1,5,0)",
+        "result": "-26.32417137303437"
+      }
+    ]
+  },
+  {
+    "name": "DATE",
+    "category": "date",
+    "syntax": "DATE(year,month,day)",
+    "description": "Creates a date serial number from year, month, and day",
+    "examples": [
+      {
+        "formula": "=DATE(2026,6,7)",
+        "result": "46180"
+      },
+      {
+        "formula": "=DATE(2026,6,7)+1",
+        "result": "46181"
+      },
+      {
+        "formula": "=DATE(2026,6,7)-DATE(2026,6,1)",
+        "result": "6"
+      }
+    ]
+  },
+  {
+    "name": "DATEDIF",
+    "category": "date",
+    "syntax": "DATEDIF(start,end,unit)",
+    "description": "Difference between two dates in specified units",
+    "examples": [
+      {
+        "formula": "=DATEDIF(DATE(1969,7,16),DATE(1969,7,24),\"D\")",
+        "result": "8"
+      },
+      {
+        "formula": "=DATEDIF(DATE(2000,1,1),DATE(2001,1,1),\"M\")",
+        "result": "12"
+      },
+      {
+        "formula": "=DATEDIF(DATE(2001,1,1),DATE(2003,1,1),\"Y\")",
+        "result": "2"
+      }
+    ]
+  },
+  {
+    "name": "DATEVALUE",
+    "category": "date",
+    "syntax": "DATEVALUE(date_text)",
+    "description": "Converts a date string to a serial number",
+    "examples": [
+      {
+        "formula": "=DATEVALUE(\"6/7/2026\")",
+        "result": "46180"
+      },
+      {
+        "formula": "=DATEVALUE(\"2026-06-07\")",
+        "result": "46180"
+      },
+      {
+        "formula": "=DATEVALUE(\"1969-7-20\")",
+        "result": "25404"
+      }
+    ]
+  },
+  {
+    "name": "DAVERAGE",
+    "category": "database",
+    "syntax": "DAVERAGE(database, field, criteria)",
+    "description": "Average of field values for rows matching criteria",
+    "examples": [
+      {
+        "formula": "=DAVERAGE({\"Name\",\"Score\";\"Alice\",80;\"Bob\",90;\"Carol\",70},\"Score\",{\"Score\";\">75\"})",
+        "result": "85"
+      }
+    ]
+  },
+  {
+    "name": "DAY",
+    "category": "date",
+    "syntax": "DAY(date)",
+    "description": "Day of month from a date serial number",
+    "examples": [
+      {
+        "formula": "=DAY(DATE(1969,7,20))",
+        "result": "20"
+      },
+      {
+        "formula": "=DAY(40909)",
+        "result": "1"
+      },
+      {
+        "formula": "=DAY(\"7/20/1969\")",
+        "result": "20"
+      }
+    ]
+  },
+  {
+    "name": "DAYS",
+    "category": "date",
+    "syntax": "DAYS(end,start)",
+    "description": "Number of days between two dates",
+    "examples": [
+      {
+        "formula": "=DAYS(\"7/24/1969\",\"7/16/1969\")",
+        "result": "8"
+      },
+      {
+        "formula": "=DAYS(\"2/28/2016\",\"2/28/2017\")",
+        "result": "-366"
+      },
+      {
+        "formula": "=DAYS(DATE(2024,1,1),DATE(2023,1,1))",
+        "result": "365"
+      }
+    ]
+  },
+  {
+    "name": "DAYS360",
+    "category": "date",
+    "syntax": "DAYS360(start,end,[method])",
+    "description": "Days between dates using 360-day year",
+    "examples": [
+      {
+        "formula": "=DAYS360(DATE(1969,7,16),DATE(1969,7,24),1)",
+        "result": "8"
+      },
+      {
+        "formula": "=DAYS360(1,270,1)",
+        "result": "266"
+      },
+      {
+        "formula": "=DAYS360(DATE(2023,1,1),DATE(2023,12,31),0)",
+        "result": "360"
+      }
+    ]
+  },
+  {
+    "name": "DB",
+    "category": "financial",
+    "syntax": "DB(cost, salvage, life, period, [month])",
+    "description": "Fixed-declining balance depreciation",
+    "examples": [
+      {
+        "formula": "=DB(100,50,10,2)",
+        "result": "6.2511"
+      },
+      {
+        "formula": "=DB(100,50,10,2,10)",
+        "result": "6.325916666666667"
+      }
+    ]
+  },
+  {
+    "name": "DCOUNT",
+    "category": "database",
+    "syntax": "DCOUNT(database, field, criteria)",
+    "description": "Count of numeric field values for rows matching criteria",
+    "examples": [
+      {
+        "formula": "=DCOUNT({\"Name\",\"Score\";\"Alice\",90;\"Bob\",80;\"Carol\",70},\"Score\",{\"Score\";\">75\"})",
+        "result": "2"
+      },
+      {
+        "formula": "=DCOUNT({\"Item\",\"Qty\";\"A\",5;\"B\",10;\"A\",3},2,{\"Item\";\"A\"})",
+        "result": "2"
+      },
+      {
+        "formula": "=DCOUNT({\"Name\",\"Dept\";\"Alice\",\"HR\";\"Bob\",\"IT\"},\"Dept\",{\"Dept\";\"HR\"})",
+        "result": "0"
+      }
+    ]
+  },
+  {
+    "name": "DCOUNTA",
+    "category": "database",
+    "syntax": "DCOUNTA(database, field, criteria)",
+    "description": "Count of non-empty field values for rows matching criteria",
+    "examples": [
+      {
+        "formula": "=DCOUNTA({\"Name\",\"Dept\";\"Alice\",\"HR\";\"Bob\",\"IT\";\"Carol\",\"HR\"},\"Dept\",{\"Dept\";\"HR\"})",
+        "result": "2"
+      },
+      {
+        "formula": "=DCOUNTA({\"Item\",\"Tag\";\"A\",\"x\";\"B\",\"y\";\"A\",\"z\"},2,{\"Item\";\"A\"})",
+        "result": "2"
+      },
+      {
+        "formula": "=DCOUNTA({\"Cat\",\"Label\";\"X\",\"foo\";\"Y\",\"bar\"},2,{\"Cat\";\"X\"})",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "DDB",
+    "category": "financial",
+    "syntax": "DDB(cost, salvage, life, period, [factor])",
+    "description": "Double-declining balance depreciation",
+    "examples": [
+      {
+        "formula": "=DDB(100,50,10,2)",
+        "result": "15.999999999999998"
+      },
+      {
+        "formula": "=DDB(100,50,10,2,2.25)",
+        "result": "17.437499999999996"
+      }
+    ]
+  },
+  {
+    "name": "DEC2BIN",
+    "category": "engineering",
+    "syntax": "DEC2BIN(number, [places])",
+    "description": "Convert decimal to binary",
+    "examples": []
+  },
+  {
+    "name": "DEC2HEX",
+    "category": "engineering",
+    "syntax": "DEC2HEX(number, [places])",
+    "description": "Convert decimal to hexadecimal",
+    "examples": []
+  },
+  {
+    "name": "DEC2OCT",
+    "category": "engineering",
+    "syntax": "DEC2OCT(number, [places])",
+    "description": "Convert decimal to octal",
+    "examples": []
+  },
+  {
+    "name": "DECIMAL",
+    "category": "math",
+    "syntax": "DECIMAL(text, base)",
+    "description": "Convert string in given base to decimal",
+    "examples": [
+      {
+        "formula": "=DECIMAL(\"101\",2)",
+        "result": "5"
+      }
+    ]
+  },
+  {
+    "name": "DEGREES",
+    "category": "math",
+    "syntax": "DEGREES(angle)",
+    "description": "Convert radians to degrees",
+    "examples": [
+      {
+        "formula": "=DEGREES(ACOS(0))",
+        "result": "90"
+      },
+      {
+        "formula": "=DEGREES(ACOT(1))",
+        "result": "45"
+      },
+      {
+        "formula": "=DEGREES(ASIN(1))",
+        "result": "90"
+      }
+    ]
+  },
+  {
+    "name": "DELTA",
+    "category": "engineering",
+    "syntax": "DELTA(number1, [number2])",
+    "description": "Test whether two values are equal",
+    "examples": [
+      {
+        "formula": "=DELTA(2,2)",
+        "result": "1"
+      },
+      {
+        "formula": "=DELTA(2,1)",
+        "result": "0"
+      },
+      {
+        "formula": "=DELTA(0)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "DEVSQ",
+    "category": "statistical",
+    "syntax": "DEVSQ(value1,...)",
+    "description": "Sum of squared deviations from the mean",
+    "examples": [
+      {
+        "formula": "=DEVSQ(1,2,3,4,5,6,7,8,9,10)",
+        "result": "82.5"
+      }
+    ]
+  },
+  {
+    "name": "DGET",
+    "category": "database",
+    "syntax": "DGET(database, field, criteria)",
+    "description": "Single field value for rows matching criteria",
+    "examples": [
+      {
+        "formula": "=DGET({\"Name\",\"Score\";\"Alice\",90;\"Bob\",80},\"Score\",{\"Name\";\"Alice\"})",
+        "result": "90"
+      },
+      {
+        "formula": "=DGET({\"Name\",\"Score\";\"Alice\",90;\"Bob\",80},2,{\"Name\";\"Bob\"})",
+        "result": "80"
+      },
+      {
+        "formula": "=DGET({\"ID\",\"Val\";\"1\",100;\"2\",200;\"3\",300},\"Val\",{\"ID\";\"2\"})",
+        "result": "200"
+      }
+    ]
+  },
+  {
+    "name": "DISC",
+    "category": "financial",
+    "syntax": "DISC(settlement, maturity, pr, redemption, [basis])",
+    "description": "Discount rate for a security",
+    "examples": [
+      {
+        "formula": "=DISC(DATE(2010,1,2),DATE(2039,12,31),90,100)",
+        "result": "0.003333642003889249"
+      },
+      {
+        "formula": "=DISC(DATE(2010,1,2),DATE(2039,12,31),90,100,1)",
+        "result": "0.0033339422725611983"
+      }
+    ]
+  },
+  {
+    "name": "DMAX",
+    "category": "database",
+    "syntax": "DMAX(database, field, criteria)",
+    "description": "Maximum field value for rows matching criteria",
+    "examples": [
+      {
+        "formula": "=DMAX({\"Name\",\"Score\";\"Alice\",90;\"Bob\",80;\"Carol\",70},\"Score\",{\"Score\";\">75\"})",
+        "result": "90"
+      },
+      {
+        "formula": "=DMAX({\"Cat\",\"Val\";\"A\",10;\"A\",30;\"B\",20},2,{\"Cat\";\"A\"})",
+        "result": "30"
+      },
+      {
+        "formula": "=DMAX({\"G\",\"V\";\"X\",5;\"X\",15;\"X\",10},2,{\"G\";\"X\"})",
+        "result": "15"
+      }
+    ]
+  },
+  {
+    "name": "DMIN",
+    "category": "database",
+    "syntax": "DMIN(database, field, criteria)",
+    "description": "Minimum field value for rows matching criteria",
+    "examples": [
+      {
+        "formula": "=DMIN({\"Name\",\"Score\";\"Alice\",90;\"Bob\",80;\"Carol\",70},\"Score\",{\"Score\";\">75\"})",
+        "result": "80"
+      },
+      {
+        "formula": "=DMIN({\"Cat\",\"Val\";\"A\",10;\"A\",30;\"B\",20},2,{\"Cat\";\"A\"})",
+        "result": "10"
+      },
+      {
+        "formula": "=DMIN({\"G\",\"V\";\"X\",5;\"X\",15;\"X\",10},2,{\"G\";\"X\"})",
+        "result": "5"
+      }
+    ]
+  },
+  {
+    "name": "DOLLAR",
+    "category": "text",
+    "syntax": "DOLLAR(number, [decimals])",
+    "description": "Format number as currency text",
+    "examples": []
+  },
+  {
+    "name": "DOLLARDE",
+    "category": "financial",
+    "syntax": "DOLLARDE(fractional_dollar, fraction)",
+    "description": "Convert dollar price to decimal",
+    "examples": [
+      {
+        "formula": "=DOLLARDE(100.10,32)",
+        "result": "100.31249999999999"
+      },
+      {
+        "formula": "=DOLLARDE(100.01,8)",
+        "result": "100.0125"
+      }
+    ]
+  },
+  {
+    "name": "DOLLARFR",
+    "category": "financial",
+    "syntax": "DOLLARFR(decimal_dollar, fraction)",
+    "description": "Convert decimal dollar to fractional",
+    "examples": [
+      {
+        "formula": "=DOLLARFR(100.125,32)",
+        "result": "100.04"
+      },
+      {
+        "formula": "=DOLLARFR(100.125,8)",
+        "result": "100.1"
+      }
+    ]
+  },
+  {
+    "name": "DPRODUCT",
+    "category": "database",
+    "syntax": "DPRODUCT(database, field, criteria)",
+    "description": "Product of field values for rows matching criteria",
+    "examples": [
+      {
+        "formula": "=DPRODUCT({\"Cat\",\"Val\";\"A\",2;\"A\",3;\"B\",10},\"Val\",{\"Cat\";\"A\"})",
+        "result": "6"
+      },
+      {
+        "formula": "=DPRODUCT({\"Cat\",\"Val\";\"A\",4;\"A\",5},2,{\"Cat\";\"A\"})",
+        "result": "20"
+      },
+      {
+        "formula": "=DPRODUCT({\"ID\",\"Val\";\"1\",7;\"2\",8},2,{\"ID\";\"1\"})",
+        "result": "7"
+      }
+    ]
+  },
+  {
+    "name": "DSTDEV",
+    "category": "database",
+    "syntax": "DSTDEV(database, field, criteria)",
+    "description": "Sample standard deviation of field values for rows matching criteria",
+    "examples": [
+      {
+        "formula": "=DSTDEV({\"Cat\",\"Val\";\"A\",10;\"A\",20;\"A\",30},\"Val\",{\"Cat\";\"A\"})",
+        "result": "10"
+      },
+      {
+        "formula": "=DSTDEV({\"G\",\"V\";\"X\",2;\"X\",8;\"X\",5},2,{\"G\";\"X\"})",
+        "result": "3"
+      },
+      {
+        "formula": "=DSTDEV({\"Name\",\"Score\";\"Alice\",80;\"Bob\",90;\"Carol\",70},\"Score\",{\"Score\";\">75\"})",
+        "result": "7.0710678118654755"
+      }
+    ]
+  },
+  {
+    "name": "DSTDEVP",
+    "category": "database",
+    "syntax": "DSTDEVP(database, field, criteria)",
+    "description": "Population standard deviation of field values for rows matching criteria",
+    "examples": [
+      {
+        "formula": "=DSTDEVP({\"Cat\",\"Val\";\"A\",10;\"A\",20;\"A\",30},\"Val\",{\"Cat\";\"A\"})",
+        "result": "8.16496580927726"
+      },
+      {
+        "formula": "=DSTDEVP({\"G\",\"V\";\"X\",2;\"X\",8;\"X\",5},2,{\"G\";\"X\"})",
+        "result": "2.449489742783178"
+      },
+      {
+        "formula": "=DSTDEVP({\"Name\",\"Score\";\"Alice\",80;\"Bob\",90;\"Carol\",70},\"Score\",{\"Score\";\">75\"})",
+        "result": "5"
+      }
+    ]
+  },
+  {
+    "name": "DSUM",
+    "category": "database",
+    "syntax": "DSUM(database, field, criteria)",
+    "description": "Sum of field values for rows matching criteria",
+    "examples": [
+      {
+        "formula": "=DSUM({\"Product\",\"Revenue\";\"Apple\",100;\"Banana\",200;\"Apple\",150},\"Revenue\",{\"Product\";\"Apple\"})",
+        "result": "250"
+      },
+      {
+        "formula": "=DSUM({\"Product\",\"Revenue\";\"Apple\",100;\"Banana\",200;\"Apple\",150},2,{\"Product\";\"Apple\"})",
+        "result": "250"
+      },
+      {
+        "formula": "=DSUM({\"Product\",\"Revenue\";\"Apple\",100;\"Banana\",200},2,{\"Product\";\"Cherry\"})",
+        "result": "0"
+      }
+    ]
+  },
+  {
+    "name": "DURATION",
+    "category": "financial",
+    "syntax": "DURATION(settlement, maturity, coupon, yld, frequency, [basis])",
+    "description": "Macaulay duration",
+    "examples": [
+      {
+        "formula": "=DURATION(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,2)",
+        "result": "1.3277777784097888"
+      },
+      {
+        "formula": "=DURATION(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,2,1)",
+        "result": "1.3278084720868903"
+      }
+    ]
+  },
+  {
+    "name": "DVAR",
+    "category": "database",
+    "syntax": "DVAR(database, field, criteria)",
+    "description": "Sample variance of field values for rows matching criteria",
+    "examples": [
+      {
+        "formula": "=DVAR({\"Cat\",\"Val\";\"A\",10;\"A\",20;\"A\",30},\"Val\",{\"Cat\";\"A\"})",
+        "result": "100"
+      },
+      {
+        "formula": "=DVAR({\"G\",\"V\";\"X\",2;\"X\",8;\"X\",5},2,{\"G\";\"X\"})",
+        "result": "9"
+      },
+      {
+        "formula": "=DVAR({\"Name\",\"Score\";\"Alice\",80;\"Bob\",90;\"Carol\",70},\"Score\",{\"Score\";\">75\"})",
+        "result": "50"
+      }
+    ]
+  },
+  {
+    "name": "DVARP",
+    "category": "database",
+    "syntax": "DVARP(database, field, criteria)",
+    "description": "Population variance of field values for rows matching criteria",
+    "examples": [
+      {
+        "formula": "=DVARP({\"Cat\",\"Val\";\"A\",10;\"A\",20;\"A\",30},\"Val\",{\"Cat\";\"A\"})",
+        "result": "66.66666666666667"
+      },
+      {
+        "formula": "=DVARP({\"G\",\"V\";\"X\",2;\"X\",8;\"X\",5},2,{\"G\";\"X\"})",
+        "result": "6"
+      },
+      {
+        "formula": "=DVARP({\"Name\",\"Score\";\"Alice\",80;\"Bob\",90;\"Carol\",70},\"Score\",{\"Score\";\">75\"})",
+        "result": "25"
+      }
+    ]
+  },
+  {
+    "name": "EDATE",
+    "category": "date",
+    "syntax": "EDATE(start,months)",
+    "description": "Date serial N months before or after a start date",
+    "examples": [
+      {
+        "formula": "=EDATE(DATE(1969,7,20),1)",
+        "result": "25435"
+      },
+      {
+        "formula": "=EDATE(40909,-2)",
+        "result": "40848"
+      },
+      {
+        "formula": "=EDATE(DATE(2023,1,15),6)",
+        "result": "45122"
+      }
+    ]
+  },
+  {
+    "name": "EFFECT",
+    "category": "financial",
+    "syntax": "EFFECT(nominal_rate, npery)",
+    "description": "Effective annual interest rate",
+    "examples": [
+      {
+        "formula": "=EFFECT(0.99,12)",
+        "result": "1.5890167507927813"
+      }
+    ]
+  },
+  {
+    "name": "ENCODEURL",
+    "category": "web",
+    "syntax": "ENCODEURL(url)",
+    "description": "Percent-encode a URL string per RFC 3986",
+    "examples": []
+  },
+  {
+    "name": "EOMONTH",
+    "category": "date",
+    "syntax": "EOMONTH(start,months)",
+    "description": "Last day of month N months from start date",
+    "examples": [
+      {
+        "formula": "=EOMONTH(DATE(1969,7,20),1)",
+        "result": "25446"
+      },
+      {
+        "formula": "=EOMONTH(40909,-2)",
+        "result": "40877"
+      },
+      {
+        "formula": "=EOMONTH(DATE(2023,6,15),0)",
+        "result": "45107"
+      }
+    ]
+  },
+  {
+    "name": "EPOCHTODATE",
+    "category": "date",
+    "syntax": "EPOCHTODATE(timestamp,[unit])",
+    "description": "Converts Unix timestamp to date serial number",
+    "examples": [
+      {
+        "formula": "=EPOCHTODATE(1655906568893,2)",
+        "result": "44734.58528811343"
+      },
+      {
+        "formula": "=EPOCHTODATE(1655906710,1)",
+        "result": "44734.5869212963"
+      },
+      {
+        "formula": "=EPOCHTODATE(0,2)",
+        "result": "25569"
+      }
+    ]
+  },
+  {
+    "name": "ERF",
+    "category": "engineering",
+    "syntax": "ERF(lower_limit, [upper_limit])",
+    "description": "Error function",
+    "examples": [
+      {
+        "formula": "=ERF(1)",
+        "result": "0.8427007929497151"
+      },
+      {
+        "formula": "=ERF(-2.3,-0.7)",
+        "result": "0.32105562956522504"
+      },
+      {
+        "formula": "=ERF(0)",
+        "result": "0"
+      }
+    ]
+  },
+  {
+    "name": "ERF.PRECISE",
+    "category": "engineering",
+    "syntax": "ERF.PRECISE(x)",
+    "description": "Error function (precise)",
+    "examples": [
+      {
+        "formula": "=ERF.PRECISE(1)",
+        "result": "0.8427007929497151"
+      },
+      {
+        "formula": "=ERF.PRECISE(0)",
+        "result": "0"
+      },
+      {
+        "formula": "=ERF.PRECISE(2)",
+        "result": "0.9953222650189527"
+      }
+    ]
+  },
+  {
+    "name": "ERFC",
+    "category": "engineering",
+    "syntax": "ERFC(x)",
+    "description": "Complementary error function",
+    "examples": [
+      {
+        "formula": "=ERFC(2)",
+        "result": "0.0046777349810472645"
+      },
+      {
+        "formula": "=ERFC(0)",
+        "result": "1"
+      },
+      {
+        "formula": "=ERFC(1)",
+        "result": "0.15729920705028488"
+      }
+    ]
+  },
+  {
+    "name": "ERFC.PRECISE",
+    "category": "engineering",
+    "syntax": "ERFC.PRECISE(x)",
+    "description": "Complementary error function (precise)",
+    "examples": [
+      {
+        "formula": "=ERFC.PRECISE(2)",
+        "result": "0.0046777349810472645"
+      },
+      {
+        "formula": "=ERFC.PRECISE(0)",
+        "result": "1"
+      },
+      {
+        "formula": "=ERFC.PRECISE(1)",
+        "result": "0.15729920705028488"
+      }
+    ]
+  },
+  {
+    "name": "ERROR.TYPE",
+    "category": "logical",
+    "syntax": "ERROR.TYPE(value)",
+    "description": "Number corresponding to the error type",
+    "examples": [
+      {
+        "formula": "=ERROR.TYPE(1/0)",
+        "result": "2"
+      },
+      {
+        "formula": "=ERROR.TYPE(VALUE(\"x\"))",
+        "result": "3"
+      },
+      {
+        "formula": "=ERROR.TYPE(NA())",
+        "result": "7"
+      }
+    ]
+  },
+  {
+    "name": "EVEN",
+    "category": "math",
+    "syntax": "EVEN(number)",
+    "description": "Round up to nearest even integer",
+    "examples": [
+      {
+        "formula": "=EVEN(3)",
+        "result": "4"
+      },
+      {
+        "formula": "=EVEN(-0.6)",
+        "result": "-2"
+      },
+      {
+        "formula": "=EVEN(1.5)",
+        "result": "2"
+      }
+    ]
+  },
+  {
+    "name": "EXACT",
+    "category": "text",
+    "syntax": "EXACT(text1, text2)",
+    "description": "Case-sensitive string comparison",
+    "examples": []
+  },
+  {
+    "name": "EXP",
+    "category": "math",
+    "syntax": "EXP(number)",
+    "description": "e raised to a power",
+    "examples": [
+      {
+        "formula": "=EXP(2)",
+        "result": "7.38905609893065"
+      },
+      {
+        "formula": "=EXP(0)",
+        "result": "1"
+      },
+      {
+        "formula": "=EXP(1)",
+        "result": "2.718281828459045"
+      }
+    ]
+  },
+  {
+    "name": "EXPON.DIST",
+    "category": "statistical",
+    "syntax": "EXPON.DIST(x,lambda,cumulative)",
+    "description": "Exponential distribution",
+    "examples": [
+      {
+        "formula": "=EXPON.DIST(4,0.5,FALSE)",
+        "result": "0.06766764161830635"
+      },
+      {
+        "formula": "=EXPON.DIST(4,0.5,TRUE)",
+        "result": "0.8646647167633873"
+      }
+    ]
+  },
+  {
+    "name": "EXPONDIST",
+    "category": "statistical",
+    "syntax": "EXPONDIST(x,lambda,cumulative)",
+    "description": "Exponential distribution (legacy)",
+    "examples": [
+      {
+        "formula": "=EXPONDIST(4,0.5,FALSE)",
+        "result": "0.06766764161830635"
+      },
+      {
+        "formula": "=EXPONDIST(4,0.5,TRUE)",
+        "result": "0.8646647167633873"
+      }
+    ]
+  },
+  {
+    "name": "F.DIST",
+    "category": "statistical",
+    "syntax": "F.DIST(x,df1,df2,cumulative)",
+    "description": "F CDF/PDF",
+    "examples": [
+      {
+        "formula": "=F.DIST(15.35,7,6,TRUE)",
+        "result": "0.9980694465675399"
+      },
+      {
+        "formula": "=F.DIST(15.35,7,6,FALSE)",
+        "result": "0.0003451054686025562"
+      }
+    ]
+  },
+  {
+    "name": "F.DIST.RT",
+    "category": "statistical",
+    "syntax": "F.DIST.RT(x,df1,df2)",
+    "description": "F right-tail CDF",
+    "examples": [
+      {
+        "formula": "=F.DIST.RT(15.35,7,6)",
+        "result": "0.0019305534324600693"
+      }
+    ]
+  },
+  {
+    "name": "F.INV",
+    "category": "statistical",
+    "syntax": "F.INV(p,df1,df2)",
+    "description": "F inverse CDF",
+    "examples": [
+      {
+        "formula": "=F.INV(0.42,2,3)",
+        "result": "0.6567804091558455"
+      },
+      {
+        "formula": "=F.INV(0.95,4,5)",
+        "result": "5.192167772803918"
+      }
+    ]
+  },
+  {
+    "name": "F.INV.RT",
+    "category": "statistical",
+    "syntax": "F.INV.RT(p,df1,df2)",
+    "description": "F right-tail inverse CDF",
+    "examples": [
+      {
+        "formula": "=F.INV.RT(0.42,2,3)",
+        "result": "1.174597281149464"
+      },
+      {
+        "formula": "=F.INV.RT(0.05,4,5)",
+        "result": "5.192167772803921"
+      }
+    ]
+  },
+  {
+    "name": "F.TEST",
+    "category": "statistical",
+    "syntax": "F.TEST(array1,array2)",
+    "description": "F-test",
+    "examples": [
+      {
+        "formula": "=F.TEST({92,75,97,85,87,82,79},{84,89,87,95,82,71})",
+        "result": "0.8600520776898234"
+      }
+    ]
+  },
+  {
+    "name": "FACT",
+    "category": "math",
+    "syntax": "FACT(number)",
+    "description": "Factorial of a number",
+    "examples": [
+      {
+        "formula": "=FACT(3)",
+        "result": "6"
+      },
+      {
+        "formula": "=FACT(6)",
+        "result": "720"
+      },
+      {
+        "formula": "=FACT(0)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "FACTDOUBLE",
+    "category": "math",
+    "syntax": "FACTDOUBLE(n)",
+    "description": "Double factorial of a number",
+    "examples": [
+      {
+        "formula": "=FACTDOUBLE(6)",
+        "result": "48"
+      },
+      {
+        "formula": "=FACTDOUBLE(7)",
+        "result": "105"
+      },
+      {
+        "formula": "=FACTDOUBLE(8)",
+        "result": "384"
+      }
+    ]
+  },
+  {
+    "name": "FALSE",
+    "category": "logical",
+    "syntax": "FALSE()",
+    "description": "Logical false value",
+    "examples": []
+  },
+  {
+    "name": "FDIST",
+    "category": "statistical",
+    "syntax": "FDIST(x,df1,df2)",
+    "description": "F right-tail CDF (legacy)",
+    "examples": [
+      {
+        "formula": "=FDIST(15.35,7,6)",
+        "result": "0.0019305534324600693"
+      }
+    ]
+  },
+  {
+    "name": "FILTER",
+    "category": "filter",
+    "syntax": "FILTER(array, include, [if_empty])",
+    "description": "Filter an array by a boolean mask",
+    "examples": [
+      {
+        "formula": "=FILTER({1,2,3,4,5},{TRUE,FALSE,TRUE,FALSE,TRUE})",
+        "result": "1"
+      },
+      {
+        "formula": "=FILTER({10,20,30,40},{10,20,30,40}>15)",
+        "result": "20"
+      },
+      {
+        "formula": "=FILTER({1,2,3},{TRUE,TRUE,TRUE})",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "FIND",
+    "category": "text",
+    "syntax": "FIND(find_text, within_text, start)",
+    "description": "Case-sensitive position search",
+    "examples": [
+      {
+        "formula": "=FIND(\"n\",\"printing\")",
+        "result": "4"
+      },
+      {
+        "formula": "=FIND(\"wood\",\"How much wood can a woodchuck chuck\",14)",
+        "result": "21"
+      },
+      {
+        "formula": "=FIND(\"H\",\"Hello World\")",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "FINDB",
+    "category": "text",
+    "syntax": "FINDB(find_text, within_text, [start_num])",
+    "description": "Case-sensitive byte-position search",
+    "examples": [
+      {
+        "formula": "=FINDB(\"新\",\"农历新年\")",
+        "result": "5"
+      },
+      {
+        "formula": "=FINDB(\"新\",\"农历新年\",2)",
+        "result": "5"
+      },
+      {
+        "formula": "=FINDB(\"n\",\"printing\")",
+        "result": "4"
+      }
+    ]
+  },
+  {
+    "name": "FINV",
+    "category": "statistical",
+    "syntax": "FINV(p,df1,df2)",
+    "description": "F right-tail inverse CDF (legacy)",
+    "examples": [
+      {
+        "formula": "=FINV(0.42,2,3)",
+        "result": "1.174597281149464"
+      },
+      {
+        "formula": "=FINV(0.05,4,5)",
+        "result": "5.192167772803921"
+      }
+    ]
+  },
+  {
+    "name": "FISHER",
+    "category": "statistical",
+    "syntax": "FISHER(x)",
+    "description": "Fisher z-transform",
+    "examples": [
+      {
+        "formula": "=FISHER(0.962)",
+        "result": "1.972066740199461"
+      }
+    ]
+  },
+  {
+    "name": "FISHERINV",
+    "category": "statistical",
+    "syntax": "FISHERINV(y)",
+    "description": "Inverse Fisher z-transform",
+    "examples": [
+      {
+        "formula": "=FISHERINV(0.962)",
+        "result": "0.7451676440945232"
+      }
+    ]
+  },
+  {
+    "name": "FIXED",
+    "category": "text",
+    "syntax": "FIXED(number, [decimals], [no_commas])",
+    "description": "Format number as text with fixed decimal places",
+    "examples": []
+  },
+  {
+    "name": "FLATTEN",
+    "category": "array",
+    "syntax": "FLATTEN(array)",
+    "description": "Flattens an array into a single column",
+    "examples": [
+      {
+        "formula": "=FLATTEN({1,2;3,4})",
+        "result": "1"
+      },
+      {
+        "formula": "=FLATTEN({1,2,3})",
+        "result": "1"
+      },
+      {
+        "formula": "=FLATTEN({42})",
+        "result": "42"
+      }
+    ]
+  },
+  {
+    "name": "FLOOR",
+    "category": "math",
+    "syntax": "FLOOR(number, significance)",
+    "description": "Round down to nearest multiple of significance",
+    "examples": [
+      {
+        "formula": "=FLOOR(23.25,0.1)",
+        "result": "23.200000000000003"
+      },
+      {
+        "formula": "=FLOOR(23.25,1)",
+        "result": "23"
+      },
+      {
+        "formula": "=FLOOR(23.25,0.18)",
+        "result": "23.22"
+      }
+    ]
+  },
+  {
+    "name": "FLOOR.MATH",
+    "category": "math",
+    "syntax": "FLOOR.MATH(number, [significance], [mode])",
+    "description": "Round down to nearest multiple; handles negative numbers via mode",
+    "examples": [
+      {
+        "formula": "=FLOOR.MATH(11.2)",
+        "result": "11"
+      },
+      {
+        "formula": "=FLOOR.MATH(-8.8)",
+        "result": "-9"
+      },
+      {
+        "formula": "=FLOOR.MATH(7.7,0.2)",
+        "result": "7.6000000000000005"
+      }
+    ]
+  },
+  {
+    "name": "FLOOR.PRECISE",
+    "category": "math",
+    "syntax": "FLOOR.PRECISE(number, [significance])",
+    "description": "Round down to nearest multiple; sign of significance ignored",
+    "examples": [
+      {
+        "formula": "=FLOOR.PRECISE(-10.5,1)",
+        "result": "-11"
+      },
+      {
+        "formula": "=FLOOR.PRECISE(96,10)",
+        "result": "90"
+      },
+      {
+        "formula": "=FLOOR.PRECISE(-23.25,0.1)",
+        "result": "-23.3"
+      }
+    ]
+  },
+  {
+    "name": "FORECAST",
+    "category": "statistical",
+    "syntax": "FORECAST(x,known_y,known_x)",
+    "description": "Forecast using linear regression",
+    "examples": [
+      {
+        "formula": "=FORECAST(5,{2,4,6,8,10},{1,2,3,4,5})",
+        "result": "10"
+      },
+      {
+        "formula": "=FORECAST(10,{3,5,7,9},{1,2,3,4})",
+        "result": "21"
+      }
+    ]
+  },
+  {
+    "name": "FORECAST.LINEAR",
+    "category": "statistical",
+    "syntax": "FORECAST.LINEAR(x,known_y,known_x)",
+    "description": "Forecast using linear regression",
+    "examples": [
+      {
+        "formula": "=FORECAST.LINEAR(5,{2,4,6,8},{1,2,3,4})",
+        "result": "10"
+      },
+      {
+        "formula": "=FORECAST.LINEAR(1,{2,4,6,8},{1,2,3,4})",
+        "result": "2"
+      },
+      {
+        "formula": "=FORECAST.LINEAR(10,{2,4,6,8},{1,2,3,4})",
+        "result": "20"
+      }
+    ]
+  },
+  {
+    "name": "FORMULATEXT",
+    "category": "lookup",
+    "syntax": "FORMULATEXT(reference)",
+    "description": "Returns the formula string for a cell reference",
+    "examples": []
+  },
+  {
+    "name": "FREQUENCY",
+    "category": "array",
+    "syntax": "FREQUENCY(data, bins)",
+    "description": "Calculates the frequency distribution of values",
+    "examples": [
+      {
+        "formula": "=FREQUENCY({1,2,3,4,5},{2,4})",
+        "result": "2"
+      },
+      {
+        "formula": "=FREQUENCY({1,2,3,4,5},{3})",
+        "result": "3"
+      },
+      {
+        "formula": "=FREQUENCY({10,20,30,40,50},{25,45})",
+        "result": "2"
+      }
+    ]
+  },
+  {
+    "name": "FTEST",
+    "category": "statistical",
+    "syntax": "FTEST(array1,array2)",
+    "description": "F-test (legacy)",
+    "examples": [
+      {
+        "formula": "=FTEST({92,75,97,85,87,82,79},{84,89,87,95,82,71})",
+        "result": "0.8600520776898234"
+      },
+      {
+        "formula": "=FTEST({1,2,3,4,5},{1,2,3,4,5})",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "FV",
+    "category": "financial",
+    "syntax": "FV(rate, nper, pmt)",
+    "description": "Future value",
+    "examples": [
+      {
+        "formula": "=FV(2,12,100,400)",
+        "result": "-239148400"
+      },
+      {
+        "formula": "=FV(2,12,100,400,1)",
+        "result": "-292292400"
+      }
+    ]
+  },
+  {
+    "name": "FVSCHEDULE",
+    "category": "financial",
+    "syntax": "FVSCHEDULE(principal, schedule)",
+    "description": "Future value with variable rates",
+    "examples": [
+      {
+        "formula": "=FVSCHEDULE(10000,{0.1,0.95,0.9,0.85})",
+        "result": "75396.75"
+      }
+    ]
+  },
+  {
+    "name": "GAMMA",
+    "category": "statistical",
+    "syntax": "GAMMA(x)",
+    "description": "Gamma function",
+    "examples": [
+      {
+        "formula": "=GAMMA(4.5)",
+        "result": "11.631728396567436"
+      },
+      {
+        "formula": "=GAMMA(3)",
+        "result": "2"
+      }
+    ]
+  },
+  {
+    "name": "GAMMA.DIST",
+    "category": "statistical",
+    "syntax": "GAMMA.DIST(x,alpha,beta,cumulative)",
+    "description": "Gamma distribution CDF/PDF",
+    "examples": [
+      {
+        "formula": "=GAMMA.DIST(5,3.14,2,FALSE)",
+        "result": "0.12765503157305363"
+      },
+      {
+        "formula": "=GAMMA.DIST(4.79,1.234,7,TRUE)",
+        "result": "0.38911656554270735"
+      }
+    ]
+  },
+  {
+    "name": "GAMMA.INV",
+    "category": "statistical",
+    "syntax": "GAMMA.INV(p,alpha,beta)",
+    "description": "Gamma inverse CDF",
+    "examples": [
+      {
+        "formula": "=GAMMA.INV(0.3,5,1)",
+        "result": "3.6336090829638037"
+      },
+      {
+        "formula": "=GAMMA.INV(0.65,4,2)",
+        "result": "8.909358869077838"
+      }
+    ]
+  },
+  {
+    "name": "GAMMADIST",
+    "category": "statistical",
+    "syntax": "GAMMADIST(x,alpha,beta,cumulative)",
+    "description": "Gamma distribution (legacy)",
+    "examples": [
+      {
+        "formula": "=GAMMADIST(5,3.14,2,FALSE)",
+        "result": "0.12765503157305363"
+      },
+      {
+        "formula": "=GAMMADIST(4.79,1.234,7,TRUE)",
+        "result": "0.38911656554270735"
+      }
+    ]
+  },
+  {
+    "name": "GAMMAINV",
+    "category": "statistical",
+    "syntax": "GAMMAINV(p,alpha,beta)",
+    "description": "Gamma inverse CDF (legacy)",
+    "examples": [
+      {
+        "formula": "=GAMMAINV(0.3,5,1)",
+        "result": "3.6336090829638037"
+      },
+      {
+        "formula": "=GAMMAINV(0.65,4,2)",
+        "result": "8.909358869077838"
+      }
+    ]
+  },
+  {
+    "name": "GAMMALN",
+    "category": "math",
+    "syntax": "GAMMALN(x)",
+    "description": "Natural logarithm of the gamma function",
+    "examples": [
+      {
+        "formula": "=GAMMALN(4)",
+        "result": "1.791759469228055"
+      },
+      {
+        "formula": "=GAMMALN(1)",
+        "result": "0"
+      },
+      {
+        "formula": "=GAMMALN(0.5)",
+        "result": "0.5723649429247"
+      }
+    ]
+  },
+  {
+    "name": "GAMMALN.PRECISE",
+    "category": "math",
+    "syntax": "GAMMALN.PRECISE(x)",
+    "description": "Natural logarithm of the gamma function (precise)",
+    "examples": [
+      {
+        "formula": "=GAMMALN.PRECISE(4)",
+        "result": "1.791759469228055"
+      },
+      {
+        "formula": "=GAMMALN.PRECISE(1)",
+        "result": "0"
+      },
+      {
+        "formula": "=GAMMALN.PRECISE(0.5)",
+        "result": "0.5723649429247"
+      }
+    ]
+  },
+  {
+    "name": "GAUSS",
+    "category": "statistical",
+    "syntax": "GAUSS(x)",
+    "description": "NORM.S.DIST(x,TRUE) - 0.5",
+    "examples": [
+      {
+        "formula": "=GAUSS(1)",
+        "result": "0.34134474606854304"
+      },
+      {
+        "formula": "=GAUSS(-1)",
+        "result": "-0.34134474606854304"
+      }
+    ]
+  },
+  {
+    "name": "GCD",
+    "category": "math",
+    "syntax": "GCD(value1,...)",
+    "description": "Greatest common divisor",
+    "examples": [
+      {
+        "formula": "=GCD(24,36)",
+        "result": "12"
+      },
+      {
+        "formula": "=GCD(24,96,48)",
+        "result": "24"
+      },
+      {
+        "formula": "=GCD(12,4)",
+        "result": "4"
+      }
+    ]
+  },
+  {
+    "name": "GEOMEAN",
+    "category": "statistical",
+    "syntax": "GEOMEAN(value1,...)",
+    "description": "Geometric mean",
+    "examples": [
+      {
+        "formula": "=GEOMEAN(1,2,3,4,5,6,7,8,9,10)",
+        "result": "4.5287286881167645"
+      },
+      {
+        "formula": "=GEOMEAN(4,9,16)",
+        "result": "8.320335292207616"
+      },
+      {
+        "formula": "=GEOMEAN(2,8)",
+        "result": "4.000000000000001"
+      }
+    ]
+  },
+  {
+    "name": "GESTEP",
+    "category": "engineering",
+    "syntax": "GESTEP(number, [step])",
+    "description": "Test whether a number is greater than or equal to a step value",
+    "examples": [
+      {
+        "formula": "=GESTEP(5,2)",
+        "result": "1"
+      },
+      {
+        "formula": "=GESTEP(2,2)",
+        "result": "1"
+      },
+      {
+        "formula": "=GESTEP(-6,-1)",
+        "result": "0"
+      }
+    ]
+  },
+  {
+    "name": "GETPIVOTDATA",
+    "category": "lookup",
+    "syntax": "GETPIVOTDATA(data_field, pivot_table, ...)",
+    "description": "Retrieves data from a PivotTable",
+    "examples": []
+  },
+  {
+    "name": "GROWTH",
+    "category": "array",
+    "syntax": "GROWTH(known_y, [known_x], [new_x], [const])",
+    "description": "Returns values along an exponential trend",
+    "examples": [
+      {
+        "formula": "=GROWTH({2,4,8,16,32})",
+        "result": "2.0000000000000013"
+      },
+      {
+        "formula": "=GROWTH({2,4,8,16},{1,2,3,4})",
+        "result": "2.0000000000000004"
+      },
+      {
+        "formula": "=GROWTH({2,4,8,16},{1,2,3,4},{5})",
+        "result": "31.99999999999998"
+      }
+    ]
+  },
+  {
+    "name": "HARMEAN",
+    "category": "statistical",
+    "syntax": "HARMEAN(value1,...)",
+    "description": "Harmonic mean",
+    "examples": [
+      {
+        "formula": "=HARMEAN(1,2,3,4,5,6,7,8,9,10)",
+        "result": "3.414171521474055"
+      },
+      {
+        "formula": "=HARMEAN(2,4,8)",
+        "result": "3.4285714285714284"
+      },
+      {
+        "formula": "=HARMEAN(5,5)",
+        "result": "5"
+      }
+    ]
+  },
+  {
+    "name": "HEX2BIN",
+    "category": "engineering",
+    "syntax": "HEX2BIN(number, [places])",
+    "description": "Convert hexadecimal to binary",
+    "examples": []
+  },
+  {
+    "name": "HEX2DEC",
+    "category": "engineering",
+    "syntax": "HEX2DEC(number)",
+    "description": "Convert hexadecimal to decimal",
+    "examples": [
+      {
+        "formula": "=HEX2DEC(\"100\")",
+        "result": "256"
+      },
+      {
+        "formula": "=HEX2DEC(\"199\")",
+        "result": "409"
+      },
+      {
+        "formula": "=HEX2DEC(\"F3\")",
+        "result": "243"
+      }
+    ]
+  },
+  {
+    "name": "HEX2OCT",
+    "category": "engineering",
+    "syntax": "HEX2OCT(number, [places])",
+    "description": "Convert hexadecimal to octal",
+    "examples": []
+  },
+  {
+    "name": "HLOOKUP",
+    "category": "lookup",
+    "syntax": "HLOOKUP(search_key, range, index, [is_sorted])",
+    "description": "Searches first row of range, returns value from index row",
+    "examples": [
+      {
+        "formula": "=HLOOKUP(\"b\",{\"a\",\"b\",\"c\";1,2,3},2,FALSE)",
+        "result": "2"
+      },
+      {
+        "formula": "=HLOOKUP(\"a\",{\"a\",\"b\",\"c\";10,20,30},2,FALSE)",
+        "result": "10"
+      },
+      {
+        "formula": "=HLOOKUP(\"c\",{\"a\",\"b\",\"c\";10,20,30},2,FALSE)",
+        "result": "30"
+      }
+    ]
+  },
+  {
+    "name": "HOUR",
+    "category": "date",
+    "syntax": "HOUR(time)",
+    "description": "Hour component of a time serial number",
+    "examples": [
+      {
+        "formula": "=HOUR(TIME(11,40,59))",
+        "result": "11"
+      },
+      {
+        "formula": "=HOUR(40909.0004)",
+        "result": "0"
+      },
+      {
+        "formula": "=HOUR(\"20:49:59\")",
+        "result": "20"
+      }
+    ]
+  },
+  {
+    "name": "HSTACK",
+    "category": "array",
+    "syntax": "HSTACK(array1, ...)",
+    "description": "Horizontally stacks arrays",
+    "examples": [
+      {
+        "formula": "=HSTACK({1,2},{3,4})",
+        "result": "1"
+      },
+      {
+        "formula": "=HSTACK({1,2;3,4},{5,6;7,8})",
+        "result": "1"
+      },
+      {
+        "formula": "=HSTACK({1},{2},{3})",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "HYPERLINK",
+    "category": "web",
+    "syntax": "HYPERLINK(url, [link_label])",
+    "description": "Return link label (or url if no label)",
+    "examples": []
+  },
+  {
+    "name": "HYPGEOM.DIST",
+    "category": "statistical",
+    "syntax": "HYPGEOM.DIST(x,n,k,pop,cumulative)",
+    "description": "Hypergeometric distribution",
+    "examples": [
+      {
+        "formula": "=HYPGEOM.DIST(4,12,20,40,FALSE)",
+        "result": "0.1092430027357725"
+      },
+      {
+        "formula": "=HYPGEOM.DIST(4,12,20,40,TRUE)",
+        "result": "0.15042239124552811"
+      },
+      {
+        "formula": "=HYPGEOM.DIST(2,5,8,20,FALSE)",
+        "result": "0.3973168214654283"
+      }
+    ]
+  },
+  {
+    "name": "HYPGEOMDIST",
+    "category": "statistical",
+    "syntax": "HYPGEOMDIST(x,n,k,pop)",
+    "description": "Hypergeometric PMF (legacy)",
+    "examples": []
+  },
+  {
+    "name": "IF",
+    "category": "logical",
+    "syntax": "IF(condition, true_val, false_val)",
+    "description": "Conditional value",
+    "examples": [
+      {
+        "formula": "=IF(TRUE,4,5)",
+        "result": "4"
+      },
+      {
+        "formula": "=IF(FALSE,4,5)",
+        "result": "5"
+      }
+    ]
+  },
+  {
+    "name": "IFERROR",
+    "category": "logical",
+    "syntax": "IFERROR(value, value_if_error)",
+    "description": "Return alternate value on error",
+    "examples": [
+      {
+        "formula": "=IFERROR(5,0)",
+        "result": "5"
+      },
+      {
+        "formula": "=IFERROR(NA(),0)",
+        "result": "0"
+      },
+      {
+        "formula": "=IFERROR(SHEET(INDIRECT(\"Sheet1!A1\")),1)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "IFNA",
+    "category": "logical",
+    "syntax": "IFNA(value, value_if_na)",
+    "description": "Return alternate value on #N/A",
+    "examples": [
+      {
+        "formula": "=IFNA(205,\"Na error\")",
+        "result": "205"
+      },
+      {
+        "formula": "=IFNA(2+3,0)",
+        "result": "5"
+      }
+    ]
+  },
+  {
+    "name": "IFS",
+    "category": "logical",
+    "syntax": "IFS(cond1, val1,...)",
+    "description": "First value whose condition is true",
+    "examples": []
+  },
+  {
+    "name": "IMABS",
+    "category": "engineering",
+    "syntax": "IMABS(complex)",
+    "description": "Absolute value of a complex number",
+    "examples": [
+      {
+        "formula": "=IMABS(\"3+4i\")",
+        "result": "5"
+      },
+      {
+        "formula": "=IMABS(\"6j\")",
+        "result": "6"
+      },
+      {
+        "formula": "=IMABS(COMPLEX(3,4))",
+        "result": "5"
+      }
+    ]
+  },
+  {
+    "name": "IMAGINARY",
+    "category": "engineering",
+    "syntax": "IMAGINARY(complex)",
+    "description": "Imaginary part of a complex number",
+    "examples": [
+      {
+        "formula": "=IMAGINARY(\"3+5i\")",
+        "result": "5"
+      },
+      {
+        "formula": "=IMAGINARY(\"4j\")",
+        "result": "4"
+      },
+      {
+        "formula": "=IMAGINARY(\"45\")",
+        "result": "0"
+      }
+    ]
+  },
+  {
+    "name": "IMARGUMENT",
+    "category": "engineering",
+    "syntax": "IMARGUMENT(complex)",
+    "description": "Argument (angle) of a complex number",
+    "examples": [
+      {
+        "formula": "=IMARGUMENT(COMPLEX(0,1))",
+        "result": "1.5707963267948966"
+      },
+      {
+        "formula": "=IMARGUMENT(1)",
+        "result": "0"
+      },
+      {
+        "formula": "=IMARGUMENT(\"1+1i\")",
+        "result": "0.7853981633974483"
+      }
+    ]
+  },
+  {
+    "name": "IMCONJUGATE",
+    "category": "engineering",
+    "syntax": "IMCONJUGATE(complex)",
+    "description": "Complex conjugate",
+    "examples": []
+  },
+  {
+    "name": "IMCOS",
+    "category": "engineering",
+    "syntax": "IMCOS(complex)",
+    "description": "Cosine of a complex number",
+    "examples": []
+  },
+  {
+    "name": "IMCOSH",
+    "category": "engineering",
+    "syntax": "IMCOSH(complex)",
+    "description": "Hyperbolic cosine of a complex number",
+    "examples": []
+  },
+  {
+    "name": "IMCOT",
+    "category": "engineering",
+    "syntax": "IMCOT(complex)",
+    "description": "Cotangent of a complex number",
+    "examples": []
+  },
+  {
+    "name": "IMCOTH",
+    "category": "engineering",
+    "syntax": "IMCOTH(complex)",
+    "description": "Hyperbolic cotangent of a complex number",
+    "examples": []
+  },
+  {
+    "name": "IMCSC",
+    "category": "engineering",
+    "syntax": "IMCSC(complex)",
+    "description": "Cosecant of a complex number",
+    "examples": []
+  },
+  {
+    "name": "IMCSCH",
+    "category": "engineering",
+    "syntax": "IMCSCH(complex)",
+    "description": "Hyperbolic cosecant of a complex number",
+    "examples": []
+  },
+  {
+    "name": "IMDIV",
+    "category": "engineering",
+    "syntax": "IMDIV(complex1, complex2)",
+    "description": "Divide complex numbers",
+    "examples": []
+  },
+  {
+    "name": "IMEXP",
+    "category": "engineering",
+    "syntax": "IMEXP(complex)",
+    "description": "e raised to a complex power",
+    "examples": []
+  },
+  {
+    "name": "IMLN",
+    "category": "engineering",
+    "syntax": "IMLN(complex)",
+    "description": "Natural log of a complex number",
+    "examples": []
+  },
+  {
+    "name": "IMLOG",
+    "category": "engineering",
+    "syntax": "IMLOG(complex, base)",
+    "description": "Logarithm of a complex number to a given base",
+    "examples": []
+  },
+  {
+    "name": "IMLOG10",
+    "category": "engineering",
+    "syntax": "IMLOG10(complex)",
+    "description": "Base-10 log of a complex number",
+    "examples": []
+  },
+  {
+    "name": "IMLOG2",
+    "category": "engineering",
+    "syntax": "IMLOG2(complex)",
+    "description": "Base-2 log of a complex number",
+    "examples": []
+  },
+  {
+    "name": "IMPOWER",
+    "category": "engineering",
+    "syntax": "IMPOWER(complex, number)",
+    "description": "Complex number raised to a power",
+    "examples": []
+  },
+  {
+    "name": "IMPRODUCT",
+    "category": "engineering",
+    "syntax": "IMPRODUCT(complex1, ...)",
+    "description": "Product of complex numbers",
+    "examples": []
+  },
+  {
+    "name": "IMREAL",
+    "category": "engineering",
+    "syntax": "IMREAL(complex)",
+    "description": "Real part of a complex number",
+    "examples": [
+      {
+        "formula": "=IMREAL(\"3+5i\")",
+        "result": "3"
+      },
+      {
+        "formula": "=IMREAL(\"4j\")",
+        "result": "0"
+      },
+      {
+        "formula": "=IMREAL(COMPLEX(3,5))",
+        "result": "3"
+      }
+    ]
+  },
+  {
+    "name": "IMSEC",
+    "category": "engineering",
+    "syntax": "IMSEC(complex)",
+    "description": "Secant of a complex number",
+    "examples": []
+  },
+  {
+    "name": "IMSECH",
+    "category": "engineering",
+    "syntax": "IMSECH(complex)",
+    "description": "Hyperbolic secant of a complex number",
+    "examples": []
+  },
+  {
+    "name": "IMSIN",
+    "category": "engineering",
+    "syntax": "IMSIN(complex)",
+    "description": "Sine of a complex number",
+    "examples": []
+  },
+  {
+    "name": "IMSINH",
+    "category": "engineering",
+    "syntax": "IMSINH(complex)",
+    "description": "Hyperbolic sine of a complex number",
+    "examples": []
+  },
+  {
+    "name": "IMSQRT",
+    "category": "engineering",
+    "syntax": "IMSQRT(complex)",
+    "description": "Square root of a complex number",
+    "examples": []
+  },
+  {
+    "name": "IMSUB",
+    "category": "engineering",
+    "syntax": "IMSUB(complex1, complex2)",
+    "description": "Subtract complex numbers",
+    "examples": []
+  },
+  {
+    "name": "IMSUM",
+    "category": "engineering",
+    "syntax": "IMSUM(complex1, ...)",
+    "description": "Sum of complex numbers",
+    "examples": []
+  },
+  {
+    "name": "IMTAN",
+    "category": "engineering",
+    "syntax": "IMTAN(complex)",
+    "description": "Tangent of a complex number",
+    "examples": []
+  },
+  {
+    "name": "IMTANH",
+    "category": "engineering",
+    "syntax": "IMTANH(complex)",
+    "description": "Hyperbolic tangent of a complex number",
+    "examples": []
+  },
+  {
+    "name": "INDEX",
+    "category": "lookup",
+    "syntax": "INDEX(array, row, [col])",
+    "description": "Returns the value at the given 1-based row (and optionally col) in an array",
+    "examples": [
+      {
+        "formula": "=INDEX({10,20,30},1)",
+        "result": "10"
+      },
+      {
+        "formula": "=INDEX({10,20,30},2)",
+        "result": "20"
+      },
+      {
+        "formula": "=INDEX({10,20,30},3)",
+        "result": "30"
+      }
+    ]
+  },
+  {
+    "name": "INDIRECT",
+    "category": "lookup",
+    "syntax": "INDIRECT(ref_text, [a1])",
+    "description": "Returns the value referenced by a cell address string",
+    "examples": []
+  },
+  {
+    "name": "INT",
+    "category": "math",
+    "syntax": "INT(number)",
+    "description": "Round down to nearest integer",
+    "examples": [
+      {
+        "formula": "=INT(99.44)",
+        "result": "99"
+      },
+      {
+        "formula": "=INT(-8.9)",
+        "result": "-9"
+      },
+      {
+        "formula": "=INT(7)",
+        "result": "7"
+      }
+    ]
+  },
+  {
+    "name": "INTERCEPT",
+    "category": "statistical",
+    "syntax": "INTERCEPT(known_y,known_x)",
+    "description": "Intercept of linear regression",
+    "examples": [
+      {
+        "formula": "=INTERCEPT({2,3,9,1,8},{6,5,11,7,5})",
+        "result": "0.04838709677419306"
+      }
+    ]
+  },
+  {
+    "name": "INTRATE",
+    "category": "financial",
+    "syntax": "INTRATE(settlement, maturity, investment, redemption, [basis])",
+    "description": "Interest rate for fully invested security",
+    "examples": [
+      {
+        "formula": "=INTRATE(DATE(2010,1,2),DATE(2019,12,31),90,140,2)",
+        "result": "0.0547945205479452"
+      },
+      {
+        "formula": "=INTRATE(DATE(2008,2,15),DATE(2008,5,15),1000000,1014420)",
+        "result": "0.05768"
+      },
+      {
+        "formula": "=INTRATE(DATE(2010,1,2),DATE(2039,12,31),100,150,1)",
+        "result": "0.01666971136280599"
+      }
+    ]
+  },
+  {
+    "name": "IPMT",
+    "category": "financial",
+    "syntax": "IPMT(rate, per, nper, pv, [fv], [type])",
+    "description": "Interest payment for a period",
+    "examples": [
+      {
+        "formula": "=IPMT(0.05/12,1,360,100000)",
+        "result": "-416.6666666666667"
+      },
+      {
+        "formula": "=IPMT(2,5,12,100)",
+        "result": "-199.96989312057806"
+      },
+      {
+        "formula": "=IPMT(0.1/12,1,36,8000,0,1)",
+        "result": "0"
+      }
+    ]
+  },
+  {
+    "name": "IRR",
+    "category": "financial",
+    "syntax": "IRR(values, [guess])",
+    "description": "Internal rate of return",
+    "examples": [
+      {
+        "formula": "=IRR({-4000,200,250,300,350},0.1)",
+        "result": "-0.3524266235692171"
+      },
+      {
+        "formula": "=IRR({-4000,200,250,300,350})",
+        "result": "-0.3524266235692171"
+      }
+    ]
+  },
+  {
+    "name": "ISBETWEEN",
+    "category": "operator",
+    "syntax": "ISBETWEEN(value, lower, upper, [lower_inclusive], [upper_inclusive])",
+    "description": "Returns TRUE if value is between lower and upper bounds",
+    "examples": []
+  },
+  {
+    "name": "ISBLANK",
+    "category": "logical",
+    "syntax": "ISBLANK(value)",
+    "description": "True if value is blank",
+    "examples": []
+  },
+  {
+    "name": "ISDATE",
+    "category": "logical",
+    "syntax": "ISDATE(value)",
+    "description": "True if value is a date",
+    "examples": []
+  },
+  {
+    "name": "ISEMAIL",
+    "category": "logical",
+    "syntax": "ISEMAIL(value)",
+    "description": "True if value is a valid email address",
+    "examples": []
+  },
+  {
+    "name": "ISERR",
+    "category": "logical",
+    "syntax": "ISERR(value)",
+    "description": "True if value is an error other than #N/A",
+    "examples": []
+  },
+  {
+    "name": "ISERROR",
+    "category": "logical",
+    "syntax": "ISERROR(value)",
+    "description": "True if value is an error",
+    "examples": []
+  },
+  {
+    "name": "ISEVEN",
+    "category": "math",
+    "syntax": "ISEVEN(number)",
+    "description": "Returns TRUE if number is even",
+    "examples": []
+  },
+  {
+    "name": "ISFORMULA",
+    "category": "logical",
+    "syntax": "ISFORMULA(value)",
+    "description": "True if the cell contains a formula",
+    "examples": []
+  },
+  {
+    "name": "ISLOGICAL",
+    "category": "logical",
+    "syntax": "ISLOGICAL(value)",
+    "description": "True if value is a logical (boolean)",
+    "examples": []
+  },
+  {
+    "name": "ISNA",
+    "category": "logical",
+    "syntax": "ISNA(value)",
+    "description": "True if value is #N/A",
+    "examples": []
+  },
+  {
+    "name": "ISNONTEXT",
+    "category": "logical",
+    "syntax": "ISNONTEXT(value)",
+    "description": "True if value is not text",
+    "examples": []
+  },
+  {
+    "name": "ISNUMBER",
+    "category": "logical",
+    "syntax": "ISNUMBER(value)",
+    "description": "True if value is a number",
+    "examples": []
+  },
+  {
+    "name": "ISO.CEILING",
+    "category": "math",
+    "syntax": "ISO.CEILING(number, [significance])",
+    "description": "ISO standard ceiling; identical to CEILING.PRECISE",
+    "examples": [
+      {
+        "formula": "=ISO.CEILING(-10.5,1)",
+        "result": "-10"
+      },
+      {
+        "formula": "=ISO.CEILING(96,10)",
+        "result": "100"
+      },
+      {
+        "formula": "=ISO.CEILING(-23.25,0.1)",
+        "result": "-23.200000000000003"
+      }
+    ]
+  },
+  {
+    "name": "ISODD",
+    "category": "math",
+    "syntax": "ISODD(number)",
+    "description": "Returns TRUE if number is odd",
+    "examples": []
+  },
+  {
+    "name": "ISOWEEKNUM",
+    "category": "date",
+    "syntax": "ISOWEEKNUM(date)",
+    "description": "ISO week number of the year for a date",
+    "examples": [
+      {
+        "formula": "=ISOWEEKNUM(DATE(1969,7,20))",
+        "result": "29"
+      },
+      {
+        "formula": "=ISOWEEKNUM(DATE(2002,6,14))",
+        "result": "24"
+      },
+      {
+        "formula": "=ISOWEEKNUM(DATE(2015,1,1))",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "ISPMT",
+    "category": "financial",
+    "syntax": "ISPMT(rate, per, nper, pv)",
+    "description": "Interest paid for a period (straight line)",
+    "examples": [
+      {
+        "formula": "=ISPMT(0.15,2,5,1000)",
+        "result": "-90"
+      }
+    ]
+  },
+  {
+    "name": "ISREF",
+    "category": "logical",
+    "syntax": "ISREF(value)",
+    "description": "True if value is a cell reference",
+    "examples": []
+  },
+  {
+    "name": "ISTEXT",
+    "category": "logical",
+    "syntax": "ISTEXT(value)",
+    "description": "True if value is text",
+    "examples": []
+  },
+  {
+    "name": "ISURL",
+    "category": "web",
+    "syntax": "ISURL(value)",
+    "description": "Return TRUE if value is a URL string",
+    "examples": []
+  },
+  {
+    "name": "ISZONED",
+    "category": "timezone",
+    "syntax": "ISZONED(value)",
+    "description": "TRUE if the value is a zone-aware instant",
+    "examples": []
+  },
+  {
+    "name": "JOIN",
+    "category": "text",
+    "syntax": "JOIN(delimiter, value1, ...)",
+    "description": "Join values with delimiter",
+    "examples": []
+  },
+  {
+    "name": "KURT",
+    "category": "statistical",
+    "syntax": "KURT(value1,...)",
+    "description": "Excess kurtosis",
+    "examples": [
+      {
+        "formula": "=KURT(1,2,3,4,5,6,7,8,9,10)",
+        "result": "-1.2000000000000015"
+      },
+      {
+        "formula": "=KURT({1,2,3,4,5,6,7,8,9,10})",
+        "result": "-1.2000000000000015"
+      }
+    ]
+  },
+  {
+    "name": "LAMBDA",
+    "category": "logical",
+    "syntax": "LAMBDA(param1, ..., body)",
+    "description": "Create a lambda function",
+    "examples": [
+      {
+        "formula": "=LAMBDA(salary,salary*0.3)(1000)",
+        "result": "300"
+      },
+      {
+        "formula": "=LAMBDA(Temp,(5/9)*(Temp-32))(85)",
+        "result": "29.444444444444446"
+      }
+    ]
+  },
+  {
+    "name": "LARGE",
+    "category": "statistical",
+    "syntax": "LARGE(array,k)",
+    "description": "k-th largest value",
+    "examples": [
+      {
+        "formula": "=LARGE({3,5,3,5,4,4,2,4,6,7},4)",
+        "result": "5"
+      }
+    ]
+  },
+  {
+    "name": "LCM",
+    "category": "math",
+    "syntax": "LCM(value1,...)",
+    "description": "Least common multiple",
+    "examples": [
+      {
+        "formula": "=LCM(4,6)",
+        "result": "12"
+      },
+      {
+        "formula": "=LCM(2,3,5)",
+        "result": "30"
+      },
+      {
+        "formula": "=LCM(12,18)",
+        "result": "36"
+      }
+    ]
+  },
+  {
+    "name": "LEFT",
+    "category": "text",
+    "syntax": "LEFT(text, num_chars)",
+    "description": "Left portion of a string",
+    "examples": []
+  },
+  {
+    "name": "LEFTB",
+    "category": "text",
+    "syntax": "LEFTB(text, num_bytes)",
+    "description": "Left N bytes of text",
+    "examples": []
+  },
+  {
+    "name": "LEN",
+    "category": "text",
+    "syntax": "LEN(text)",
+    "description": "Number of characters in text",
+    "examples": [
+      {
+        "formula": "=LEN(\"lorem ipsum\")",
+        "result": "11"
+      },
+      {
+        "formula": "=LEN(\"\")",
+        "result": "0"
+      },
+      {
+        "formula": "=LEN(\"熊本\")",
+        "result": "2"
+      }
+    ]
+  },
+  {
+    "name": "LENB",
+    "category": "text",
+    "syntax": "LENB(text)",
+    "description": "Number of bytes in text",
+    "examples": [
+      {
+        "formula": "=LENB(\"Aeñ\")",
+        "result": "3"
+      },
+      {
+        "formula": "=LENB(\"熊本\")",
+        "result": "4"
+      }
+    ]
+  },
+  {
+    "name": "LET",
+    "category": "logical",
+    "syntax": "LET(name1, val1, ..., body)",
+    "description": "Bind named values and evaluate body",
+    "examples": []
+  },
+  {
+    "name": "LINEST",
+    "category": "array",
+    "syntax": "LINEST(known_y, [known_x], [const], [stats])",
+    "description": "Returns linear regression statistics",
+    "examples": [
+      {
+        "formula": "=LINEST({1,2,3,4},{1,2,3,4})",
+        "result": "0.9999999999999998"
+      },
+      {
+        "formula": "=LINEST({2,4,6,8},{1,2,3,4},TRUE)",
+        "result": "1.9999999999999996"
+      },
+      {
+        "formula": "=LINEST({2,4,6,8},{1,2,3,4},FALSE)",
+        "result": "2"
+      }
+    ]
+  },
+  {
+    "name": "LN",
+    "category": "math",
+    "syntax": "LN(number)",
+    "description": "Natural logarithm",
+    "examples": [
+      {
+        "formula": "=LN(100)",
+        "result": "4.605170185988092"
+      },
+      {
+        "formula": "=LN(1)",
+        "result": "0"
+      },
+      {
+        "formula": "=LN(EXP(1))",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "LOG",
+    "category": "math",
+    "syntax": "LOG(number, base)",
+    "description": "Logarithm to specified base",
+    "examples": [
+      {
+        "formula": "=LOG(128,2)",
+        "result": "7"
+      },
+      {
+        "formula": "=LOG(1000,10)",
+        "result": "3"
+      },
+      {
+        "formula": "=LOG(100)",
+        "result": "2"
+      }
+    ]
+  },
+  {
+    "name": "LOG10",
+    "category": "math",
+    "syntax": "LOG10(number)",
+    "description": "Base-10 logarithm",
+    "examples": [
+      {
+        "formula": "=LOG10(100)",
+        "result": "2"
+      },
+      {
+        "formula": "=LOG10(1)",
+        "result": "0"
+      },
+      {
+        "formula": "=LOG10(1000)",
+        "result": "3"
+      }
+    ]
+  },
+  {
+    "name": "LOGEST",
+    "category": "array",
+    "syntax": "LOGEST(known_y, [known_x], [const], [stats])",
+    "description": "Returns exponential regression statistics",
+    "examples": [
+      {
+        "formula": "=LOGEST({2,4,8,16},{1,2,3,4})",
+        "result": "1.9999999999999996"
+      },
+      {
+        "formula": "=LOGEST({2,4,8,16},{1,2,3,4},TRUE)",
+        "result": "1.9999999999999996"
+      },
+      {
+        "formula": "=LOGEST({2,4,8,16},{1,2,3,4},FALSE)",
+        "result": "2"
+      }
+    ]
+  },
+  {
+    "name": "LOGINV",
+    "category": "statistical",
+    "syntax": "LOGINV(p,mean,stdev)",
+    "description": "Lognormal inverse CDF (legacy)",
+    "examples": [
+      {
+        "formula": "=LOGINV(0.4,4,6)",
+        "result": "11.940277905248184"
+      }
+    ]
+  },
+  {
+    "name": "LOGNORM.DIST",
+    "category": "statistical",
+    "syntax": "LOGNORM.DIST(x,mean,stdev,cumulative)",
+    "description": "Lognormal distribution",
+    "examples": [
+      {
+        "formula": "=LOGNORM.DIST(4,4,6,TRUE)",
+        "result": "0.33155709720516946"
+      },
+      {
+        "formula": "=LOGNORM.DIST(4,4,6,FALSE)",
+        "result": "0.015117931652006736"
+      }
+    ]
+  },
+  {
+    "name": "LOGNORM.INV",
+    "category": "statistical",
+    "syntax": "LOGNORM.INV(p,mean,stdev)",
+    "description": "Lognormal inverse CDF",
+    "examples": [
+      {
+        "formula": "=LOGNORM.INV(0.4,4,6)",
+        "result": "11.940277905248184"
+      }
+    ]
+  },
+  {
+    "name": "LOGNORMDIST",
+    "category": "statistical",
+    "syntax": "LOGNORMDIST(x,mean,stdev)",
+    "description": "Lognormal CDF (legacy)",
+    "examples": []
+  },
+  {
+    "name": "LOOKUP",
+    "category": "lookup",
+    "syntax": "LOOKUP(search_key, search_range, [result_range])",
+    "description": "Approximate lookup in sorted range",
+    "examples": []
+  },
+  {
+    "name": "LOWER",
+    "category": "text",
+    "syntax": "LOWER(text)",
+    "description": "Convert to lowercase",
+    "examples": []
+  },
+  {
+    "name": "MAKEARRAY",
+    "category": "array",
+    "syntax": "MAKEARRAY(rows, cols, lambda)",
+    "description": "Creates an array using a LAMBDA for each cell value",
+    "examples": [
+      {
+        "formula": "=MAKEARRAY(2,3,LAMBDA(r,c,r*c))",
+        "result": "1"
+      },
+      {
+        "formula": "=MAKEARRAY(2,2,LAMBDA(r,c,IF(r=c,1,0)))",
+        "result": "1"
+      },
+      {
+        "formula": "=MAKEARRAY(3,3,LAMBDA(r,c,r+c))",
+        "result": "2"
+      }
+    ]
+  },
+  {
+    "name": "MAP",
+    "category": "array",
+    "syntax": "MAP(array1, [array2, ...], lambda)",
+    "description": "Maps a LAMBDA over one or more arrays",
+    "examples": [
+      {
+        "formula": "=MAP({1000,2000,3000},LAMBDA(salary,salary*0.3))",
+        "result": "300"
+      },
+      {
+        "formula": "=MAP({1,2,3},LAMBDA(x,x*2))",
+        "result": "2"
+      },
+      {
+        "formula": "=MAP({1,2,3,4},LAMBDA(x,x^2))",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "MARGINOFERROR",
+    "category": "statistical",
+    "syntax": "MARGINOFERROR(data,confidence)",
+    "description": "Margin of error",
+    "examples": [
+      {
+        "formula": "=MARGINOFERROR({8,4,3,6},0.95)",
+        "result": "3.5283078589306944"
+      },
+      {
+        "formula": "=MARGINOFERROR({1,2,3;4,5,6;7,8,9},0.99)",
+        "result": "3.0630355508972618"
+      }
+    ]
+  },
+  {
+    "name": "MATCH",
+    "category": "lookup",
+    "syntax": "MATCH(search_key, range, [match_type])",
+    "description": "Returns 1-based position of first match",
+    "examples": [
+      {
+        "formula": "=MATCH(\"a\",{\"a\",\"b\",\"c\"},0)",
+        "result": "1"
+      },
+      {
+        "formula": "=MATCH(\"b\",{\"a\",\"b\",\"c\"},0)",
+        "result": "2"
+      },
+      {
+        "formula": "=MATCH(\"c\",{\"a\",\"b\",\"c\"},0)",
+        "result": "3"
+      }
+    ]
+  },
+  {
+    "name": "MAX",
+    "category": "statistical",
+    "syntax": "MAX(value1,...)",
+    "description": "Maximum value",
+    "examples": [
+      {
+        "formula": "=MAX(PRICES)",
+        "result": "30"
+      },
+      {
+        "formula": "=MAX(1,2,3,4,5)",
+        "result": "5"
+      },
+      {
+        "formula": "=MAX({1,2,3},{4,5,6},4,26)",
+        "result": "26"
+      }
+    ]
+  },
+  {
+    "name": "MAXA",
+    "category": "statistical",
+    "syntax": "MAXA(value1,...)",
+    "description": "Maximum including booleans and text",
+    "examples": [
+      {
+        "formula": "=MAXA(1,2,3,4,5)",
+        "result": "5"
+      },
+      {
+        "formula": "=MAXA({1,2,3},{4,5,6},4,26)",
+        "result": "26"
+      }
+    ]
+  },
+  {
+    "name": "MAXIFS",
+    "category": "statistical",
+    "syntax": "MAXIFS(max_range,criteria_range1,criteria1,...)",
+    "description": "Maximum with multiple criteria",
+    "examples": []
+  },
+  {
+    "name": "MDETERM",
+    "category": "array",
+    "syntax": "MDETERM(array)",
+    "description": "Returns the matrix determinant",
+    "examples": [
+      {
+        "formula": "=MDETERM({1,2;3,4})",
+        "result": "-2"
+      },
+      {
+        "formula": "=MDETERM({1,2,3;4,5,6;7,8,10})",
+        "result": "-2.9999999999999982"
+      },
+      {
+        "formula": "=MDETERM({1,0;0,1})",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "MDURATION",
+    "category": "financial",
+    "syntax": "MDURATION(settlement, maturity, coupon, yld, frequency, [basis])",
+    "description": "Modified duration",
+    "examples": [
+      {
+        "formula": "=MDURATION(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,2)",
+        "result": "0.829861111506118"
+      },
+      {
+        "formula": "=MDURATION(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,2,1)",
+        "result": "0.8298802950543064"
+      }
+    ]
+  },
+  {
+    "name": "MEDIAN",
+    "category": "statistical",
+    "syntax": "MEDIAN(value1,...)",
+    "description": "Median value",
+    "examples": [
+      {
+        "formula": "=MEDIAN({1,2,3,4,5})",
+        "result": "3"
+      },
+      {
+        "formula": "=MEDIAN({1,2,3,4})",
+        "result": "2.5"
+      },
+      {
+        "formula": "=MEDIAN({1,2,3,4,5},26,4)",
+        "result": "4"
+      }
+    ]
+  },
+  {
+    "name": "MID",
+    "category": "text",
+    "syntax": "MID(text, start, num_chars)",
+    "description": "Substring from middle of text",
+    "examples": []
+  },
+  {
+    "name": "MIDB",
+    "category": "text",
+    "syntax": "MIDB(text, start_byte, num_bytes)",
+    "description": "Substring by byte position",
+    "examples": []
+  },
+  {
+    "name": "MIN",
+    "category": "statistical",
+    "syntax": "MIN(value1,...)",
+    "description": "Minimum value",
+    "examples": [
+      {
+        "formula": "=MIN({4,26,2,14,5})",
+        "result": "2"
+      },
+      {
+        "formula": "=MIN({1,2,3,4,5},26,4)",
+        "result": "1"
+      },
+      {
+        "formula": "=MIN({-3,0,5,10})",
+        "result": "-3"
+      }
+    ]
+  },
+  {
+    "name": "MINA",
+    "category": "statistical",
+    "syntax": "MINA(value1,...)",
+    "description": "Minimum including booleans and text",
+    "examples": [
+      {
+        "formula": "=MINA({5,10,\"hello\",20})",
+        "result": "0"
+      },
+      {
+        "formula": "=MINA({1,2,3,4,5},26,4)",
+        "result": "1"
+      },
+      {
+        "formula": "=MINA({-5,10,\"text\",20})",
+        "result": "-5"
+      }
+    ]
+  },
+  {
+    "name": "MINIFS",
+    "category": "statistical",
+    "syntax": "MINIFS(min_range,criteria_range1,criteria1,...)",
+    "description": "Minimum with multiple criteria",
+    "examples": []
+  },
+  {
+    "name": "MINUTE",
+    "category": "date",
+    "syntax": "MINUTE(time)",
+    "description": "Minute component of a time serial number",
+    "examples": [
+      {
+        "formula": "=MINUTE(TIME(11,40,59))",
+        "result": "40"
+      },
+      {
+        "formula": "=MINUTE(40909.0004)",
+        "result": "0"
+      },
+      {
+        "formula": "=MINUTE(\"20:49:59\")",
+        "result": "49"
+      }
+    ]
+  },
+  {
+    "name": "MINVERSE",
+    "category": "array",
+    "syntax": "MINVERSE(array)",
+    "description": "Returns the matrix inverse",
+    "examples": [
+      {
+        "formula": "=MINVERSE({1,2;3,4})",
+        "result": "-1.9999999999999998"
+      },
+      {
+        "formula": "=MINVERSE({1,0;0,1})",
+        "result": "1"
+      },
+      {
+        "formula": "=MINVERSE({2,0;0,4})",
+        "result": "0.5"
+      }
+    ]
+  },
+  {
+    "name": "MIRR",
+    "category": "financial",
+    "syntax": "MIRR(values, finance_rate, reinvest_rate)",
+    "description": "Modified internal rate of return",
+    "examples": [
+      {
+        "formula": "=MIRR({-4000,200,250,300,350},0.08,0.11)",
+        "result": "-0.25015913212038143"
+      }
+    ]
+  },
+  {
+    "name": "MMULT",
+    "category": "array",
+    "syntax": "MMULT(array1, array2)",
+    "description": "Returns the matrix product of two arrays",
+    "examples": [
+      {
+        "formula": "=MMULT({1,2;3,4},{5,6;7,8})",
+        "result": "19"
+      },
+      {
+        "formula": "=MMULT({1,2,3;4,5,6},{7,8;9,10;11,12})",
+        "result": "58"
+      },
+      {
+        "formula": "=MMULT({1,2},{3;4})",
+        "result": "11"
+      }
+    ]
+  },
+  {
+    "name": "MOD",
+    "category": "math",
+    "syntax": "MOD(number, divisor)",
+    "description": "Remainder after division",
+    "examples": [
+      {
+        "formula": "=MOD(10,4)",
+        "result": "2"
+      },
+      {
+        "formula": "=MOD(21,14)",
+        "result": "7"
+      }
+    ]
+  },
+  {
+    "name": "MODE",
+    "category": "statistical",
+    "syntax": "MODE(value1,...)",
+    "description": "Most frequent value",
+    "examples": [
+      {
+        "formula": "=MODE({1,2,3,3,4})",
+        "result": "3"
+      },
+      {
+        "formula": "=MODE({2,2,3,3,4})",
+        "result": "2"
+      },
+      {
+        "formula": "=MODE({1,2,3},3,4,26)",
+        "result": "3"
+      }
+    ]
+  },
+  {
+    "name": "MODE.MULT",
+    "category": "statistical",
+    "syntax": "MODE.MULT(value1,...)",
+    "description": "All most frequent values",
+    "examples": [
+      {
+        "formula": "=MODE.MULT({10,15,20,30,10,15})",
+        "result": "10"
+      }
+    ]
+  },
+  {
+    "name": "MODE.SNGL",
+    "category": "statistical",
+    "syntax": "MODE.SNGL(value1,...)",
+    "description": "Most frequent value",
+    "examples": [
+      {
+        "formula": "=MODE.SNGL({1,2,3,3,4})",
+        "result": "3"
+      },
+      {
+        "formula": "=MODE.SNGL({2,2,3,3,4})",
+        "result": "2"
+      },
+      {
+        "formula": "=MODE.SNGL({1,2,3},3,4,26)",
+        "result": "3"
+      }
+    ]
+  },
+  {
+    "name": "MONTH",
+    "category": "date",
+    "syntax": "MONTH(date)",
+    "description": "Month number from a date serial number",
+    "examples": [
+      {
+        "formula": "=MONTH(DATE(1969,7,20))",
+        "result": "7"
+      },
+      {
+        "formula": "=MONTH(40909)",
+        "result": "1"
+      },
+      {
+        "formula": "=MONTH(\"7/20/1969\")",
+        "result": "7"
+      }
+    ]
+  },
+  {
+    "name": "MROUND",
+    "category": "math",
+    "syntax": "MROUND(number, multiple)",
+    "description": "Round to nearest multiple",
+    "examples": [
+      {
+        "formula": "=MROUND(21,14)",
+        "result": "28"
+      },
+      {
+        "formula": "=MROUND(10,3)",
+        "result": "9"
+      }
+    ]
+  },
+  {
+    "name": "MULTINOMIAL",
+    "category": "math",
+    "syntax": "MULTINOMIAL(value1,...)",
+    "description": "Multinomial coefficient of given arguments",
+    "examples": [
+      {
+        "formula": "=MULTINOMIAL(1,2,3)",
+        "result": "60"
+      },
+      {
+        "formula": "=MULTINOMIAL(5)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "MUNIT",
+    "category": "math",
+    "syntax": "MUNIT(dimension)",
+    "description": "Returns identity matrix of given dimension",
+    "examples": [
+      {
+        "formula": "=MUNIT(1)",
+        "result": "1"
+      },
+      {
+        "formula": "=MUNIT(3)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "N",
+    "category": "logical",
+    "syntax": "N(value)",
+    "description": "Convert value to number",
+    "examples": [
+      {
+        "formula": "=N(42)",
+        "result": "42"
+      },
+      {
+        "formula": "=N(TRUE)",
+        "result": "1"
+      },
+      {
+        "formula": "=N(FALSE)",
+        "result": "0"
+      }
+    ]
+  },
+  {
+    "name": "NA",
+    "category": "logical",
+    "syntax": "NA()",
+    "description": "Returns the #N/A error value",
+    "examples": []
+  },
+  {
+    "name": "NEGBINOM.DIST",
+    "category": "statistical",
+    "syntax": "NEGBINOM.DIST(x,r,p,cumulative)",
+    "description": "Negative binomial CDF/PMF",
+    "examples": [
+      {
+        "formula": "=NEGBINOM.DIST(4,2,0.1,TRUE)",
+        "result": "0.11426499999999984"
+      },
+      {
+        "formula": "=NEGBINOM.DIST(4,2,0.1,FALSE)",
+        "result": "0.032805"
+      },
+      {
+        "formula": "=NEGBINOM.DIST(0,1,0.5,FALSE)",
+        "result": "0.5"
+      }
+    ]
+  },
+  {
+    "name": "NEGBINOMDIST",
+    "category": "statistical",
+    "syntax": "NEGBINOMDIST(x,r,p)",
+    "description": "Negative binomial PMF (legacy)",
+    "examples": []
+  },
+  {
+    "name": "NETWORKDAYS",
+    "category": "date",
+    "syntax": "NETWORKDAYS(start,end,[holidays])",
+    "description": "Number of working days between two dates",
+    "examples": [
+      {
+        "formula": "=NETWORKDAYS(DATE(1969,7,16),DATE(1969,7,24))",
+        "result": "7"
+      },
+      {
+        "formula": "=NETWORKDAYS(40909,40924)",
+        "result": "11"
+      },
+      {
+        "formula": "=NETWORKDAYS(40900,40950,{40909,40924})",
+        "result": "35"
+      }
+    ]
+  },
+  {
+    "name": "NETWORKDAYS.INTL",
+    "category": "date",
+    "syntax": "NETWORKDAYS.INTL(start,end,[weekend],[holidays])",
+    "description": "Working days between dates with custom weekends",
+    "examples": [
+      {
+        "formula": "=NETWORKDAYS.INTL(DATE(1969,7,16),DATE(1969,7,24),1)",
+        "result": "7"
+      },
+      {
+        "formula": "=NETWORKDAYS.INTL(DATE(1969,7,16),DATE(1969,7,24))",
+        "result": "7"
+      },
+      {
+        "formula": "=NETWORKDAYS.INTL(\"12/04/1995\",\"12/22/1995\",3)",
+        "result": "13"
+      }
+    ]
+  },
+  {
+    "name": "NOMINAL",
+    "category": "financial",
+    "syntax": "NOMINAL(effect_rate, npery)",
+    "description": "Nominal annual interest rate",
+    "examples": [
+      {
+        "formula": "=NOMINAL(0.85,12)",
+        "result": "0.6312274853524098"
+      }
+    ]
+  },
+  {
+    "name": "NORM.DIST",
+    "category": "statistical",
+    "syntax": "NORM.DIST(x,mean,stdev,cumulative)",
+    "description": "Normal CDF/PDF",
+    "examples": [
+      {
+        "formula": "=NORM.DIST(2.4,1,4,FALSE)",
+        "result": "0.09381008672923448"
+      },
+      {
+        "formula": "=NORM.DIST(2.4,1,4,TRUE)",
+        "result": "0.6368306511756191"
+      },
+      {
+        "formula": "=NORM.DIST(0,0,1,TRUE)",
+        "result": "0.5"
+      }
+    ]
+  },
+  {
+    "name": "NORM.INV",
+    "category": "statistical",
+    "syntax": "NORM.INV(p,mean,stdev)",
+    "description": "Normal inverse CDF",
+    "examples": [
+      {
+        "formula": "=NORM.INV(0.75,1,4)",
+        "result": "3.69795900089369"
+      }
+    ]
+  },
+  {
+    "name": "NORM.S.DIST",
+    "category": "statistical",
+    "syntax": "NORM.S.DIST(x,cumulative)",
+    "description": "Standard normal CDF/PDF",
+    "examples": [
+      {
+        "formula": "=NORM.S.DIST(2.4,TRUE)",
+        "result": "0.9918024640754037"
+      },
+      {
+        "formula": "=NORM.S.DIST(2.4,FALSE)",
+        "result": "0.0223945302948429"
+      }
+    ]
+  },
+  {
+    "name": "NORM.S.INV",
+    "category": "statistical",
+    "syntax": "NORM.S.INV(p)",
+    "description": "Standard normal inverse CDF",
+    "examples": [
+      {
+        "formula": "=NORM.S.INV(0.75)",
+        "result": "0.6744897502234225"
+      }
+    ]
+  },
+  {
+    "name": "NORMDIST",
+    "category": "statistical",
+    "syntax": "NORMDIST(x,mean,stdev,cumulative)",
+    "description": "Normal CDF/PDF (legacy)",
+    "examples": [
+      {
+        "formula": "=NORMDIST(2.4,1,4,FALSE)",
+        "result": "0.09381008672923448"
+      },
+      {
+        "formula": "=NORMDIST(2.4,1,4,TRUE)",
+        "result": "0.6368306511756191"
+      }
+    ]
+  },
+  {
+    "name": "NORMINV",
+    "category": "statistical",
+    "syntax": "NORMINV(p,mean,stdev)",
+    "description": "Normal inverse CDF (legacy)",
+    "examples": [
+      {
+        "formula": "=NORMINV(0.75,1,4)",
+        "result": "3.69795900089369"
+      }
+    ]
+  },
+  {
+    "name": "NORMSDIST",
+    "category": "statistical",
+    "syntax": "NORMSDIST(x)",
+    "description": "Standard normal CDF (legacy)",
+    "examples": []
+  },
+  {
+    "name": "NORMSINV",
+    "category": "statistical",
+    "syntax": "NORMSINV(p)",
+    "description": "Standard normal inverse CDF (legacy)",
+    "examples": [
+      {
+        "formula": "=NORMSINV(0.75)",
+        "result": "0.6744897502234225"
+      }
+    ]
+  },
+  {
+    "name": "NOT",
+    "category": "logical",
+    "syntax": "NOT(value)",
+    "description": "Logical negation",
+    "examples": []
+  },
+  {
+    "name": "NOW",
+    "category": "date",
+    "syntax": "NOW()",
+    "description": "Current date and time as a serial number",
+    "examples": []
+  },
+  {
+    "name": "NPER",
+    "category": "financial",
+    "syntax": "NPER(rate, pmt, pv)",
+    "description": "Number of payment periods",
+    "examples": [
+      {
+        "formula": "=NPER(2,500,40000)",
+        "result": "-4.625293579361693"
+      },
+      {
+        "formula": "=NPER(0.12/12,-100,-1000,10000,1)",
+        "result": "59.67386567429457"
+      }
+    ]
+  },
+  {
+    "name": "NPV",
+    "category": "financial",
+    "syntax": "NPV(rate, value1,...)",
+    "description": "Net present value",
+    "examples": [
+      {
+        "formula": "=NPV(0.08,200,250,300)",
+        "result": "637.6695625666819"
+      }
+    ]
+  },
+  {
+    "name": "OCT2BIN",
+    "category": "engineering",
+    "syntax": "OCT2BIN(number, [places])",
+    "description": "Convert octal to binary",
+    "examples": []
+  },
+  {
+    "name": "OCT2DEC",
+    "category": "engineering",
+    "syntax": "OCT2DEC(number)",
+    "description": "Convert octal to decimal",
+    "examples": [
+      {
+        "formula": "=OCT2DEC(\"37\")",
+        "result": "31"
+      },
+      {
+        "formula": "=OCT2DEC(\"177\")",
+        "result": "127"
+      }
+    ]
+  },
+  {
+    "name": "OCT2HEX",
+    "category": "engineering",
+    "syntax": "OCT2HEX(number, [places])",
+    "description": "Convert octal to hexadecimal",
+    "examples": []
+  },
+  {
+    "name": "ODD",
+    "category": "math",
+    "syntax": "ODD(number)",
+    "description": "Round up to nearest odd integer",
+    "examples": [
+      {
+        "formula": "=ODD(2)",
+        "result": "3"
+      },
+      {
+        "formula": "=ODD(-0.6)",
+        "result": "-1"
+      }
+    ]
+  },
+  {
+    "name": "OFFSET",
+    "category": "lookup",
+    "syntax": "OFFSET(reference, rows, cols, [height], [width])",
+    "description": "Returns a range offset from a reference",
+    "examples": []
+  },
+  {
+    "name": "OR",
+    "category": "logical",
+    "syntax": "OR(value1,...)",
+    "description": "True if any argument is true",
+    "examples": []
+  },
+  {
+    "name": "PDURATION",
+    "category": "financial",
+    "syntax": "PDURATION(rate, pv, fv)",
+    "description": "Periods required to reach a value",
+    "examples": [
+      {
+        "formula": "=PDURATION(0.25,10,15)",
+        "result": "1.8170594925112884"
+      },
+      {
+        "formula": "=PDURATION(0.75,2,15)",
+        "result": "3.6005113936756485"
+      }
+    ]
+  },
+  {
+    "name": "PEARSON",
+    "category": "statistical",
+    "syntax": "PEARSON(array1,array2)",
+    "description": "Pearson correlation coefficient",
+    "examples": [
+      {
+        "formula": "=PEARSON({2,3,9,1,8,7,5},{6,5,11,7,5,4,4})",
+        "result": "0.24072846024282465"
+      }
+    ]
+  },
+  {
+    "name": "PERCENTILE",
+    "category": "statistical",
+    "syntax": "PERCENTILE(array,k)",
+    "description": "k-th percentile (inclusive)",
+    "examples": [
+      {
+        "formula": "=PERCENTILE({1,2,3,4,5,6,7,8,9,10},0.5)",
+        "result": "5.5"
+      },
+      {
+        "formula": "=PERCENTILE({1,2,3,4,5,6,7,8,9,10},0.67)",
+        "result": "7.03"
+      }
+    ]
+  },
+  {
+    "name": "PERCENTILE.EXC",
+    "category": "statistical",
+    "syntax": "PERCENTILE.EXC(array,k)",
+    "description": "Exclusive percentile",
+    "examples": [
+      {
+        "formula": "=PERCENTILE.EXC({15,20,35,40,50},0.4)",
+        "result": "26.000000000000007"
+      },
+      {
+        "formula": "=PERCENTILE.EXC({15,20,35,40,50},0.5)",
+        "result": "35"
+      },
+      {
+        "formula": "=PERCENTILE.EXC({15,20,35,40,50},0.8)",
+        "result": "48.00000000000001"
+      }
+    ]
+  },
+  {
+    "name": "PERCENTILE.INC",
+    "category": "statistical",
+    "syntax": "PERCENTILE.INC(array,k)",
+    "description": "Inclusive percentile",
+    "examples": [
+      {
+        "formula": "=PERCENTILE.INC({1,2,3,4,5,6,7,8,9,10},0.5)",
+        "result": "5.5"
+      },
+      {
+        "formula": "=PERCENTILE.INC({1,2,3,4,5,6,7,8,9,10},0.67)",
+        "result": "7.03"
+      }
+    ]
+  },
+  {
+    "name": "PERCENTRANK",
+    "category": "statistical",
+    "syntax": "PERCENTRANK(array,x,[sig])",
+    "description": "Percentile rank (inclusive)",
+    "examples": [
+      {
+        "formula": "=PERCENTRANK({1,2,3,4,5},1)",
+        "result": "0"
+      },
+      {
+        "formula": "=PERCENTRANK({1,2,3,4,5},3)",
+        "result": "0.5"
+      },
+      {
+        "formula": "=PERCENTRANK({1,2,3,4,5},2,7)",
+        "result": "0.25"
+      }
+    ]
+  },
+  {
+    "name": "PERCENTRANK.EXC",
+    "category": "statistical",
+    "syntax": "PERCENTRANK.EXC(array,x,[sig])",
+    "description": "Exclusive percentile rank",
+    "examples": [
+      {
+        "formula": "=PERCENTRANK.EXC({1,2,3,4,5,6,7,8,9,10},5)",
+        "result": "0.455"
+      },
+      {
+        "formula": "=PERCENTRANK.EXC({1,2,3,4,5,6,7,8,9,10},3,4)",
+        "result": "0.2727"
+      },
+      {
+        "formula": "=PERCENTRANK.EXC({10,20,30,40,50},10)",
+        "result": "0.167"
+      }
+    ]
+  },
+  {
+    "name": "PERCENTRANK.INC",
+    "category": "statistical",
+    "syntax": "PERCENTRANK.INC(array,x,[sig])",
+    "description": "Inclusive percentile rank",
+    "examples": [
+      {
+        "formula": "=PERCENTRANK.INC({1,2,3,4,5,6,7,8,9,10},5)",
+        "result": "0.444"
+      },
+      {
+        "formula": "=PERCENTRANK.INC({1,2,3,4,5,6,7,8,9,10},3,4)",
+        "result": "0.2222"
+      },
+      {
+        "formula": "=PERCENTRANK.INC({10,20,30,40,50},10)",
+        "result": "0"
+      }
+    ]
+  },
+  {
+    "name": "PERMUT",
+    "category": "statistical",
+    "syntax": "PERMUT(n,k)",
+    "description": "Number of permutations",
+    "examples": [
+      {
+        "formula": "=PERMUT(4,2)",
+        "result": "12"
+      },
+      {
+        "formula": "=PERMUT(10,3)",
+        "result": "720"
+      },
+      {
+        "formula": "=PERMUT(5,0)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "PERMUTATIONA",
+    "category": "statistical",
+    "syntax": "PERMUTATIONA(n,k)",
+    "description": "Permutations with repetition",
+    "examples": [
+      {
+        "formula": "=PERMUTATIONA(3,2)",
+        "result": "9"
+      },
+      {
+        "formula": "=PERMUTATIONA(3.2,2.3)",
+        "result": "9"
+      },
+      {
+        "formula": "=PERMUTATIONA(5,3)",
+        "result": "125"
+      }
+    ]
+  },
+  {
+    "name": "PHI",
+    "category": "statistical",
+    "syntax": "PHI(x)",
+    "description": "Standard normal PDF",
+    "examples": [
+      {
+        "formula": "=PHI(0.5)",
+        "result": "0.3520653267642995"
+      },
+      {
+        "formula": "=PHI(1)",
+        "result": "0.24197072451914337"
+      },
+      {
+        "formula": "=PHI(1.5)",
+        "result": "0.12951759566589174"
+      }
+    ]
+  },
+  {
+    "name": "PI",
+    "category": "math",
+    "syntax": "PI()",
+    "description": "The value of pi (3.14159...)",
+    "examples": [
+      {
+        "formula": "=PI()",
+        "result": "3.141592653589793"
+      }
+    ]
+  },
+  {
+    "name": "PMT",
+    "category": "financial",
+    "syntax": "PMT(rate, nper, pv)",
+    "description": "Periodic payment for a loan",
+    "examples": [
+      {
+        "formula": "=PMT(0.05/12,30*12,100000)",
+        "result": "-536.8216230121399"
+      },
+      {
+        "formula": "=PMT(2,12,100)",
+        "result": "-200.00037633599277"
+      },
+      {
+        "formula": "=PMT(0.05/12,30*12,100000,0,1)",
+        "result": "-534.5941473979816"
+      }
+    ]
+  },
+  {
+    "name": "POISSON",
+    "category": "statistical",
+    "syntax": "POISSON(x,mean,cumulative)",
+    "description": "Poisson distribution (legacy)",
+    "examples": [
+      {
+        "formula": "=POISSON(2,1,FALSE)",
+        "result": "0.18393972058572117"
+      },
+      {
+        "formula": "=POISSON(2,1,TRUE)",
+        "result": "0.9196986029286058"
+      },
+      {
+        "formula": "=POISSON(2.4,1,FALSE)",
+        "result": "0.18393972058572117"
+      }
+    ]
+  },
+  {
+    "name": "POISSON.DIST",
+    "category": "statistical",
+    "syntax": "POISSON.DIST(x,mean,cumulative)",
+    "description": "Poisson CDF/PMF",
+    "examples": [
+      {
+        "formula": "=POISSON.DIST(2,1,FALSE)",
+        "result": "0.18393972058572117"
+      },
+      {
+        "formula": "=POISSON.DIST(2,1,TRUE)",
+        "result": "0.9196986029286058"
+      },
+      {
+        "formula": "=POISSON.DIST(2.4,1,FALSE)",
+        "result": "0.18393972058572117"
+      }
+    ]
+  },
+  {
+    "name": "POWER",
+    "category": "math",
+    "syntax": "POWER(number, power)",
+    "description": "Number raised to a power",
+    "examples": [
+      {
+        "formula": "=POWER(2,4)",
+        "result": "16"
+      },
+      {
+        "formula": "=POWER(3,1.5)",
+        "result": "5.196152422706632"
+      },
+      {
+        "formula": "=POWER(0,10)",
+        "result": "0"
+      }
+    ]
+  },
+  {
+    "name": "PPMT",
+    "category": "financial",
+    "syntax": "PPMT(rate, per, nper, pv, [fv], [type])",
+    "description": "Principal payment for a period",
+    "examples": [
+      {
+        "formula": "=PPMT(0.05/12,1,30*12,100000)",
+        "result": "-120.15495634547314"
+      },
+      {
+        "formula": "=PPMT(2,5,12,100)",
+        "result": "-0.030483215414722264"
+      },
+      {
+        "formula": "=PPMT(0.05/12,360,30*12,100000)",
+        "result": "-534.5941473979815"
+      }
+    ]
+  },
+  {
+    "name": "PRICE",
+    "category": "financial",
+    "syntax": "PRICE(settlement, maturity, rate, yld, redemption, frequency, [basis])",
+    "description": "Price per $100 face value",
+    "examples": [
+      {
+        "formula": "=PRICE(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,100,2,0)",
+        "result": "2.4964231392093046"
+      },
+      {
+        "formula": "=PRICE(DATE(2010,1,2),DATE(2039,12,31),0.03,1.2,100,2,1)",
+        "result": "2.496442712917719"
+      }
+    ]
+  },
+  {
+    "name": "PRICEDISC",
+    "category": "financial",
+    "syntax": "PRICEDISC(settlement, maturity, discount, redemption, [basis])",
+    "description": "Price of discounted security",
+    "examples": [
+      {
+        "formula": "=PRICEDISC(DATE(2010,1,2),DATE(2039,12,31),3,100)",
+        "result": "-8899.166666666668"
+      },
+      {
+        "formula": "=PRICEDISC(DATE(2010,1,2),DATE(2039,12,31),3,100,1)",
+        "result": "-8898.356164383562"
+      }
+    ]
+  },
+  {
+    "name": "PRICEMAT",
+    "category": "financial",
+    "syntax": "PRICEMAT(settlement, maturity, issue, rate, yld, [basis])",
+    "description": "Price at maturity",
+    "examples": [
+      {
+        "formula": "=PRICEMAT(DATE(2010,1,2),DATE(2039,12,31),DATE(2010,1,1),0.03,1.2)",
+        "result": "5.127264468270414"
+      },
+      {
+        "formula": "=PRICEMAT(DATE(2010,1,2),DATE(2039,12,31),DATE(2010,1,1),0.03,1.2,1)",
+        "result": "5.127606514747337"
+      }
+    ]
+  },
+  {
+    "name": "PROB",
+    "category": "statistical",
+    "syntax": "PROB(x_range,prob_range,lo,[hi])",
+    "description": "Probability from distribution",
+    "examples": [
+      {
+        "formula": "=PROB({1,2,3,4},{0.25,0.25,0.25,0.25},3)",
+        "result": "0.25"
+      },
+      {
+        "formula": "=PROB({1,2,3,4},{0.25,0.25,0.25,0.25},2,3)",
+        "result": "0.5"
+      },
+      {
+        "formula": "=PROB({1,2,3},{0.5,0.3,0.2},1)",
+        "result": "0.5"
+      }
+    ]
+  },
+  {
+    "name": "PRODUCT",
+    "category": "math",
+    "syntax": "PRODUCT(value1,...)",
+    "description": "Product of arguments",
+    "examples": [
+      {
+        "formula": "=PRODUCT(5)",
+        "result": "5"
+      },
+      {
+        "formula": "=PRODUCT(1,2,3,4,5)",
+        "result": "120"
+      }
+    ]
+  },
+  {
+    "name": "PROPER",
+    "category": "text",
+    "syntax": "PROPER(text)",
+    "description": "Capitalize first letter of each word",
+    "examples": []
+  },
+  {
+    "name": "PV",
+    "category": "financial",
+    "syntax": "PV(rate, nper, pmt)",
+    "description": "Present value",
+    "examples": [
+      {
+        "formula": "=PV(2,12,100)",
+        "result": "-49.99990591617884"
+      },
+      {
+        "formula": "=PV(0.05,10,-200,1000,1)",
+        "result": "1007.6510815880524"
+      }
+    ]
+  },
+  {
+    "name": "QUARTILE",
+    "category": "statistical",
+    "syntax": "QUARTILE(array,quart)",
+    "description": "Quartile (inclusive)",
+    "examples": [
+      {
+        "formula": "=QUARTILE({1,3,5,7,9},0)",
+        "result": "1"
+      },
+      {
+        "formula": "=QUARTILE({1,3,5,7,9},1)",
+        "result": "3"
+      },
+      {
+        "formula": "=QUARTILE({1,3,5,7,9},2)",
+        "result": "5"
+      }
+    ]
+  },
+  {
+    "name": "QUARTILE.EXC",
+    "category": "statistical",
+    "syntax": "QUARTILE.EXC(array,quart)",
+    "description": "Exclusive quartile",
+    "examples": [
+      {
+        "formula": "=QUARTILE.EXC({6,7,15,36,39,40,41,42,43,47,49},1)",
+        "result": "15"
+      },
+      {
+        "formula": "=QUARTILE.EXC({6,7,15,36,39,40,41,42,43,47,49},2)",
+        "result": "40"
+      },
+      {
+        "formula": "=QUARTILE.EXC({6,7,15,36,39,40,41,42,43,47,49},3)",
+        "result": "43"
+      }
+    ]
+  },
+  {
+    "name": "QUARTILE.INC",
+    "category": "statistical",
+    "syntax": "QUARTILE.INC(array,quart)",
+    "description": "Inclusive quartile",
+    "examples": [
+      {
+        "formula": "=QUARTILE.INC({1,2,3,4,5,6,7,8,9,10},0)",
+        "result": "1"
+      },
+      {
+        "formula": "=QUARTILE.INC({1,2,3,4,5,6,7,8,9,10},1)",
+        "result": "3.25"
+      },
+      {
+        "formula": "=QUARTILE.INC({1,2,3,4,5,6,7,8,9,10},2)",
+        "result": "5.5"
+      }
+    ]
+  },
+  {
+    "name": "QUOTIENT",
+    "category": "math",
+    "syntax": "QUOTIENT(numerator, denominator)",
+    "description": "Integer portion of division",
+    "examples": [
+      {
+        "formula": "=QUOTIENT(4,2)",
+        "result": "2"
+      }
+    ]
+  },
+  {
+    "name": "RADIANS",
+    "category": "math",
+    "syntax": "RADIANS(angle)",
+    "description": "Convert degrees to radians",
+    "examples": [
+      {
+        "formula": "=RADIANS(180)",
+        "result": "3.141592653589793"
+      },
+      {
+        "formula": "=RADIANS(6)",
+        "result": "0.10471975511965978"
+      }
+    ]
+  },
+  {
+    "name": "RAND",
+    "category": "math",
+    "syntax": "RAND()",
+    "description": "Random number between 0 and 1",
+    "examples": []
+  },
+  {
+    "name": "RANDARRAY",
+    "category": "math",
+    "syntax": "RANDARRAY([rows], [cols])",
+    "description": "Array of random numbers",
+    "examples": []
+  },
+  {
+    "name": "RANDBETWEEN",
+    "category": "math",
+    "syntax": "RANDBETWEEN(low, high)",
+    "description": "Random integer between two values",
+    "examples": []
+  },
+  {
+    "name": "RANK",
+    "category": "statistical",
+    "syntax": "RANK(number,ref,[order])",
+    "description": "Rank of number (ties=lowest)",
+    "examples": [
+      {
+        "formula": "=RANK(4,{1,2,3,4,5,6,7,8,9,10})",
+        "result": "7"
+      },
+      {
+        "formula": "=RANK(4,{1,2,3,4,5,6,7,8,9,10},1)",
+        "result": "4"
+      },
+      {
+        "formula": "=RANK(10,{1,2,3,4,5,6,7,8,9,10})",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "RANK.AVG",
+    "category": "statistical",
+    "syntax": "RANK.AVG(number,ref,[order])",
+    "description": "Rank with average for ties",
+    "examples": [
+      {
+        "formula": "=RANK.AVG(5,{1,2,3,4,5,6,7,8,9,10})",
+        "result": "6"
+      },
+      {
+        "formula": "=RANK.AVG(5,{1,2,3,4,5,6,7,8,9,10},TRUE)",
+        "result": "5"
+      },
+      {
+        "formula": "=RANK.AVG(5,{1,2,3,4,5,6,7,8,9,10},FALSE)",
+        "result": "6"
+      }
+    ]
+  },
+  {
+    "name": "RANK.EQ",
+    "category": "statistical",
+    "syntax": "RANK.EQ(number,ref,[order])",
+    "description": "Rank with equal (lowest) for ties",
+    "examples": [
+      {
+        "formula": "=RANK.EQ(5,{1,2,3,4,5,6,7,8,9,10})",
+        "result": "6"
+      },
+      {
+        "formula": "=RANK.EQ(5,{1,2,3,4,5,6,7,8,9,10},TRUE)",
+        "result": "5"
+      },
+      {
+        "formula": "=RANK.EQ(5,{1,2,3,4,5,6,7,8,9,10},FALSE)",
+        "result": "6"
+      }
+    ]
+  },
+  {
+    "name": "RATE",
+    "category": "financial",
+    "syntax": "RATE(nper, pmt, pv)",
+    "description": "Interest rate per period",
+    "examples": [
+      {
+        "formula": "=RATE(12,-100,400,0,0,0.1)",
+        "result": "0.228933070977093"
+      }
+    ]
+  },
+  {
+    "name": "RECEIVED",
+    "category": "financial",
+    "syntax": "RECEIVED(settlement, maturity, investment, discount, [basis])",
+    "description": "Amount received at maturity",
+    "examples": [
+      {
+        "formula": "=RECEIVED(DATE(2010,2,1),DATE(2019,12,31),1000,0.05)",
+        "result": "1983.4710743801654"
+      },
+      {
+        "formula": "=RECEIVED(DATE(2010,2,1),DATE(2019,12,31),1000,0.05,4)",
+        "result": "1982.9248141007986"
+      }
+    ]
+  },
+  {
+    "name": "REDUCE",
+    "category": "array",
+    "syntax": "REDUCE(initial_value, array, lambda)",
+    "description": "Reduces an array to a single value using a LAMBDA",
+    "examples": [
+      {
+        "formula": "=REDUCE(0,{1,2,3},LAMBDA(acc,x,acc+x))",
+        "result": "6"
+      },
+      {
+        "formula": "=REDUCE(1,{1,2,3,4},LAMBDA(acc,x,acc*x))",
+        "result": "24"
+      },
+      {
+        "formula": "=REDUCE(0,{3,1,4,1,5},LAMBDA(acc,x,MAX(acc,x)))",
+        "result": "5"
+      }
+    ]
+  },
+  {
+    "name": "REGEXEXTRACT",
+    "category": "text",
+    "syntax": "REGEXEXTRACT(text, pattern)",
+    "description": "Extract first regex match from text",
+    "examples": []
+  },
+  {
+    "name": "REGEXMATCH",
+    "category": "text",
+    "syntax": "REGEXMATCH(text, pattern)",
+    "description": "True if text matches regex pattern",
+    "examples": []
+  },
+  {
+    "name": "REGEXREPLACE",
+    "category": "text",
+    "syntax": "REGEXREPLACE(text, pattern, replacement)",
+    "description": "Replace regex matches in text",
+    "examples": []
+  },
+  {
+    "name": "REPLACE",
+    "category": "text",
+    "syntax": "REPLACE(text, start, num_chars, new_text)",
+    "description": "Replace portion of text",
+    "examples": []
+  },
+  {
+    "name": "REPLACEB",
+    "category": "text",
+    "syntax": "REPLACEB(text, start_byte, num_bytes, new_text)",
+    "description": "Replace portion of text by byte position",
+    "examples": []
+  },
+  {
+    "name": "REPT",
+    "category": "text",
+    "syntax": "REPT(text, number_times)",
+    "description": "Repeat text N times",
+    "examples": []
+  },
+  {
+    "name": "RIGHT",
+    "category": "text",
+    "syntax": "RIGHT(text, num_chars)",
+    "description": "Right portion of a string",
+    "examples": []
+  },
+  {
+    "name": "RIGHTB",
+    "category": "text",
+    "syntax": "RIGHTB(text, num_bytes)",
+    "description": "Right N bytes of text",
+    "examples": []
+  },
+  {
+    "name": "ROMAN",
+    "category": "text",
+    "syntax": "ROMAN(number, [style])",
+    "description": "Convert integer to Roman numeral string",
+    "examples": []
+  },
+  {
+    "name": "ROUND",
+    "category": "math",
+    "syntax": "ROUND(number, digits)",
+    "description": "Round to specified decimal places",
+    "examples": [
+      {
+        "formula": "=ROUND(99.44,1)",
+        "result": "99.4"
+      },
+      {
+        "formula": "=ROUND(99.44)",
+        "result": "99"
+      },
+      {
+        "formula": "=ROUND(2.5,0)",
+        "result": "3"
+      }
+    ]
+  },
+  {
+    "name": "ROUNDDOWN",
+    "category": "math",
+    "syntax": "ROUNDDOWN(number, digits)",
+    "description": "Round toward zero",
+    "examples": [
+      {
+        "formula": "=ROUNDDOWN(99.44,1)",
+        "result": "99.4"
+      },
+      {
+        "formula": "=ROUNDDOWN(99.44)",
+        "result": "99"
+      },
+      {
+        "formula": "=ROUNDDOWN(1234,-2)",
+        "result": "1200"
+      }
+    ]
+  },
+  {
+    "name": "ROUNDUP",
+    "category": "math",
+    "syntax": "ROUNDUP(number, digits)",
+    "description": "Round away from zero",
+    "examples": [
+      {
+        "formula": "=ROUNDUP(99.44,1)",
+        "result": "99.5"
+      },
+      {
+        "formula": "=ROUNDUP(99.44)",
+        "result": "100"
+      },
+      {
+        "formula": "=ROUNDUP(1234,-2)",
+        "result": "1300"
+      }
+    ]
+  },
+  {
+    "name": "ROW",
+    "category": "lookup",
+    "syntax": "ROW([cell_ref])",
+    "description": "Returns the row number of a cell reference",
+    "examples": [
+      {
+        "formula": "=ROW(INDIRECT(\"A1\"))",
+        "result": "1"
+      },
+      {
+        "formula": "=ROW(INDIRECT(\"A5\"))",
+        "result": "5"
+      },
+      {
+        "formula": "=ROW(INDIRECT(\"C10\"))",
+        "result": "10"
+      }
+    ]
+  },
+  {
+    "name": "ROWS",
+    "category": "array",
+    "syntax": "ROWS(array)",
+    "description": "Returns the number of rows in an array or range",
+    "examples": [
+      {
+        "formula": "=ROWS(PRICES)",
+        "result": "3"
+      },
+      {
+        "formula": "=ROWS(INDIRECT(\"A1\"))",
+        "result": "1"
+      },
+      {
+        "formula": "=ROWS(INDIRECT(\"A1:A5\"))",
+        "result": "5"
+      }
+    ]
+  },
+  {
+    "name": "RRI",
+    "category": "financial",
+    "syntax": "RRI(nper, pv, fv)",
+    "description": "Equivalent interest rate for growth",
+    "examples": [
+      {
+        "formula": "=RRI(10.5,10,3)",
+        "result": "-0.10833437505113597"
+      },
+      {
+        "formula": "=RRI(3,2,4)",
+        "result": "0.2599210498948732"
+      },
+      {
+        "formula": "=RRI(1,10,0)",
+        "result": "-1"
+      }
+    ]
+  },
+  {
+    "name": "RSQ",
+    "category": "statistical",
+    "syntax": "RSQ(known_y,known_x)",
+    "description": "R-squared of linear regression",
+    "examples": [
+      {
+        "formula": "=RSQ({2,3,9,1,8,7,5},{6,5,11,7,5,4,4})",
+        "result": "0.05795019157088121"
+      }
+    ]
+  },
+  {
+    "name": "SCAN",
+    "category": "array",
+    "syntax": "SCAN(initial_value, array, lambda)",
+    "description": "Returns running accumulation using a LAMBDA",
+    "examples": [
+      {
+        "formula": "=SCAN(0,{1,2,3},LAMBDA(acc,x,acc+x))",
+        "result": "1"
+      },
+      {
+        "formula": "=SCAN(1,{1,2,3,4},LAMBDA(acc,x,acc*x))",
+        "result": "1"
+      },
+      {
+        "formula": "=SCAN(0,{3,1,4,1,5},LAMBDA(acc,x,MAX(acc,x)))",
+        "result": "3"
+      }
+    ]
+  },
+  {
+    "name": "SEARCH",
+    "category": "text",
+    "syntax": "SEARCH(find_text, within_text, [start_num])",
+    "description": "Case-insensitive search with wildcards",
+    "examples": [
+      {
+        "formula": "=SEARCH(\"n\",\"printing\")",
+        "result": "4"
+      },
+      {
+        "formula": "=SEARCH(\"N\",\"printing\")",
+        "result": "4"
+      },
+      {
+        "formula": "=SEARCH(\"a\",\"banana\",3)",
+        "result": "4"
+      }
+    ]
+  },
+  {
+    "name": "SEARCHB",
+    "category": "text",
+    "syntax": "SEARCHB(find_text, within_text, [start_num])",
+    "description": "Case-insensitive byte-position search with wildcards",
+    "examples": [
+      {
+        "formula": "=SEARCHB(\"新\",\"农历新年\")",
+        "result": "5"
+      },
+      {
+        "formula": "=SEARCHB(\"新\",\"农历新年\",2)",
+        "result": "5"
+      },
+      {
+        "formula": "=SEARCHB(\"n\",\"printing\")",
+        "result": "4"
+      }
+    ]
+  },
+  {
+    "name": "SEC",
+    "category": "math",
+    "syntax": "SEC(angle)",
+    "description": "Secant of an angle in radians",
+    "examples": [
+      {
+        "formula": "=SEC(1)",
+        "result": "1.8508157176809255"
+      },
+      {
+        "formula": "=SEC(-1)",
+        "result": "1.8508157176809255"
+      },
+      {
+        "formula": "=SEC(4)",
+        "result": "-1.5298856564663974"
+      }
+    ]
+  },
+  {
+    "name": "SECH",
+    "category": "math",
+    "syntax": "SECH(number)",
+    "description": "Hyperbolic secant",
+    "examples": [
+      {
+        "formula": "=SECH(1)",
+        "result": "0.6480542736638855"
+      },
+      {
+        "formula": "=SECH(-1)",
+        "result": "0.6480542736638855"
+      },
+      {
+        "formula": "=SECH(4)",
+        "result": "0.03661899347368653"
+      }
+    ]
+  },
+  {
+    "name": "SECOND",
+    "category": "date",
+    "syntax": "SECOND(time)",
+    "description": "Second component of a time serial number",
+    "examples": [
+      {
+        "formula": "=SECOND(TIME(11,40,59))",
+        "result": "59"
+      },
+      {
+        "formula": "=SECOND(40909.0004)",
+        "result": "35"
+      },
+      {
+        "formula": "=SECOND(\"20:49:59\")",
+        "result": "59"
+      }
+    ]
+  },
+  {
+    "name": "SEQUENCE",
+    "category": "math",
+    "syntax": "SEQUENCE(rows, [cols], [start], [step])",
+    "description": "Generate a sequence of numbers",
+    "examples": [
+      {
+        "formula": "=SEQUENCE(2)",
+        "result": "1"
+      },
+      {
+        "formula": "=SEQUENCE(2,3)",
+        "result": "1"
+      },
+      {
+        "formula": "=SEQUENCE(2,3,3,2)",
+        "result": "3"
+      }
+    ]
+  },
+  {
+    "name": "SERIESSUM",
+    "category": "math",
+    "syntax": "SERIESSUM(x, n, m, coefficients)",
+    "description": "Sum of a power series",
+    "examples": [
+      {
+        "formula": "=SERIESSUM(1,0,1,{1,1,0.5,0.16667,0.04167})",
+        "result": "2.7083399999999997"
+      },
+      {
+        "formula": "=SERIESSUM(2,0,2,{1,2,3})",
+        "result": "57"
+      }
+    ]
+  },
+  {
+    "name": "SHEET",
+    "category": "lookup",
+    "syntax": "SHEET([name])",
+    "description": "Returns the sheet number of the current or named sheet",
+    "examples": []
+  },
+  {
+    "name": "SHEETS",
+    "category": "logical",
+    "syntax": "SHEETS([reference])",
+    "description": "Number of sheets in a reference or workbook",
+    "examples": []
+  },
+  {
+    "name": "SIGN",
+    "category": "math",
+    "syntax": "SIGN(number)",
+    "description": "Sign of a number: -1, 0, or 1",
+    "examples": [
+      {
+        "formula": "=SIGN(-42)",
+        "result": "-1"
+      },
+      {
+        "formula": "=SIGN(42)",
+        "result": "1"
+      },
+      {
+        "formula": "=SIGN(0)",
+        "result": "0"
+      }
+    ]
+  },
+  {
+    "name": "SIN",
+    "category": "math",
+    "syntax": "SIN(angle)",
+    "description": "Sine of an angle in radians",
+    "examples": [
+      {
+        "formula": "=SIN(PI())",
+        "result": "1.2246467991473532e-16"
+      },
+      {
+        "formula": "=SIN(1)",
+        "result": "0.8414709848078965"
+      },
+      {
+        "formula": "=SIN(0)",
+        "result": "0"
+      }
+    ]
+  },
+  {
+    "name": "SINH",
+    "category": "math",
+    "syntax": "SINH(number)",
+    "description": "Hyperbolic sine",
+    "examples": [
+      {
+        "formula": "=SINH(1)",
+        "result": "1.1752011936438014"
+      },
+      {
+        "formula": "=SINH(0)",
+        "result": "0"
+      },
+      {
+        "formula": "=SINH(-1)",
+        "result": "-1.1752011936438014"
+      }
+    ]
+  },
+  {
+    "name": "SKEW",
+    "category": "statistical",
+    "syntax": "SKEW(value1,...)",
+    "description": "Sample skewness",
+    "examples": [
+      {
+        "formula": "=SKEW(1,2,3,4,5,6,7,8,9,10)",
+        "result": "-6.167905692361981e-17"
+      },
+      {
+        "formula": "=SKEW({1,2,3,4,5,6,7,8,9,10})",
+        "result": "-6.167905692361981e-17"
+      },
+      {
+        "formula": "=SKEW({2,5,8,13,10,18,23,26})",
+        "result": "0.344615471623041"
+      }
+    ]
+  },
+  {
+    "name": "SKEW.P",
+    "category": "statistical",
+    "syntax": "SKEW.P(value1,...)",
+    "description": "Population skewness",
+    "examples": [
+      {
+        "formula": "=SKEW.P({2,5,8,13,10,18,23,26})",
+        "result": "0.2763070767846293"
+      },
+      {
+        "formula": "=SKEW.P({2,5,8,13,10,18,23,26},30,40)",
+        "result": "0.4621754337591284"
+      }
+    ]
+  },
+  {
+    "name": "SLN",
+    "category": "financial",
+    "syntax": "SLN(cost, salvage, life)",
+    "description": "Straight-line depreciation",
+    "examples": [
+      {
+        "formula": "=SLN(100,50,10)",
+        "result": "5"
+      }
+    ]
+  },
+  {
+    "name": "SLOPE",
+    "category": "statistical",
+    "syntax": "SLOPE(known_y,known_x)",
+    "description": "Slope of linear regression",
+    "examples": [
+      {
+        "formula": "=SLOPE({2,3,9,1,8,7,5},{6,5,11,7,5,4,4})",
+        "result": "0.3055555555555555"
+      }
+    ]
+  },
+  {
+    "name": "SMALL",
+    "category": "statistical",
+    "syntax": "SMALL(array,k)",
+    "description": "k-th smallest value",
+    "examples": [
+      {
+        "formula": "=SMALL({3,1,4,1,5,9,2,6},4)",
+        "result": "3"
+      },
+      {
+        "formula": "=SMALL({3,1,4,1,5,9,2,6},1)",
+        "result": "1"
+      },
+      {
+        "formula": "=SMALL({3,1,4,1,5,9,2,6},8)",
+        "result": "9"
+      }
+    ]
+  },
+  {
+    "name": "SORT",
+    "category": "array",
+    "syntax": "SORT(array, [sort_index], [sort_order], [by_col])",
+    "description": "Sorts an array",
+    "examples": [
+      {
+        "formula": "=SORT({3,1,4,1,5,9,2,6})",
+        "result": "3"
+      },
+      {
+        "formula": "=SORT({3,1,4,1,5,9,2,6},1,FALSE)",
+        "result": "3"
+      },
+      {
+        "formula": "=SORT({3,30;1,10;2,20},1,TRUE)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "SORTBY",
+    "category": "array",
+    "syntax": "SORTBY(array, by_array1, [sort_order1], ...)",
+    "description": "Sorts an array based on the values in corresponding arrays",
+    "examples": []
+  },
+  {
+    "name": "SORTN",
+    "category": "filter",
+    "syntax": "SORTN(array, [n], [display_ties_mode], ...)",
+    "description": "Return top N rows of an array sorted",
+    "examples": [
+      {
+        "formula": "=SORTN({5,3,1,4,2},1)",
+        "result": "5"
+      },
+      {
+        "formula": "=SORTN({5,3,1,4,2},2)",
+        "result": "5"
+      },
+      {
+        "formula": "=SORTN({10,20,10,30,20},3,0)",
+        "result": "10"
+      }
+    ]
+  },
+  {
+    "name": "SPLIT",
+    "category": "text",
+    "syntax": "SPLIT(text, delimiter, [split_by_each], [remove_empty])",
+    "description": "Split text into array by delimiter",
+    "examples": [
+      {
+        "formula": "=SPLIT(\"1,2,3\",\",\")",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "SQRT",
+    "category": "math",
+    "syntax": "SQRT(number)",
+    "description": "Square root",
+    "examples": [
+      {
+        "formula": "=SQRT(9)",
+        "result": "3"
+      }
+    ]
+  },
+  {
+    "name": "SQRTPI",
+    "category": "math",
+    "syntax": "SQRTPI(n)",
+    "description": "Square root of n times pi",
+    "examples": [
+      {
+        "formula": "=SQRTPI(9)",
+        "result": "5.317361552716548"
+      }
+    ]
+  },
+  {
+    "name": "STANDARDIZE",
+    "category": "statistical",
+    "syntax": "STANDARDIZE(x,mean,stdev)",
+    "description": "Standardize a value",
+    "examples": [
+      {
+        "formula": "=STANDARDIZE(96,80,6.7)",
+        "result": "2.388059701492537"
+      },
+      {
+        "formula": "=STANDARDIZE(80,80,6.7)",
+        "result": "0"
+      },
+      {
+        "formula": "=STANDARDIZE(70,80,6.7)",
+        "result": "-1.4925373134328357"
+      }
+    ]
+  },
+  {
+    "name": "STDEV",
+    "category": "statistical",
+    "syntax": "STDEV(value1,...)",
+    "description": "Sample standard deviation",
+    "examples": [
+      {
+        "formula": "=STDEV(1,2,3,4,5,6,7,8,9,10)",
+        "result": "3.0276503540974917"
+      },
+      {
+        "formula": "=STDEV({1,2,3,4,5,6,7,8,9,10})",
+        "result": "3.0276503540974917"
+      }
+    ]
+  },
+  {
+    "name": "STDEV.P",
+    "category": "statistical",
+    "syntax": "STDEV.P(value1,...)",
+    "description": "Population standard deviation",
+    "examples": [
+      {
+        "formula": "=STDEV.P(1,2,3,4,5,6,7,8,9,10)",
+        "result": "2.8722813232690143"
+      }
+    ]
+  },
+  {
+    "name": "STDEV.S",
+    "category": "statistical",
+    "syntax": "STDEV.S(value1,...)",
+    "description": "Sample standard deviation",
+    "examples": [
+      {
+        "formula": "=STDEV.S(1,2,3,4,5,6,7,8,9,10)",
+        "result": "3.0276503540974917"
+      }
+    ]
+  },
+  {
+    "name": "STDEVA",
+    "category": "statistical",
+    "syntax": "STDEVA(value1,...)",
+    "description": "Sample standard deviation including text and logical values",
+    "examples": [
+      {
+        "formula": "=STDEVA(1,2,3,4,5,6,7,8,9,10)",
+        "result": "3.0276503540974917"
+      }
+    ]
+  },
+  {
+    "name": "STDEVP",
+    "category": "statistical",
+    "syntax": "STDEVP(value1,...)",
+    "description": "Population standard deviation",
+    "examples": [
+      {
+        "formula": "=STDEVP(1,2,3,4,5,6,7,8,9,10)",
+        "result": "2.8722813232690143"
+      }
+    ]
+  },
+  {
+    "name": "STDEVPA",
+    "category": "statistical",
+    "syntax": "STDEVPA(value1,...)",
+    "description": "Population standard deviation including text and logical values",
+    "examples": [
+      {
+        "formula": "=STDEVPA(1,2,3,4,5,6,7,8,9,10)",
+        "result": "2.8722813232690143"
+      }
+    ]
+  },
+  {
+    "name": "STEYX",
+    "category": "statistical",
+    "syntax": "STEYX(known_y,known_x)",
+    "description": "Standard error of regression",
+    "examples": [
+      {
+        "formula": "=STEYX({2,3,9,1,8,7,5},{6,5,11,7,5,4,4})",
+        "result": "3.3057189502100415"
+      }
+    ]
+  },
+  {
+    "name": "SUBSTITUTE",
+    "category": "text",
+    "syntax": "SUBSTITUTE(text, old, new, instance)",
+    "description": "Replace occurrences of a substring",
+    "examples": []
+  },
+  {
+    "name": "SUBTOTAL",
+    "category": "math",
+    "syntax": "SUBTOTAL(function_code, ref1, ...)",
+    "description": "Apply function to a list (not supported with arrays)",
+    "examples": []
+  },
+  {
+    "name": "SUM",
+    "category": "math",
+    "syntax": "SUM(value1,...)",
+    "description": "Sum of arguments",
+    "examples": [
+      {
+        "formula": "=SUM(PRICES)",
+        "result": "60"
+      },
+      {
+        "formula": "=SUM(GRID)",
+        "result": "10"
+      },
+      {
+        "formula": "=SUM(QUOTED_VALS)",
+        "result": "300"
+      }
+    ]
+  },
+  {
+    "name": "SUMIF",
+    "category": "math",
+    "syntax": "SUMIF(range, criterion, [sum_range])",
+    "description": "Sum cells where range matches criterion",
+    "examples": [
+      {
+        "formula": "=SUMIF({10,20,30,40},\">20\")",
+        "result": "70"
+      }
+    ]
+  },
+  {
+    "name": "SUMIFS",
+    "category": "math",
+    "syntax": "SUMIFS(sum_range, range1, criterion1, ...)",
+    "description": "Sum cells where all criteria match",
+    "examples": []
+  },
+  {
+    "name": "SUMPRODUCT",
+    "category": "array",
+    "syntax": "SUMPRODUCT(array1, [array2], ...)",
+    "description": "Returns the sum of products of corresponding elements",
+    "examples": [
+      {
+        "formula": "=SUMPRODUCT({1,2,3,4},{5,6,7,8})",
+        "result": "70"
+      },
+      {
+        "formula": "=SUMPRODUCT({2,3,4},{1,2,3})",
+        "result": "20"
+      },
+      {
+        "formula": "=SUMPRODUCT({1,2,3,4})",
+        "result": "10"
+      }
+    ]
+  },
+  {
+    "name": "SUMSQ",
+    "category": "math",
+    "syntax": "SUMSQ(value1,...)",
+    "description": "Sum of squares of arguments",
+    "examples": [
+      {
+        "formula": "=SUMSQ({1,2,3,4,5})",
+        "result": "55"
+      },
+      {
+        "formula": "=SUMSQ(1,2,3,4,5)",
+        "result": "55"
+      },
+      {
+        "formula": "=SUMSQ(1,2,{3,4,5})",
+        "result": "55"
+      }
+    ]
+  },
+  {
+    "name": "SUMX2MY2",
+    "category": "array",
+    "syntax": "SUMX2MY2(array_x, array_y)",
+    "description": "Returns sum of (x^2 - y^2)",
+    "examples": [
+      {
+        "formula": "=SUMX2MY2({2,3,9,1,8,7,5},{6,5,11,7,5,4,4})",
+        "result": "-55"
+      },
+      {
+        "formula": "=SUMX2MY2({1,2,3},{4,5,6})",
+        "result": "-63"
+      },
+      {
+        "formula": "=SUMX2MY2({1,2,3},{1,2,3})",
+        "result": "0"
+      }
+    ]
+  },
+  {
+    "name": "SUMX2PY2",
+    "category": "array",
+    "syntax": "SUMX2PY2(array_x, array_y)",
+    "description": "Returns sum of (x^2 + y^2)",
+    "examples": [
+      {
+        "formula": "=SUMX2PY2({2,3,9,1,8,7,5},{6,5,11,7,5,4,4})",
+        "result": "521"
+      },
+      {
+        "formula": "=SUMX2PY2({1,2,3},{4,5,6})",
+        "result": "91"
+      },
+      {
+        "formula": "=SUMX2PY2({1,2,3},{1,2,3})",
+        "result": "28"
+      }
+    ]
+  },
+  {
+    "name": "SUMXMY2",
+    "category": "array",
+    "syntax": "SUMXMY2(array_x, array_y)",
+    "description": "Returns sum of squares of differences",
+    "examples": [
+      {
+        "formula": "=SUMXMY2({2,3,9,1,8,7,5},{6,5,11,7,5,4,4})",
+        "result": "79"
+      },
+      {
+        "formula": "=SUMXMY2({1,2,3},{4,5,6})",
+        "result": "27"
+      },
+      {
+        "formula": "=SUMXMY2({1,2,3},{1,2,3})",
+        "result": "0"
+      }
+    ]
+  },
+  {
+    "name": "SWITCH",
+    "category": "logical",
+    "syntax": "SWITCH(expr, val1, result1,...)",
+    "description": "Match expression against values",
+    "examples": []
+  },
+  {
+    "name": "SYD",
+    "category": "financial",
+    "syntax": "SYD(cost, salvage, life, per)",
+    "description": "Sum-of-years' digits depreciation",
+    "examples": [
+      {
+        "formula": "=SYD(100,50,10,2)",
+        "result": "8.181818181818182"
+      }
+    ]
+  },
+  {
+    "name": "T",
+    "category": "text",
+    "syntax": "T(value)",
+    "description": "Return text if value is text, else empty string",
+    "examples": []
+  },
+  {
+    "name": "T.DIST",
+    "category": "statistical",
+    "syntax": "T.DIST(x,df,cumulative)",
+    "description": "Student's t CDF/PDF",
+    "examples": [
+      {
+        "formula": "=T.DIST(1.96,60,FALSE)",
+        "result": "0.059847906211418805"
+      },
+      {
+        "formula": "=T.DIST(-1.98,2,FALSE)",
+        "result": "0.06941821226899947"
+      },
+      {
+        "formula": "=T.DIST(1.96,60,TRUE)",
+        "result": "0.9726775351317355"
+      }
+    ]
+  },
+  {
+    "name": "T.DIST.2T",
+    "category": "statistical",
+    "syntax": "T.DIST.2T(x,df)",
+    "description": "Student's t two-tailed CDF",
+    "examples": [
+      {
+        "formula": "=T.DIST.2T(1.96,60)",
+        "result": "0.05464492973652901"
+      },
+      {
+        "formula": "=T.DIST.2T(1,2)",
+        "result": "0.4226497308103738"
+      }
+    ]
+  },
+  {
+    "name": "T.DIST.RT",
+    "category": "statistical",
+    "syntax": "T.DIST.RT(x,df)",
+    "description": "Student's t right-tail CDF",
+    "examples": [
+      {
+        "formula": "=T.DIST.RT(1.96,60)",
+        "result": "0.027322464868264507"
+      },
+      {
+        "formula": "=T.DIST.RT(-1.98,2)",
+        "result": "0.9068737480782105"
+      }
+    ]
+  },
+  {
+    "name": "T.INV",
+    "category": "statistical",
+    "syntax": "T.INV(p,df)",
+    "description": "Student's t inverse CDF",
+    "examples": [
+      {
+        "formula": "=T.INV(0.05757,45)",
+        "result": "-1.6065883170805806"
+      }
+    ]
+  },
+  {
+    "name": "T.INV.2T",
+    "category": "statistical",
+    "syntax": "T.INV.2T(p,df)",
+    "description": "Student's t two-tailed inverse",
+    "examples": [
+      {
+        "formula": "=T.INV.2T(0.35,1)",
+        "result": "1.6318516871287878"
+      }
+    ]
+  },
+  {
+    "name": "T.TEST",
+    "category": "statistical",
+    "syntax": "T.TEST(array1,array2,tails,type)",
+    "description": "Student's t-test",
+    "examples": [
+      {
+        "formula": "=T.TEST({90,85,78,92},{88,82,80,95},2,1)",
+        "result": "1"
+      },
+      {
+        "formula": "=T.TEST({90,85,78,92},{88,82,80,95},1,2)",
+        "result": "0.5"
+      },
+      {
+        "formula": "=T.TEST({90,85,78,92},{88,82,80,95},2,3)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "TAN",
+    "category": "math",
+    "syntax": "TAN(angle)",
+    "description": "Tangent of an angle in radians",
+    "examples": [
+      {
+        "formula": "=TAN(PI())",
+        "result": "-1.2246467991473532e-16"
+      },
+      {
+        "formula": "=TAN(1)",
+        "result": "1.5574077246549023"
+      }
+    ]
+  },
+  {
+    "name": "TANH",
+    "category": "math",
+    "syntax": "TANH(number)",
+    "description": "Hyperbolic tangent",
+    "examples": [
+      {
+        "formula": "=TANH(1)",
+        "result": "0.7615941559557649"
+      }
+    ]
+  },
+  {
+    "name": "TBILLEQ",
+    "category": "financial",
+    "syntax": "TBILLEQ(settlement, maturity, discount)",
+    "description": "T-bill bond-equivalent yield",
+    "examples": [
+      {
+        "formula": "=TBILLEQ(DATE(2010,1,2),DATE(2010,12,31),0.09)",
+        "result": "0.09797107538773103"
+      }
+    ]
+  },
+  {
+    "name": "TBILLPRICE",
+    "category": "financial",
+    "syntax": "TBILLPRICE(settlement, maturity, discount)",
+    "description": "T-bill price",
+    "examples": [
+      {
+        "formula": "=TBILLPRICE(DATE(2010,1,2),DATE(2010,12,31),0.0125)",
+        "result": "98.73958333333334"
+      }
+    ]
+  },
+  {
+    "name": "TBILLYIELD",
+    "category": "financial",
+    "syntax": "TBILLYIELD(settlement, maturity, pr)",
+    "description": "T-bill yield",
+    "examples": [
+      {
+        "formula": "=TBILLYIELD(DATE(2010,1,2),DATE(2010,12,31),98.45)",
+        "result": "0.015613916532703153"
+      }
+    ]
+  },
+  {
+    "name": "TDIST",
+    "category": "statistical",
+    "syntax": "TDIST(x,df,tails)",
+    "description": "Student's t distribution (legacy)",
+    "examples": [
+      {
+        "formula": "=TDIST(0.5,1,1)",
+        "result": "0.35241638234956674"
+      },
+      {
+        "formula": "=TDIST(0.5,1,2)",
+        "result": "0.7048327646991335"
+      },
+      {
+        "formula": "=TDIST(0.5,30,1)",
+        "result": "0.3103615024425649"
+      }
+    ]
+  },
+  {
+    "name": "TEXT",
+    "category": "text",
+    "syntax": "TEXT(value, format)",
+    "description": "Format number as text",
+    "examples": []
+  },
+  {
+    "name": "TEXTJOIN",
+    "category": "text",
+    "syntax": "TEXTJOIN(delimiter, ignore_empty, value1, ...)",
+    "description": "Join values with delimiter, optionally skip empty",
+    "examples": []
+  },
+  {
+    "name": "TIME",
+    "category": "date",
+    "syntax": "TIME(hour,minute,second)",
+    "description": "Creates a time serial number from components",
+    "examples": [
+      {
+        "formula": "=TIME(11,40,59)",
+        "result": "0.4867939814814815"
+      },
+      {
+        "formula": "=TIME(0,0,0)",
+        "result": "0"
+      },
+      {
+        "formula": "=TIME(25,0,0)",
+        "result": "0.04166666666666674"
+      }
+    ]
+  },
+  {
+    "name": "TIMEVALUE",
+    "category": "date",
+    "syntax": "TIMEVALUE(time_text)",
+    "description": "Converts a time string to a fractional serial number",
+    "examples": [
+      {
+        "formula": "=TIMEVALUE(\"2:15 PM\")",
+        "result": "0.59375"
+      },
+      {
+        "formula": "=TIMEVALUE(\"14:15:30\")",
+        "result": "0.5940972222222223"
+      },
+      {
+        "formula": "=TIMEVALUE(\"11:59:59.50 PM\")",
+        "result": "0.999994212962963"
+      }
+    ]
+  },
+  {
+    "name": "TINV",
+    "category": "statistical",
+    "syntax": "TINV(p,df)",
+    "description": "Student's t two-tailed inverse (legacy)",
+    "examples": [
+      {
+        "formula": "=TINV(0.35,1)",
+        "result": "1.6318516871287878"
+      },
+      {
+        "formula": "=TINV(0.05,10)",
+        "result": "2.2281388519862735"
+      }
+    ]
+  },
+  {
+    "name": "TOCOL",
+    "category": "array",
+    "syntax": "TOCOL(array, [ignore], [scan_by_col])",
+    "description": "Converts an array to a single column",
+    "examples": [
+      {
+        "formula": "=TOCOL({1,2;3,4})",
+        "result": "1"
+      },
+      {
+        "formula": "=TOCOL({1,2,3})",
+        "result": "1"
+      },
+      {
+        "formula": "=TOCOL({1,2,3;4,5,6;7,8,9})",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "TODAY",
+    "category": "date",
+    "syntax": "TODAY()",
+    "description": "Current date as a serial number",
+    "examples": []
+  },
+  {
+    "name": "TOROW",
+    "category": "array",
+    "syntax": "TOROW(array, [ignore], [scan_by_col])",
+    "description": "Converts an array to a single row",
+    "examples": [
+      {
+        "formula": "=TOROW({1,2;3,4})",
+        "result": "1"
+      },
+      {
+        "formula": "=TOROW({1;2;3})",
+        "result": "1"
+      },
+      {
+        "formula": "=TOROW({1,2,3;4,5,6;7,8,9})",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "TO_DATE",
+    "category": "parser",
+    "syntax": "TO_DATE(value)",
+    "description": "Converts a number to a date serial value",
+    "examples": [
+      {
+        "formula": "=TO_DATE(1)",
+        "result": "1"
+      },
+      {
+        "formula": "=TO_DATE(25405)",
+        "result": "25405"
+      },
+      {
+        "formula": "=TO_DATE(44927)",
+        "result": "44927"
+      }
+    ]
+  },
+  {
+    "name": "TO_DOLLARS",
+    "category": "parser",
+    "syntax": "TO_DOLLARS(value)",
+    "description": "Formats a number as a dollar amount",
+    "examples": [
+      {
+        "formula": "=TO_DOLLARS(5)",
+        "result": "5"
+      },
+      {
+        "formula": "=TO_DOLLARS(3.14)",
+        "result": "3.14"
+      },
+      {
+        "formula": "=TO_DOLLARS(0)",
+        "result": "0"
+      }
+    ]
+  },
+  {
+    "name": "TO_PERCENT",
+    "category": "parser",
+    "syntax": "TO_PERCENT(value)",
+    "description": "Formats a number as a percentage",
+    "examples": [
+      {
+        "formula": "=TO_PERCENT(0.5)",
+        "result": "0.5"
+      },
+      {
+        "formula": "=TO_PERCENT(1)",
+        "result": "1"
+      },
+      {
+        "formula": "=TO_PERCENT(0)",
+        "result": "0"
+      }
+    ]
+  },
+  {
+    "name": "TO_PURE_NUMBER",
+    "category": "parser",
+    "syntax": "TO_PURE_NUMBER(value)",
+    "description": "Strips formatting and returns a plain number",
+    "examples": [
+      {
+        "formula": "=TO_PURE_NUMBER(42)",
+        "result": "42"
+      },
+      {
+        "formula": "=TO_PURE_NUMBER(0)",
+        "result": "0"
+      },
+      {
+        "formula": "=TO_PURE_NUMBER(-7)",
+        "result": "-7"
+      }
+    ]
+  },
+  {
+    "name": "TO_TEXT",
+    "category": "parser",
+    "syntax": "TO_TEXT(value)",
+    "description": "Converts a value to its text representation",
+    "examples": []
+  },
+  {
+    "name": "TRANSPOSE",
+    "category": "array",
+    "syntax": "TRANSPOSE(array)",
+    "description": "Transposes the rows and columns of an array",
+    "examples": [
+      {
+        "formula": "=TRANSPOSE({1,2;3,4})",
+        "result": "1"
+      },
+      {
+        "formula": "=TRANSPOSE({1,2,3;4,5,6})",
+        "result": "1"
+      },
+      {
+        "formula": "=TRANSPOSE({1,2,3})",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "TREND",
+    "category": "array",
+    "syntax": "TREND(known_y, [known_x], [new_x], [const])",
+    "description": "Returns values along a linear trend",
+    "examples": [
+      {
+        "formula": "=TREND({1,2,3,4})",
+        "result": "1.0000000000000002"
+      },
+      {
+        "formula": "=TREND({2,4,6,8},{1,2,3,4})",
+        "result": "2.0000000000000004"
+      },
+      {
+        "formula": "=TREND({2,4,6,8},{1,2,3,4},{5})",
+        "result": "10"
+      }
+    ]
+  },
+  {
+    "name": "TRIM",
+    "category": "text",
+    "syntax": "TRIM(text)",
+    "description": "Remove extra whitespace",
+    "examples": []
+  },
+  {
+    "name": "TRIMMEAN",
+    "category": "statistical",
+    "syntax": "TRIMMEAN(data,percent)",
+    "description": "Trimmed mean",
+    "examples": [
+      {
+        "formula": "=TRIMMEAN({1,1,2,3,5,8,13,21,34,55},0.05)",
+        "result": "14.3"
+      },
+      {
+        "formula": "=TRIMMEAN({2,4,6,8,10,12,14,16,18,20},0.1)",
+        "result": "11"
+      }
+    ]
+  },
+  {
+    "name": "TRUE",
+    "category": "logical",
+    "syntax": "TRUE()",
+    "description": "Logical true value",
+    "examples": []
+  },
+  {
+    "name": "TRUNC",
+    "category": "math",
+    "syntax": "TRUNC(number, digits)",
+    "description": "Truncate to integer or decimal places",
+    "examples": [
+      {
+        "formula": "=TRUNC(3.141592654,2)",
+        "result": "3.14"
+      },
+      {
+        "formula": "=TRUNC(1.9,0)",
+        "result": "1"
+      },
+      {
+        "formula": "=TRUNC(1.23)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "TYPE",
+    "category": "logical",
+    "syntax": "TYPE(value)",
+    "description": "Number indicating value type",
+    "examples": [
+      {
+        "formula": "=TYPE(42)",
+        "result": "1"
+      },
+      {
+        "formula": "=TYPE(\"hello\")",
+        "result": "2"
+      },
+      {
+        "formula": "=TYPE(TRUE)",
+        "result": "4"
+      }
+    ]
+  },
+  {
+    "name": "TZABBR",
+    "category": "timezone",
+    "syntax": "TZABBR(zoned)",
+    "description": "Zone abbreviation at this instant (e.g. CEST), display only",
+    "examples": []
+  },
+  {
+    "name": "TZADD",
+    "category": "timezone",
+    "syntax": "TZADD(zoned,amount,unit,[policy])",
+    "description": "Adds time: seconds/minutes/hours are absolute, days/weeks/months/years are DST-aware calendar units",
+    "examples": []
+  },
+  {
+    "name": "TZBOARD",
+    "category": "timezone",
+    "syntax": "TZBOARD(anchor,zones,[base])",
+    "description": "Technical world-clock board: one row per zone {zone,local,offset,delta,rollover,abbrev,dst}",
+    "examples": []
+  },
+  {
+    "name": "TZCANONICAL",
+    "category": "timezone",
+    "syntax": "TZCANONICAL(zone)",
+    "description": "Validates and normalizes a zone name (best-effort; IANA links are not resolved)",
+    "examples": []
+  },
+  {
+    "name": "TZCOMPARETEXT",
+    "category": "timezone",
+    "syntax": "TZCOMPARETEXT(anchor,zones,[base])",
+    "description": "Alias of TZWORLDCLOCK",
+    "examples": []
+  },
+  {
+    "name": "TZCONVERT",
+    "category": "timezone",
+    "syntax": "TZCONVERT(zoned,target_zone)",
+    "description": "Same instant shown as the local time in another zone",
+    "examples": []
+  },
+  {
+    "name": "TZDATETIME",
+    "category": "timezone",
+    "syntax": "TZDATETIME(year,month,day,hour,minute,second,zone,[policy])",
+    "description": "Builds a zone-aware instant from a wall-clock time in a zone",
+    "examples": []
+  },
+  {
+    "name": "TZDBVERSION",
+    "category": "timezone",
+    "syntax": "TZDBVERSION()",
+    "description": "IANA time-zone database version the engine is using",
+    "examples": []
+  },
+  {
+    "name": "TZDIFF",
+    "category": "timezone",
+    "syntax": "TZDIFF(zoned_a,zoned_b,[unit])",
+    "description": "Elapsed time from b to a on the absolute timeline (DST-immune)",
+    "examples": []
+  },
+  {
+    "name": "TZFROMEPOCH",
+    "category": "timezone",
+    "syntax": "TZFROMEPOCH(unix_seconds,zone)",
+    "description": "Builds a zone-aware instant from a Unix timestamp",
+    "examples": []
+  },
+  {
+    "name": "TZINWINDOW",
+    "category": "timezone",
+    "syntax": "TZINWINDOW(zoned,start_local,end_local,[days_mask])",
+    "description": "TRUE if the local time-of-day falls in [start,end); days_mask is 7 chars Sun..Sat",
+    "examples": []
+  },
+  {
+    "name": "TZISDST",
+    "category": "timezone",
+    "syntax": "TZISDST(zoned)",
+    "description": "TRUE if daylight-saving is in effect at this instant",
+    "examples": []
+  },
+  {
+    "name": "TZLOCALIZE",
+    "category": "timezone",
+    "syntax": "TZLOCALIZE(date_serial,zone,[policy])",
+    "description": "Interprets a plain date/time serial as a wall-clock reading in a zone",
+    "examples": []
+  },
+  {
+    "name": "TZLOCALSTATUS",
+    "category": "timezone",
+    "syntax": "TZLOCALSTATUS(year,month,day,hour,minute,zone)",
+    "description": "Classifies a local time as unique, gap (nonexistent) or fold (ambiguous)",
+    "examples": []
+  },
+  {
+    "name": "TZNOW",
+    "category": "timezone",
+    "syntax": "TZNOW(zone)",
+    "description": "The current moment stamped with the given zone (volatile; pinned during recalc)",
+    "examples": []
+  },
+  {
+    "name": "TZOFFSET",
+    "category": "timezone",
+    "syntax": "TZOFFSET(zoned)",
+    "description": "Offset from UTC in minutes at this instant (DST-resolved)",
+    "examples": []
+  },
+  {
+    "name": "TZOFFSETDIFF",
+    "category": "timezone",
+    "syntax": "TZOFFSETDIFF(zoned_a,zoned_b)",
+    "description": "Signed difference in minutes between two zones' offsets",
+    "examples": []
+  },
+  {
+    "name": "TZOVERLAP",
+    "category": "timezone",
+    "syntax": "TZOVERLAP(zones,start_local,end_local,date_serial,[granularity_min])",
+    "description": "First daily window when the local time is within [start,end) in ALL zones; [start,end] instants or 'No overlap'",
+    "examples": []
+  },
+  {
+    "name": "TZPARSE",
+    "category": "timezone",
+    "syntax": "TZPARSE(text,[zone])",
+    "description": "Parses an ISO/RFC-9557 timestamp into a zone-aware instant",
+    "examples": []
+  },
+  {
+    "name": "TZPART",
+    "category": "timezone",
+    "syntax": "TZPART(zoned,unit)",
+    "description": "Local wall-clock field: year|month|day|hour|minute|second|weekday",
+    "examples": []
+  },
+  {
+    "name": "TZSERIAL",
+    "category": "timezone",
+    "syntax": "TZSERIAL(zoned)",
+    "description": "Drops the zone, returning the wall-clock time as a plain date serial",
+    "examples": []
+  },
+  {
+    "name": "TZSTRING",
+    "category": "timezone",
+    "syntax": "TZSTRING(zoned)",
+    "description": "Canonical RFC-9557 string for a zone-aware instant",
+    "examples": []
+  },
+  {
+    "name": "TZTABLE",
+    "category": "timezone",
+    "syntax": "TZTABLE(anchor,zones,[base])",
+    "description": "Alias of TZBOARD",
+    "examples": []
+  },
+  {
+    "name": "TZTEXT",
+    "category": "timezone",
+    "syntax": "TZTEXT(zoned,[format])",
+    "description": "Human-friendly local string; optional strftime format",
+    "examples": []
+  },
+  {
+    "name": "TZVALID",
+    "category": "timezone",
+    "syntax": "TZVALID(zone)",
+    "description": "TRUE if the text is a valid IANA zone name or fixed offset",
+    "examples": []
+  },
+  {
+    "name": "TZWORLDCLOCK",
+    "category": "timezone",
+    "syntax": "TZWORLDCLOCK(anchor,zones,[base])",
+    "description": "Friendly one-line summary comparing the time across N zones",
+    "examples": []
+  },
+  {
+    "name": "UNICHAR",
+    "category": "text",
+    "syntax": "UNICHAR(number)",
+    "description": "Unicode character from code point",
+    "examples": []
+  },
+  {
+    "name": "UNICODE",
+    "category": "text",
+    "syntax": "UNICODE(text)",
+    "description": "Unicode code point of first character",
+    "examples": [
+      {
+        "formula": "=UNICODE(\"Alphabet\")",
+        "result": "65"
+      },
+      {
+        "formula": "=UNICODE(123)",
+        "result": "49"
+      },
+      {
+        "formula": "=UNICODE(\"😀😀😄\")",
+        "result": "128512"
+      }
+    ]
+  },
+  {
+    "name": "UNIQUE",
+    "category": "array",
+    "syntax": "UNIQUE(array, [by_col], [exactly_once])",
+    "description": "Returns unique rows or columns from an array",
+    "examples": [
+      {
+        "formula": "=UNIQUE({1,2,2,3,3,3})",
+        "result": "1"
+      },
+      {
+        "formula": "=UNIQUE({1,2,3})",
+        "result": "1"
+      },
+      {
+        "formula": "=UNIQUE({7,7,7})",
+        "result": "7"
+      }
+    ]
+  },
+  {
+    "name": "UPPER",
+    "category": "text",
+    "syntax": "UPPER(text)",
+    "description": "Convert to uppercase",
+    "examples": []
+  },
+  {
+    "name": "VALUE",
+    "category": "text",
+    "syntax": "VALUE(text)",
+    "description": "Convert text to number",
+    "examples": [
+      {
+        "formula": "=VALUE(\"123\")",
+        "result": "123"
+      },
+      {
+        "formula": "=VALUE(\"7/20/1969\")",
+        "result": "25404"
+      },
+      {
+        "formula": "=VALUE(\"12:00:00\")",
+        "result": "0.5"
+      }
+    ]
+  },
+  {
+    "name": "VAR",
+    "category": "statistical",
+    "syntax": "VAR(value1,...)",
+    "description": "Sample variance",
+    "examples": [
+      {
+        "formula": "=VAR(1,2,3,4,5,6,7,8,9,10)",
+        "result": "9.166666666666666"
+      },
+      {
+        "formula": "=VAR(2,4,4,4,5,5,7,9)",
+        "result": "4.571428571428571"
+      }
+    ]
+  },
+  {
+    "name": "VAR.P",
+    "category": "statistical",
+    "syntax": "VAR.P(value1,...)",
+    "description": "Population variance",
+    "examples": [
+      {
+        "formula": "=VAR.P(1,2,3,4,5,6,7,8,9,10)",
+        "result": "8.25"
+      },
+      {
+        "formula": "=VAR.P(2,4,4,4,5,5,7,9)",
+        "result": "4"
+      }
+    ]
+  },
+  {
+    "name": "VAR.S",
+    "category": "statistical",
+    "syntax": "VAR.S(value1,...)",
+    "description": "Sample variance",
+    "examples": [
+      {
+        "formula": "=VAR.S(1,2,3,4,5,6,7,8,9,10)",
+        "result": "9.166666666666666"
+      },
+      {
+        "formula": "=VAR.S(2,4,4,4,5,5,7,9)",
+        "result": "4.571428571428571"
+      }
+    ]
+  },
+  {
+    "name": "VARA",
+    "category": "statistical",
+    "syntax": "VARA(value1,...)",
+    "description": "Sample variance including text and logical values",
+    "examples": [
+      {
+        "formula": "=VARA(1,2,3,4,5,6,7,8,9,10)",
+        "result": "9.166666666666666"
+      },
+      {
+        "formula": "=VARA(2,4,4,4,5,5,7,9)",
+        "result": "4.571428571428571"
+      }
+    ]
+  },
+  {
+    "name": "VARP",
+    "category": "statistical",
+    "syntax": "VARP(value1,...)",
+    "description": "Population variance",
+    "examples": [
+      {
+        "formula": "=VARP(1,2,3,4,5,6,7,8,9,10)",
+        "result": "8.25"
+      },
+      {
+        "formula": "=VARP(2,4,4,4,5,5,7,9)",
+        "result": "4"
+      }
+    ]
+  },
+  {
+    "name": "VARPA",
+    "category": "statistical",
+    "syntax": "VARPA(value1,...)",
+    "description": "Population variance including text and logical values",
+    "examples": [
+      {
+        "formula": "=VARPA(1,2,3,4,5,6,7,8,9,10)",
+        "result": "8.25"
+      },
+      {
+        "formula": "=VARPA(2,4,4,4,5,5,7,9)",
+        "result": "4"
+      }
+    ]
+  },
+  {
+    "name": "VDB",
+    "category": "financial",
+    "syntax": "VDB(cost, salvage, life, start, end, [factor], [no_switch])",
+    "description": "Variable-rate declining balance",
+    "examples": [
+      {
+        "formula": "=VDB(100,10,20,10,11,2,TRUE)",
+        "result": "3.4867844010000013"
+      },
+      {
+        "formula": "=VDB(100,33,20,10,11,2,FALSE)",
+        "result": "1.867844010000013"
+      }
+    ]
+  },
+  {
+    "name": "VLOOKUP",
+    "category": "lookup",
+    "syntax": "VLOOKUP(search_key, range, index, [is_sorted])",
+    "description": "Searches first column of range, returns value from index column",
+    "examples": [
+      {
+        "formula": "=VLOOKUP(\"b\",{\"a\",1;\"b\",2;\"c\",3},2,FALSE)",
+        "result": "2"
+      },
+      {
+        "formula": "=VLOOKUP(\"a\",{\"a\",10;\"b\",20;\"c\",30},2,FALSE)",
+        "result": "10"
+      },
+      {
+        "formula": "=VLOOKUP(\"c\",{\"a\",10;\"b\",20;\"c\",30},2,FALSE)",
+        "result": "30"
+      }
+    ]
+  },
+  {
+    "name": "VSTACK",
+    "category": "array",
+    "syntax": "VSTACK(array1, ...)",
+    "description": "Vertically stacks arrays",
+    "examples": [
+      {
+        "formula": "=VSTACK({1,2},{3,4})",
+        "result": "1"
+      },
+      {
+        "formula": "=VSTACK({1,2;3,4},{5,6;7,8})",
+        "result": "1"
+      },
+      {
+        "formula": "=VSTACK({1,2},{3,4},{5,6})",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "WEEKDAY",
+    "category": "date",
+    "syntax": "WEEKDAY(date,[type])",
+    "description": "Day of week as a number",
+    "examples": [
+      {
+        "formula": "=WEEKDAY(DATE(1969,7,20))",
+        "result": "1"
+      },
+      {
+        "formula": "=WEEKDAY(40909)",
+        "result": "1"
+      },
+      {
+        "formula": "=WEEKDAY(40909,3)",
+        "result": "6"
+      }
+    ]
+  },
+  {
+    "name": "WEEKNUM",
+    "category": "date",
+    "syntax": "WEEKNUM(date,[type])",
+    "description": "Week number of the year for a date",
+    "examples": [
+      {
+        "formula": "=WEEKNUM(DATE(1969,7,20),1)",
+        "result": "30"
+      },
+      {
+        "formula": "=WEEKNUM(\"12/09/1948\",2)",
+        "result": "50"
+      },
+      {
+        "formula": "=WEEKNUM(\"6/14/2002\")",
+        "result": "24"
+      }
+    ]
+  },
+  {
+    "name": "WEIBULL",
+    "category": "statistical",
+    "syntax": "WEIBULL(x,alpha,beta,cumulative)",
+    "description": "Weibull distribution (legacy)",
+    "examples": [
+      {
+        "formula": "=WEIBULL(2.4,2,3,TRUE)",
+        "result": "0.47270757595695134"
+      },
+      {
+        "formula": "=WEIBULL(2.4,2,3,FALSE)",
+        "result": "0.2812226261562926"
+      }
+    ]
+  },
+  {
+    "name": "WEIBULL.DIST",
+    "category": "statistical",
+    "syntax": "WEIBULL.DIST(x,alpha,beta,cumulative)",
+    "description": "Weibull distribution",
+    "examples": [
+      {
+        "formula": "=WEIBULL.DIST(2.4,2,3,TRUE)",
+        "result": "0.47270757595695134"
+      },
+      {
+        "formula": "=WEIBULL.DIST(2.4,2,3,FALSE)",
+        "result": "0.2812226261562926"
+      }
+    ]
+  },
+  {
+    "name": "WORKDAY",
+    "category": "date",
+    "syntax": "WORKDAY(start,days,[holidays])",
+    "description": "Date N working days from start date",
+    "examples": [
+      {
+        "formula": "=WORKDAY(DATE(1969,7,20),4)",
+        "result": "25408"
+      },
+      {
+        "formula": "=WORKDAY(40909,10)",
+        "result": "40921"
+      },
+      {
+        "formula": "=WORKDAY(40909,30,{40909,40924})",
+        "result": "40952"
+      }
+    ]
+  },
+  {
+    "name": "WORKDAY.INTL",
+    "category": "date",
+    "syntax": "WORKDAY.INTL(start,days,[weekend],[holidays])",
+    "description": "Date N working days from start with custom weekends",
+    "examples": [
+      {
+        "formula": "=WORKDAY.INTL(DATE(1969,7,21),4,1)",
+        "result": "25409"
+      },
+      {
+        "formula": "=WORKDAY.INTL(DATE(1995,8,13),-2,2)",
+        "result": "34922"
+      },
+      {
+        "formula": "=WORKDAY.INTL(DATE(1969,7,21),0)",
+        "result": "25405"
+      }
+    ]
+  },
+  {
+    "name": "WRAPCOLS",
+    "category": "array",
+    "syntax": "WRAPCOLS(vector, wrap_count, [pad_with])",
+    "description": "Wraps a vector into columns of the given length",
+    "examples": [
+      {
+        "formula": "=WRAPCOLS({1,2,3,4,5,6},2)",
+        "result": "1"
+      },
+      {
+        "formula": "=WRAPCOLS({1,2,3,4,5,6},3)",
+        "result": "1"
+      },
+      {
+        "formula": "=WRAPCOLS({1,2,3,4},1)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "WRAPROWS",
+    "category": "array",
+    "syntax": "WRAPROWS(vector, wrap_count, [pad_with])",
+    "description": "Wraps a vector into rows of the given length",
+    "examples": [
+      {
+        "formula": "=WRAPROWS({1,2,3,4,5,6},2)",
+        "result": "1"
+      },
+      {
+        "formula": "=WRAPROWS({1,2,3,4,5,6},3)",
+        "result": "1"
+      },
+      {
+        "formula": "=WRAPROWS({1,2,3,4},1)",
+        "result": "1"
+      }
+    ]
+  },
+  {
+    "name": "XIRR",
+    "category": "financial",
+    "syntax": "XIRR(values, dates, [guess])",
+    "description": "IRR for irregular cash flows",
+    "examples": [
+      {
+        "formula": "=XIRR({-4000,200,250,300},{DATE(2012,1,1),DATE(2012,6,23),DATE(2013,5,12),DATE(2014,2,9)},0.09)",
+        "result": "-0.6440855342116852"
+      }
+    ]
+  },
+  {
+    "name": "XLOOKUP",
+    "category": "lookup",
+    "syntax": "XLOOKUP(search_key, lookup_array, return_array, [if_not_found], [match_mode], [search_mode])",
+    "description": "Modern lookup function with fallback and match options",
+    "examples": [
+      {
+        "formula": "=XLOOKUP(\"b\",{\"a\",\"b\",\"c\"},{10,20,30})",
+        "result": "20"
+      }
+    ]
+  },
+  {
+    "name": "XMATCH",
+    "category": "lookup",
+    "syntax": "XMATCH(search_key, lookup_array, [match_mode], [search_mode])",
+    "description": "Modern MATCH function with match and search mode options",
+    "examples": []
+  },
+  {
+    "name": "XNPV",
+    "category": "financial",
+    "syntax": "XNPV(rate, values, dates)",
+    "description": "NPV for irregular cash flows",
+    "examples": [
+      {
+        "formula": "=XNPV(0.08,{200,250,300},{DATE(2012,6,23),DATE(2013,5,12),DATE(2014,2,9)})",
+        "result": "698.112843006581"
+      }
+    ]
+  },
+  {
+    "name": "XOR",
+    "category": "logical",
+    "syntax": "XOR(value1,...)",
+    "description": "True if an odd number of arguments are true",
+    "examples": []
+  },
+  {
+    "name": "YEAR",
+    "category": "date",
+    "syntax": "YEAR(date)",
+    "description": "Year from a date serial number",
+    "examples": [
+      {
+        "formula": "=YEAR(DATE(1969,7,20))",
+        "result": "1969"
+      },
+      {
+        "formula": "=YEAR(40909)",
+        "result": "2012"
+      },
+      {
+        "formula": "=YEAR(DATE(2020,2,29))",
+        "result": "2020"
+      }
+    ]
+  },
+  {
+    "name": "YEARFRAC",
+    "category": "date",
+    "syntax": "YEARFRAC(start,end,[basis])",
+    "description": "Fraction of year between two dates",
+    "examples": [
+      {
+        "formula": "=YEARFRAC(DATE(1969,7,16),DATE(1969,7,24),1)",
+        "result": "0.021917808219178082"
+      },
+      {
+        "formula": "=YEARFRAC(DATE(2012,1,1),DATE(2012,7,30))",
+        "result": "0.5805555555555556"
+      },
+      {
+        "formula": "=YEARFRAC(DATE(2012,1,1),DATE(2012,7,30),1)",
+        "result": "0.5765027322404371"
+      }
+    ]
+  },
+  {
+    "name": "YIELD",
+    "category": "financial",
+    "syntax": "YIELD(settlement, maturity, rate, pr, redemption, frequency, [basis])",
+    "description": "Yield on a coupon bond",
+    "examples": [
+      {
+        "formula": "=YIELD(DATE(2010,1,2),DATE(2039,12,31),3,93.45,100,2)",
+        "result": "3.1876008031666876"
+      },
+      {
+        "formula": "=YIELD(DATE(2010,1,2),DATE(2039,12,31),3,93.45,100,1,1)",
+        "result": "3.1795991124043925"
+      }
+    ]
+  },
+  {
+    "name": "YIELDDISC",
+    "category": "financial",
+    "syntax": "YIELDDISC(settlement, maturity, pr, redemption, [basis])",
+    "description": "Annual yield for discounted security",
+    "examples": [
+      {
+        "formula": "=YIELDDISC(DATE(2010,1,2),DATE(2010,12,31),98.45,100)",
+        "result": "0.01578788774755221"
+      },
+      {
+        "formula": "=YIELDDISC(DATE(2010,1,2),DATE(2010,12,31),98.45,100,2)",
+        "result": "0.015613916532703151"
+      }
+    ]
+  },
+  {
+    "name": "YIELDMAT",
+    "category": "financial",
+    "syntax": "YIELDMAT(settlement, maturity, issue, rate, pr, [basis])",
+    "description": "Annual yield at maturity",
+    "examples": [
+      {
+        "formula": "=YIELDMAT(DATE(2010,1,2),DATE(2010,12,31),DATE(2010,1,1),0.02,90,2)",
+        "result": "0.13240688642319298"
+      },
+      {
+        "formula": "=YIELDMAT(DATE(2010,1,2),DATE(2039,12,31),DATE(2010,1,1),0.03,100.47)",
+        "result": "0.02970124785690169"
+      }
+    ]
+  },
+  {
+    "name": "Z.TEST",
+    "category": "statistical",
+    "syntax": "Z.TEST(data,mu,[sigma])",
+    "description": "Z-test p-value",
+    "examples": [
+      {
+        "formula": "=Z.TEST({1,2,3,4,5,6},5.5,1.2)",
+        "result": "0.9999777214546978"
+      },
+      {
+        "formula": "=Z.TEST({1,2,3,4,5,6},5.5)",
+        "result": "0.9955856195235906"
+      }
+    ]
+  },
+  {
+    "name": "ZTEST",
+    "category": "statistical",
+    "syntax": "ZTEST(data,mu,[sigma])",
+    "description": "Z-test p-value (legacy)",
+    "examples": [
+      {
+        "formula": "=ZTEST({1,2,3,4,5,6},5.5,1.2)",
+        "result": "0.9999777214546978"
+      },
+      {
+        "formula": "=ZTEST({1,2,3,4,5,6},5.5)",
+        "result": "0.9955856195235906"
+      }
+    ]
+  }
+]
