@@ -283,3 +283,114 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.inputs.tag }}
         run: gh release upload "$TAG" artifacts/**/* --clobber
+
+  # Regenerates and pushes Formula/truecalc-mcp.rb to the truecalc/homebrew-mcp tap.
+  # Needs attach-binaries (not just build-binaries) so the release assets the
+  # formula's URLs point to already exist by the time it's pushed — otherwise
+  # `brew install` could 404 in the gap between this job and attach-binaries.
+  #
+  # HOMEBREW_TAP_TOKEN is a fine-grained PAT scoped to contents:write on
+  # truecalc/homebrew-mcp only; the default GITHUB_TOKEN here is scoped to this
+  # repo and can't push there. The empty-check below only covers the token
+  # never having been configured — an *expired* token still fails this job
+  # loudly (git clone fails under set -euo pipefail), which is deliberate: a
+  # silent skip on expiry would let the tap drift out of date unnoticed.
+  #
+  # Windows isn't included: Homebrew doesn't run on Windows.
+  publish-homebrew:
+    needs: attach-binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read   # only ever pushes with the external HOMEBREW_TAP_TOKEN, never GITHUB_TOKEN
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: truecalc-mcp-*
+          path: artifacts/
+          merge-multiple: true
+
+      - name: Render and push formula
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          # `secrets` isn't a usable context in `if:` conditions, so the
+          # empty-check happens here at runtime instead of at the step level.
+          if [ -z "$GH_TOKEN" ]; then
+            echo "HOMEBREW_TAP_TOKEN not set; skipping Homebrew formula publish"
+            exit 0
+          fi
+
+          VERSION="${TAG#truecalc-core-v}"
+          # Anchored regex, not a case/glob pattern: glob `*` absorbs arbitrary
+          # characters (quotes, semicolons, ...), so a case match here would
+          # only bound the shape loosely — and $VERSION gets interpolated
+          # straight into a heredoc that becomes a committed Ruby file.
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "refusing to publish formula for non-semver tag: '$TAG'"
+            exit 1
+          fi
+
+          sha() { sha256sum "artifacts/$1" | cut -d' ' -f1; }
+          MACOS_ARM64=$(sha truecalc-mcp-aarch64-apple-darwin)
+          MACOS_X64=$(sha truecalc-mcp-x86_64-apple-darwin)
+          LINUX_ARM64=$(sha truecalc-mcp-aarch64-unknown-linux-gnu)
+          LINUX_X64=$(sha truecalc-mcp-x86_64-unknown-linux-gnu)
+
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/truecalc/homebrew-mcp.git" tap
+
+          cat > tap/Formula/truecalc-mcp.rb <<FORMULA
+          # frozen_string_literal: true
+
+          class TruecalcMcp < Formula
+            desc "MCP server exposing TrueCalc spreadsheet formula evaluation for AI assistants"
+            homepage "https://github.com/truecalc/core"
+            version "$VERSION"
+            license "MIT"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/truecalc/core/releases/download/$TAG/truecalc-mcp-aarch64-apple-darwin"
+                sha256 "$MACOS_ARM64"
+              else
+                url "https://github.com/truecalc/core/releases/download/$TAG/truecalc-mcp-x86_64-apple-darwin"
+                sha256 "$MACOS_X64"
+              end
+            end
+
+            on_linux do
+              if Hardware::CPU.arm?
+                url "https://github.com/truecalc/core/releases/download/$TAG/truecalc-mcp-aarch64-unknown-linux-gnu"
+                sha256 "$LINUX_ARM64"
+              else
+                url "https://github.com/truecalc/core/releases/download/$TAG/truecalc-mcp-x86_64-unknown-linux-gnu"
+                sha256 "$LINUX_X64"
+              end
+            end
+
+            def install
+              bin.install Dir["truecalc-mcp-*"].first => "truecalc-mcp"
+            end
+
+            # truecalc-mcp has no --version/--help flags; it reads JSON-RPC requests from
+            # stdin in a loop and only exits when stdin closes. Piping /dev/null confirms
+            # the binary starts and exits cleanly on EOF without hanging the test run.
+            test do
+              system "/bin/sh", "-c", "#{bin}/truecalc-mcp < /dev/null"
+            end
+          end
+          FORMULA
+
+          cd tap
+          git config user.name "truecalc-release-bot"
+          git config user.email "actions@github.com"
+
+          if git diff --quiet -- Formula/truecalc-mcp.rb; then
+            echo "formula unchanged, nothing to push"
+            exit 0
+          fi
+
+          git add Formula/truecalc-mcp.rb
+          git commit -m "truecalc-mcp $VERSION"
+          git push origin main
