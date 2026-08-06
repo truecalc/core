@@ -665,6 +665,18 @@ fn extremes_compare_dates_and_numbers_as_bare_serials() {
     }
 }
 
+// Issue #842: text-in-arithmetic-context coercion must accept the same
+// strings VALUE() parses — currency prefix, percent suffix, and
+// surrounding whitespace — instead of raising #VALUE!. `helpers::eval` runs
+// on `Engine::sheets()`, so this is verified under google-sheets
+// conformance specifically.
+#[test]
+fn text_arithmetic_coercion_matches_value_for_currency_percent_whitespace() {
+    assert_eq!(helpers::eval(r#"="$5"+1"#), Value::Number(6.0));
+    assert_eq!(helpers::eval(r#"="5%"+1"#), Value::Number(1.05));
+    assert_eq!(helpers::eval(r#"="  5  "+1"#), Value::Number(6.0));
+}
+
 // #841: MAX/MIN symmetry over a range/array with no numeric values, evaluated
 // through the full formula pipeline (not the `_fn` unit level) since that is
 // how the bug was originally observed.

@@ -16,6 +16,24 @@ fn numeric_text_to_number() {
     assert_eq!(to_number(Value::Text("5".into())), Ok(5.0));
 }
 
+// Issue #842: arithmetic-context coercion (`to_number`) must accept the same
+// strings VALUE() accepts — currency prefix, percent suffix, and
+// surrounding whitespace.
+#[test]
+fn currency_text_to_number() {
+    assert_eq!(to_number(Value::Text("$5".into())), Ok(5.0));
+}
+
+#[test]
+fn percent_text_to_number() {
+    assert_eq!(to_number(Value::Text("5%".into())), Ok(0.05));
+}
+
+#[test]
+fn whitespace_padded_text_to_number() {
+    assert_eq!(to_number(Value::Text("  5  ".into())), Ok(5.0));
+}
+
 #[test]
 fn empty_to_number() {
     assert_eq!(to_number(Value::Empty), Ok(0.0));
