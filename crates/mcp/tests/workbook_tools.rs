@@ -44,6 +44,33 @@ fn call(id: u64, tool: &str, args: JsonValue) -> JsonValue {
     })
 }
 
+/// Like `run_session`, but returns the full, unwrapped `result` object of
+/// each response (including `isError` and `content`) instead of just the
+/// parsed inner text — needed to assert on the JSON-RPC-level error channel
+/// itself, not only the tool payload.
+fn run_session_raw(requests: &[JsonValue]) -> Vec<JsonValue> {
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_truecalc-mcp"))
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .expect("failed to start truecalc-mcp");
+
+    let stdin = child.stdin.as_mut().expect("stdin");
+    for req in requests {
+        writeln!(stdin, "{}", serde_json::to_string(req).unwrap()).unwrap();
+    }
+    drop(child.stdin.take());
+
+    let output = child.wait_with_output().expect("wait");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    stdout
+        .lines()
+        .filter(|l| !l.is_empty())
+        .map(|line| serde_json::from_str::<JsonValue>(line).expect("json response")["result"].clone())
+        .collect()
+}
+
 /// Canonical workbook JSON with one sheet "Sheet1" and no cells.
 fn empty_workbook_json() -> String {
     r#"{"engine":"sheets","names":[],"sheets":[{"cells":{},"name":"Sheet1"}],"version":"1"}"#.to_owned()
@@ -121,6 +148,76 @@ fn workbook_export_import_roundtrip() {
     assert!(results2[0].get("workbook_id").is_some());
     assert_eq!(results2[1]["type"], "number", "get result: {}", results2[1]);
     assert_eq!(results2[1]["value"], json!(42.0));
+}
+
+#[test]
+fn workbook_get_div_by_zero_is_normal_result_not_tool_error() {
+    // A3 = 1/0 computes to #DIV/0! — a legitimate cell value, not a tool
+    // failure. workbook_get must return it as a normal successful result
+    // (isError absent/false) with {"type":"error","value":"#DIV/0!"},
+    // exactly like evaluate() represents the same error.
+    let results = run_session_raw(&[
+        call(1, "workbook_import", json!({ "json": empty_workbook_json() })),
+        call(2, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "A3", "value": "=1/0" })),
+        call(3, "workbook_recalc", json!({ "workbook_id": "wb_0" })),
+        call(4, "workbook_get", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "A3" })),
+    ]);
+
+    let get_response = &results[3];
+    assert!(
+        get_response.get("isError").is_none() || get_response["isError"] == json!(false),
+        "workbook_get on a #DIV/0! cell must be a normal successful result, got: {get_response}"
+    );
+
+    let payload: JsonValue =
+        serde_json::from_str(get_response["content"][0]["text"].as_str().expect("text content")).expect("inner json");
+    assert_eq!(payload["type"], "error", "payload: {payload}");
+    assert_eq!(payload["value"], "#DIV/0!", "payload: {payload}");
+}
+
+#[test]
+fn workbook_get_circular_ref_is_normal_result_not_tool_error() {
+    // A1 = A1 is a direct circular reference, which Google Sheets (and this
+    // engine) report as #REF!. Same expectation as above.
+    let results = run_session_raw(&[
+        call(1, "workbook_import", json!({ "json": empty_workbook_json() })),
+        call(2, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "A1", "value": "=A1" })),
+        call(3, "workbook_recalc", json!({ "workbook_id": "wb_0" })),
+        call(4, "workbook_get", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "A1" })),
+    ]);
+
+    let get_response = &results[3];
+    assert!(
+        get_response.get("isError").is_none() || get_response["isError"] == json!(false),
+        "workbook_get on a circular-ref #REF! cell must be a normal successful result, got: {get_response}"
+    );
+
+    let payload: JsonValue =
+        serde_json::from_str(get_response["content"][0]["text"].as_str().expect("text content")).expect("inner json");
+    assert_eq!(payload["type"], "error", "payload: {payload}");
+    assert_eq!(payload["value"], "#REF!", "payload: {payload}");
+}
+
+#[test]
+fn workbook_get_unknown_function_is_normal_result_not_tool_error() {
+    // I1 = UNKNOWNFUNC(1) computes to #NAME?. Same expectation as above.
+    let results = run_session_raw(&[
+        call(1, "workbook_import", json!({ "json": empty_workbook_json() })),
+        call(2, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "I1", "value": "=UNKNOWNFUNC(1)" })),
+        call(3, "workbook_recalc", json!({ "workbook_id": "wb_0" })),
+        call(4, "workbook_get", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "I1" })),
+    ]);
+
+    let get_response = &results[3];
+    assert!(
+        get_response.get("isError").is_none() || get_response["isError"] == json!(false),
+        "workbook_get on a #NAME? cell must be a normal successful result, got: {get_response}"
+    );
+
+    let payload: JsonValue =
+        serde_json::from_str(get_response["content"][0]["text"].as_str().expect("text content")).expect("inner json");
+    assert_eq!(payload["type"], "error", "payload: {payload}");
+    assert_eq!(payload["value"], "#NAME?", "payload: {payload}");
 }
 
 #[test]

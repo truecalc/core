@@ -167,6 +167,143 @@ fn rust_native_exports_are_deterministic() {
     assert_eq!(json_a, json_b, "identical Rust workbooks must export identical JSON");
 }
 
+/// Canonical workbook JSON with two sheets "Src" and "Dst" and no cells, for
+/// cross-sheet range tests.
+fn two_sheet_workbook_json() -> String {
+    r#"{"engine":"sheets","names":[],"sheets":[{"cells":{},"name":"Src"},{"cells":{},"name":"Dst"}],"version":"1"}"#
+        .to_owned()
+}
+
+/// Issue #840: a bare vertical range reference (`=A1:A3`, a 3-row x 1-column
+/// range) must spill *down* the column, not sideways into a row. Covers the
+/// full bug report via the MCP surface: same-sheet spill shape, cross-sheet
+/// spill shape, the unrelated-literal-causes-spurious-#REF! regression, and
+/// the exported array shape.
+#[test]
+fn mcp_bare_vertical_range_spills_down_not_sideways() {
+    // ── same-sheet: A1:A3 -> B1, must spill down B1:B3, not into C1/D1 ──────
+    let results = run_session(&[
+        call(1, "workbook_import", json!({ "json": empty_workbook_json() })),
+        call(2, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "A1", "value": "1" })),
+        call(3, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "A2", "value": "2" })),
+        call(4, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "A3", "value": "3" })),
+        call(5, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "B1", "value": "=A1:A3" })),
+        call(6, "workbook_recalc", json!({ "workbook_id": "wb_0", "timestamp_ms": 0, "timezone": "UTC", "rng_seed": 0 })),
+        call(7, "workbook_get", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "B1" })),
+        call(8, "workbook_get", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "B2" })),
+        call(9, "workbook_get", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "B3" })),
+        call(10, "workbook_get", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "C1" })),
+        call(11, "workbook_export", json!({ "workbook_id": "wb_0" })),
+    ]);
+
+    // B1 is the spill anchor: its effective value is its full stored array
+    // (schema §6), which must be column-shaped ([[1],[2],[3]]) now, not the
+    // row-shaped ([[1,2,3]]) the bug produced.
+    assert_eq!(results[6]["type"], "array", "B1: {}", results[6]);
+    assert_eq!(
+        results[6]["value"],
+        json!([
+            [{ "type": "number", "value": 1.0 }],
+            [{ "type": "number", "value": 2.0 }],
+            [{ "type": "number", "value": 3.0 }]
+        ]),
+        "B1: {}",
+        results[6]
+    );
+    assert_eq!(results[7]["type"], "number", "B2: {}", results[7]);
+    assert_eq!(results[7]["value"], json!(2.0), "B2: {}", results[7]);
+    assert_eq!(results[8]["type"], "number", "B3: {}", results[8]);
+    assert_eq!(results[8]["value"], json!(3.0), "B3: {}", results[8]);
+    // C1 must remain untouched by the (wrongly horizontal) spill.
+    assert!(
+        results[9].get("error").is_some(),
+        "C1 must stay empty, got: {}",
+        results[9]
+    );
+
+    // workbook_export must show B1's array as column-shaped ([[1],[2],[3]]),
+    // not row-shaped ([[1,2,3]]).
+    let exported = results[10]["json"].as_str().expect("exported json").to_owned();
+    let exported: JsonValue = serde_json::from_str(&exported).expect("valid json");
+    let b1 = &exported["sheets"][0]["cells"]["B1"]["value"];
+    assert_eq!(b1["type"], "array", "B1 export must be column-shaped: {exported}");
+    assert_eq!(
+        b1["value"],
+        json!([
+            [{ "type": "number", "value": 1 }],
+            [{ "type": "number", "value": 2 }],
+            [{ "type": "number", "value": 3 }]
+        ]),
+        "B1 export must be column-shaped: {exported}"
+    );
+
+    // ── cross-sheet: Src!A1:A3 -> Dst!B1, same vertical-spill requirement ───
+    let results = run_session(&[
+        call(1, "workbook_import", json!({ "json": two_sheet_workbook_json() })),
+        call(2, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Src", "cell": "A1", "value": "1" })),
+        call(3, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Src", "cell": "A2", "value": "2" })),
+        call(4, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Src", "cell": "A3", "value": "3" })),
+        call(5, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Dst", "cell": "B1", "value": "=Src!A1:A3" })),
+        call(6, "workbook_recalc", json!({ "workbook_id": "wb_0", "timestamp_ms": 0, "timezone": "UTC", "rng_seed": 0 })),
+        call(7, "workbook_get", json!({ "workbook_id": "wb_0", "sheet": "Dst", "cell": "B1" })),
+        call(8, "workbook_get", json!({ "workbook_id": "wb_0", "sheet": "Dst", "cell": "B2" })),
+        call(9, "workbook_get", json!({ "workbook_id": "wb_0", "sheet": "Dst", "cell": "B3" })),
+        call(10, "workbook_get", json!({ "workbook_id": "wb_0", "sheet": "Dst", "cell": "C1" })),
+    ]);
+    assert_eq!(results[6]["type"], "array", "Dst!B1: {}", results[6]);
+    assert_eq!(
+        results[6]["value"],
+        json!([
+            [{ "type": "number", "value": 1.0 }],
+            [{ "type": "number", "value": 2.0 }],
+            [{ "type": "number", "value": 3.0 }]
+        ]),
+        "Dst!B1: {}",
+        results[6]
+    );
+    assert_eq!(results[7]["value"], json!(2.0), "Dst!B2: {}", results[7]);
+    assert_eq!(results[8]["value"], json!(3.0), "Dst!B3: {}", results[8]);
+    assert!(
+        results[9].get("error").is_some(),
+        "Dst!C1 must stay empty, got: {}",
+        results[9]
+    );
+
+    // ── regression: an unrelated literal outside B1's (correct, vertical)
+    // spill path must never change B1 or flip it to #REF! ───────────────────
+    let results = run_session(&[
+        call(1, "workbook_import", json!({ "json": empty_workbook_json() })),
+        call(2, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "A1", "value": "1" })),
+        call(3, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "A2", "value": "2" })),
+        call(4, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "A3", "value": "3" })),
+        call(5, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "B1", "value": "=A1:A3" })),
+        call(6, "workbook_recalc", json!({ "workbook_id": "wb_0", "timestamp_ms": 0, "timezone": "UTC", "rng_seed": 0 })),
+        // D1/E1/F1 sit in the (wrongly horizontal) old spill path's way, and
+        // D3="=D1:F1" is a genuine horizontal range spilling into D3:F3.
+        call(7, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "D1", "value": "10" })),
+        call(8, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "E1", "value": "20" })),
+        call(9, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "F1", "value": "30" })),
+        call(10, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "D3", "value": "=D1:F1" })),
+        call(11, "workbook_recalc", json!({ "workbook_id": "wb_0", "timestamp_ms": 0, "timezone": "UTC", "rng_seed": 0 })),
+        call(12, "workbook_get", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "B1" })),
+    ]);
+    assert_eq!(
+        results[11]["type"], "array",
+        "B1 must remain its vertical spill array (not #REF!) after the unrelated D1/D3 edits, got: {}",
+        results[11]
+    );
+    assert_eq!(
+        results[11]["value"],
+        json!([
+            [{ "type": "number", "value": 1.0 }],
+            [{ "type": "number", "value": 2.0 }],
+            [{ "type": "number", "value": 3.0 }]
+        ]),
+        "B1: {}",
+        results[11]
+    );
+}
+
 /// Session limit: the 33rd workbook in one process must be refused with a
 /// "session limit" error.
 #[test]
