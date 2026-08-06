@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.1.1](https://github.com/truecalc/core/compare/truecalc-mcp-v7.1.0...truecalc-mcp-v7.1.1) - 2026-08-06
+
+### Fixed
+
+- *(mcp)* update stale vertical-spill test for workbook_get's new empty-cell contract
+
+### Other
+
+- Merge pull request #857 from truecalc/fix/844-workbook-get-throws-for-unset-cell
+- Merge pull request #854 from truecalc/fix/843-workbook-get-errors-as-tool-errors
+- *(core)* lock in vertical-range spill orientation for bare range refs
+
 ## [7.1.0](https://github.com/truecalc/core/compare/truecalc-mcp-v7.0.8...truecalc-mcp-v7.1.0) - 2026-08-05
 
 ### Other
