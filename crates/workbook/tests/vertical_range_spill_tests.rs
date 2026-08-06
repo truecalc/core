@@ -97,3 +97,34 @@ fn statistical_functions_still_see_every_cell_of_a_vertical_range() {
     assert_eq!(wb.get("Sheet1", a1("B7")).unwrap().value(), &num(2.0), "MODE");
     assert_eq!(wb.get("Sheet1", a1("B8")).unwrap().value(), &num(0.5), "PERCENTRANK");
 }
+
+/// Issue #840: a *bare* vertical range reference (no elementwise op) must
+/// spill down, not sideways. `=A1:A3` should behave exactly like
+/// `=A1:A3*2` in the test above, just without the multiplication.
+#[test]
+fn bare_vertical_range_reference_spills_down_not_sideways() {
+    let mut wb = wb();
+    wb.set("Sheet1", a1("A1"), CellInput::Literal(num(1.0))).unwrap();
+    wb.set("Sheet1", a1("A2"), CellInput::Literal(num(2.0))).unwrap();
+    wb.set("Sheet1", a1("A3"), CellInput::Literal(num(3.0))).unwrap();
+    wb.set("Sheet1", a1("B1"), CellInput::Formula("=A1:A3".into()))
+        .unwrap();
+    wb.recalc(&ctx());
+
+    // The anchor stores an Nx1 column — [[1],[2],[3]] — not a 1xN row.
+    assert_eq!(
+        wb.get("Sheet1", a1("B1")).unwrap().value(),
+        &Value::Array(vec![vec![num(1.0)], vec![num(2.0)], vec![num(3.0)]])
+    );
+
+    // It spills down: B2 and B3 hold the rest of the column.
+    let r = wb.resolved("Sheet1", a1("B2")).expect("B2 spilled");
+    assert_eq!(r.value, num(2.0));
+    assert_eq!(r.anchor, Some(a1("B1")));
+    let r = wb.resolved("Sheet1", a1("B3")).expect("B3 spilled");
+    assert_eq!(r.value, num(3.0));
+    assert_eq!(r.anchor, Some(a1("B1")));
+
+    // It does NOT spill sideways: C1 stays empty.
+    assert!(wb.resolved("Sheet1", a1("C1")).is_none());
+}
