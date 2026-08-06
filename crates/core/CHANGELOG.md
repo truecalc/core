@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.1.1](https://github.com/truecalc/core/compare/truecalc-core-v7.1.0...truecalc-core-v7.1.1) - 2026-08-06
+
+### Fixed
+
+- *(core)* pin MAX/MIN symmetry over no-numeric-value inputs with a regression test
+
+### Other
+
+- Merge pull request #859 from truecalc/fix/849-date-negative-month-rollover-num-error
+- Merge pull request #858 from truecalc/fix/848-len-mid-unicode-codepoints-vs-utf16
+- Merge origin/main into fix/842 to resolve integration.rs test conflict
+- Merge pull request #855 from truecalc/fix/846-power-vs-caret-negative-base-fractional-exponent
+- Merge pull request #853 from truecalc/fix/845-floor-zero-significance-div0
+- Merge pull request #852 from truecalc/fix/841-max-ref-error-on-nonnumeric
+
 ## [7.1.0](https://github.com/truecalc/core/compare/truecalc-core-v7.0.8...truecalc-core-v7.1.0) - 2026-08-05
 
 ### Added

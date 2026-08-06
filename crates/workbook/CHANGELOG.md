@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.1.1](https://github.com/truecalc/core/compare/truecalc-workbook-v7.1.0...truecalc-workbook-v7.1.1) - 2026-08-06
+
+### Other
+
+- *(core)* lock in vertical-range spill orientation for bare range refs
+
 ## [7.0.1](https://github.com/truecalc/core/compare/truecalc-workbook-v7.0.0...truecalc-workbook-v7.0.1) - 2026-07-28
 
 ### Fixed
