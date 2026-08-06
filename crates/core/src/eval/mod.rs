@@ -328,6 +328,22 @@ fn eval_binary(op: &BinaryOp, lv: Value, rv: Value) -> Value {
             };
             let ln = match to_number(lv) { Ok(n) => n, Err(e) => return e };
             let rn = match to_number(rv) { Ok(n) => n, Err(e) => return e };
+            // `^` delegates to the same real_pow used by POWER() so the two stay
+            // identical by construction (core#846) — a negative base with a
+            // fractional exponent has a real result only for an odd root, which
+            // plain `libm::pow` doesn't produce (it yields NaN there).
+            if *op == BinaryOp::Pow {
+                return match crate::eval::functions::math::power::real_pow(ln, rn) {
+                    Value::Number(result) => {
+                        if date_typed {
+                            Value::Date(result)
+                        } else {
+                            Value::Number(result)
+                        }
+                    }
+                    err => err,
+                };
+            }
             let result = match op {
                 BinaryOp::Add => ln + rn,
                 BinaryOp::Sub => ln - rn,
@@ -338,8 +354,7 @@ fn eval_binary(op: &BinaryOp, lv: Value, rv: Value) -> Value {
                     }
                     ln / rn
                 }
-                BinaryOp::Pow => libm::pow(ln, rn),
-                // Safety: outer match arm covers exactly Add|Sub|Mul|Div|Pow; Concat and comparison ops are handled separately.
+                // Safety: outer match arm covers exactly Add|Sub|Mul|Div|Pow; Pow is handled above, Concat and comparison ops are handled separately.
                 _ => unreachable!(),
             };
             if !result.is_finite() {
