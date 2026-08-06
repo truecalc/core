@@ -214,9 +214,11 @@ fn mcp_bare_vertical_range_spills_down_not_sideways() {
     assert_eq!(results[7]["value"], json!(2.0), "B2: {}", results[7]);
     assert_eq!(results[8]["type"], "number", "B3: {}", results[8]);
     assert_eq!(results[8]["value"], json!(3.0), "B3: {}", results[8]);
-    // C1 must remain untouched by the (wrongly horizontal) spill.
-    assert!(
-        results[9].get("error").is_some(),
+    // C1 must remain untouched by the (wrongly horizontal) spill. Since #844,
+    // workbook_get returns a never-written cell as a normal {"type":"empty"}
+    // result rather than a tool error, so that's what "stays empty" means now.
+    assert_eq!(
+        results[9]["type"], "empty",
         "C1 must stay empty, got: {}",
         results[9]
     );
@@ -263,8 +265,8 @@ fn mcp_bare_vertical_range_spills_down_not_sideways() {
     );
     assert_eq!(results[7]["value"], json!(2.0), "Dst!B2: {}", results[7]);
     assert_eq!(results[8]["value"], json!(3.0), "Dst!B3: {}", results[8]);
-    assert!(
-        results[9].get("error").is_some(),
+    assert_eq!(
+        results[9]["type"], "empty",
         "Dst!C1 must stay empty, got: {}",
         results[9]
     );
