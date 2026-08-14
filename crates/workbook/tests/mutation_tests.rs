@@ -302,6 +302,55 @@ fn remove_name_returns_entry_then_none() {
     assert!(wb.remove_name("R").is_none());
 }
 
+// ---- table CRUD + auto-expand-by-append (truecalc/core#861) --------------
+
+#[test]
+fn define_table_adds_it() {
+    let mut wb = wb_with_sheet("Sheet1");
+    wb.define_table("Recipe", "Sheet1!A1:B2").unwrap();
+    assert_eq!(wb.table("Recipe").unwrap().r#ref, "Sheet1!A1:B2");
+}
+
+#[test]
+fn define_table_rejects_invalid_name() {
+    let mut wb = wb_with_sheet("Sheet1");
+    assert!(wb.define_table("A1", "Sheet1!A1:B2").is_err());
+}
+
+#[test]
+fn remove_table_removes_it() {
+    let mut wb = wb_with_sheet("Sheet1");
+    wb.define_table("Recipe", "Sheet1!A1:B2").unwrap();
+    assert!(wb.remove_table("Recipe").is_some());
+    assert!(wb.table("Recipe").is_none());
+}
+
+#[test]
+fn set_below_table_range_auto_expands_it() {
+    let mut wb = wb_with_sheet("Sheet1");
+    wb.define_table("Recipe", "Sheet1!A1:B2").unwrap(); // header A1:B1, one data row A2:B2
+    wb.set(
+        "Sheet1",
+        Address::new(3, 1).unwrap(),
+        CellInput::Literal(Value::Text("flour".into())),
+    )
+    .unwrap(); // A3, directly below
+    assert_eq!(wb.table("Recipe").unwrap().r#ref, "Sheet1!A1:B3");
+}
+
+#[test]
+fn set_outside_table_column_span_does_not_expand() {
+    let mut wb = wb_with_sheet("Sheet1");
+    wb.define_table("Recipe", "Sheet1!A1:B2").unwrap();
+    wb.set(
+        "Sheet1",
+        Address::new(3, 5).unwrap(),
+        CellInput::Literal(Value::Text("unrelated".into())),
+    )
+    .unwrap(); // column E, row 3
+    assert_eq!(wb.table("Recipe").unwrap().r#ref, "Sheet1!A1:B2");
+}
+
 // ---- value-object / serialization integrity ------------------------------
 
 #[test]
