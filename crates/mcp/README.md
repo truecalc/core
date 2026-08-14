@@ -6,6 +6,7 @@ Registered with the [MCP Registry](https://registry.modelcontextprotocol.io) via
 [![truecalc-mcp](https://img.shields.io/crates/v/truecalc-mcp?label=truecalc-mcp)](https://crates.io/crates/truecalc-mcp)
 [![crates.io downloads](https://img.shields.io/crates/d/truecalc-mcp)](https://crates.io/crates/truecalc-mcp)
 [![npm](https://img.shields.io/npm/v/%40truecalc%2Fmcp?label=%40truecalc%2Fmcp)](https://www.npmjs.com/package/@truecalc/mcp)
+[![npm downloads](https://img.shields.io/npm/dm/%40truecalc%2Fmcp)](https://www.npmjs.com/package/@truecalc/mcp)
 [![license](https://img.shields.io/crates/l/truecalc-mcp)](LICENSE)
 [![functions](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/truecalc/core/gh-pages/functions-badge.json)](https://truecalc.github.io/core/)
 
