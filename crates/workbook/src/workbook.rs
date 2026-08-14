@@ -10,25 +10,28 @@ use crate::error::WorkbookError;
 use crate::limits;
 use crate::named_range::NamedRange;
 use crate::strict_json;
+use crate::table::Table;
 use crate::validate;
 use crate::worksheet::Worksheet;
 
 /// The schema version this library writes (schema spec §10). A string, not
 /// an integer: compared by exact match, never numerically.
-pub const SCHEMA_VERSION: &str = "1";
+pub const SCHEMA_VERSION: &str = "2";
 
 /// An engine-locked spreadsheet workbook — a pure value object (no hidden
 /// state, no callbacks). Schema spec §2.
 ///
-/// All four fields are always serialized, even when empty. Field declaration
-/// order (`engine`, `names`, `sheets`, `version`) matches canonical (JCS)
-/// key order.
+/// All five fields are always serialized, even when empty. Field declaration
+/// order (`engine`, `names`, `sheets`, `tables`, `version`) matches canonical
+/// (JCS) key order.
 #[derive(Debug, Clone, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Workbook {
     engine: EngineFlavor,
     names: Vec<NamedRange>,
     sheets: Vec<Worksheet>,
+    #[serde(default)]
+    tables: Vec<Table>,
     #[serde(deserialize_with = "de_version")]
     version: String,
 }
@@ -44,6 +47,7 @@ impl Workbook {
             engine,
             names: Vec::new(),
             sheets: Vec::new(),
+            tables: Vec::new(),
             version: SCHEMA_VERSION.to_owned(),
         }
     }
@@ -76,6 +80,16 @@ impl Workbook {
     /// Mutable access to the named ranges.
     pub fn names_mut(&mut self) -> &mut Vec<NamedRange> {
         &mut self.names
+    }
+
+    /// The workbook-scoped table declarations.
+    pub fn tables(&self) -> &[Table] {
+        &self.tables
+    }
+
+    /// Mutable access to the table declarations.
+    pub fn tables_mut(&mut self) -> &mut Vec<Table> {
+        &mut self.tables
     }
 
     /// The worksheet named `name` (case-insensitive, simple case folding per
@@ -244,6 +258,7 @@ impl Workbook {
         let mut tree =
             serde_json::to_value(self).map_err(|e| WorkbookError::Validation(e.to_string()))?;
         sort_names_by_name(&mut tree);
+        sort_tables_by_name(&mut tree);
         let canonical = canonical::to_canonical_string(&tree).map_err(WorkbookError::Validation)?;
         if canonical.len() > limits::MAX_SERIALIZED_BYTES {
             return Err(WorkbookError::Validation(format!(
@@ -293,16 +308,33 @@ fn sort_names_by_name(tree: &mut serde_json::Value) {
     }
 }
 
+/// Domain ordering of schema spec §8.7 (extended by the structured-refs
+/// design spec §4): `tables` is serialized sorted by `name`, same rule as
+/// `names`.
+fn sort_tables_by_name(tree: &mut serde_json::Value) {
+    if let Some(tables) = tree.get_mut("tables").and_then(|v| v.as_array_mut()) {
+        tables.sort_by(|a, b| {
+            let an = a.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            let bn = b.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            an.encode_utf16().cmp(bn.encode_utf16())
+        });
+    }
+}
+
 /// Reader rule of schema spec §10: accept every version this library
-/// knows (`"1"`), reject unknown versions with a clear "upgrade" error.
+/// knows (`"1"`, `"2"`), reject unknown versions with a clear "upgrade" error.
+/// Writer rule of schema spec §10: a loaded document always migrates to
+/// [`SCHEMA_VERSION`] on load, so re-serializing it writes the newest version
+/// (confirmed empirically: `de_version` only sees the raw field value, so
+/// without this the in-memory `version` would keep whatever string was read).
 fn de_version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
     let version = String::deserialize(deserializer)?;
-    if version != SCHEMA_VERSION {
+    if version != "1" && version != SCHEMA_VERSION {
         return Err(D::Error::custom(format!(
             "unsupported schema version {version:?}: this version of \
-             truecalc-workbook reads version \"1\" (schema spec §10); \
+             truecalc-workbook reads versions \"1\" and \"2\" (schema spec §10); \
              upgrade truecalc to load this workbook"
         )));
     }
-    Ok(version)
+    Ok(SCHEMA_VERSION.to_owned())
 }

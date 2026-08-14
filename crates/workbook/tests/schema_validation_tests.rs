@@ -81,8 +81,16 @@ fn a_document_missing_a_required_field_fails_schema() {
 
 #[test]
 fn a_document_with_a_bad_address_key_fails_schema() {
+    // truecalc/core#861 final review, Finding 7: this fixture used to say
+    // `"version":"1"` with no `tables` key while the schema's `version`
+    // was pinned to `"2"` with `tables` unconditionally required — so this
+    // document was rejected on that version/tables mismatch *before* the
+    // validator ever reached the bad "a1" address key, passing for the
+    // wrong reason. Now that the schema accepts both versions (Finding 6),
+    // pin this fixture to the canonical v2 shape the library actually
+    // writes, so the only remaining reason to fail is the bad address key.
     let bad: serde_json::Value = serde_json::from_str(
-        r#"{"engine":"sheets","names":[],"sheets":[{"name":"S","cells":{"a1":{"value":{"type":"number","value":1}}}}],"version":"1"}"#,
+        r#"{"engine":"sheets","names":[],"sheets":[{"name":"S","cells":{"a1":{"value":{"type":"number","value":1}}}}],"tables":[],"version":"2"}"#,
     )
     .unwrap();
     assert!(

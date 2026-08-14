@@ -3,7 +3,7 @@
 //! and named-range validity rules of schema spec §7 and scope ADR Decision 5.
 
 use truecalc_workbook::{
-    Address, Cell, CellInput, EngineFlavor, Value, Workbook, WorkbookError, Worksheet,
+    Address, Cell, CellInput, EngineFlavor, Table, Value, Workbook, WorkbookError, Worksheet,
 };
 
 fn wb_with_sheet(name: &str) -> Workbook {
@@ -227,6 +227,28 @@ fn define_duplicate_name_is_rejected_case_insensitively() {
 }
 
 #[test]
+fn define_name_rejects_collision_with_existing_table() {
+    // truecalc/core#861 final review, Finding 3: `define_name` must reject
+    // a name that collides with an existing *table* name, the same way
+    // `define_table` already rejects a table name colliding with an
+    // existing named range -- otherwise a workbook built entirely through
+    // the public API can end up with a table and a named range sharing a
+    // name, which `Workbook::from_json` then rejects on reload.
+    let mut wb = wb_with_sheet("Sheet1");
+    wb.define_table("Recipe", "Sheet1!A1:B2").unwrap();
+    assert!(matches!(
+        wb.define_name("Recipe", "Sheet1!C1").unwrap_err(),
+        WorkbookError::Mutation(_)
+    ));
+    // Case-insensitively too.
+    assert!(matches!(
+        wb.define_name("RECIPE", "Sheet1!C1").unwrap_err(),
+        WorkbookError::Mutation(_)
+    ));
+    assert!(wb.name("Recipe").is_none());
+}
+
+#[test]
 fn define_name_rejects_invalid_name() {
     let mut wb = wb_with_sheet("S");
     // A1-address-shaped name is invalid (schema spec §7).
@@ -300,6 +322,152 @@ fn remove_name_returns_entry_then_none() {
     assert_eq!(removed.name, "R");
     assert!(wb.name("R").is_none());
     assert!(wb.remove_name("R").is_none());
+}
+
+// ---- table CRUD + auto-expand-by-append (truecalc/core#861) --------------
+
+#[test]
+fn define_table_adds_it() {
+    let mut wb = wb_with_sheet("Sheet1");
+    wb.define_table("Recipe", "Sheet1!A1:B2").unwrap();
+    assert_eq!(wb.table("Recipe").unwrap().r#ref, "Sheet1!A1:B2");
+}
+
+#[test]
+fn define_table_rejects_invalid_name() {
+    let mut wb = wb_with_sheet("Sheet1");
+    assert!(wb.define_table("A1", "Sheet1!A1:B2").is_err());
+}
+
+#[test]
+fn remove_table_removes_it() {
+    let mut wb = wb_with_sheet("Sheet1");
+    wb.define_table("Recipe", "Sheet1!A1:B2").unwrap();
+    assert!(wb.remove_table("Recipe").is_some());
+    assert!(wb.table("Recipe").is_none());
+}
+
+#[test]
+fn set_below_table_range_auto_expands_it() {
+    let mut wb = wb_with_sheet("Sheet1");
+    wb.define_table("Recipe", "Sheet1!A1:B2").unwrap(); // header A1:B1, one data row A2:B2
+    wb.set(
+        "Sheet1",
+        Address::new(3, 1).unwrap(),
+        CellInput::Literal(Value::Text("flour".into())),
+    )
+    .unwrap(); // A3, directly below
+    assert_eq!(wb.table("Recipe").unwrap().r#ref, "Sheet1!A1:B3");
+}
+
+#[test]
+fn set_outside_table_column_span_does_not_expand() {
+    let mut wb = wb_with_sheet("Sheet1");
+    wb.define_table("Recipe", "Sheet1!A1:B2").unwrap();
+    wb.set(
+        "Sheet1",
+        Address::new(3, 5).unwrap(),
+        CellInput::Literal(Value::Text("unrelated".into())),
+    )
+    .unwrap(); // column E, row 3
+    assert_eq!(wb.table("Recipe").unwrap().r#ref, "Sheet1!A1:B2");
+}
+
+#[test]
+fn set_does_not_expand_a_table_into_an_overlapping_table() {
+    // truecalc/core#861 final review, Finding 1 (Critical): auto-expand-by-
+    // append must never grow a table into another table's range. Two
+    // adjacent, non-overlapping tables are defined (accepted, since neither
+    // overlaps the other); writing into the row that would expand the
+    // first into the second must silently skip the expansion -- matching
+    // real Excel, which does not auto-expand a table into another table's
+    // cells -- while the ordinary cell write itself still succeeds.
+    let mut wb = wb_with_sheet("Sheet1");
+    wb.define_table("A", "Sheet1!A1:B2").unwrap(); // rows 1-2
+    wb.define_table("B", "Sheet1!A3:B5").unwrap(); // rows 3-5, no overlap
+    let write = wb.set(
+        "Sheet1",
+        a1("A3"),
+        CellInput::Literal(Value::Text("x".into())),
+    );
+    assert!(write.is_ok(), "the ordinary cell write must still succeed");
+    assert_eq!(
+        wb.table("A").unwrap().r#ref,
+        "Sheet1!A1:B2",
+        "table A must not expand into table B's range"
+    );
+    assert_eq!(wb.table("B").unwrap().r#ref, "Sheet1!A3:B5");
+}
+
+#[test]
+fn overlapping_table_check_does_not_panic_on_a_hand_pushed_invalid_ref() {
+    // truecalc/core#861 final review, Finding 4: `tables_mut()` is public
+    // and lets a caller push a `Table` with an arbitrary `ref`, bypassing
+    // `define_table`'s validation entirely. A later `define_table` call
+    // (which compares the new range against every existing table via
+    // `overlapping_table`) must not panic on that unparseable stored ref --
+    // it should just treat that table as "no overlap determinable" and
+    // continue.
+    let mut wb = wb_with_sheet("Sheet1");
+    wb.tables_mut().push(Table {
+        name: "Bad".into(),
+        r#ref: "not a valid ref".into(),
+    });
+    // Must not panic; a genuinely valid new table still gets defined.
+    assert!(wb.define_table("Good", "Sheet1!A1:B2").is_ok());
+}
+
+#[test]
+fn define_table_rejects_beyond_the_table_cap() {
+    // truecalc/core#861 final review, Finding 8: tables have no resource
+    // cap anywhere, unlike named ranges (`MAX_NAMED_RANGES`). Seed up to
+    // `MAX_TABLES` via `tables_mut()` directly (bypassing per-table
+    // validation, which is irrelevant to this cap check and would make the
+    // test needlessly slow), then confirm `define_table` eagerly rejects
+    // one more.
+    let mut wb = wb_with_sheet("Sheet1");
+    for i in 0..truecalc_workbook::limits::MAX_TABLES {
+        wb.tables_mut().push(Table {
+            name: format!("T{i}"),
+            r#ref: "Sheet1!A1:A1".into(),
+        });
+    }
+    assert!(matches!(
+        wb.define_table("OneMore", "Sheet1!B1:B2").unwrap_err(),
+        WorkbookError::Mutation(_)
+    ));
+}
+
+#[test]
+fn define_table_over_headerless_region_breaks_round_trip_until_headers_are_written() {
+    // truecalc/core#861 final review, Finding 9: `define_table` deliberately
+    // does not validate header-row content -- a table may be defined ahead
+    // of its header cells being written (shape first, headers later). This
+    // is a known, documented gap: the table succeeds in memory, but
+    // `from_json`'s load-time validation *does* check header content, so
+    // the workbook cannot round-trip through JSON until real header text is
+    // written into the header row.
+    let mut wb = wb_with_sheet("Sheet1");
+    wb.define_table("Recipe", "Sheet1!A1:B2").unwrap();
+    assert!(
+        Workbook::from_json(wb.to_json().unwrap().as_bytes()).is_err(),
+        "a table over an empty header row must fail to reload"
+    );
+
+    // Writing real header text into the header row heals the round trip.
+    wb.set(
+        "Sheet1",
+        a1("A1"),
+        CellInput::Literal(Value::Text("qty".into())),
+    )
+    .unwrap();
+    wb.set(
+        "Sheet1",
+        a1("B1"),
+        CellInput::Literal(Value::Text("price".into())),
+    )
+    .unwrap();
+    assert!(Workbook::from_json(wb.to_json().unwrap().as_bytes()).is_ok());
 }
 
 // ---- value-object / serialization integrity ------------------------------

@@ -100,18 +100,18 @@ fn worked_example_round_trips() {
 }
 
 #[test]
-fn new_workbook_serializes_all_four_fields() {
-    // §2: all four top-level fields are always present, even when empty.
+fn new_workbook_serializes_all_five_fields() {
+    // §2: all five top-level fields are always present, even when empty.
     assert_eq!(
         serde_json::to_string(&Workbook::new(EngineFlavor::Sheets)).unwrap(),
-        r#"{"engine":"sheets","names":[],"sheets":[],"version":"1"}"#
+        r#"{"engine":"sheets","names":[],"sheets":[],"tables":[],"version":"2"}"#
     );
 }
 
 #[test]
 fn new_workbook_writes_current_schema_version() {
-    assert_eq!(SCHEMA_VERSION, "1");
-    assert_eq!(Workbook::new(EngineFlavor::Excel).version(), "1");
+    assert_eq!(SCHEMA_VERSION, "2");
+    assert_eq!(Workbook::new(EngineFlavor::Excel).version(), "2");
 }
 
 #[test]
@@ -184,9 +184,9 @@ fn sheet_tab_order_is_preserved() {
 
 #[test]
 fn unknown_schema_versions_are_rejected() {
-    // §10 reader rule: accept every version this library knows ("1"),
+    // §10 reader rule: accept every version this library knows ("1", "2"),
     // reject unknown versions with a clear upgrade error.
-    for version in ["2", "42", "1.0", ""] {
+    for version in ["3", "42", "1.0", ""] {
         let json = format!(r#"{{"engine":"sheets","names":[],"sheets":[],"version":"{version}"}}"#);
         let result = serde_json::from_str::<Workbook>(&json);
         assert!(result.is_err(), "version {version:?} must be rejected");
@@ -196,4 +196,42 @@ fn unknown_schema_versions_are_rejected() {
         r#"{"engine":"sheets","names":[],"sheets":[],"version":1}"#,
     );
     assert!(numeric.is_err());
+}
+
+#[test]
+fn schema_version_is_2() {
+    assert_eq!(SCHEMA_VERSION, "2");
+}
+
+#[test]
+fn new_workbook_has_empty_tables() {
+    let wb = Workbook::new(EngineFlavor::Sheets);
+    assert!(wb.tables().is_empty());
+}
+
+#[test]
+fn v1_document_without_tables_field_loads_with_empty_tables() {
+    let v1_json = serde_json::json!({
+        "engine": "sheets", "names": [], "sheets": [], "version": "1"
+    });
+    let wb: Workbook = serde_json::from_value(v1_json).unwrap();
+    assert!(wb.tables().is_empty());
+}
+
+#[test]
+fn v2_document_rejects_unknown_version() {
+    let bad = serde_json::json!({
+        "engine": "sheets", "names": [], "sheets": [], "tables": [], "version": "3"
+    });
+    assert!(serde_json::from_value::<Workbook>(bad).is_err());
+}
+
+#[test]
+fn loading_v1_and_reserializing_migrates_to_v2() {
+    let v1_json = serde_json::json!({
+        "engine": "sheets", "names": [], "sheets": [], "version": "1"
+    });
+    let wb: Workbook = serde_json::from_value(v1_json).unwrap();
+    let out = serde_json::to_value(&wb).unwrap();
+    assert_eq!(out["version"], "2");
 }

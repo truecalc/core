@@ -250,7 +250,7 @@ fn one_by_one_array_is_rejected() {
 
 #[test]
 fn unknown_version_is_rejected() {
-    let json = r#"{"engine":"sheets","names":[],"sheets":[],"version":"2"}"#;
+    let json = r#"{"engine":"sheets","names":[],"sheets":[],"version":"3"}"#;
     assert!(Workbook::from_json(json.as_bytes()).is_err());
 }
 
@@ -258,6 +258,48 @@ fn unknown_version_is_rejected() {
 fn missing_version_is_rejected() {
     let json = r#"{"engine":"sheets","names":[],"sheets":[]}"#;
     assert!(Workbook::from_json(json.as_bytes()).is_err());
+}
+
+// ---------- structured tables (structured-references spec §4, truecalc/core#861) ----------
+
+#[test]
+fn table_name_collision_with_named_range_is_rejected() {
+    let json = r#"{"engine":"sheets","names":[{"name":"Recipe","ref":"Sheet1!Z1"}],"sheets":[{"name":"Sheet1","cells":{}}],"tables":[{"name":"Recipe","ref":"Sheet1!A1:D12"}],"version":"2"}"#;
+    assert!(err(json).contains("table"));
+}
+
+#[test]
+fn overlapping_tables_are_rejected() {
+    // Table "A" needs valid header cells to clear its own checks first, so
+    // the overlap check on table "B" (checked before B's own header check)
+    // is what actually rejects the document.
+    let json = r#"{"engine":"sheets","names":[],"sheets":[{"name":"Sheet1","cells":{"A1":{"value":{"type":"text","value":"a"}},"B1":{"value":{"type":"text","value":"b"}},"C1":{"value":{"type":"text","value":"c"}},"D1":{"value":{"type":"text","value":"d"}}}}],"tables":[{"name":"A","ref":"Sheet1!A1:D12"},{"name":"B","ref":"Sheet1!C5:E20"}],"version":"2"}"#;
+    let e = err(json);
+    assert!(e.contains("overlap"), "got: {e}");
+}
+
+#[test]
+fn well_formed_table_is_accepted() {
+    let json = r#"{"engine":"sheets","names":[],"sheets":[{"name":"Sheet1","cells":{"A1":{"value":{"type":"text","value":"quantity_g"}},"B1":{"value":{"type":"text","value":"reference_per_100g"}}}}],"tables":[{"name":"Recipe","ref":"Sheet1!A1:B2"}],"version":"2"}"#;
+    ok(json);
+}
+
+#[test]
+fn table_with_duplicate_header_cell_is_rejected() {
+    let json = r#"{"engine":"sheets","names":[],"sheets":[{"name":"Sheet1","cells":{"A1":{"value":{"type":"text","value":"qty"}},"B1":{"value":{"type":"text","value":"qty"}}}}],"tables":[{"name":"Recipe","ref":"Sheet1!A1:B2"}],"version":"2"}"#;
+    let e = err(json);
+    assert!(e.contains("duplicate") || e.contains("column"), "got: {e}");
+}
+
+#[test]
+fn overlapping_tables_with_differently_cased_sheet_refs_are_rejected() {
+    // Both refs target the same physical sheet "Sheet1"; the second table's
+    // ref spells the sheet name in a different case. `table_ref::ranges_overlap`
+    // compares sheet names as raw strings, so the bounds fed to it must
+    // already be case-folded for this overlap to be caught.
+    let json = r#"{"engine":"sheets","names":[],"sheets":[{"name":"Sheet1","cells":{"A1":{"value":{"type":"text","value":"a"}},"B1":{"value":{"type":"text","value":"b"}},"C1":{"value":{"type":"text","value":"c"}},"D1":{"value":{"type":"text","value":"d"}}}}],"tables":[{"name":"A","ref":"Sheet1!A1:D12"},{"name":"B","ref":"SHEET1!C5:E20"}],"version":"2"}"#;
+    let e = err(json);
+    assert!(e.contains("overlap"), "got: {e}");
 }
 
 // ---------- Decision 5: limits ----------
@@ -273,4 +315,23 @@ fn too_many_sheets_is_rejected() {
     }
     let json = format!(r#"{{"engine":"sheets","names":[],"sheets":[{sheets}],"version":"1"}}"#);
     assert!(err(&json).contains("sheets"));
+}
+
+#[test]
+fn too_many_tables_is_rejected() {
+    // truecalc/core#861 final review, Finding 8: tables had no resource cap
+    // at all, unlike every other collection (named ranges, sheets). The
+    // count check runs before any individual table is parsed, so the refs
+    // below don't need to be distinct or non-overlapping.
+    let mut tables = String::new();
+    for i in 0..=10_000 {
+        if i > 0 {
+            tables.push(',');
+        }
+        tables.push_str(&format!(r#"{{"name":"T{i}","ref":"S!A1:A1"}}"#));
+    }
+    let json = format!(
+        r#"{{"engine":"sheets","names":[],"sheets":[{{"name":"S","cells":{{}}}}],"tables":[{tables}],"version":"2"}}"#
+    );
+    assert!(err(&json).contains("tables"));
 }

@@ -39,6 +39,14 @@ pub const MAX_FORMULA_LEN: usize = 32 * 1024;
 /// Maximum workbook-scoped named ranges.
 pub const MAX_NAMED_RANGES: usize = 10_000;
 
+/// Maximum workbook-scoped tables (structured-references spec §4,
+/// truecalc/core#861) — the same magnitude as [`MAX_NAMED_RANGES`], since a
+/// table costs the same order of workbook-scoped bookkeeping. This also
+/// bounds the cost of the O(tables) scans a table incurs on every mutation
+/// (`overlapping_table`, `expand_table_on_append` — the latter runs on every
+/// `Workbook::set()`).
+pub const MAX_TABLES: usize = 10_000;
+
 /// Maximum serialized canonical JSON document size, in bytes (100 MiB).
 /// A workbook exceeding this cannot be serialized, and `from_json` rejects
 /// oversized inputs (ADR Decision 5).

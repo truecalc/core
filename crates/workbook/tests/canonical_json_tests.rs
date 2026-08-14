@@ -3,7 +3,7 @@
 //! across Linux + macOS CI, and the number-boundary cases of the schema spec's
 //! normative implementation warning are covered.
 
-use truecalc_workbook::{Cell, EngineFlavor, NamedRange, Value, Workbook, Worksheet};
+use truecalc_workbook::{Cell, EngineFlavor, NamedRange, Table, Value, Workbook, Worksheet};
 
 /// Builds the worked example of schema spec §11.
 fn worked_example() -> Workbook {
@@ -227,6 +227,30 @@ fn sheets_keep_authored_tab_order_not_sorted() {
 }
 
 #[test]
+fn canonical_form_sorts_tables_by_name() {
+    let mut wb = Workbook::new(EngineFlavor::Sheets);
+    let mut sh = Worksheet::new("Sheet1");
+    sh.cells_mut()
+        .insert("A1".into(), Cell::literal(Value::Number(1.0)).unwrap());
+    wb.sheets_mut().push(sh);
+    wb.tables_mut().push(Table {
+        name: "Zebra".to_owned(),
+        r#ref: "Sheet1!A1:B2".to_owned(),
+    });
+    wb.tables_mut().push(Table {
+        name: "Apple".to_owned(),
+        r#ref: "Sheet1!D1:E2".to_owned(),
+    });
+    let json = wb.to_json().unwrap();
+    let apple_pos = json.find("\"name\":\"Apple\"").expect("Apple not found");
+    let zebra_pos = json.find("\"name\":\"Zebra\"").expect("Zebra not found");
+    assert!(
+        apple_pos < zebra_pos,
+        "Apple must precede Zebra in canonical output: {json}"
+    );
+}
+
+#[test]
 fn non_canonical_input_is_accepted_and_output_is_canonical() {
     let pretty = br#"{
         "version": "1",
@@ -238,7 +262,7 @@ fn non_canonical_input_is_accepted_and_output_is_canonical() {
     let canonical = wb.to_json().unwrap();
     assert_eq!(
         canonical,
-        r#"{"engine":"sheets","names":[],"sheets":[{"cells":{"A10":{"value":{"type":"number","value":10}},"A2":{"value":{"type":"number","value":2}}},"name":"S"}],"version":"1"}"#
+        r#"{"engine":"sheets","names":[],"sheets":[{"cells":{"A10":{"value":{"type":"number","value":10}},"A2":{"value":{"type":"number","value":2}}},"name":"S"}],"tables":[],"version":"2"}"#
     );
 }
 

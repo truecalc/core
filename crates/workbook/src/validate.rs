@@ -13,7 +13,7 @@
 //! - §7 named-range name/`ref` validity, case-insensitive uniqueness, no
 //!   dangling sheet refs;
 //! - §6/Decision 5 resource limits (cells, text length, array elements, sheets,
-//!   formula length, named-range count).
+//!   formula length, named-range count, table count).
 //!
 //! Input is the duplicate-checked [`serde_json::Value`] tree; this runs before
 //! the typed `serde_json::from_value` so a single clear error is surfaced for
@@ -29,6 +29,7 @@ use crate::address::{parse_a1, Address};
 use crate::casefold::simple_fold;
 use crate::limits;
 use crate::named_ref;
+use crate::table_ref;
 
 /// Validates the document-level rules. Returns a description of the first
 /// violation, or `Ok(())`.
@@ -99,7 +100,8 @@ pub fn validate_document(root: &Value) -> Result<(), String> {
         ));
     }
 
-    validate_named_ranges(obj, &sheet_name_set, &folder)?;
+    let named_range_names = validate_named_ranges(obj, &sheet_name_set, &folder)?;
+    validate_tables(obj, &sheet_name_set, &folder, &named_range_names)?;
 
     Ok(())
 }
@@ -300,7 +302,7 @@ fn validate_named_ranges(
     obj: &serde_json::Map<String, Value>,
     sheet_names: &[String],
     folder: &CaseMapperBorrowed<'static>,
-) -> Result<(), String> {
+) -> Result<Vec<String>, String> {
     let names = obj
         .get("names")
         .and_then(Value::as_array)
@@ -360,6 +362,154 @@ fn validate_named_ranges(
                  folding (schema spec §7)"
             ));
         }
+    }
+
+    Ok(seen.into_values().map(str::to_owned).collect())
+}
+
+/// Structured-table validity (structured-references spec §4, truecalc/core#861):
+/// name/`ref` rules shared with named ranges, case-insensitive uniqueness
+/// against both other tables and named ranges, no dangling sheet refs, no
+/// range overlap between tables, and header-row column-name validity
+/// (`table_ref`'s helpers). The `tables` field is optional (schema v2,
+/// `#[serde(default)]`) — a missing key is not an error.
+fn validate_tables(
+    obj: &serde_json::Map<String, Value>,
+    sheet_names: &[String],
+    folder: &CaseMapperBorrowed<'static>,
+    existing_names: &[String],
+) -> Result<(), String> {
+    let tables = match obj.get("tables") {
+        None => return Ok(()),
+        Some(v) => v
+            .as_array()
+            .ok_or_else(|| "the workbook \"tables\" field must be an array".to_string())?,
+    };
+
+    if tables.len() > limits::MAX_TABLES {
+        return Err(format!(
+            "workbook has {} tables, exceeding the limit of {} (scope ADR Decision 5)",
+            tables.len(),
+            limits::MAX_TABLES
+        ));
+    }
+
+    let folded_sheets: Vec<String> = sheet_names.iter().map(|s| simple_fold(folder, s)).collect();
+
+    // Sheet cells (by folded sheet name) for the header-row check below.
+    // `sheets` and each sheet's `cells` were already validated as objects
+    // earlier in `validate_document`.
+    let sheet_cells_by_folded: HashMap<String, &serde_json::Map<String, Value>> = obj
+        .get("sheets")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|s| {
+            let s_obj = s.as_object()?;
+            let name = s_obj.get("name").and_then(Value::as_str)?;
+            let cells = s_obj.get("cells").and_then(Value::as_object)?;
+            Some((simple_fold(folder, name), cells))
+        })
+        .collect();
+
+    let mut seen_names: HashMap<String, ()> = existing_names
+        .iter()
+        .map(|n| (simple_fold(folder, n), ()))
+        .collect();
+    let mut bounds_by_table: Vec<(String, table_ref::ParsedRangeBounds)> = Vec::new();
+
+    for t in tables {
+        let t_obj = t
+            .as_object()
+            .ok_or_else(|| "each table must be a JSON object".to_string())?;
+        let name = t_obj
+            .get("name")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "each table requires a string \"name\"".to_string())?;
+
+        if !named_ref::is_valid_name(name) {
+            return Err(format!(
+                "table name {name:?} is invalid: it must match ^[A-Za-z_][A-Za-z0-9_]*$ and \
+                 must not be an A1 address, an R1C1-style reference, or a boolean literal \
+                 (structured-references spec §4)"
+            ));
+        }
+
+        let folded_name = simple_fold(folder, name);
+        if seen_names.insert(folded_name, ()).is_some() {
+            return Err(format!(
+                "duplicate table name: {name:?} collides with an existing table or named-range \
+                 name under simple case folding (structured-references spec §4)"
+            ));
+        }
+
+        let r = t_obj
+            .get("ref")
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("table {name:?} requires a string \"ref\""))?;
+        let parsed =
+            named_ref::parse_canonical_ref(r).map_err(|e| format!("table {name:?}: {e}"))?;
+
+        // Dangling sheet ref: the targeted sheet must exist (case-insensitive).
+        let folded_target = simple_fold(folder, &parsed.sheet);
+        if !folded_sheets.contains(&folded_target) {
+            return Err(format!(
+                "table {name:?} refers to sheet {:?}, which does not exist \
+                 (structured-references spec §4)",
+                parsed.sheet
+            ));
+        }
+
+        let mut bounds = table_ref::parsed_range_bounds(r, &parsed).ok_or_else(|| {
+            format!(
+                "table {name:?} has a malformed ref: a table ref must be a range \
+                 (structured-references spec §4)"
+            )
+        })?;
+        // `table_ref::ranges_overlap` compares `.sheet` as a raw string, but two
+        // table refs may spell the same physical sheet with different case
+        // (canonicality only constrains a ref's own quoting, not its case
+        // relative to the sheet's declared name). Fold here, consistent with
+        // this file's other sheet-existence checks, so overlap detection is
+        // not case-sensitive on the ref's sheet token.
+        bounds.sheet = folded_target;
+
+        for (other_name, other_bounds) in &bounds_by_table {
+            if table_ref::ranges_overlap(&bounds, other_bounds) {
+                return Err(format!(
+                    "table {name:?} overlaps table {other_name:?} \
+                     (structured-references spec §4)"
+                ));
+            }
+        }
+
+        // Header-row column-name validity: read the header row's actual cell
+        // text values from the target sheet at the table's declared header
+        // row (the range's first row, per `Table`'s doc).
+        let cells = sheet_cells_by_folded.get(&bounds.sheet).copied();
+        let header_texts: Vec<String> = (bounds.col_start..=bounds.col_end)
+            .map(|col| {
+                let key = Address::new(bounds.row_start, col)
+                    .expect("bounds were derived from an already-validated ref")
+                    .to_a1();
+                cells
+                    .and_then(|c| c.get(&key))
+                    .and_then(Value::as_object)
+                    .and_then(|cell_obj| cell_obj.get("value"))
+                    .and_then(Value::as_object)
+                    .filter(|value_obj| {
+                        value_obj.get("type").and_then(Value::as_str) == Some("text")
+                    })
+                    .and_then(|value_obj| value_obj.get("value"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_owned()
+            })
+            .collect();
+        table_ref::header_row_columns(header_texts.iter().map(String::as_str))
+            .map_err(|e| format!("table {name:?}: {e}"))?;
+
+        bounds_by_table.push((name.to_string(), bounds));
     }
 
     Ok(())

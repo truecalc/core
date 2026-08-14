@@ -11,6 +11,18 @@
     "sheets",
     "version"
   ],
+  "if": {
+    "properties": {
+      "version": {
+        "const": "2"
+      }
+    }
+  },
+  "then": {
+    "required": [
+      "tables"
+    ]
+  },
   "properties": {
     "engine": {
       "enum": [
@@ -19,7 +31,10 @@
       ]
     },
     "version": {
-      "const": "1"
+      "enum": [
+        "1",
+        "2"
+      ]
     },
     "names": {
       "type": "array",
@@ -31,6 +46,12 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/worksheet"
+      }
+    },
+    "tables": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/table"
       }
     }
   },
@@ -75,6 +96,23 @@
       }
     },
     "namedRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "ref"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "ref": {
+          "type": "string"
+        }
+      }
+    },
+    "table": {
       "type": "object",
       "additionalProperties": false,
       "required": [

@@ -268,17 +268,245 @@ fn array_result_is_stored_at_the_anchor_pending_spill() {
 }
 
 #[test]
-fn table_ref_stub_resolves_to_ref_error_pending_pr2() {
-    // Stub pending truecalc/core#861 PR2 (Table resolution): until table
-    // resolution lands, every `Ref::Table` reference resolves to `#REF!`.
+fn whole_column_table_ref_resolves_to_data_array() {
+    // truecalc/core#861 PR2: T[col] materializes the column's data-row
+    // values; SUM flattens the array regardless of orientation.
     let mut wb = sheets_wb();
-    wb.set("Sheet1", a1("A1"), CellInput::Formula("=[@x]".into()))
+    wb.set(
+        "Sheet1",
+        a1("A1"),
+        CellInput::Literal(Value::Text("col".into())),
+    )
+    .unwrap();
+    wb.set("Sheet1", a1("A2"), CellInput::Literal(Value::Number(10.0)))
+        .unwrap();
+    wb.set("Sheet1", a1("A3"), CellInput::Literal(Value::Number(20.0)))
+        .unwrap();
+    wb.define_table("T", "Sheet1!A1:A3").unwrap();
+    wb.set(
+        "Sheet1",
+        a1("B1"),
+        CellInput::Formula("=SUM(T[col])".into()),
+    )
+    .unwrap();
+    wb.recalc(&ctx());
+    assert_eq!(
+        wb.get("Sheet1", a1("B1")).unwrap().value(),
+        &Value::Number(30.0)
+    );
+}
+
+#[test]
+fn table_column_ref_is_a_precedent_of_writes_to_that_column() {
+    // truecalc/core#861 PR2: depgraph.rs must track a table-column read as a
+    // real precedent, so editing the table's data cell dirties the dependent
+    // formula on *incremental* recalc, not just a full recalc.
+    let mut wb = sheets_wb();
+    wb.set(
+        "Sheet1",
+        a1("A1"),
+        CellInput::Literal(Value::Text("col".into())),
+    )
+    .unwrap();
+    wb.set("Sheet1", a1("A2"), CellInput::Literal(Value::Number(10.0)))
+        .unwrap();
+    wb.define_table("T", "Sheet1!A1:A2").unwrap();
+    wb.set(
+        "Sheet1",
+        a1("B1"),
+        CellInput::Formula("=SUM(T[col])".into()),
+    )
+    .unwrap();
+    wb.recalc(&ctx());
+
+    wb.set("Sheet1", a1("A2"), CellInput::Literal(Value::Number(99.0)))
+        .unwrap();
+    let changes = wb.recalc_incremental(&ctx(), &[("Sheet1".to_string(), a1("A2"))]);
+    let touched: Vec<Address> = changes.iter().map(|c| c.addr).collect();
+    assert!(
+        touched.contains(&a1("B1")),
+        "SUM(T[col]) should have recalculated on incremental recalc"
+    );
+}
+
+#[test]
+fn table_formula_reading_a_different_column_of_its_own_table_is_not_a_false_cycle() {
+    // truecalc/core#861 final review, Finding 2: `resolve_table_precedent`'s
+    // whole-column branch used to record a precedent over the *whole table
+    // range*, not just the resolved column. A formula living inside the
+    // table that reads a whole *different* column of that same table (e.g.
+    // this common percentage-of-total pattern) was then a precedent of
+    // itself -- its own cell always falls inside the table's full
+    // rectangle -- tripping cycle detection with no real circularity. B2
+    // reads column "qty" while writing column "pct"; it must resolve
+    // normally, not to the circular-reference error.
+    let mut wb = sheets_wb();
+    wb.set(
+        "Sheet1",
+        a1("A1"),
+        CellInput::Literal(Value::Text("qty".into())),
+    )
+    .unwrap();
+    wb.set(
+        "Sheet1",
+        a1("B1"),
+        CellInput::Literal(Value::Text("pct".into())),
+    )
+    .unwrap();
+    wb.set("Sheet1", a1("A2"), CellInput::Literal(Value::Number(5.0)))
+        .unwrap();
+    wb.set(
+        "Sheet1",
+        a1("B2"),
+        CellInput::Formula("=SUM(T[qty])".into()),
+    )
+    .unwrap();
+    wb.define_table("T", "Sheet1!A1:B2").unwrap();
+    wb.recalc(&ctx());
+    assert_eq!(
+        wb.get("Sheet1", a1("B2")).unwrap().value(),
+        &Value::Number(5.0),
+        "B2 reads a different column of its own table; must not be flagged circular"
+    );
+}
+
+#[test]
+fn current_row_table_ref_resolves_per_row() {
+    // truecalc/core#861 PR2: [@col] resolves to the cell at (current row,
+    // column) within the table the formula's own cell is inside.
+    let mut wb = sheets_wb();
+    wb.set(
+        "Sheet1",
+        a1("A1"),
+        CellInput::Literal(Value::Text("qty".into())),
+    )
+    .unwrap();
+    wb.set(
+        "Sheet1",
+        a1("B1"),
+        CellInput::Literal(Value::Text("price".into())),
+    )
+    .unwrap();
+    wb.set(
+        "Sheet1",
+        a1("C1"),
+        CellInput::Literal(Value::Text("total".into())),
+    )
+    .unwrap();
+    wb.set("Sheet1", a1("A2"), CellInput::Literal(Value::Number(3.0)))
+        .unwrap();
+    wb.set("Sheet1", a1("B2"), CellInput::Literal(Value::Number(2.0)))
+        .unwrap();
+    wb.set(
+        "Sheet1",
+        a1("C2"),
+        CellInput::Formula("=[@qty]*[@price]".into()),
+    )
+    .unwrap();
+    wb.define_table("T", "Sheet1!A1:C2").unwrap();
+    wb.recalc(&ctx());
+    assert_eq!(
+        wb.get("Sheet1", a1("C2")).unwrap().value(),
+        &Value::Number(6.0)
+    );
+}
+
+#[test]
+fn current_row_ref_outside_any_table_is_ref_error() {
+    // truecalc/core#861 PR2: an unqualified [@col] outside any table's data
+    // rows has nothing to infer the table from, so it stays #REF!.
+    let mut wb = sheets_wb();
+    wb.set("Sheet1", a1("E5"), CellInput::Formula("=[@x]".into()))
         .unwrap();
     wb.recalc(&ctx());
     assert_eq!(
-        wb.get("Sheet1", a1("A1")).unwrap().value(),
+        wb.get("Sheet1", a1("E5")).unwrap().value(),
         &Value::Error("#REF!".into())
     );
+}
+
+#[test]
+fn table_ref_column_lookup_is_case_insensitive() {
+    // truecalc/core#861 PR2 fix round 1 (Finding 1): column-name lookup must
+    // case-fold like the table-name and sheet-name lookups in the same
+    // method, since column names are already case-folded for uniqueness at
+    // table-definition time (`table_ref::header_row_columns`).
+    let mut wb = sheets_wb();
+    wb.set(
+        "Sheet1",
+        a1("A1"),
+        CellInput::Literal(Value::Text("col".into())),
+    )
+    .unwrap();
+    wb.set("Sheet1", a1("A2"), CellInput::Literal(Value::Number(10.0)))
+        .unwrap();
+    wb.define_table("T", "Sheet1!A1:A2").unwrap();
+    wb.set(
+        "Sheet1",
+        a1("B1"),
+        CellInput::Formula("=SUM(T[COL])".into()),
+    )
+    .unwrap();
+    wb.recalc(&ctx());
+    assert_eq!(
+        wb.get("Sheet1", a1("B1")).unwrap().value(),
+        &Value::Number(10.0)
+    );
+}
+
+#[test]
+fn whole_column_table_ref_unwraps_spill_anchor_cell_like_resolve_range() {
+    // truecalc/core#861 PR2 fix round 1 (Finding 2): a table-column cell
+    // whose own stored value is itself an array (the on-grid shape a
+    // spill-formula anchor stores, per schema spec §5/§6) must resolve to
+    // its own [0][0] scalar, exactly as `resolve_range` does for an
+    // equivalent explicit vertical range — not embed the whole array as
+    // that row's "scalar". Compare T[col] against the equivalent explicit
+    // A2:A3 range: they must produce the same SUM.
+    //
+    // A3 is authored directly as a literal array (rather than a spilling
+    // formula) so the test is independent of dependency-graph evaluation
+    // order: `depgraph.rs` currently records a `Ref::Table` precedent as
+    // `Precedent::Unresolved`, i.e. a table reference does not yet create a
+    // graph edge to the cells it reads, so a formula-based anchor's
+    // evaluation order relative to a table-referencing formula is not
+    // guaranteed — a separate, pre-existing gap outside this fix round's
+    // two findings. `GridResolver::cell_value` reads a literal array cell
+    // through the exact same code path as a formula-computed spill anchor
+    // (both are simply "a cell whose stored `Value` is `Array`"), so this
+    // is a faithful, deterministic test of the fix.
+    let mut wb = sheets_wb();
+    wb.set(
+        "Sheet1",
+        a1("A1"),
+        CellInput::Literal(Value::Text("col".into())),
+    )
+    .unwrap();
+    wb.set("Sheet1", a1("A2"), CellInput::Literal(Value::Number(5.0)))
+        .unwrap();
+    wb.define_table("T", "Sheet1!A1:A3").unwrap();
+    wb.set(
+        "Sheet1",
+        a1("A3"),
+        CellInput::Literal(Value::Array(vec![vec![
+            Value::Number(10.0),
+            Value::Number(20.0),
+        ]])),
+    )
+    .unwrap();
+    wb.set(
+        "Sheet1",
+        a1("D1"),
+        CellInput::Formula("=SUM(T[col])".into()),
+    )
+    .unwrap();
+    wb.set("Sheet1", a1("D2"), CellInput::Formula("=SUM(A2:A3)".into()))
+        .unwrap();
+    wb.recalc(&ctx());
+    let table_sum = wb.get("Sheet1", a1("D1")).unwrap().value().clone();
+    let range_sum = wb.get("Sheet1", a1("D2")).unwrap().value().clone();
+    assert_eq!(table_sum, range_sum);
+    assert_eq!(table_sum, Value::Number(15.0));
 }
 
 #[test]

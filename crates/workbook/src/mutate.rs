@@ -37,6 +37,8 @@ use crate::limits;
 use crate::named_range::NamedRange;
 use crate::named_ref;
 use crate::spill::spill_rect;
+use crate::table::Table;
+use crate::table_ref::{self, ParsedRangeBounds};
 use crate::value::Value;
 use crate::workbook::Workbook;
 
@@ -92,6 +94,16 @@ impl Workbook {
     /// Errors if the sheet does not exist, the input is an empty literal
     /// (schema spec §4 — clear instead), the formula is syntactically invalid
     /// for the locked engine, or any cap would be exceeded.
+    ///
+    /// Auto-expand-by-append (structured-references spec §4,
+    /// truecalc/core#861): if the written address lands exactly one row
+    /// below a table's current range, within that table's column span, the
+    /// matching table's `ref` is extended by one row — unless doing so would
+    /// overlap another table's range, in which case the expansion is
+    /// silently skipped and the write still succeeds as an ordinary cell
+    /// write. At most one table can match, since table ranges never overlap
+    /// (§4) and this only looks at the row immediately adjacent to a table,
+    /// not inside any range.
     pub fn set(
         &mut self,
         sheet: &str,
@@ -130,7 +142,9 @@ impl Workbook {
             )));
         }
 
-        Ok(self.sheets_mut()[idx].set(addr, cell))
+        let prev = self.sheets_mut()[idx].set(addr, cell);
+        self.expand_table_on_append(idx, addr);
+        Ok(prev)
     }
 
     /// The **authored** cell at `addr` on the sheet named `sheet`
@@ -223,8 +237,10 @@ impl Workbook {
     /// Validates everything `from_json` checks for a name (schema spec §7): the
     /// name's shape, the `ref`'s canonical form, that the target sheet exists
     /// (no dangling ref), that the name does not already exist
-    /// (case-insensitively), and that the named-range cap (Decision 5) is not
-    /// exceeded. To replace an existing name use [`redefine_name`](Self::redefine_name).
+    /// (case-insensitively) as either a named range or a table
+    /// (structured-references spec §4), and that the named-range cap
+    /// (Decision 5) is not exceeded. To replace an existing name use
+    /// [`redefine_name`](Self::redefine_name).
     pub fn define_name(&mut self, name: &str, r: &str) -> Result<&NamedRange, WorkbookError> {
         self.validate_name_definition(name, r)?;
         if self.names().len() >= limits::MAX_NAMED_RANGES {
@@ -239,6 +255,13 @@ impl Workbook {
                 "cannot define named range {name:?}: it collides with the existing name {:?} \
                  under simple case folding (schema spec §7)",
                 self.names()[existing].name
+            )));
+        }
+        if let Some(existing) = self.table_index(name) {
+            return Err(WorkbookError::Mutation(format!(
+                "cannot define named range {name:?}: it collides with the existing table {:?} \
+                 under simple case folding (structured-references spec §4)",
+                self.tables()[existing].name
             )));
         }
         self.names_mut().push(NamedRange {
@@ -292,6 +315,244 @@ impl Workbook {
         self.names()
             .iter()
             .position(|n| simple_fold(&folder, &n.name) == target)
+    }
+
+    /// Defines a new workbook-scoped table `name` over the canonical range
+    /// `r` (`Sheet!A1:B2` — a table `ref` is always a range, never the
+    /// single-cell form), returning the stored [`Table`].
+    ///
+    /// Validates the name's shape, that `r` is a canonical range referencing
+    /// an existing sheet (no dangling ref), that the name does not already
+    /// collide with an existing table or named range (case-insensitively),
+    /// that the range does not overlap an existing table's range, and the
+    /// table count cap (Decision 5). Unlike [`Workbook::from_json`], this
+    /// does **not** validate the header row's column names — a table may
+    /// legitimately be defined ahead of its header cells being written
+    /// (define the shape first, fill the headers in later). A table defined
+    /// over a headerless or malformed-header region therefore succeeds here,
+    /// but the workbook will fail to reload (`from_json`'s load-time
+    /// validation *does* check header content) if serialized before real
+    /// header text is written at the range's first row
+    /// (structured-references spec §4). To replace an existing table's
+    /// range use [`redefine_table`](Self::redefine_table).
+    pub fn define_table(&mut self, name: &str, r: &str) -> Result<&Table, WorkbookError> {
+        let bounds = self.validate_table_definition(name, r)?;
+        if self.tables().len() >= limits::MAX_TABLES {
+            return Err(WorkbookError::Mutation(format!(
+                "cannot define table: workbook already has {} tables, the limit \
+                 (scope ADR Decision 5)",
+                limits::MAX_TABLES
+            )));
+        }
+        if let Some(existing) = self.table_index(name) {
+            return Err(WorkbookError::Mutation(format!(
+                "cannot define table {name:?}: it collides with the existing table {:?} \
+                 under simple case folding (structured-references spec §4)",
+                self.tables()[existing].name
+            )));
+        }
+        if let Some(existing) = self.name_index(name) {
+            return Err(WorkbookError::Mutation(format!(
+                "cannot define table {name:?}: it collides with the existing named range {:?} \
+                 under simple case folding (structured-references spec §4)",
+                self.names()[existing].name
+            )));
+        }
+        if let Some(other) = self.overlapping_table(&bounds, None) {
+            return Err(WorkbookError::Mutation(format!(
+                "cannot define table {name:?}: its range overlaps the existing table {other:?} \
+                 (structured-references spec §4)"
+            )));
+        }
+        self.tables_mut().push(Table {
+            name: name.to_owned(),
+            r#ref: r.to_owned(),
+        });
+        // Borrow the freshly pushed entry (it is last in declaration order;
+        // serialization re-sorts by name independently, §8.7).
+        Ok(self.tables().last().expect("just pushed a table"))
+    }
+
+    /// Redefines the existing table `name` (case-insensitive) to point at
+    /// the canonical range `r`, returning the updated [`Table`]. The name's
+    /// identity and original casing are preserved; only the `ref` changes.
+    ///
+    /// Validates the `ref` exactly as [`define_table`](Self::define_table)
+    /// does, including that the target sheet exists (no dangling ref) and
+    /// that the new range does not overlap another table's range. Errors if
+    /// no table currently matches `name` (case-insensitively) or if the
+    /// `ref` is not a valid canonical range to an existing sheet.
+    pub fn redefine_table(&mut self, name: &str, r: &str) -> Result<&Table, WorkbookError> {
+        let bounds = self.validate_table_definition(name, r)?;
+        let idx = self.table_index(name).ok_or_else(|| {
+            WorkbookError::Mutation(format!("cannot redefine table: no table {name:?} exists"))
+        })?;
+        if let Some(other) = self.overlapping_table(&bounds, Some(idx)) {
+            return Err(WorkbookError::Mutation(format!(
+                "cannot redefine table {name:?}: its range overlaps the existing table {other:?} \
+                 (structured-references spec §4)"
+            )));
+        }
+        // The lookup is case-insensitive, so this preserves the existing name's
+        // identity (including its original casing) and only swaps the `ref`.
+        self.tables_mut()[idx].r#ref = r.to_owned();
+        Ok(&self.tables()[idx])
+    }
+
+    /// Removes the table `name` (case-insensitive), returning it if it
+    /// existed, or `None` otherwise.
+    pub fn remove_table(&mut self, name: &str) -> Option<Table> {
+        self.table_index(name).map(|i| self.tables_mut().remove(i))
+    }
+
+    /// The table called `name` (case-insensitive), or `None`. Listing is
+    /// [`tables`](crate::Workbook::tables).
+    pub fn table(&self, name: &str) -> Option<&Table> {
+        self.table_index(name).map(|i| &self.tables()[i])
+    }
+
+    /// Declaration-order index of the table `name` (case-insensitive, simple
+    /// case folding per structured-references spec §4), or `None`.
+    fn table_index(&self, name: &str) -> Option<usize> {
+        let folder = CaseMapperBorrowed::new();
+        let target = simple_fold(&folder, name);
+        self.tables()
+            .iter()
+            .position(|t| simple_fold(&folder, &t.name) == target)
+    }
+
+    /// Shared name/`ref` validation for table define/redefine
+    /// (structured-references spec §4): name shape, canonical `ref` in range
+    /// form, and the target sheet's existence. Returns the parsed range
+    /// bounds (sheet folded, for overlap comparison) on success. Does not
+    /// check name uniqueness, range overlap, or the header row — those
+    /// depend on whether the call is a define or a redefine and are handled
+    /// by each caller (the header row is validated only at document-load
+    /// time, since a table may be defined ahead of its header cells being
+    /// written).
+    fn validate_table_definition(
+        &self,
+        name: &str,
+        r: &str,
+    ) -> Result<ParsedRangeBounds, WorkbookError> {
+        if !named_ref::is_valid_name(name) {
+            return Err(WorkbookError::Mutation(format!(
+                "table name {name:?} is invalid: it must match ^[A-Za-z_][A-Za-z0-9_]*$ and \
+                 must not be an A1 address, an R1C1-style reference, or a boolean \
+                 (structured-references spec §4)"
+            )));
+        }
+        let parsed = named_ref::parse_canonical_ref(r).map_err(WorkbookError::Mutation)?;
+        if self.sheet(&parsed.sheet).is_none() {
+            return Err(WorkbookError::Mutation(format!(
+                "table {name:?} refers to sheet {:?}, which does not exist \
+                 (structured-references spec §4)",
+                parsed.sheet
+            )));
+        }
+        let mut bounds = table_ref::parsed_range_bounds(r, &parsed).ok_or_else(|| {
+            WorkbookError::Mutation(format!(
+                "table {name:?} has a malformed ref: a table ref must be a range \
+                 (structured-references spec §4)"
+            ))
+        })?;
+        let folder = CaseMapperBorrowed::new();
+        bounds.sheet = simple_fold(&folder, &bounds.sheet);
+        Ok(bounds)
+    }
+
+    /// The name of an existing table (other than the one at `exclude_idx`,
+    /// if any) whose range overlaps `bounds` (sheet already folded), or
+    /// `None`. `exclude_idx` lets `redefine_table` compare a table's new
+    /// range against every *other* table without it overlapping itself.
+    fn overlapping_table(
+        &self,
+        bounds: &ParsedRangeBounds,
+        exclude_idx: Option<usize>,
+    ) -> Option<String> {
+        let folder = CaseMapperBorrowed::new();
+        for (i, t) in self.tables().iter().enumerate() {
+            if Some(i) == exclude_idx {
+                continue;
+            }
+            // A stored table ref is normally already validated as a
+            // canonical range by `define_table`/`redefine_table`, but
+            // `tables_mut()` is public and lets a caller push an arbitrary
+            // `Table` bypassing that validation — skip (never panic on) a
+            // ref this function can't parse, matching
+            // `expand_table_on_append`'s `let Ok(..) else { .. }` style.
+            let Ok(parsed) = named_ref::parse_canonical_ref(&t.r#ref) else {
+                continue;
+            };
+            let Some(mut other_bounds) = table_ref::parsed_range_bounds(&t.r#ref, &parsed) else {
+                continue;
+            };
+            other_bounds.sheet = simple_fold(&folder, &other_bounds.sheet);
+            if table_ref::ranges_overlap(bounds, &other_bounds) {
+                return Some(t.name.clone());
+            }
+        }
+        None
+    }
+
+    /// Auto-expand-by-append (structured-references spec §4,
+    /// truecalc/core#861): if `addr` on the sheet at `sheet_idx` lands
+    /// exactly one row below a table's current range, within that table's
+    /// column span, extends that table's `ref` by one row — unless the
+    /// expanded range would overlap another table's range, in which case
+    /// the expansion is silently skipped and the table's `ref` is left
+    /// unchanged (the cell write itself still succeeds; auto-expand is a
+    /// best-effort convenience, not a hard requirement, matching how real
+    /// Excel does not auto-expand a table into another table's cells). A
+    /// no-op if no table matches. At most one table's range can be adjacent
+    /// to `addr` to begin with, since table ranges never overlap (§4).
+    fn expand_table_on_append(&mut self, sheet_idx: usize, addr: Address) {
+        let folder = CaseMapperBorrowed::new();
+        let sheet_name = simple_fold(&folder, self.sheets()[sheet_idx].name());
+        let Some(idx) = self.tables().iter().position(|t| {
+            let Ok(parsed) = named_ref::parse_canonical_ref(&t.r#ref) else {
+                return false;
+            };
+            let Some(bounds) = table_ref::parsed_range_bounds(&t.r#ref, &parsed) else {
+                return false;
+            };
+            simple_fold(&folder, &bounds.sheet) == sheet_name
+                && bounds.row_end + 1 == addr.row
+                && bounds.col_start <= addr.column
+                && addr.column <= bounds.col_end
+        }) else {
+            return;
+        };
+
+        let t = &self.tables()[idx];
+        // Already validated as canonical by `define_table`/`redefine_table`.
+        let parsed = named_ref::parse_canonical_ref(&t.r#ref)
+            .expect("stored table ref is already canonical");
+        let bounds = table_ref::parsed_range_bounds(&t.r#ref, &parsed)
+            .expect("stored table ref is already a validated range");
+
+        // Before committing the expansion, check the *would-be-expanded*
+        // rectangle against every other table's range, the same overlap
+        // helper `define_table`/`redefine_table` use (Finding 1, final PR2
+        // review: an unchecked expansion could silently create two
+        // overlapping tables, producing a workbook that can't reload).
+        let new_bounds = ParsedRangeBounds {
+            sheet: simple_fold(&folder, &bounds.sheet),
+            row_start: bounds.row_start,
+            row_end: addr.row,
+            col_start: bounds.col_start,
+            col_end: bounds.col_end,
+        };
+        if self.overlapping_table(&new_bounds, Some(idx)).is_some() {
+            return; // best-effort convenience only; leave the table as-is
+        }
+
+        let sheet_token = named_ref::quote_sheet_if_needed(&parsed.sheet);
+        let start = Address::new(bounds.row_start, bounds.col_start)
+            .expect("bounds were derived from an already-validated ref");
+        let end = Address::new(addr.row, bounds.col_end)
+            .expect("bounds were derived from an already-validated ref");
+        self.tables_mut()[idx].r#ref = format!("{sheet_token}!{}:{}", start.to_a1(), end.to_a1());
     }
 
     /// Shared name/`ref` validation for define/redefine (schema spec §7):
