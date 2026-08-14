@@ -56,6 +56,7 @@ use truecalc_core::{CellAddr, Engine, EngineFlavor, Ref};
 use crate::address::Address;
 use crate::casefold::simple_fold;
 use crate::named_ref;
+use crate::value::Value;
 use crate::workbook::Workbook;
 
 /// A fully resolved cell coordinate: a sheet (by its position-independent,
@@ -246,7 +247,7 @@ impl DependencyGraph {
                 let mut seen: HashSet<Precedent> = HashSet::new();
                 let mut resolved: Vec<Precedent> = Vec::new();
                 for r in &refs {
-                    let prec = resolve_ref(r, &from.sheet, &folder, workbook);
+                    let prec = resolve_ref(r, &from.sheet, from.addr, &folder, workbook);
                     if seen.insert(prec.clone()) {
                         resolved.push(prec);
                     }
@@ -555,10 +556,15 @@ impl DependencyGraph {
 }
 
 /// Resolves a single parsed [`Ref`] against the workbook, relative to the
-/// formula's own (folded) sheet for bare references.
+/// formula's own (folded) sheet for bare references. `own_addr` is the
+/// formula cell's own address (unfolded), needed only by [`Ref::Table`] to
+/// infer which table an unqualified `[@column]` belongs to by containment —
+/// the same role `recalc.rs`'s `GridResolver.current_cell` plays for real
+/// value resolution.
 fn resolve_ref(
     r: &Ref,
     own_sheet: &str,
+    own_addr: Address,
     folder: &CaseMapperBorrowed<'static>,
     workbook: &Workbook,
 ) -> Precedent {
@@ -611,10 +617,136 @@ fn resolve_ref(
                 Precedent::Unresolved(name.clone())
             }
         }
-        // Stub pending truecalc/core#861 PR2 (Table resolution). No
-        // precedent edge is produced yet.
-        Ref::Table { .. } => Precedent::Unresolved(r.relative_display()),
+        Ref::Table {
+            table,
+            column,
+            this_row,
+        } => resolve_table_precedent(
+            table.as_deref(),
+            column,
+            *this_row,
+            own_sheet,
+            own_addr,
+            folder,
+            workbook,
+        ),
     }
+}
+
+/// Resolves a `Ref::Table` to its precedent.
+///
+/// Whole-column (`this_row: false`) precedents are the **whole table range**,
+/// not just the one column (matching `resolve_range`'s existing preference
+/// for treating an entire rectangular range as one dependency unit rather
+/// than per-cell/per-column — conservative, never under-dirties).
+///
+/// Current-row (`this_row: true`) precedents are a single [`Precedent::Cell`]
+/// at `(own_addr.row, resolved column)` instead: using the whole-table range
+/// here would make every in-table `[@col]` formula a *precedent of itself*
+/// (its own cell is always inside the table rectangle it reads from), a false
+/// self-cycle that would wrongly flag the extremely common "compute a column
+/// from sibling columns in the same row" pattern (e.g. `=[@qty]*[@price]`) as
+/// circular. A precise single-cell precedent matches exactly what
+/// `recalc.rs`'s `GridResolver::resolve_table_ref` actually reads for
+/// current-row, so it never over- or under-dirties.
+///
+/// An unqualified reference (`table: None`) infers the table from
+/// `own_addr`'s containment within a table's *data* rows (excluding the
+/// header row) on `own_sheet` — the same containment test
+/// `recalc.rs`'s `GridResolver::resolve_table_ref` uses via its
+/// `current_cell`, so an unqualified `[@column]` picks the same table here as
+/// it does for real value resolution. A qualified reference looks the table
+/// up by name directly.
+fn resolve_table_precedent(
+    table: Option<&str>,
+    column: &str,
+    this_row: bool,
+    own_sheet: &str,
+    own_addr: Address,
+    folder: &CaseMapperBorrowed<'static>,
+    workbook: &Workbook,
+) -> Precedent {
+    let target = match table {
+        Some(name) => {
+            let folded_name = simple_fold(folder, name);
+            workbook
+                .tables()
+                .iter()
+                .find(|t| simple_fold(folder, &t.name) == folded_name)
+        }
+        None => workbook.tables().iter().find(|t| {
+            named_ref::parse_canonical_ref(&t.r#ref)
+                .ok()
+                .and_then(|parsed| crate::table_ref::parsed_range_bounds(&t.r#ref, &parsed))
+                .is_some_and(|b| {
+                    simple_fold(folder, &b.sheet) == own_sheet
+                        && b.row_start < own_addr.row
+                        && own_addr.row <= b.row_end
+                        && b.col_start <= own_addr.column
+                        && own_addr.column <= b.col_end
+                })
+        }),
+    };
+    let Some(t) = target else {
+        return Precedent::Unresolved(format!(
+            "{}[{}{}]",
+            table.unwrap_or(""),
+            if this_row { "@" } else { "" },
+            column
+        ));
+    };
+    let Ok(parsed) = named_ref::parse_canonical_ref(&t.r#ref) else {
+        return Precedent::Unresolved(t.r#ref.clone());
+    };
+    let Some(bounds) = crate::table_ref::parsed_range_bounds(&t.r#ref, &parsed) else {
+        return Precedent::Unresolved(t.r#ref.clone());
+    };
+    let sheet_folded = simple_fold(folder, &bounds.sheet);
+
+    // Column-index-by-header lookup, same pattern as `recalc.rs`'s
+    // `GridResolver::resolve_table_ref`: a column that isn't actually in the
+    // table's header row produces no precedent (it's not a real dependency,
+    // the formula will error at recalc time regardless of what changes).
+    let column_folded = simple_fold(folder, column);
+    let sheet = workbook.sheet(&bounds.sheet);
+    let mut found = None;
+    for c in bounds.col_start..=bounds.col_end {
+        let Some(header_addr) = Address::new(bounds.row_start, c) else {
+            continue;
+        };
+        if let Some(Value::Text(header)) = sheet.and_then(|s| s.get(header_addr)).map(|c| c.value())
+        {
+            if simple_fold(folder, header) == column_folded {
+                found = Some(c);
+                break;
+            }
+        }
+    }
+    let Some(col) = found else {
+        return Precedent::Unresolved(t.r#ref.clone());
+    };
+
+    if this_row {
+        // Precise single-cell precedent (see the function doc comment for
+        // why the whole-table range would be wrong here): only valid if the
+        // formula's own cell is actually inside this table's data rows.
+        if own_sheet != sheet_folded
+            || own_addr.row <= bounds.row_start
+            || own_addr.row > bounds.row_end
+        {
+            return Precedent::Unresolved(t.r#ref.clone());
+        }
+        return match Address::new(own_addr.row, col) {
+            Some(a) => Precedent::Cell(CellRef::new(sheet_folded, a)),
+            None => Precedent::Unresolved(t.r#ref.clone()),
+        };
+    }
+
+    Precedent::Range(RangeRef {
+        sheet: sheet_folded,
+        start: Address::new(bounds.row_start, bounds.col_start).unwrap(),
+        end: Address::new(bounds.row_end, bounds.col_end).unwrap(),
+    })
 }
 
 /// Resolves a named range's canonical `ref` string to its concrete target,

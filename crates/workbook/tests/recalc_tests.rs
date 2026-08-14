@@ -297,6 +297,39 @@ fn whole_column_table_ref_resolves_to_data_array() {
 }
 
 #[test]
+fn table_column_ref_is_a_precedent_of_writes_to_that_column() {
+    // truecalc/core#861 PR2: depgraph.rs must track a table-column read as a
+    // real precedent, so editing the table's data cell dirties the dependent
+    // formula on *incremental* recalc, not just a full recalc.
+    let mut wb = sheets_wb();
+    wb.set(
+        "Sheet1",
+        a1("A1"),
+        CellInput::Literal(Value::Text("col".into())),
+    )
+    .unwrap();
+    wb.set("Sheet1", a1("A2"), CellInput::Literal(Value::Number(10.0)))
+        .unwrap();
+    wb.define_table("T", "Sheet1!A1:A2").unwrap();
+    wb.set(
+        "Sheet1",
+        a1("B1"),
+        CellInput::Formula("=SUM(T[col])".into()),
+    )
+    .unwrap();
+    wb.recalc(&ctx());
+
+    wb.set("Sheet1", a1("A2"), CellInput::Literal(Value::Number(99.0)))
+        .unwrap();
+    let changes = wb.recalc_incremental(&ctx(), &[("Sheet1".to_string(), a1("A2"))]);
+    let touched: Vec<Address> = changes.iter().map(|c| c.addr).collect();
+    assert!(
+        touched.contains(&a1("B1")),
+        "SUM(T[col]) should have recalculated on incremental recalc"
+    );
+}
+
+#[test]
 fn current_row_table_ref_resolves_per_row() {
     // truecalc/core#861 PR2: [@col] resolves to the cell at (current row,
     // column) within the table the formula's own cell is inside.
