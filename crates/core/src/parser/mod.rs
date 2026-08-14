@@ -95,6 +95,15 @@ impl<'a> Parser<'a> {
             return Ok((rest, Expr::Error(kind, self.span(i, rest))));
         }
 
+        // Unqualified current-row table reference: [@Column]. Only the `@`
+        // form is legal unqualified — a bare `[Column]` names no table and
+        // is a parse error (Task 3 test `bracket_without_at_is_a_parse_error`).
+        if let Some(after_bracket) = i.strip_prefix('[') {
+            if after_bracket.starts_with('@') {
+                return self.parse_table_ref(i, None, after_bracket);
+            }
+        }
+
         // Quoted-sheet reference: 'Sheet Name'!A1 / 'Sheet Name'!A1:B2
         if i.starts_with('\'') {
             return self.parse_quoted_sheet_ref(i);

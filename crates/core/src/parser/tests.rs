@@ -480,3 +480,29 @@ fn table_ref_in_binary_expr() {
     // Ref::Table cases are already covered above.
     assert!(matches!(expr, Expr::BinaryOp { .. }));
 }
+
+#[test]
+fn parses_unqualified_current_row_table_ref() {
+    let expr = parse_formula("=[@quantity_g]*[@price]").unwrap();
+    match expr {
+        Expr::BinaryOp { left, right, .. } => {
+            for side in [left.as_ref(), right.as_ref()] {
+                match side {
+                    Expr::Reference(Ref::Table { table, this_row, .. }, _) => {
+                        assert!(table.is_none());
+                        assert!(this_row);
+                    }
+                    other => panic!("expected Ref::Table, got {other:?}"),
+                }
+            }
+        }
+        other => panic!("expected BinaryOp, got {other:?}"),
+    }
+}
+
+#[test]
+fn bracket_without_at_is_a_parse_error() {
+    // Unqualified `[Column]` (no `@`, no table name) has no meaning in this
+    // grammar — only the unqualified *current-row* form is legal.
+    assert!(parse_formula("=[quantity_g]").is_err());
+}
