@@ -3,7 +3,7 @@
 //! across Linux + macOS CI, and the number-boundary cases of the schema spec's
 //! normative implementation warning are covered.
 
-use truecalc_workbook::{Cell, EngineFlavor, NamedRange, Value, Workbook, Worksheet};
+use truecalc_workbook::{Cell, EngineFlavor, NamedRange, sort_tables_by_name, Value, Workbook, Worksheet};
 
 /// Builds the worked example of schema spec §11.
 fn worked_example() -> Workbook {
@@ -224,6 +224,20 @@ fn sheets_keep_authored_tab_order_not_sorted() {
         json.find("Zebra").unwrap() < json.find("Alpha").unwrap(),
         "got: {json}"
     );
+}
+
+#[test]
+fn canonical_form_sorts_tables_by_name() {
+    let mut tree = serde_json::json!({
+        "tables": [
+            { "name": "Zebra", "ref": "Sheet1!A1:B2" },
+            { "name": "Apple", "ref": "Sheet1!D1:E2" }
+        ]
+    });
+    sort_tables_by_name(&mut tree);
+    let names: Vec<&str> = tree["tables"].as_array().unwrap()
+        .iter().map(|t| t["name"].as_str().unwrap()).collect();
+    assert_eq!(names, vec!["Apple", "Zebra"]);
 }
 
 #[test]

@@ -258,6 +258,7 @@ impl Workbook {
         let mut tree =
             serde_json::to_value(self).map_err(|e| WorkbookError::Validation(e.to_string()))?;
         sort_names_by_name(&mut tree);
+        sort_tables_by_name(&mut tree);
         let canonical = canonical::to_canonical_string(&tree).map_err(WorkbookError::Validation)?;
         if canonical.len() > limits::MAX_SERIALIZED_BYTES {
             return Err(WorkbookError::Validation(format!(
@@ -300,6 +301,19 @@ fn validate_sheet_name(name: &str) -> Result<(), WorkbookError> {
 fn sort_names_by_name(tree: &mut serde_json::Value) {
     if let Some(names) = tree.get_mut("names").and_then(|v| v.as_array_mut()) {
         names.sort_by(|a, b| {
+            let an = a.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            let bn = b.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            an.encode_utf16().cmp(bn.encode_utf16())
+        });
+    }
+}
+
+/// Domain ordering of schema spec §8.7 (extended by the structured-refs
+/// design spec §4): `tables` is serialized sorted by `name`, same rule as
+/// `names`.
+pub fn sort_tables_by_name(tree: &mut serde_json::Value) {
+    if let Some(tables) = tree.get_mut("tables").and_then(|v| v.as_array_mut()) {
+        tables.sort_by(|a, b| {
             let an = a.get("name").and_then(|v| v.as_str()).unwrap_or("");
             let bn = b.get("name").and_then(|v| v.as_str()).unwrap_or("");
             an.encode_utf16().cmp(bn.encode_utf16())

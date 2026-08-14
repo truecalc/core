@@ -89,7 +89,7 @@ pub use recalc::{Change, RecalcContext, CIRCULAR_ERROR};
 pub use spill::{SpillRect, BLOCKED_SPILL_ERROR};
 pub use table::Table;
 pub use value::Value;
-pub use workbook::{Workbook, SCHEMA_VERSION};
+pub use workbook::{sort_tables_by_name, Workbook, SCHEMA_VERSION};
 pub use worksheet::Worksheet;
 
 /// Re-exported so callers of [`Workbook::trace_cell`] can implement or wire a
