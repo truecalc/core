@@ -268,6 +268,20 @@ fn array_result_is_stored_at_the_anchor_pending_spill() {
 }
 
 #[test]
+fn table_ref_stub_resolves_to_ref_error_pending_pr2() {
+    // Stub pending truecalc/core#861 PR2 (Table resolution): until table
+    // resolution lands, every `Ref::Table` reference resolves to `#REF!`.
+    let mut wb = sheets_wb();
+    wb.set("Sheet1", a1("A1"), CellInput::Formula("=[@x]".into()))
+        .unwrap();
+    wb.recalc(&ctx());
+    assert_eq!(
+        wb.get("Sheet1", a1("A1")).unwrap().value(),
+        &Value::Error("#REF!".into())
+    );
+}
+
+#[test]
 fn change_list_is_ordered_by_sheet_then_row_then_column() {
     let mut wb = Workbook::new(EngineFlavor::Sheets);
     wb.add_sheet(truecalc_workbook::Worksheet::new("S1"))
