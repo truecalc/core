@@ -1330,11 +1330,15 @@ impl GridResolver<'_> {
         let sheet_folded = simple_fold(&folder, &bounds.sheet);
 
         // Find the column's index by reading the header row (`bounds.row_start`).
+        // Case-insensitive, same as the table-name and sheet-name lookups
+        // above: column names are case-folded at table-definition time
+        // (`table_ref::header_row_columns`), so lookup must match.
+        let column_folded = simple_fold(&folder, column);
         let mut col = None;
         for c in bounds.col_start..=bounds.col_end {
             if let Some(a) = Address::new(bounds.row_start, c) {
                 if let CoreValue::Text(header) = self.cell_value(&sheet_folded, a) {
-                    if header == column {
+                    if simple_fold(&folder, &header) == column_folded {
                         col = Some(c);
                         break;
                     }
@@ -1364,7 +1368,26 @@ impl GridResolver<'_> {
             let mut cells = Vec::new();
             for r in data_start..=bounds.row_end {
                 let scalar = match Address::new(r, col) {
-                    Some(a) => self.cell_value(&sheet_folded, a),
+                    Some(a) => {
+                        let v = self.cell_value(&sheet_folded, a);
+                        // Same spill-anchor unwrap as `resolve_range`: a spill
+                        // anchor stores its full array, so use only the
+                        // [0][0] element here — otherwise a table-column cell
+                        // that happens to be a spill anchor would nest its
+                        // whole array as this row's "scalar" instead of
+                        // resolving to the same value an equivalent
+                        // `A2:A12`-style range would produce.
+                        match v {
+                            CoreValue::Array(ref rows) => match rows.first() {
+                                Some(CoreValue::Array(ref cols)) => {
+                                    cols.first().cloned().unwrap_or(CoreValue::Empty)
+                                }
+                                Some(other) => other.clone(),
+                                None => CoreValue::Empty,
+                            },
+                            other => other,
+                        }
+                    }
                     None => CoreValue::Error(ErrorKind::Ref),
                 };
                 // Same wrapping as `resolve_range`'s `is_vertical` branch: one
