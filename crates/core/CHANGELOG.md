@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.0.0](https://github.com/truecalc/core/compare/truecalc-core-v7.1.1...truecalc-core-v8.0.0) - 2026-08-14
+
+### Added
+
+- *(core)* parse unqualified [@Column] current-row table references
+- *(core)* parse qualified Table[Column] and Table[@Column] references
+- *(core)* add Ref::Table variant for structured table references
+
+### Fixed
+
+- add Ref::Table handling in test resolvers and correct error kind
+
 ## [7.1.1](https://github.com/truecalc/core/compare/truecalc-core-v7.1.0...truecalc-core-v7.1.1) - 2026-08-06
 
 ### Fixed

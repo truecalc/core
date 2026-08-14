@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.0.0](https://github.com/truecalc/core/compare/truecalc-workbook-v7.1.1...truecalc-workbook-v8.0.0) - 2026-08-14
+
+### Added
+
+- *(workbook)* track table-column reads as recalc precedents
+- *(workbook)* resolve Table[Column] and Table[@Column] references
+- *(workbook)* table CRUD API and auto-expand-by-append on set()
+- *(workbook)* validate table declarations (name, ref, overlap, headers)
+- *(workbook)* sort tables by name in canonical serialization
+- *(workbook)* add Workbook.tables field, bump schema version to 2
+- *(workbook)* table range-overlap and header-column validation
+- *(workbook)* add Table schema type
+- *(core)* add Ref::Table variant for structured table references
+
+### Fixed
+
+- *(workbook)* make table_ref private, reconcile the schema with v1/v2 reads
+- *(workbook)* narrow whole-column table precedent to its own column
+- *(workbook)* close table mutation gaps found in final PR2 review
+- *(workbook)* case-fold table column lookup, unwrap spill-anchor cells in T[col]
+- *(workbook)* make sort_tables_by_name private, test via public API
+- *(workbook)* describe tables and schema v2 in the published JSON Schema
+- *(workbook)* add Ref::Table stub arms to keep workspace compiling
+- add Ref::Table handling in test resolvers and correct error kind
+
 ## [7.1.1](https://github.com/truecalc/core/compare/truecalc-workbook-v7.1.0...truecalc-workbook-v7.1.1) - 2026-08-06
 
 ### Other
