@@ -1191,6 +1191,9 @@ impl Resolver for GridResolver<'_> {
                     Some(nr) => self.resolve_name_ref(&nr.r#ref),
                 }
             }
+            // Stub pending truecalc/core#861 PR2 (Table resolution). Every
+            // table reference resolves to #REF! until then.
+            Ref::Table { .. } => CoreValue::Error(ErrorKind::Ref),
         }
     }
 }

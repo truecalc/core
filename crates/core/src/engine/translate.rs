@@ -49,6 +49,7 @@ pub(crate) fn shift_ref_text(r: &Ref, d_row: i64, d_col: i64) -> String {
             out
         }
         Ref::Name(name) => name.clone(), // never reached by the Task 3 traversal
+        Ref::Table { .. } => r.to_string(), // never reached by the Task 3 traversal
     }
 }
 

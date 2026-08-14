@@ -80,3 +80,46 @@ fn relative_display_range_strips_dollar_anchors_per_corner() {
 fn relative_display_name_is_unchanged() {
     assert_eq!(Ref::Name("TAX_RATE".to_string()).relative_display(), "TAX_RATE");
 }
+
+#[test]
+fn table_display_whole_column() {
+    let r = Ref::Table {
+        table: Some("Recipe".to_string()),
+        column: "reference_per_100g".to_string(),
+        this_row: false,
+    };
+    assert_eq!(r.to_string(), "Recipe[reference_per_100g]");
+}
+
+#[test]
+fn table_display_current_row_qualified() {
+    let r = Ref::Table {
+        table: Some("Recipe".to_string()),
+        column: "quantity_g".to_string(),
+        this_row: true,
+    };
+    assert_eq!(r.to_string(), "Recipe[@quantity_g]");
+}
+
+#[test]
+fn table_display_current_row_unqualified() {
+    let r = Ref::Table {
+        table: None,
+        column: "quantity_g".to_string(),
+        this_row: true,
+    };
+    assert_eq!(r.to_string(), "[@quantity_g]");
+}
+
+#[test]
+fn table_relative_display_is_unchanged() {
+    // Ref::Table carries no $-anchors (unlike Cell/Range), so
+    // relative_display must equal to_string() exactly, the same
+    // no-op behavior Ref::Name already has.
+    let r = Ref::Table {
+        table: Some("Recipe".to_string()),
+        column: "quantity_g".to_string(),
+        this_row: true,
+    };
+    assert_eq!(r.relative_display(), r.to_string());
+}

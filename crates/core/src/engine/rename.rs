@@ -39,6 +39,7 @@ fn renamed_ref_text(r: &Ref, new: &str) -> String {
             Ref::Range { sheet: Some(new.to_string()), start: *start, end: *end }.to_string()
         }
         Ref::Name(_) => unreachable!("collect_shiftable_refs never returns Ref::Name"),
+        Ref::Table { .. } => unreachable!("collect_shiftable_refs never returns Ref::Table"),
     }
 }
 

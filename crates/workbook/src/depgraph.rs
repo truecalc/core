@@ -611,6 +611,9 @@ fn resolve_ref(
                 Precedent::Unresolved(name.clone())
             }
         }
+        // Stub pending truecalc/core#861 PR2 (Table resolution). No
+        // precedent edge is produced yet.
+        Ref::Table { .. } => Precedent::Unresolved(r.relative_display()),
     }
 }
 
