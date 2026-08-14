@@ -226,6 +226,27 @@ impl JsWorkbook {
             .map_err(|e| JsError::new(&e.to_string()))
     }
 
+    /// Defines a workbook-scoped table (issue #868): `ref_str`'s first row
+    /// becomes the table's header row, so formulas can use `Table[Column]`
+    /// (whole-column) and `Table[@Column]` / unqualified `[@Column]`
+    /// (current-row) structured references against it.
+    #[wasm_bindgen(js_name = defineTable)]
+    pub fn define_table(&mut self, name: &str, ref_str: &str) -> Result<(), JsError> {
+        self.inner
+            .define_table(name, ref_str)
+            .map(|_| ())
+            .map_err(|e| JsError::new(&e.to_string()))
+    }
+
+    /// Redefines (retargets) a workbook-scoped table.
+    #[wasm_bindgen(js_name = redefineTable)]
+    pub fn redefine_table(&mut self, name: &str, ref_str: &str) -> Result<(), JsError> {
+        self.inner
+            .redefine_table(name, ref_str)
+            .map(|_| ())
+            .map_err(|e| JsError::new(&e.to_string()))
+    }
+
     /// Runs a full recalculation against the given context JSON.
     ///
     /// `context_json` must be a JSON object:
