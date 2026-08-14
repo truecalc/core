@@ -7,7 +7,9 @@
 //! they run natively under `cargo test` without a wasm runtime, matching
 //! this crate's existing convention (see round_trip.rs).
 
-use truecalc_workbook::{Address, CellInput, EngineFlavor, RecalcContext, Value, Workbook, Worksheet};
+use truecalc_workbook::{
+    Address, CellInput, EngineFlavor, RecalcContext, Value, Workbook, Worksheet,
+};
 
 fn sheets_workbook() -> Workbook {
     let mut wb = Workbook::new(EngineFlavor::Sheets);
@@ -24,8 +26,12 @@ fn set_formula(wb: &mut Workbook, a1: &str, formula: &str) -> Result<(), String>
 
 fn set_literal(wb: &mut Workbook, a1: &str, text: &str) {
     let addr = Address::from_a1(a1).unwrap();
-    wb.set("Sheet1", addr, CellInput::Literal(Value::Text(text.to_string())))
-        .unwrap();
+    wb.set(
+        "Sheet1",
+        addr,
+        CellInput::Literal(Value::Text(text.to_string())),
+    )
+    .unwrap();
 }
 
 fn recalc(wb: &mut Workbook) {

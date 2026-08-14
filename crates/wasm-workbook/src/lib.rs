@@ -36,8 +36,14 @@ pub struct TranslateResult {
 #[wasm_bindgen(js_name = translateFormula)]
 pub fn translate_formula(formula: &str, d_row: i32, d_col: i32) -> TranslateResult {
     match Engine::sheets().translate_formula(formula, d_row as i64, d_col as i64) {
-        Ok(f) => TranslateResult { formula: Some(f), error: None },
-        Err(e) => TranslateResult { formula: None, error: Some(e.to_string()) },
+        Ok(f) => TranslateResult {
+            formula: Some(f),
+            error: None,
+        },
+        Err(e) => TranslateResult {
+            formula: None,
+            error: Some(e.to_string()),
+        },
     }
 }
 
@@ -130,15 +136,16 @@ impl JsWorkbook {
     /// Deserializes a workbook from its canonical JSON string.
     #[wasm_bindgen(js_name = fromJSON)]
     pub fn from_json(s: &str) -> Result<JsWorkbook, JsError> {
-        let wb = Workbook::from_json(s.as_bytes())
-            .map_err(|e| JsError::new(&e.to_string()))?;
+        let wb = Workbook::from_json(s.as_bytes()).map_err(|e| JsError::new(&e.to_string()))?;
         Ok(JsWorkbook { inner: wb })
     }
 
     /// Serializes the workbook to its canonical JSON string.
     #[wasm_bindgen(js_name = toJSON)]
     pub fn to_json(&self) -> Result<String, JsError> {
-        self.inner.to_json().map_err(|e| JsError::new(&e.to_string()))
+        self.inner
+            .to_json()
+            .map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// Adds a new sheet with the given name and returns on success.
@@ -270,8 +277,7 @@ impl JsWorkbook {
 
         let changes = self.inner.recalc(&ctx);
         let json_changes: Vec<serde_json::Value> = changes.iter().map(change_to_json).collect();
-        serde_json::to_string(&json_changes)
-            .map_err(|e| JsError::new(&e.to_string()))
+        serde_json::to_string(&json_changes).map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// Returns the resolved value at `a1` on `sheet` as a JS value.
@@ -289,8 +295,7 @@ impl JsWorkbook {
             None => Ok(JsValue::NULL),
             Some(Resolved { value, .. }) => {
                 let json = value_to_json(&value);
-                let s = serde_json::to_string(&json)
-                    .map_err(|e| JsError::new(&e.to_string()))?;
+                let s = serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))?;
                 Ok(JsValue::from_str(&s))
             }
         }
