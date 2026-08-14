@@ -9,9 +9,20 @@
     "engine",
     "names",
     "sheets",
-    "tables",
     "version"
   ],
+  "if": {
+    "properties": {
+      "version": {
+        "const": "2"
+      }
+    }
+  },
+  "then": {
+    "required": [
+      "tables"
+    ]
+  },
   "properties": {
     "engine": {
       "enum": [
@@ -20,7 +31,10 @@
       ]
     },
     "version": {
-      "const": "2"
+      "enum": [
+        "1",
+        "2"
+      ]
     },
     "names": {
       "type": "array",
