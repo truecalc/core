@@ -311,7 +311,7 @@ fn sort_names_by_name(tree: &mut serde_json::Value) {
 /// Domain ordering of schema spec §8.7 (extended by the structured-refs
 /// design spec §4): `tables` is serialized sorted by `name`, same rule as
 /// `names`.
-pub fn sort_tables_by_name(tree: &mut serde_json::Value) {
+fn sort_tables_by_name(tree: &mut serde_json::Value) {
     if let Some(tables) = tree.get_mut("tables").and_then(|v| v.as_array_mut()) {
         tables.sort_by(|a, b| {
             let an = a.get("name").and_then(|v| v.as_str()).unwrap_or("");
