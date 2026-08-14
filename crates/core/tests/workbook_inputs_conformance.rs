@@ -189,6 +189,7 @@ impl<'a> SnapshotResolver<'a> {
                 },
                 None => Value::Error(ErrorKind::Name),
             },
+            Ref::Table { .. } => Value::Error(ErrorKind::Ref),
         }
     }
 }

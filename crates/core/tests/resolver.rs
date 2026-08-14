@@ -119,6 +119,7 @@ impl Resolver for ModelResolver {
                 Some(target) => self.resolve(&target),
                 None => Value::Error(ErrorKind::Name),
             },
+            Ref::Table { .. } => Value::Error(ErrorKind::Name),
         }
     }
 }
