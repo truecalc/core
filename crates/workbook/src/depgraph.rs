@@ -635,10 +635,21 @@ fn resolve_ref(
 
 /// Resolves a `Ref::Table` to its precedent.
 ///
-/// Whole-column (`this_row: false`) precedents are the **whole table range**,
-/// not just the one column (matching `resolve_range`'s existing preference
-/// for treating an entire rectangular range as one dependency unit rather
-/// than per-cell/per-column — conservative, never under-dirties).
+/// Whole-column (`this_row: false`) precedents are a single
+/// [`Precedent::Range`] over just the resolved column (header row through
+/// last data row), not the whole table rectangle. The whole-table version
+/// used to make an in-table formula that reads a *different* column of its
+/// own table (e.g. `=[@qty]/SUM(T[qty])`, a common percentage-of-total
+/// pattern) a precedent of itself, since its own cell always falls inside
+/// the table's full rectangle — the same false-self-cycle class the
+/// current-row branch below already guards against, just previously
+/// uncaught for this branch (truecalc/core#861 final review). The header
+/// row is kept in the range (not narrowed to just the data rows): editing a
+/// header cell can change which column a name resolves to, so it should
+/// still dirty dependents — conservative for dirtying purposes while
+/// eliminating the false cross-column cycle. A formula in the *same* column
+/// that reads its own column remains correctly circular, since its own cell
+/// is still inside the narrowed range.
 ///
 /// Current-row (`this_row: true`) precedents are a single [`Precedent::Cell`]
 /// at `(own_addr.row, resolved column)` instead: using the whole-table range
@@ -744,8 +755,8 @@ fn resolve_table_precedent(
 
     Precedent::Range(RangeRef {
         sheet: sheet_folded,
-        start: Address::new(bounds.row_start, bounds.col_start).unwrap(),
-        end: Address::new(bounds.row_end, bounds.col_end).unwrap(),
+        start: Address::new(bounds.row_start, col).unwrap(),
+        end: Address::new(bounds.row_end, col).unwrap(),
     })
 }
 

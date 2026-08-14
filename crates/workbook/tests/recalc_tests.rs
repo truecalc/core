@@ -330,6 +330,47 @@ fn table_column_ref_is_a_precedent_of_writes_to_that_column() {
 }
 
 #[test]
+fn table_formula_reading_a_different_column_of_its_own_table_is_not_a_false_cycle() {
+    // truecalc/core#861 final review, Finding 2: `resolve_table_precedent`'s
+    // whole-column branch used to record a precedent over the *whole table
+    // range*, not just the resolved column. A formula living inside the
+    // table that reads a whole *different* column of that same table (e.g.
+    // this common percentage-of-total pattern) was then a precedent of
+    // itself -- its own cell always falls inside the table's full
+    // rectangle -- tripping cycle detection with no real circularity. B2
+    // reads column "qty" while writing column "pct"; it must resolve
+    // normally, not to the circular-reference error.
+    let mut wb = sheets_wb();
+    wb.set(
+        "Sheet1",
+        a1("A1"),
+        CellInput::Literal(Value::Text("qty".into())),
+    )
+    .unwrap();
+    wb.set(
+        "Sheet1",
+        a1("B1"),
+        CellInput::Literal(Value::Text("pct".into())),
+    )
+    .unwrap();
+    wb.set("Sheet1", a1("A2"), CellInput::Literal(Value::Number(5.0)))
+        .unwrap();
+    wb.set(
+        "Sheet1",
+        a1("B2"),
+        CellInput::Formula("=SUM(T[qty])".into()),
+    )
+    .unwrap();
+    wb.define_table("T", "Sheet1!A1:B2").unwrap();
+    wb.recalc(&ctx());
+    assert_eq!(
+        wb.get("Sheet1", a1("B2")).unwrap().value(),
+        &Value::Number(5.0),
+        "B2 reads a different column of its own table; must not be flagged circular"
+    );
+}
+
+#[test]
 fn current_row_table_ref_resolves_per_row() {
     // truecalc/core#861 PR2: [@col] resolves to the cell at (current row,
     // column) within the table the formula's own cell is inside.
