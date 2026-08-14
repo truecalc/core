@@ -125,6 +125,11 @@ impl<'a> Parser<'a> {
             if let Some(after_bang) = rest.strip_prefix('!') {
                 return self.parse_ref_body(i, name.to_string(), after_bang);
             }
+            // Table reference: Table[Column] or Table[@Column] — `[` binds
+            // tightly to the table name (no whitespace on either side).
+            if let Some(after_bracket) = rest.strip_prefix('[') {
+                return self.parse_table_ref(i, Some(name.to_string()), after_bracket);
+            }
             let rest_ws = multispace0(rest)?.0;
             if let Some(args_input) = rest_ws.strip_prefix('(') {
                 // Function call
@@ -200,6 +205,25 @@ impl<'a> Parser<'a> {
         }
         let r = Ref::Cell { sheet: Some(sheet), addr };
         Ok((rest, Expr::Reference(r, self.span(start, rest))))
+    }
+
+    /// Parse the part after `[` in a table reference: an optional `@`, a
+    /// column identifier, then `]`. `start` is where the whole reference
+    /// began (for spans); `table` is `None` for the unqualified `[@Column]`
+    /// form (called from `parse_primary`'s top-level `[` check, Task 3).
+    fn parse_table_ref(
+        &self,
+        start: &'a str,
+        table: Option<String>,
+        i: &'a str,
+    ) -> IResult<&'a str, Expr> {
+        let err = || nom::Err::Error(nom::error::Error::new(i, nom::error::ErrorKind::Tag));
+        let this_row = i.starts_with('@');
+        let i = if this_row { &i[1..] } else { i };
+        let (rest, column) = identifier(i).map_err(|_| err())?;
+        let after = rest.strip_prefix(']').ok_or_else(err)?;
+        let r = Ref::Table { table, column: column.to_string(), this_row };
+        Ok((after, Expr::Reference(r, self.span(start, after))))
     }
 
     /// Parse `'Sheet Name'!A1` / `'Sheet Name'!A1:B2`. `i` starts at the

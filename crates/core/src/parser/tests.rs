@@ -439,3 +439,44 @@ fn parse_error_literal_is_case_insensitive() {
     assert!(matches!(parse("=#Div/0!").unwrap(), Expr::Error(ErrorKind::DivByZero, _)));
     assert!(matches!(parse("=#n/a").unwrap(), Expr::Error(ErrorKind::NA, _)));
 }
+
+#[test]
+fn parses_whole_column_table_ref() {
+    let expr = parse("=SUM(Recipe[reference_per_100g])").unwrap();
+    match expr {
+        Expr::FunctionCall { name, args, .. } => {
+            assert_eq!(name, "SUM");
+            assert_eq!(args.len(), 1);
+            match &args[0] {
+                Expr::Reference(Ref::Table { table, column, this_row }, _) => {
+                    assert_eq!(table.as_deref(), Some("Recipe"));
+                    assert_eq!(column, "reference_per_100g");
+                    assert!(!this_row);
+                }
+                other => panic!("expected Ref::Table, got {other:?}"),
+            }
+        }
+        other => panic!("expected FunctionCall, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_current_row_qualified_table_ref() {
+    let expr = parse("=Recipe[@quantity_g]").unwrap();
+    match expr {
+        Expr::Reference(Ref::Table { table, column, this_row }, _) => {
+            assert_eq!(table.as_deref(), Some("Recipe"));
+            assert_eq!(column, "quantity_g");
+            assert!(this_row);
+        }
+        other => panic!("expected Ref::Table, got {other:?}"),
+    }
+}
+
+#[test]
+fn table_ref_in_binary_expr() {
+    let expr = parse("=Recipe[@a]*Recipe[@b]/100").unwrap();
+    // Just confirm it parses to a BinaryOp tree without error; the two
+    // Ref::Table cases are already covered above.
+    assert!(matches!(expr, Expr::BinaryOp { .. }));
+}
