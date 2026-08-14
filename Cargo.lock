@@ -2257,7 +2257,7 @@ dependencies = [
 
 [[package]]
 name = "truecalc-core"
-version = "8.0.0"
+version = "8.1.0"
 dependencies = [
  "chrono",
  "chrono-tz",
@@ -2273,7 +2273,7 @@ dependencies = [
 
 [[package]]
 name = "truecalc-mcp"
-version = "8.0.0"
+version = "8.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2283,7 +2283,7 @@ dependencies = [
 
 [[package]]
 name = "truecalc-python"
-version = "8.0.0"
+version = "8.1.0"
 dependencies = [
  "pyo3",
  "truecalc-core",
@@ -2291,7 +2291,7 @@ dependencies = [
 
 [[package]]
 name = "truecalc-wasm"
-version = "8.0.0"
+version = "8.1.0"
 dependencies = [
  "serde",
  "serde-wasm-bindgen",
@@ -2304,7 +2304,7 @@ dependencies = [
 
 [[package]]
 name = "truecalc-wasm-workbook"
-version = "8.0.0"
+version = "8.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2317,7 +2317,7 @@ dependencies = [
 
 [[package]]
 name = "truecalc-workbook"
-version = "8.0.0"
+version = "8.1.0"
 dependencies = [
  "chrono",
  "chrono-tz",
@@ -2892,7 +2892,7 @@ dependencies = [
 
 [[package]]
 name = "workbook-budget"
-version = "8.0.0"
+version = "8.1.0"
 dependencies = [
  "truecalc-workbook",
 ]
