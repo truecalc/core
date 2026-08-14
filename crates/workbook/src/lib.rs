@@ -72,6 +72,7 @@ mod recalc;
 mod spill;
 mod strict_json;
 mod table;
+pub mod table_ref;
 mod validate;
 mod value;
 mod workbook;
