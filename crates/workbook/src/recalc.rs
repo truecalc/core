@@ -50,7 +50,9 @@ use crate::address::Address;
 use crate::casefold::simple_fold;
 use crate::cell::Cell;
 use crate::depgraph::{CellRef, DependencyGraph, Precedent, RangeRef};
+use crate::named_ref;
 use crate::spill::{spill_rect, SpillRect, BLOCKED_SPILL_ERROR};
+use crate::table_ref;
 use crate::value::Value;
 use crate::workbook::Workbook;
 
@@ -416,6 +418,7 @@ impl Workbook {
             prev_spills: &empty_spills,
             cycle: &empty_cells,
             recomputed: &empty_cells,
+            current_cell: Some((&own_sheet, addr)),
         };
 
         let Some(formula) = self.cell_at(&cell_ref).and_then(Cell::formula) else {
@@ -606,6 +609,7 @@ impl Workbook {
             prev_spills,
             cycle,
             recomputed,
+            current_cell: Some((&cell.sheet, cell.addr)),
         };
         let core = engine.evaluate_with_resolver_at_keyed(
             &formula,
@@ -1020,6 +1024,15 @@ struct GridResolver<'a> {
     /// blocks or shrinks, would resolve the vacated cell from the obsolete
     /// stored array).
     recomputed: &'a BTreeSet<CellRef>,
+    /// The evaluating cell's own `(folded sheet name, address)` — set at the
+    /// same call site that computes `rng_cell`'s `(sheet_index, row, col)`, so
+    /// both stay in sync by construction. Used by `resolve_table_ref` to look
+    /// up the single current-row cell and to infer a table from an
+    /// unqualified `[@col]` reference's containment. Always `Some` at every
+    /// current construction site (kept `Option` defensively, since a
+    /// resolver constructed without a specific evaluating cell would have
+    /// nothing to thread here).
+    current_cell: Option<(&'a str, Address)>,
 }
 
 impl GridResolver<'_> {
@@ -1191,9 +1204,11 @@ impl Resolver for GridResolver<'_> {
                     Some(nr) => self.resolve_name_ref(&nr.r#ref),
                 }
             }
-            // Stub pending truecalc/core#861 PR2 (Table resolution). Every
-            // table reference resolves to #REF! until then.
-            Ref::Table { .. } => CoreValue::Error(ErrorKind::Ref),
+            Ref::Table {
+                table,
+                column,
+                this_row,
+            } => self.resolve_table_ref(table.as_deref(), column, *this_row),
         }
     }
 }
@@ -1257,6 +1272,107 @@ impl GridResolver<'_> {
             }
         }
         CoreValue::Array(cells)
+    }
+
+    /// Resolves a `Ref::Table`: whole-column (`this_row: false`) materializes
+    /// the column's data-row values as an array, using the **same** vertical
+    /// wrapping [`resolve_range`](Self::resolve_range) uses for a
+    /// single-column range (its `is_vertical` branch: one array element per
+    /// row, each itself a one-element array — core's Nx1 column shape) — so
+    /// `T[col]` broadcasts and spills identically to an equivalent explicit
+    /// `A2:A12`-style reference. Current-row (`this_row: true`) looks up the
+    /// single cell at `(current row, column)`.
+    ///
+    /// An unqualified reference (`table: None`) infers the table from
+    /// `self.current_cell`'s containment within the table's *data* rows
+    /// (excluding the header row); a qualified reference looks the table up
+    /// by name directly. `#REF!` if the table doesn't exist, the column
+    /// doesn't exist (looked up by reading the header row), or — for
+    /// current-row only — the evaluating cell isn't inside the resolved
+    /// table's data rows.
+    fn resolve_table_ref(&self, table: Option<&str>, column: &str, this_row: bool) -> CoreValue {
+        let folder = CaseMapperBorrowed::new();
+        let target_table = match table {
+            Some(name) => {
+                let folded = simple_fold(&folder, name);
+                self.workbook
+                    .tables()
+                    .iter()
+                    .find(|t| simple_fold(&folder, &t.name) == folded)
+            }
+            None => {
+                let Some((sheet, addr)) = self.current_cell else {
+                    return CoreValue::Error(ErrorKind::Ref);
+                };
+                self.workbook.tables().iter().find(|t| {
+                    named_ref::parse_canonical_ref(&t.r#ref)
+                        .ok()
+                        .and_then(|parsed| table_ref::parsed_range_bounds(&t.r#ref, &parsed))
+                        .is_some_and(|b| {
+                            simple_fold(&folder, &b.sheet) == sheet
+                                && b.row_start < addr.row
+                                && addr.row <= b.row_end
+                                && b.col_start <= addr.column
+                                && addr.column <= b.col_end
+                        })
+                })
+            }
+        };
+        let Some(t) = target_table else {
+            return CoreValue::Error(ErrorKind::Ref);
+        };
+        let Ok(parsed) = named_ref::parse_canonical_ref(&t.r#ref) else {
+            return CoreValue::Error(ErrorKind::Ref);
+        };
+        let Some(bounds) = table_ref::parsed_range_bounds(&t.r#ref, &parsed) else {
+            return CoreValue::Error(ErrorKind::Ref);
+        };
+        let sheet_folded = simple_fold(&folder, &bounds.sheet);
+
+        // Find the column's index by reading the header row (`bounds.row_start`).
+        let mut col = None;
+        for c in bounds.col_start..=bounds.col_end {
+            if let Some(a) = Address::new(bounds.row_start, c) {
+                if let CoreValue::Text(header) = self.cell_value(&sheet_folded, a) {
+                    if header == column {
+                        col = Some(c);
+                        break;
+                    }
+                }
+            }
+        }
+        let Some(col) = col else {
+            return CoreValue::Error(ErrorKind::Ref);
+        };
+
+        if this_row {
+            let Some((cell_sheet, cell_addr)) = self.current_cell else {
+                return CoreValue::Error(ErrorKind::Ref);
+            };
+            if cell_sheet != sheet_folded
+                || cell_addr.row <= bounds.row_start
+                || cell_addr.row > bounds.row_end
+            {
+                return CoreValue::Error(ErrorKind::Ref);
+            }
+            match Address::new(cell_addr.row, col) {
+                Some(a) => self.cell_value(&sheet_folded, a),
+                None => CoreValue::Error(ErrorKind::Ref),
+            }
+        } else {
+            let data_start = bounds.row_start + 1;
+            let mut cells = Vec::new();
+            for r in data_start..=bounds.row_end {
+                let scalar = match Address::new(r, col) {
+                    Some(a) => self.cell_value(&sheet_folded, a),
+                    None => CoreValue::Error(ErrorKind::Ref),
+                };
+                // Same wrapping as `resolve_range`'s `is_vertical` branch: one
+                // array element per data row, each a one-element array.
+                cells.push(CoreValue::Array(vec![scalar]));
+            }
+            CoreValue::Array(cells)
+        }
     }
 
     /// Resolves a named range's canonical `ref` string (`Sheet!A1` /

@@ -268,15 +268,85 @@ fn array_result_is_stored_at_the_anchor_pending_spill() {
 }
 
 #[test]
-fn table_ref_stub_resolves_to_ref_error_pending_pr2() {
-    // Stub pending truecalc/core#861 PR2 (Table resolution): until table
-    // resolution lands, every `Ref::Table` reference resolves to `#REF!`.
+fn whole_column_table_ref_resolves_to_data_array() {
+    // truecalc/core#861 PR2: T[col] materializes the column's data-row
+    // values; SUM flattens the array regardless of orientation.
     let mut wb = sheets_wb();
-    wb.set("Sheet1", a1("A1"), CellInput::Formula("=[@x]".into()))
+    wb.set(
+        "Sheet1",
+        a1("A1"),
+        CellInput::Literal(Value::Text("col".into())),
+    )
+    .unwrap();
+    wb.set("Sheet1", a1("A2"), CellInput::Literal(Value::Number(10.0)))
+        .unwrap();
+    wb.set("Sheet1", a1("A3"), CellInput::Literal(Value::Number(20.0)))
+        .unwrap();
+    wb.define_table("T", "Sheet1!A1:A3").unwrap();
+    wb.set(
+        "Sheet1",
+        a1("B1"),
+        CellInput::Formula("=SUM(T[col])".into()),
+    )
+    .unwrap();
+    wb.recalc(&ctx());
+    assert_eq!(
+        wb.get("Sheet1", a1("B1")).unwrap().value(),
+        &Value::Number(30.0)
+    );
+}
+
+#[test]
+fn current_row_table_ref_resolves_per_row() {
+    // truecalc/core#861 PR2: [@col] resolves to the cell at (current row,
+    // column) within the table the formula's own cell is inside.
+    let mut wb = sheets_wb();
+    wb.set(
+        "Sheet1",
+        a1("A1"),
+        CellInput::Literal(Value::Text("qty".into())),
+    )
+    .unwrap();
+    wb.set(
+        "Sheet1",
+        a1("B1"),
+        CellInput::Literal(Value::Text("price".into())),
+    )
+    .unwrap();
+    wb.set(
+        "Sheet1",
+        a1("C1"),
+        CellInput::Literal(Value::Text("total".into())),
+    )
+    .unwrap();
+    wb.set("Sheet1", a1("A2"), CellInput::Literal(Value::Number(3.0)))
+        .unwrap();
+    wb.set("Sheet1", a1("B2"), CellInput::Literal(Value::Number(2.0)))
+        .unwrap();
+    wb.set(
+        "Sheet1",
+        a1("C2"),
+        CellInput::Formula("=[@qty]*[@price]".into()),
+    )
+    .unwrap();
+    wb.define_table("T", "Sheet1!A1:C2").unwrap();
+    wb.recalc(&ctx());
+    assert_eq!(
+        wb.get("Sheet1", a1("C2")).unwrap().value(),
+        &Value::Number(6.0)
+    );
+}
+
+#[test]
+fn current_row_ref_outside_any_table_is_ref_error() {
+    // truecalc/core#861 PR2: an unqualified [@col] outside any table's data
+    // rows has nothing to infer the table from, so it stays #REF!.
+    let mut wb = sheets_wb();
+    wb.set("Sheet1", a1("E5"), CellInput::Formula("=[@x]".into()))
         .unwrap();
     wb.recalc(&ctx());
     assert_eq!(
-        wb.get("Sheet1", a1("A1")).unwrap().value(),
+        wb.get("Sheet1", a1("E5")).unwrap().value(),
         &Value::Error("#REF!".into())
     );
 }
