@@ -9,6 +9,7 @@
     "engine",
     "names",
     "sheets",
+    "tables",
     "version"
   ],
   "properties": {
@@ -19,7 +20,7 @@
       ]
     },
     "version": {
-      "const": "1"
+      "const": "2"
     },
     "names": {
       "type": "array",
@@ -31,6 +32,12 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/worksheet"
+      }
+    },
+    "tables": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/table"
       }
     }
   },
@@ -75,6 +82,23 @@
       }
     },
     "namedRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "ref"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "ref": {
+          "type": "string"
+        }
+      }
+    },
+    "table": {
       "type": "object",
       "additionalProperties": false,
       "required": [

@@ -259,7 +259,7 @@ fn the_zoned_branch_accepts_the_spellings_the_reader_accepts() {
 /// A one-cell document whose only cell carries the given raw JSON value.
 fn document_with_value(value: &str) -> String {
     format!(
-        r#"{{"engine":"sheets","names":[],"sheets":[{{"cells":{{"A1":{{"formula":"=1","value":{value}}}}},"name":"S"}}],"version":"1"}}"#
+        r#"{{"engine":"sheets","names":[],"sheets":[{{"cells":{{"A1":{{"formula":"=1","value":{value}}}}},"name":"S"}}],"tables":[],"version":"2"}}"#
     )
 }
 
