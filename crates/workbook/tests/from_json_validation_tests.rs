@@ -250,7 +250,7 @@ fn one_by_one_array_is_rejected() {
 
 #[test]
 fn unknown_version_is_rejected() {
-    let json = r#"{"engine":"sheets","names":[],"sheets":[],"version":"2"}"#;
+    let json = r#"{"engine":"sheets","names":[],"sheets":[],"version":"3"}"#;
     assert!(Workbook::from_json(json.as_bytes()).is_err());
 }
 

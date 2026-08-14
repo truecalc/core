@@ -238,7 +238,7 @@ fn non_canonical_input_is_accepted_and_output_is_canonical() {
     let canonical = wb.to_json().unwrap();
     assert_eq!(
         canonical,
-        r#"{"engine":"sheets","names":[],"sheets":[{"cells":{"A10":{"value":{"type":"number","value":10}},"A2":{"value":{"type":"number","value":2}}},"name":"S"}],"version":"1"}"#
+        r#"{"engine":"sheets","names":[],"sheets":[{"cells":{"A10":{"value":{"type":"number","value":10}},"A2":{"value":{"type":"number","value":2}}},"name":"S"}],"tables":[],"version":"2"}"#
     );
 }
 
