@@ -67,6 +67,7 @@ fn resolve_lazy_arg_geometry(arg: &Expr, ctx: &mut EvalCtx<'_>)
                 return Some((start.row as usize, start.col as usize, h as usize, w as usize));
             }
             Ref::Name(_) => {}
+            Ref::Table { .. } => {}
         },
         Expr::Variable(name, _) => {
             if let Some((sc, sr, ec, er)) = parse_range_ref(name) {

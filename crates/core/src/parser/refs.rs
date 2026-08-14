@@ -129,6 +129,15 @@ pub enum Ref {
     },
     /// A named reference (named range, defined name): `TAX_RATE`.
     Name(String),
+    /// A structured table reference: `Table[Column]` (whole-column, array) or
+    /// `Table[@Column]` / unqualified `[@Column]` (current-row, scalar).
+    /// `table` is `None` only for the unqualified `@` form. Resolution
+    /// (which table, which row) is delegated to the caller, same as `Name`.
+    Table {
+        table: Option<String>,
+        column: String,
+        this_row: bool,
+    },
 }
 
 impl Ref {
@@ -170,6 +179,7 @@ impl Ref {
             }
             .to_string(),
             Ref::Name(_) => self.to_string(),
+            Ref::Table { .. } => self.to_string(),
         }
     }
 }
@@ -230,6 +240,16 @@ impl fmt::Display for Ref {
                 write!(f, "{}:{}", start, end)
             }
             Ref::Name(name) => write!(f, "{}", name),
+            Ref::Table { table, column, this_row } => {
+                if let Some(t) = table {
+                    write!(f, "{}", t)?;
+                }
+                write!(f, "[")?;
+                if *this_row {
+                    write!(f, "@")?;
+                }
+                write!(f, "{}]", column)
+            }
         }
     }
 }

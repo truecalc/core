@@ -611,6 +611,7 @@ fn resolve_ref(
                 Precedent::Unresolved(name.clone())
             }
         }
+        Ref::Table { .. } => Precedent::Unresolved(r.relative_display()),
     }
 }
 

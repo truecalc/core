@@ -1191,6 +1191,7 @@ impl Resolver for GridResolver<'_> {
                     Some(nr) => self.resolve_name_ref(&nr.r#ref),
                 }
             }
+            Ref::Table { .. } => CoreValue::Error(ErrorKind::Name),
         }
     }
 }
