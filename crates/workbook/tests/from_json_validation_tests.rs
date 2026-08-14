@@ -316,3 +316,22 @@ fn too_many_sheets_is_rejected() {
     let json = format!(r#"{{"engine":"sheets","names":[],"sheets":[{sheets}],"version":"1"}}"#);
     assert!(err(&json).contains("sheets"));
 }
+
+#[test]
+fn too_many_tables_is_rejected() {
+    // truecalc/core#861 final review, Finding 8: tables had no resource cap
+    // at all, unlike every other collection (named ranges, sheets). The
+    // count check runs before any individual table is parsed, so the refs
+    // below don't need to be distinct or non-overlapping.
+    let mut tables = String::new();
+    for i in 0..=10_000 {
+        if i > 0 {
+            tables.push(',');
+        }
+        tables.push_str(&format!(r#"{{"name":"T{i}","ref":"S!A1:A1"}}"#));
+    }
+    let json = format!(
+        r#"{{"engine":"sheets","names":[],"sheets":[{{"name":"S","cells":{{}}}}],"tables":[{tables}],"version":"2"}}"#
+    );
+    assert!(err(&json).contains("tables"));
+}

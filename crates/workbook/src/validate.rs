@@ -13,7 +13,7 @@
 //! - §7 named-range name/`ref` validity, case-insensitive uniqueness, no
 //!   dangling sheet refs;
 //! - §6/Decision 5 resource limits (cells, text length, array elements, sheets,
-//!   formula length, named-range count).
+//!   formula length, named-range count, table count).
 //!
 //! Input is the duplicate-checked [`serde_json::Value`] tree; this runs before
 //! the typed `serde_json::from_value` so a single clear error is surfaced for
@@ -385,6 +385,14 @@ fn validate_tables(
             .as_array()
             .ok_or_else(|| "the workbook \"tables\" field must be an array".to_string())?,
     };
+
+    if tables.len() > limits::MAX_TABLES {
+        return Err(format!(
+            "workbook has {} tables, exceeding the limit of {} (scope ADR Decision 5)",
+            tables.len(),
+            limits::MAX_TABLES
+        ));
+    }
 
     let folded_sheets: Vec<String> = sheet_names.iter().map(|s| simple_fold(folder, s)).collect();
 
