@@ -74,7 +74,7 @@ impl SessionStore {
         // work immediately, matching what Google Sheets and Excel do when
         // you create a new workbook (see truecalc/core#878).
         wb.add_sheet(Worksheet::new("Sheet1"))
-            .expect("fresh workbook accepts its first sheet");
+            .map_err(|e| format!("could not seed default sheet: {}", e))?;
         self.workbooks.insert(id.clone(), wb);
         Ok(id)
     }
