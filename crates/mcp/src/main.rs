@@ -236,7 +236,10 @@ fn tool_evaluate(args: &JsonValue, default_conformance: &str, engines: &Engines)
         Some(e) => e,
         None => return json!({ "error": format!("Unknown conformance target: '{}'", conformance) }),
     };
-    let vars = parse_variables(&args["variables"]);
+    let vars = match parse_variables(&args["variables"]) {
+        Ok(v) => v,
+        Err(e) => return json!({ "error": e }),
+    };
     let value = engine.evaluate(formula, &vars);
     value_to_json(&value)
 }
@@ -287,7 +290,10 @@ fn tool_batch_evaluate(args: &JsonValue, default_conformance: &str, engines: &En
         Some(e) => e,
         None => return json!({ "error": format!("Unknown conformance target: '{}'", conformance) }),
     };
-    let vars = parse_variables(&args["variables"]);
+    let vars = match parse_variables(&args["variables"]) {
+        Ok(v) => v,
+        Err(e) => return json!({ "error": e }),
+    };
     let results: Vec<JsonValue> = formulas
         .iter()
         .map(|f| {
@@ -571,48 +577,53 @@ fn json_to_sparkline(spec: &JsonValue) -> Option<SparklineSpec> {
     })
 }
 
-fn parse_variables(vars_json: &JsonValue) -> HashMap<String, Value> {
+/// Decode one variable binding, or say why it is not one.
+///
+/// Every rejection must reach the caller. Dropping a binding leaves its name
+/// unbound, and an unbound name evaluates to empty rather than raising, so the
+/// caller is handed a plausible wrong number instead of an error.
+fn parse_variable(v: &JsonValue) -> Result<Value, String> {
+    match v {
+        JsonValue::Number(n) => n
+            .as_f64()
+            .map(Value::Number)
+            .ok_or_else(|| "number is not representable".to_owned()),
+        JsonValue::String(s) => Ok(Value::Text(s.clone())),
+        JsonValue::Bool(b) => Ok(Value::Bool(*b)),
+        // Self-describing zoned instant: { "type": "zoned", "value": "<RFC-9557>" }.
+        JsonValue::Object(o) if o.get("type").and_then(|t| t.as_str()) == Some("zoned") => o
+            .get("value")
+            .and_then(|x| x.as_str())
+            .and_then(truecalc_core::types::zoned::parse_rfc9557)
+            .map(|zi| Value::Zoned(Box::new(zi)))
+            .ok_or_else(|| "not a valid RFC-9557 zoned instant".to_owned()),
+        // Self-describing sparkline: { "type": "sparkline", "value": {...} }.
+        JsonValue::Object(o) if o.get("type").and_then(|t| t.as_str()) == Some("sparkline") => o
+            .get("value")
+            .and_then(json_to_sparkline)
+            .map(|spec| Value::Sparkline(Box::new(spec)))
+            .ok_or_else(|| "not a sparkline this server can emit".to_owned()),
+        // Elements decode by these same rules, so an array is not limited to
+        // numbers and a bad element is reported rather than dropped.
+        JsonValue::Array(items) => items
+            .iter()
+            .map(parse_variable)
+            .collect::<Result<Vec<_>, _>>()
+            .map(Value::Array),
+        _ => Err("expected a number, string, boolean, or array".to_owned()),
+    }
+}
+
+fn parse_variables(vars_json: &JsonValue) -> Result<HashMap<String, Value>, String> {
     let mut map = HashMap::new();
     if let Some(obj) = vars_json.as_object() {
         for (k, v) in obj {
-            let val = match v {
-                JsonValue::Number(n) => {
-                    if let Some(f) = n.as_f64() {
-                        Value::Number(f)
-                    } else {
-                        continue;
-                    }
-                }
-                JsonValue::String(s) => Value::Text(s.clone()),
-                JsonValue::Bool(b) => Value::Bool(*b),
-                // Self-describing zoned instant: { "type": "zoned", "value": "<RFC-9557>" }.
-                JsonValue::Object(o)
-                    if o.get("type").and_then(|t| t.as_str()) == Some("zoned") =>
-                {
-                    match o
-                        .get("value")
-                        .and_then(|x| x.as_str())
-                        .and_then(truecalc_core::types::zoned::parse_rfc9557)
-                    {
-                        Some(zi) => Value::Zoned(Box::new(zi)),
-                        None => continue,
-                    }
-                }
-                // Self-describing sparkline: { "type": "sparkline", "value": {...} }.
-                JsonValue::Object(o)
-                    if o.get("type").and_then(|t| t.as_str()) == Some("sparkline") =>
-                {
-                    match o.get("value").and_then(json_to_sparkline) {
-                        Some(spec) => Value::Sparkline(Box::new(spec)),
-                        None => continue,
-                    }
-                }
-                _ => continue,
-            };
+            let val = parse_variable(v)
+                .map_err(|why| format!("unsupported variable binding for \"{k}\": {why}"))?;
             map.insert(k.clone(), val);
         }
     }
-    map
+    Ok(map)
 }
 
 /// The plain-value projection of a sparkline data point / option value, so a
@@ -684,7 +695,7 @@ fn tools_list() -> JsonValue {
                 "type": "object",
                 "properties": {
                     "formula": { "type": "string", "description": "Formula string, e.g. \"SUM(A,B)\"" },
-                    "variables": { "type": "object", "description": "Variable bindings (name → number/string/bool)" },
+                    "variables": { "type": "object", "description": "Variable bindings (name → number/string/bool, or an array of those)" },
                     "conformance": { "type": "string", "description": "Conformance target (default: server default). Supported: \"google-sheets\"" }
                 },
                 "required": ["formula"]
