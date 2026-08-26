@@ -88,6 +88,19 @@ fn workbook_create_returns_id() {
 }
 
 #[test]
+fn workbook_create_then_set_succeeds_without_import() {
+    // Regression test for #878: workbook_create must seed a default sheet
+    // so workbook_set works immediately, with no intervening workbook_import.
+    let results = run_session(&[
+        call(1, "workbook_create", json!({ "engine": "sheets" })),
+        call(2, "workbook_set", json!({ "workbook_id": "wb_0", "sheet": "Sheet1", "cell": "A1", "value": "42" })),
+    ]);
+
+    assert!(results[0].get("workbook_id").is_some(), "create: {}", results[0]);
+    assert_eq!(results[1]["ok"], json!(true), "set A1 on default sheet: {}", results[1]);
+}
+
+#[test]
 fn workbook_create_excel_engine() {
     let results = run_session(&[
         call(1, "workbook_create", json!({ "engine": "excel" })),

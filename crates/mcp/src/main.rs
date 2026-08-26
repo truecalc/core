@@ -5,7 +5,10 @@ use std::io::{self, BufRead, Write};
 
 use truecalc_core::types::{SparklineChartType, SparklineSpec, SparklineValue};
 use truecalc_core::{Engine, Expr, Registry, Value};
-use truecalc_workbook::{Address, CellInput, EngineFlavor as WbEngine, RecalcContext, Value as WbValue, Workbook};
+use truecalc_workbook::{
+    Address, CellInput, EngineFlavor as WbEngine, RecalcContext, Value as WbValue, Workbook,
+    Worksheet,
+};
 use serde_json::{json, Value as JsonValue};
 
 // ─── Conformance ─────────────────────────────────────────────────────────────
@@ -66,7 +69,13 @@ impl SessionStore {
             return Err(format!("session limit reached: max {} workbooks per process", MAX_WORKBOOKS));
         }
         let id = self.allocate_id();
-        self.workbooks.insert(id.clone(), Workbook::new(engine));
+        let mut wb = Workbook::new(engine);
+        // Seed a default sheet so workbook_set/workbook_get/workbook_recalc
+        // work immediately, matching what Google Sheets and Excel do when
+        // you create a new workbook (see truecalc/core#878).
+        wb.add_sheet(Worksheet::new("Sheet1"))
+            .expect("fresh workbook accepts its first sheet");
+        self.workbooks.insert(id.clone(), wb);
         Ok(id)
     }
 
@@ -728,7 +737,7 @@ fn tools_list() -> JsonValue {
         },
         {
             "name": "workbook_create",
-            "description": "Create a new in-memory workbook. Engine is locked at creation.",
+            "description": "Create a new in-memory workbook with one default sheet named 'Sheet1', ready for workbook_set. Engine is locked at creation.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -791,7 +800,7 @@ fn tools_list() -> JsonValue {
         },
         {
             "name": "workbook_import",
-            "description": "Import a workbook from canonical JSON and return a new session ID.",
+            "description": "Import a workbook from canonical JSON and return a new session ID. Prefer workbook_create for a fresh workbook (it already seeds a 'Sheet1'); use workbook_import only to load pre-existing workbook JSON, e.g. from workbook_export. Canonical shape: a JSON object with required fields \"version\" (string, e.g. \"1\" — NOT an integer), \"engine\" (\"sheets\" or \"excel\"), \"names\" (array, required — use [] if there are no named ranges) and \"sheets\" (array of {\"name\": string, \"cells\": object}). Each entry in a sheet's \"cells\" object maps an A1 address to a cell object with a required \"value\" field shaped {\"type\": ..., \"value\": ...} (type is one of \"number\", \"text\", \"boolean\", \"empty\", \"error\", etc.) and an optional \"formula\" string. Minimal known-good example: {\"version\":\"1\",\"engine\":\"sheets\",\"names\":[],\"sheets\":[{\"name\":\"Sheet1\",\"cells\":{\"A1\":{\"value\":{\"type\":\"number\",\"value\":42}}}}]}",
             "inputSchema": {
                 "type": "object",
                 "properties": {
