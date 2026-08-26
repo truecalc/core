@@ -4,7 +4,8 @@
 //! empty rather than raising. The caller then gets a plausible wrong number
 //! instead of an error: with `{"a": [1,2,3]}` dropped, `SUM(a)` answered `0`
 //! and `SUM(a, 10)` answered `10` — a number that looks entirely reasonable in
-//! a formula mixing a variable with scalar terms, and is wrong.
+//! a formula mixing a variable with scalar terms, and is wrong. Arrays decode
+//! now; every shape that still has no decode must be reported, not dropped.
 
 use serde_json::{json, Value as JsonValue};
 use std::io::Write;
@@ -95,36 +96,13 @@ fn an_undecodable_binding_is_reported_not_dropped() {
     }
 }
 
-/// The reproduction from the report, asserted on the specific wrong numbers the
-/// dropped binding used to produce rather than merely on "some error occurred".
-#[test]
-fn an_array_binding_does_not_evaluate_as_an_empty_name() {
-    let a = json!({ "a": [1, 2, 3] });
-    for (formula, silent_wrong_answer) in [
-        ("=SUM(a)", json!(0.0)),
-        ("=COUNT(a)", json!(0.0)),
-        ("=COUNTA(a)", json!(0.0)),
-        ("=MAX(a)", json!(0.0)),
-        ("=SUM(a, 10)", json!(10.0)),
-        ("=ISBLANK(a)", json!(true)),
-        ("=AVERAGE(a)", json!("#DIV/0!")),
-    ] {
-        let result = evaluate(formula, a.clone());
-        assert_ne!(
-            result["value"], silent_wrong_answer,
-            "{formula} still answers as though `a` were unbound: {result}"
-        );
-        rejection(&result, "a");
-    }
-}
-
 /// The same binding shared by every formula in the batch, so one bad binding
 /// fails the call rather than being dropped for all of them.
 #[test]
 fn batch_evaluate_reports_an_undecodable_binding_too() {
     let result = call(
         "batch_evaluate",
-        json!({ "formulas": ["=SUM(a)", "=SUM(a, 10)"], "variables": { "a": [1, 2, 3] } }),
+        json!({ "formulas": ["=SUM(a)", "=SUM(a, 10)"], "variables": { "a": null } }),
     );
     rejection(&result, "a");
     assert!(
@@ -136,10 +114,7 @@ fn batch_evaluate_reports_an_undecodable_binding_too() {
 /// The rejection must be about the binding that is bad, not the first one seen.
 #[test]
 fn the_error_names_the_binding_that_is_bad() {
-    let result = evaluate(
-        "=SUM(good, bad)",
-        json!({ "good": 5, "bad": [1, 2, 3] }),
-    );
+    let result = evaluate("=SUM(good, bad)", json!({ "good": 5, "bad": null }));
     let err = rejection(&result, "bad");
     assert!(
         !err.contains("good"),

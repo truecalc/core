@@ -603,8 +603,14 @@ fn parse_variable(v: &JsonValue) -> Result<Value, String> {
             .and_then(json_to_sparkline)
             .map(|spec| Value::Sparkline(Box::new(spec)))
             .ok_or_else(|| "not a sparkline this server can emit".to_owned()),
-        JsonValue::Array(_) => Err("arrays are not supported".to_owned()),
-        _ => Err("expected a number, string, or boolean".to_owned()),
+        // Elements decode by these same rules, so an array is not limited to
+        // numbers and a bad element is reported rather than dropped.
+        JsonValue::Array(items) => items
+            .iter()
+            .map(parse_variable)
+            .collect::<Result<Vec<_>, _>>()
+            .map(Value::Array),
+        _ => Err("expected a number, string, boolean, or array".to_owned()),
     }
 }
 
@@ -689,7 +695,7 @@ fn tools_list() -> JsonValue {
                 "type": "object",
                 "properties": {
                     "formula": { "type": "string", "description": "Formula string, e.g. \"SUM(A,B)\"" },
-                    "variables": { "type": "object", "description": "Variable bindings (name → number/string/bool)" },
+                    "variables": { "type": "object", "description": "Variable bindings (name → number/string/bool, or an array of those)" },
                     "conformance": { "type": "string", "description": "Conformance target (default: server default). Supported: \"google-sheets\"" }
                 },
                 "required": ["formula"]
