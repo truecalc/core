@@ -39,7 +39,10 @@ fn call(name: &str, arguments: JsonValue) -> JsonValue {
 }
 
 fn evaluate(formula: &str, variables: JsonValue) -> JsonValue {
-    call("evaluate", json!({ "formula": formula, "variables": variables }))
+    call(
+        "evaluate",
+        json!({ "formula": formula, "variables": variables }),
+    )
 }
 
 /// The error text for a binding the server rejected, asserting that it is an
@@ -63,7 +66,10 @@ fn undecodable() -> Vec<(&'static str, JsonValue)> {
         ("null", json!(null)),
         ("plain object", json!({ "x": 1 })),
         // `{"type": "zoned"}` whose payload is not an RFC-9557 instant.
-        ("malformed zoned", json!({ "type": "zoned", "value": "not an instant" })),
+        (
+            "malformed zoned",
+            json!({ "type": "zoned", "value": "not an instant" }),
+        ),
         ("zoned with no value", json!({ "type": "zoned" })),
         // `{"type": "sparkline"}` outside what this server can emit: an unknown
         // charttype, and a `data` array shorter than the two points the
@@ -140,6 +146,9 @@ fn scalar_bindings_still_evaluate() {
 /// not have swallowed the shapes the server does support.
 #[test]
 fn a_zoned_binding_still_decodes() {
-    let result = evaluate("=TYPE(z)", json!({ "z": { "type": "zoned", "value": "2024-01-01T00:00:00Z[UTC]" } }));
+    let result = evaluate(
+        "=TYPE(z)",
+        json!({ "z": { "type": "zoned", "value": "2024-01-01T00:00:00Z[UTC]" } }),
+    );
     assert_eq!(result["value"], json!(1.0), "got {result}");
 }

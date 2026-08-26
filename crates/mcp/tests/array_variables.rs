@@ -101,7 +101,10 @@ fn an_undecodable_element_is_still_reported() {
     let err = result["error"]
         .as_str()
         .unwrap_or_else(|| panic!("expected an error, got a value: {result}"));
-    assert!(err.contains("a"), "the error must name the binding, got {err:?}");
+    assert!(
+        err.contains("a"),
+        "the error must name the binding, got {err:?}"
+    );
     assert!(
         result.get("value").is_none(),
         "a rejected binding must not also yield a value: {result}"
