@@ -1530,7 +1530,10 @@ fn broadcast_expr(expr: &Expr, ctx: &mut EvalCtx<'_>) -> Value {
         // per-cell functions confirmed against live Google Sheets to need
         // element-wise broadcasting under ARRAYFORMULA.
         Expr::FunctionCall { name, args: inner_args, .. }
-            if matches!(name.as_str(), "LEN" | "UPPER" | "SEARCH" | "FIND" | "EXACT") =>
+            if matches!(
+                name.as_str(),
+                "LEN" | "UPPER" | "SEARCH" | "FIND" | "EXACT" | "SEARCHB" | "FINDB"
+            ) =>
         {
             match ctx.registry.get(name) {
                 Some(FunctionKind::Eager(f)) => {
