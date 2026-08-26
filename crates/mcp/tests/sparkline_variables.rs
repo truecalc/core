@@ -65,13 +65,13 @@ fn a_sparkline_variable_is_not_blank() {
 }
 
 #[test]
-fn a_malformed_sparkline_variable_is_dropped_rather_than_decoded() {
+fn a_malformed_sparkline_variable_is_rejected_rather_than_decoded() {
     // The decoder accepts exactly what this server can emit and nothing wider:
     // an unknown charttype, a `data` array shorter than two points (the
     // evaluator answers `#N/A` for such a call, so it cannot emit one), and
     // `charttype` left in the option list (it is always lifted into its own
-    // field). A rejected payload drops the binding — `TYPE(x)` then reports an
-    // unbound name's kind, never 128.
+    // field). A rejected payload is reported by name — never decoded, and never
+    // dropped to leave `x` unbound, which would answer with a value instead.
     let point = json!({ "value": 1.0, "type": "number" });
     let unbound = evaluate("=TYPE(x)", json!({}));
     for bad in [
@@ -113,7 +113,11 @@ fn a_malformed_sparkline_variable_is_dropped_rather_than_decoded() {
     ] {
         let result = evaluate("=TYPE(x)", json!({ "x": bad.clone() }));
         assert_ne!(result["value"], json!(128.0), "decoded {bad}");
-        assert_eq!(result, unbound, "should have been dropped: {bad}");
+        assert_ne!(result, unbound, "should not have been dropped: {bad}");
+        let err = result["error"].as_str().unwrap_or_else(|| {
+            panic!("expected an error naming the binding, got a value: {result} for {bad}")
+        });
+        assert!(err.contains("x"), "the error must name the binding, got {err:?}");
     }
 }
 
