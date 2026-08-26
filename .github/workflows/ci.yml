@@ -364,3 +364,28 @@ jobs:
       # complete for proving cross-OS byte identity.
       - name: Test truecalc-workbook (golden + canonical JSON)
         run: cargo test -p truecalc-workbook
+
+  fmt:
+    name: rustfmt (files changed by this PR)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      # Ratchet, not a whole-workspace check: most of this tree predates any
+      # formatting gate, so `cargo fmt --all -- --check` would fail on files
+      # the PR never touched. The script enforces rustfmt on files the PR adds
+      # and on files that were already clean at the merge base, and reports
+      # (without failing) files that were dirty before the branch.
+      - name: Check formatting of changed files
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: bash .github/scripts/fmt-changed.sh "origin/$BASE_REF"
