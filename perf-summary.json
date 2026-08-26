@@ -1,4 +1,47 @@
 {
   "baseline_recorded_at": "2026-06-10",
-  "benchmarks": []
+  "benchmarks": [
+    {
+      "name": "full_recalc/chain/100",
+      "mean_ns": 32394891,
+      "stddev_ns": 858184,
+      "vs_baseline_pct": 3.74
+    },
+    {
+      "name": "full_recalc/chain/1000",
+      "mean_ns": 337126097,
+      "stddev_ns": 2291162,
+      "vs_baseline_pct": 7.88
+    },
+    {
+      "name": "full_recalc/chain/5000",
+      "mean_ns": 1705614705,
+      "stddev_ns": 18455471,
+      "vs_baseline_pct": 7.86
+    },
+    {
+      "name": "incremental_recalc/edit_root/100",
+      "mean_ns": 871265,
+      "stddev_ns": 2801,
+      "vs_baseline_pct": 2.63
+    },
+    {
+      "name": "incremental_recalc/edit_root/1000",
+      "mean_ns": 4488618,
+      "stddev_ns": 134638,
+      "vs_baseline_pct": -0.45
+    },
+    {
+      "name": "from_json/500rows",
+      "mean_ns": 1627314,
+      "stddev_ns": 19075,
+      "vs_baseline_pct": 14.83
+    },
+    {
+      "name": "to_json/500rows",
+      "mean_ns": 1020557,
+      "stddev_ns": 16729,
+      "vs_baseline_pct": 2.33
+    }
+  ]
 }
