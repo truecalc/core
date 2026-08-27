@@ -234,7 +234,7 @@ Returns `{ cell, precedents, truncated, truncatedBy? }`. Each precedent is
 |--------------|-------------------------------------------------------------------|
 | `cell`       | `{ kind: 'cell', sheet: 'Inputs', a1: 'A1' }`                     |
 | `range`      | `{ kind: 'range', sheet: 'Inputs', range: 'A1:A20' }`             |
-| `name`       | `{ kind: 'name', name: 'rate', target: { kind: 'cell', ... } }`   |
+| `name`       | `{ kind: 'name', name: 'TaxRate', target: { kind: 'cell', ... } }`|
 | `unresolved` | `{ kind: 'unresolved', text: 'Nope!A1' }`                         |
 
 A range is one node, never expanded into its member cells. Every `cell` and

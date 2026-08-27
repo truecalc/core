@@ -107,7 +107,9 @@ pub enum PrecedentRef {
     },
     /// A workbook-scoped named range, with what it currently resolves to.
     Name {
-        /// The name as the graph keys it (simple case-folded).
+        /// The name in the workbook's own casing — like `sheet` on `Cell` /
+        /// `Range`, this is looked back up from the graph's case-folded key
+        /// rather than echoed folded, so a UI never renders the wrong case.
         name: String,
         /// What the name currently points at. Always present;
         /// [`NameTargetRef::Unresolved`] when the name is undefined or its
@@ -236,6 +238,17 @@ fn cell_node(workbook: &Workbook, cell: &CellRef) -> CellNode {
 }
 
 /// Clamps a requested depth into `1..=MAX_MAX_DEPTH`. The floor of 1 is
+/// The display (original-case) name for a graph name key, which — like a
+/// sheet — carries the case-folded form. Same fallback rationale as
+/// [`display_sheet`]: impossible to miss here since the graph is built from
+/// this same workbook, but keeps the field non-empty by construction.
+fn display_name(workbook: &Workbook, folded: &str) -> String {
+    workbook
+        .name(folded)
+        .map(|n| n.name.clone())
+        .unwrap_or_else(|| folded.to_string())
+}
+
 /// deliberate: a depth of 0 would return an empty list with
 /// `truncated: false`, which is the one answer shape that lies.
 fn clamp_depth(requested: Option<u32>) -> u32 {
@@ -261,7 +274,7 @@ fn precedent_ref(workbook: &Workbook, graph: &DependencyGraph, prec: &Precedent)
             range: format!("{}:{}", r.start.to_a1(), r.end.to_a1()),
         },
         Precedent::Name(name) => PrecedentRef::Name {
-            name: name.clone(),
+            name: display_name(workbook, name),
             target: match graph.name_target_of(name) {
                 Some(NameTarget::Cell(c)) => NameTargetRef::Cell {
                     sheet: display_sheet(workbook, &c.sheet),
