@@ -198,6 +198,39 @@ fn a_declared_schema_is_an_open_object_at_the_root() {
     }
 }
 
+/// Walks a schema node and every object nested inside it (through
+/// `properties` and `items`), asserting none of them closes itself with
+/// `"additionalProperties": false`. The root being open was already checked
+/// above; nothing pinned the nested objects (e.g. `list_functions`'s
+/// `functions[]` entries, `evaluate`'s recursive `"array"` values) to the
+/// same openness, so a future nested `additionalProperties: false` could slip
+/// in unnoticed.
+fn assert_open_recursively(path: &str, schema: &JsonValue) {
+    if schema.get("type") == Some(&json!("object")) {
+        assert_ne!(
+            schema.get("additionalProperties"),
+            Some(&json!(false)),
+            "{path}: schema closes the object with additionalProperties: false"
+        );
+        if let Some(props) = schema.get("properties").and_then(JsonValue::as_object) {
+            for (key, sub) in props {
+                assert_open_recursively(&format!("{path}.{key}"), sub);
+            }
+        }
+    }
+    if let Some(items) = schema.get("items") {
+        assert_open_recursively(&format!("{path}[]"), items);
+    }
+}
+
+#[test]
+fn nested_objects_are_open_too() {
+    for name in DECLARED {
+        let schema = declaration(name)["outputSchema"].clone();
+        assert_open_recursively(name, &schema);
+    }
+}
+
 #[test]
 fn declared_tools_answer_with_structured_content_matching_their_schema() {
     for name in DECLARED {
