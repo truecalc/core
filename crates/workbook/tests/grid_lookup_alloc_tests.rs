@@ -87,14 +87,16 @@ const LOOKUPS: u32 = 10_000;
 
 /// The marginal cost of scanning one more range element, in allocations.
 /// Measured by differencing two recalcs so the fixed per-recalc cost cancels:
-/// 12.00 before this change, 6.00 after. The budget sits between them.
+/// 12.00 before this change, 6.00 after, and 2.00 once #904 removed
+/// `GridResolver::cell_value`'s own per-element allocations too.
 ///
-/// It is not 0 after the fix because a range element still costs allocations
-/// *outside* the grid lookup — `GridResolver::cell_value` allocates an owned
-/// folded sheet name per element for its `CellRef` key, and case-folds every
-/// sheet name per element to find the sheet. Those are a separate defect; this
-/// budget is what pins the A1-key half of it from coming back.
-const MAX_ALLOCATIONS_PER_ELEMENT_SCANNED: f64 = 9.0;
+/// It is not 0 because the range measured here is a single column, which is
+/// materialized as core's Nx1 column shape — one nested one-element `Array` per
+/// row, a `Vec` per element by construction. That is a deliberate semantic, not
+/// an allocation defect; `cell_value_alloc_tests.rs` measures a block range,
+/// where the same scan allocates nothing at all. This budget is what pins the
+/// A1-key share of it from coming back.
+const MAX_ALLOCATIONS_PER_ELEMENT_SCANNED: f64 = 3.0;
 
 #[test]
 fn grid_lookups_do_not_allocate_an_a1_key() {

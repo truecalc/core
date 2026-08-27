@@ -1,31 +1,35 @@
-//! An empty-cell read must not scan the sheet (issue #910).
+//! Allocation-free cell resolution (issues #904 and #910).
 //!
 //! `GridResolver::cell_value` is an early-out ladder: cycle set → `new_values`
 //! → the stored grid → the two per-pass spill maps → `prev_values` → the
 //! stored grid's spills → empty. A populated cell returns three branches in; an
-//! **empty** cell misses every branch and pays the whole ladder — and its last
-//! rung, `grid_spilled_value`, scanned **every authored cell on the sheet**,
-//! allocating a `CellRef` per cell scanned, just to find the handful whose
-//! stored value is an array. One empty-cell read cost `O(cells on sheet)`.
+//! **empty** cell misses every branch and pays the whole ladder. The two
+//! defects pinned here sit on opposite sides of that asymmetry:
 //!
-//! That asymmetry is why it hid: a benchmark whose range scans read populated
-//! cells never reaches the branch at all.
+//! - **#904** — every element scanned, populated or not, allocated an owned
+//!   folded sheet name for its `CellRef` map key and re-resolved the target
+//!   sheet by case-folding every sheet name in the workbook. Neither can change
+//!   between the elements of one range.
+//! - **#910** — an empty cell fell through to `grid_spilled_value`, which
+//!   scanned **every authored cell on the sheet** and allocated a `CellRef` per
+//!   cell scanned, just to find the handful whose stored value is an array. One
+//!   empty-cell read cost `O(cells on sheet)`.
 //!
-//! This is pinned in **allocation counts**, never wall-clock time, so it holds
-//! on any machine and in either build profile and cannot go flaky — the method
-//! `grid_lookup_alloc_tests.rs` established for #887. A wall clock would also
-//! measure the inherent quadratic of a range scan (`=SUM(A$1:A{row})` down a
-//! column genuinely visits ~N²/2 elements) rather than this constant.
+//! Both are pinned in **allocation counts**, never wall-clock time, so they
+//! hold on any machine and in either build profile and cannot go flaky — the
+//! method `grid_lookup_alloc_tests.rs` established for #887. A wall clock would
+//! also measure the inherent quadratic of a range scan (`=SUM(A$1:A{row})` down
+//! a column genuinely visits ~N²/2 elements) rather than these constants.
 //!
-//! The count is here also the exact scan length: the old scan allocated exactly
-//! one `CellRef` sheet name per cell it examined, so "allocations per
-//! empty-cell read" *is* "cells examined per empty-cell read", and holding it
-//! flat as the sheet grows is what proves the scan is gone. The complementary
-//! exact count — how many anchors a lookup examines — is asserted directly in
-//! the `grid_spills` unit tests.
+//! For #910 the count is additionally the exact scan length: the old scan
+//! allocated exactly one `CellRef` sheet name per cell it examined, so
+//! "allocations per empty-cell read" *is* "cells examined per empty-cell read",
+//! and holding it flat as the sheet grows is what proves the scan is gone. The
+//! complementary exact count — how many anchors a lookup examines — is
+//! asserted directly in the `grid_spills` unit tests.
 //!
-//! The counter is process-wide, so it cannot be read from two tests running
-//! concurrently in the same binary.
+//! Everything lives in one `#[test]` because a process-wide allocation counter
+//! cannot be read from two tests running concurrently in the same binary.
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::hint::black_box;
@@ -98,15 +102,28 @@ fn allocations_to_recalc(authored: u32, scanned: u32, cols: u32) -> usize {
     allocations_during(|| wb.recalc(&ctx))
 }
 
-/// The marginal cost of reading one more **empty** cell, in allocations.
+/// The marginal cost of scanning one more populated element of a **block**
+/// range, in allocations: 4.00 before #904 — an owned folded sheet name for the
+/// `CellRef` map key, plus a fresh fold of every sheet name to re-resolve the
+/// target sheet — and 0.00 after. This is the budget that pins `cell_value`
+/// itself.
+const MAX_ALLOCATIONS_PER_BLOCK_ELEMENT: f64 = 0.50;
+
+/// The same figure for a **single-column** range: 6.00 before #904, 2.00 after.
 ///
-/// Before #910 this was one allocation per authored cell on the sheet, per
-/// pass: it *grew with the sheet*, measuring 4008, 8008 and 16008 at the three
-/// sizes below. After, it is flat at 4.00 — and that residual is not the scan
-/// at all but `cell_value`'s per-element constant, which every element pays
-/// whether it is empty or not (#904). Flatness is the property this budget
-/// exists to hold.
-const MAX_ALLOCATIONS_PER_EMPTY_READ: f64 = 4.50;
+/// The residual 2.00 is not `cell_value`. A single-column range is materialized
+/// as core's Nx1 column shape — one nested one-element `Array` per row, so that
+/// elementwise operations over it keep their column orientation and spill down
+/// — and that wrapper is a `Vec` per element by construction. It is a
+/// deliberate semantic, not a defect; #904's "6 per element" figure was this
+/// shape, of which 4 were `cell_value`'s.
+const MAX_ALLOCATIONS_PER_COLUMN_ELEMENT: f64 = 2.50;
+
+/// The marginal cost of reading one more **empty** cell, in allocations. Before
+/// #910 this was one allocation per authored cell on the sheet, per pass — it
+/// grew with the sheet, measuring 2010, 4010 and 8010 at the three sizes below.
+/// After, it is 0.00 at every size.
+const MAX_ALLOCATIONS_PER_EMPTY_READ: f64 = 0.50;
 
 /// Sheet sizes the empty-cell read is measured at, in authored rows. The point
 /// is not the absolute figure but that it does not move as the sheet grows 4x.
@@ -115,17 +132,42 @@ const SHEET_SIZES: [u32; 3] = [1_000, 2_000, 4_000];
 /// Empty rows read past the end of the authored block.
 const EMPTY_ROWS: u32 = 100;
 
-/// Columns in the block read by the measurement. Anything but 1: a
-/// single-column range is materialized as core's Nx1 column shape, one
-/// nested `Array` per row, which would add a per-element allocation of its
-/// own to the figure.
+/// Columns in the block used for the #910 measurement — anything but 1, so the
+/// Nx1 column wrapper above does not muddy the figure.
 const BLOCK_COLS: u32 = 2;
 
 #[test]
-fn an_empty_cell_read_costs_the_same_whatever_the_sheet_size() {
+fn cell_reads_do_not_allocate_per_element_or_per_empty_cell() {
     // Warm up the recalc path (lazy statics, the function registry) first.
     black_box(allocations_to_recalc(64, 64, BLOCK_COLS));
 
+    // ── 1. #904: a populated element stays within its budget ─────────────
+    // Both recalcs read only populated cells, so neither reaches the
+    // `grid_spilled_value` branch: this isolates the per-element constant.
+    let small = allocations_to_recalc(1_000, 1_000, BLOCK_COLS);
+    let large = allocations_to_recalc(2_000, 2_000, BLOCK_COLS);
+    let per_block_element = (large - small) as f64 / f64::from(1_000 * BLOCK_COLS);
+    eprintln!("allocations per populated block element: {per_block_element:.2}");
+    assert!(
+        per_block_element <= MAX_ALLOCATIONS_PER_BLOCK_ELEMENT,
+        "scanning one more populated range element cost {per_block_element:.2} \
+         allocations (budget {MAX_ALLOCATIONS_PER_BLOCK_ELEMENT:.2}); a range \
+         element must not allocate an owned map key or re-fold the sheet names"
+    );
+
+    let small = allocations_to_recalc(1_000, 1_000, 1);
+    let large = allocations_to_recalc(2_000, 2_000, 1);
+    let per_column_element = (large - small) as f64 / 1_000.0;
+    eprintln!("allocations per populated column element: {per_column_element:.2}");
+    assert!(
+        per_column_element <= MAX_ALLOCATIONS_PER_COLUMN_ELEMENT,
+        "scanning one more element of a single-column range cost \
+         {per_column_element:.2} allocations (budget \
+         {MAX_ALLOCATIONS_PER_COLUMN_ELEMENT:.2}); only the Nx1 column wrapper \
+         should remain"
+    );
+
+    // ── 2. #910: an empty read costs the same at every sheet size ────────
     let mut measured: Vec<(u32, f64)> = Vec::new();
     for authored in SHEET_SIZES {
         // Difference two recalcs over the *same* sheet so every fixed cost —
