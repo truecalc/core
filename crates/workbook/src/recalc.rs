@@ -513,6 +513,23 @@ impl Workbook {
         // available as a fallback even though it is never re-placed this recalc.
         // A full recalc re-places every anchor, overriding the seed.
         let (mut new_values, mut spills) = self.seed_spills_from_grid();
+
+        // Build the engine — and therefore the function registry — **once** for
+        // the whole recalc, not once per formula cell per pass (issue #886).
+        // `Engine` holds only a `Copy` flavor and a `Registry` of `fn`-pointer
+        // entries; every evaluation entry point takes `&self` and builds its
+        // mutable per-evaluation state (`Context`/`EvalCtx`) inside the call, so
+        // one instance is safely shared by every cell. Registry construction is
+        // ~99 µs against ~0.6 µs to parse and evaluate a cell, so building it
+        // per cell was ~97% of recalc time. The folded sheet-name → index map
+        // used for the per-cell RNG key is hoisted for the same reason: it was a
+        // `CaseMapperBorrowed::new()` plus a linear, allocating scan per cell.
+        let engine = match self.engine() {
+            EngineFlavor::Sheets => Engine::sheets(),
+            EngineFlavor::Excel => Engine::excel(),
+        };
+        let sheet_indices = self.sheet_indices_by_folded_name();
+
         let max_passes = order.len().saturating_add(2).max(1);
         for _ in 0..max_passes {
             let mut next_values: BTreeMap<CellRef, Value> = BTreeMap::new();
@@ -533,6 +550,8 @@ impl Workbook {
                 // anchor yet this pass.
                 let raw = self.eval_formula_cell(
                     cell,
+                    &engine,
+                    &sheet_indices,
                     now_serial,
                     now_utc_nanos,
                     rng_seed,
@@ -568,13 +587,32 @@ impl Workbook {
         self.apply_changes(new_values)
     }
 
+    /// The sheet index every sheet occupies, keyed by its case-folded name —
+    /// the `sheet_index` half of the per-cell RNG key. Built once per recalc
+    /// (issue #886) so a formula cell costs a map lookup rather than a
+    /// `CaseMapperBorrowed::new()` and a linear, allocating scan of the sheet
+    /// list.
+    fn sheet_indices_by_folded_name(&self) -> BTreeMap<String, u32> {
+        let folder = CaseMapperBorrowed::new();
+        self.sheets()
+            .iter()
+            .enumerate()
+            .map(|(i, ws)| (simple_fold(&folder, ws.name()), i as u32))
+            .collect()
+    }
+
     /// Evaluates a single formula cell through a resolver that reads the *new*
     /// values computed so far this recalc, falling back to the stored grid for
     /// everything else.
+    ///
+    /// `engine` and `sheet_indices` are built once per recalc by the caller and
+    /// shared across every cell of the pass (issue #886).
     #[allow(clippy::too_many_arguments)]
     fn eval_formula_cell(
         &self,
         cell: &CellRef,
+        engine: &Engine,
+        sheet_indices: &BTreeMap<String, u32>,
         now_serial: Option<f64>,
         now_utc_nanos: Option<i64>,
         rng_seed: u64,
@@ -589,16 +627,7 @@ impl Workbook {
             Some(f) => f.to_owned(),
             None => return Value::Empty,
         };
-        let engine = match self.engine() {
-            EngineFlavor::Sheets => Engine::sheets(),
-            EngineFlavor::Excel => Engine::excel(),
-        };
-        let folder = CaseMapperBorrowed::new();
-        let sheet_index = self
-            .sheets()
-            .iter()
-            .position(|ws| simple_fold(&folder, ws.name()) == cell.sheet)
-            .unwrap_or(0) as u32;
+        let sheet_index = sheet_indices.get(&cell.sheet).copied().unwrap_or(0);
         let rng_cell = Some((rng_seed, sheet_index, cell.addr.row, cell.addr.column));
         let mut resolver = GridResolver {
             workbook: self,
