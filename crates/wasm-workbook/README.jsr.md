@@ -57,11 +57,23 @@ integration, so Deno instantiates the WebAssembly as part of the module graph �
 | `recalc(contextJson)` | Recalculate in dependency order; returns changes as a JSON string. The context must supply `timestamp_ms`, `timezone` and `rng_seed` — all three, or it throws |
 | `resolved(sheet, a1)` | The computed value of a cell, as a JSON string |
 | `defineName(name, ref)` / `redefineName(name, ref)` | Named ranges |
+| `precedentsOf(sheet, a1, maxDepth?, maxNodes?)` | What a cell reads — cells, ranges, names and unresolved refs |
+| `dependentsOf(sheet, a1, maxDepth?, maxNodes?)` | What reads a cell, i.e. what breaks if you change it |
 | `toJSON()` / `JsWorkbook.fromJSON(s)` | Serialise and restore |
 | `free()` | Release the underlying wasm memory |
 
 Also exported: `translateFormula(formula, dRow, dCol)` — fill / copy reference
 adjustment.
+
+The two dependency queries are bounded — `maxDepth` defaults to `1` (direct
+only) and is clamped to `64`, `maxNodes` defaults to `1000` and is clamped to
+`10000` — and every result carries `truncated: boolean` plus a `truncatedBy`
+naming the bound that stopped the walk, so a partial answer is never mistaken
+for a complete one. They read the workbook's current formulas on every call,
+so they need no `recalc()` and are never stale — at the cost of rebuilding
+the graph, `O(formula cells)`, on every call; `dependentsOf` additionally
+costs `O(distinct range nodes + names)` per node it walks. Neither is a
+cheap accessor to call on every UI event.
 
 Because the workbook holds wasm-side state, call `free()` when you are done with
 one in a long-running process.

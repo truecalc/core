@@ -11,8 +11,8 @@
 use std::collections::{BTreeSet, HashSet};
 
 use truecalc_workbook::{
-    Address, Cell, CellRef, DependencyGraph, EngineFlavor, NamedRange, Precedent, Value, Workbook,
-    Worksheet,
+    Address, Cell, CellRef, DependencyGraph, EngineFlavor, NameTarget, NamedRange, Precedent,
+    Value, Workbook, Worksheet,
 };
 
 /// A Sheets workbook with one sheet named `Sheet1`.
@@ -359,4 +359,128 @@ fn formula_reading_only_literals_has_no_topo_edges() {
     let g = DependencyGraph::build(&wb);
     let order = g.topological_order().unwrap();
     assert_eq!(order, vec![cref("sheet1", "B1")]);
+}
+
+// --- Public traversal primitives -----------------------------------------
+
+#[test]
+fn cell_ref_resolve_folds_the_sheet_name_so_the_key_matches() {
+    let mut wb = wb_one_sheet();
+    set_num(&mut wb, "Sheet1", "A1", 10.0);
+    set_formula(&mut wb, "Sheet1", "B1", "=A1+1");
+    let g = DependencyGraph::build(&wb);
+
+    // The display casing a caller has does not match the graph key directly...
+    assert!(g
+        .precedents_of(&CellRef {
+            sheet: "Sheet1".to_string(),
+            addr: addr("B1"),
+        })
+        .is_none());
+    // ... but `resolve` produces the key the graph actually uses, from any
+    // casing, and folding an already-folded name is a no-op.
+    for spelling in ["Sheet1", "SHEET1", "sheet1"] {
+        assert_eq!(
+            g.precedents_of(&CellRef::from_display_name(spelling, addr("B1"))),
+            Some(&[Precedent::Cell(cref("sheet1", "A1"))][..]),
+            "{spelling} should resolve to the graph's key"
+        );
+    }
+}
+
+#[test]
+fn name_target_of_reports_a_cell_target() {
+    let mut wb = wb_one_sheet();
+    set_num(&mut wb, "Sheet1", "B1", 3.0);
+    wb.names_mut().push(NamedRange {
+        name: "Rate".to_string(),
+        r#ref: "Sheet1!B1".to_string(),
+    });
+    set_formula(&mut wb, "Sheet1", "A1", "=Rate*2");
+    let g = DependencyGraph::build(&wb);
+
+    // Any casing, matching `name_dependents_of`'s case-insensitivity.
+    for spelling in ["Rate", "RATE", "rate"] {
+        assert_eq!(
+            g.name_target_of(spelling),
+            Some(NameTarget::Cell(cref("sheet1", "B1"))),
+            "{spelling} should resolve"
+        );
+    }
+}
+
+#[test]
+fn name_target_of_reports_a_range_target() {
+    let mut wb = wb_one_sheet();
+    wb.names_mut().push(NamedRange {
+        name: "Block".to_string(),
+        r#ref: "Sheet1!A1:B2".to_string(),
+    });
+    set_formula(&mut wb, "Sheet1", "D1", "=SUM(Block)");
+    let g = DependencyGraph::build(&wb);
+
+    match g.name_target_of("Block") {
+        Some(NameTarget::Range(r)) => {
+            assert_eq!(r.sheet, "sheet1");
+            assert_eq!(r.start, addr("A1"));
+            assert_eq!(r.end, addr("B2"));
+        }
+        other => panic!("expected a range target, got {other:?}"),
+    }
+}
+
+#[test]
+fn name_target_of_is_none_for_an_undefined_name() {
+    let wb = wb_one_sheet();
+    let g = DependencyGraph::build(&wb);
+    assert_eq!(g.name_target_of("NoSuchName"), None);
+}
+
+#[test]
+fn formula_precedent_cells_yields_only_formula_cells() {
+    let mut wb = wb_one_sheet();
+    set_num(&mut wb, "Sheet1", "A1", 1.0); // literal
+    set_formula(&mut wb, "Sheet1", "A2", "=A1+1"); // formula
+    set_formula(&mut wb, "Sheet1", "D1", "=SUM(A1:A2)");
+    let g = DependencyGraph::build(&wb);
+
+    // A cell precedent pointing at a literal yields nothing to walk.
+    assert!(g
+        .formula_precedent_cells(&Precedent::Cell(cref("sheet1", "A1")))
+        .is_empty());
+    // A cell precedent pointing at a formula yields it.
+    assert_eq!(
+        g.formula_precedent_cells(&Precedent::Cell(cref("sheet1", "A2"))),
+        vec![cref("sheet1", "A2")]
+    );
+    // A range yields the formula cells it covers, not every member.
+    let range = match &g.precedents_of(&cref("sheet1", "D1")).unwrap()[0] {
+        Precedent::Range(r) => Precedent::Range(r.clone()),
+        other => panic!("expected a range precedent, got {other:?}"),
+    };
+    assert_eq!(
+        g.formula_precedent_cells(&range),
+        vec![cref("sheet1", "A2")]
+    );
+    // An unresolved precedent yields nothing.
+    assert!(g
+        .formula_precedent_cells(&Precedent::Unresolved("Nope!A1".to_string()))
+        .is_empty());
+}
+
+#[test]
+fn formula_precedent_cells_follows_a_name_to_its_target() {
+    let mut wb = wb_one_sheet();
+    set_formula(&mut wb, "Sheet1", "B1", "=1+1");
+    wb.names_mut().push(NamedRange {
+        name: "Rate".to_string(),
+        r#ref: "Sheet1!B1".to_string(),
+    });
+    set_formula(&mut wb, "Sheet1", "A1", "=Rate*2");
+    let g = DependencyGraph::build(&wb);
+
+    assert_eq!(
+        g.formula_precedent_cells(&Precedent::Name("rate".to_string())),
+        vec![cref("sheet1", "B1")]
+    );
 }

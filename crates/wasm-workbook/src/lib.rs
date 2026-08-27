@@ -2,6 +2,10 @@ use serde::Serialize;
 use tsify_next::Tsify;
 use wasm_bindgen::prelude::*;
 
+pub mod depgraph;
+
+use depgraph::{DependentsResult, PrecedentsResult};
+
 use truecalc_core::types::SparklineValue;
 use truecalc_core::Engine;
 use truecalc_workbook::{
@@ -299,5 +303,76 @@ impl JsWorkbook {
                 Ok(JsValue::from_str(&s))
             }
         }
+    }
+
+    /// What the cell at `a1` on `sheet` **reads** — its precedents.
+    ///
+    /// Answers: where does this number come from? Returns
+    /// `{ cell, precedents: [{ depth, reference }], truncated, truncatedBy? }`.
+    /// Each `reference` is a tagged union: `cell`, `range` (never expanded into
+    /// its members), `name` (carrying what the name currently targets), or
+    /// `unresolved` (a dangling sheet or name, the reason the cell will show
+    /// `#REF!` / `#NAME?`). Every `cell` / `range` carries its own `sheet`, so
+    /// a cross-sheet precedent stays cross-sheet.
+    ///
+    /// `precedents` is always an array: a literal, an empty cell and a
+    /// constant formula all return `[]`.
+    ///
+    /// `maxDepth` defaults to `1` (direct precedents only) and is clamped to
+    /// `1..=64`; `maxNodes` defaults to `1000` and is clamped to `10000`.
+    /// **If the walk stops at either bound, `truncated` is `true` and
+    /// `truncatedBy` says which one** — the returned array is then a prefix of
+    /// the answer, not the answer. `truncated` is always present; branch on
+    /// it, not on `truncatedBy`.
+    ///
+    /// The graph is rebuilt from the workbook's current formulas on every
+    /// call, so the result is never stale: it reflects every `set` / `clear` /
+    /// `defineName` since the last `recalc`, and is meaningful before any
+    /// `recalc` at all. Building the graph costs `O(formula cells)` per call —
+    /// an upper bound expected to improve, not a fixed contract.
+    ///
+    /// Throws on an unknown sheet or a malformed A1 address.
+    #[wasm_bindgen(js_name = precedentsOf)]
+    pub fn precedents_of(
+        &self,
+        sheet: &str,
+        a1: &str,
+        max_depth: Option<u32>,
+        max_nodes: Option<u32>,
+    ) -> Result<PrecedentsResult, JsError> {
+        depgraph::precedents_of(&self.inner, sheet, a1, max_depth, max_nodes)
+            .map_err(|e| JsError::new(&e))
+    }
+
+    /// What **reads** the cell at `a1` on `sheet` — its dependents, i.e. what
+    /// would have to recalculate (and could visibly change) if you edited it.
+    ///
+    /// Returns `{ cell, dependents: [{ depth, sheet, a1 }], truncated,
+    /// truncatedBy? }`. Dependents are always concrete formula cells and
+    /// include cells that reach this one through a range that contains it or
+    /// through a named range whose target contains it — the caller never has
+    /// to reason about range compression or name indirection.
+    ///
+    /// `dependents` is always an array; `[]` means nothing reads the cell.
+    ///
+    /// Bounds, truncation reporting and freshness are exactly as for
+    /// [`precedentsOf`](Self::precedents_of), with one addition: finding what
+    /// reads a cell means testing every distinct range node and every name
+    /// against it, so each emitted (or expanded) node costs `O(distinct
+    /// ranges + names)` on top of the `O(formula cells)` graph build — a
+    /// workbook with many named ranges or range formulas makes this call
+    /// noticeably more expensive than `precedentsOf` at the same size.
+    ///
+    /// Throws on an unknown sheet or a malformed A1 address.
+    #[wasm_bindgen(js_name = dependentsOf)]
+    pub fn dependents_of(
+        &self,
+        sheet: &str,
+        a1: &str,
+        max_depth: Option<u32>,
+        max_nodes: Option<u32>,
+    ) -> Result<DependentsResult, JsError> {
+        depgraph::dependents_of(&self.inner, sheet, a1, max_depth, max_nodes)
+            .map_err(|e| JsError::new(&e))
     }
 }
