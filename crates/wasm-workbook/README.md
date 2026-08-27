@@ -282,7 +282,12 @@ clamped, which is safe precisely because the clamp still sets `truncated`.
 The queries read the workbook's **current** formulas, named ranges and sheet
 names on every call. They need no `recalc()`, they reflect every `set` /
 `clear` / `defineName` since the last one, and they can never return a stale
-graph. The trade is cost: each call rebuilds the graph, `O(formula cells)`.
+graph. The trade is cost: each call rebuilds the graph, `O(formula cells)` —
+an upper bound expected to improve, not a fixed contract — and `dependentsOf`
+additionally costs `O(distinct range nodes + names)` per node it walks, since
+finding what reads a cell means testing every range and every name against
+it. Neither call is a cheap accessor; a host driving these from the UI should
+debounce rather than call on every selection change.
 
 ### `wb.toJSON()`
 

@@ -16,9 +16,11 @@
 //! a function of formula *text*, sheet names and named-range targets, not of
 //! evaluated values — it is correct even before the first `recalc()` and
 //! immediately after a `set()` / `clear()` / `defineName()` with no recalc in
-//! between. The price is that a query costs `O(formula cells)` to build the
-//! graph; it is not a cheap accessor, and a host that highlights precedents on
-//! every selection change should expect that cost.
+//! between. The price is that a query is not a cheap accessor: building the
+//! graph costs `O(formula cells)` (an upper bound expected to improve, not a
+//! fixed contract), and [`dependents_of`] additionally costs `O(distinct
+//! range nodes + names)` per node it walks. A host driving these from a UI
+//! event should debounce rather than call on every selection change.
 //!
 //! # Bounds
 //!
@@ -170,8 +172,11 @@ pub struct PrecedentsResult {
     pub truncated: bool,
     /// Which bound stopped the walk. Present exactly when `truncated` is
     /// `true` — branch on `truncated`, which is always present; this is the
-    /// detail, not the signal. If both bounds were reached this is
-    /// `maxNodes`, the bound that actually ended the walk.
+    /// detail, not the signal. Reports `maxNodes` only when the node cap
+    /// actually blocked an available precedent from being emitted; if depth
+    /// is what kept the walk from going further — even when the emitted
+    /// count happens to equal `maxNodes` — this reports `maxDepth`, the
+    /// bound that actually ended the walk.
     #[tsify(optional, type = "\"maxNodes\" | \"maxDepth\"")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub truncated_by: Option<String>,
@@ -190,7 +195,10 @@ pub struct DependentsResult {
     /// `true` when the walk stopped before exhausting the graph.
     pub truncated: bool,
     /// Which bound stopped the walk. Present exactly when `truncated` is
-    /// `true`.
+    /// `true`. As with [`PrecedentsResult::truncated_by`], reports
+    /// `maxNodes` only when the node cap actually blocked an available
+    /// dependent from being emitted, not merely because the emitted count
+    /// happens to equal `maxNodes`.
     #[tsify(optional, type = "\"maxNodes\" | \"maxDepth\"")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub truncated_by: Option<String>,
@@ -230,14 +238,6 @@ fn display_sheet(workbook: &Workbook, folded: &str) -> String {
         .unwrap_or_else(|| folded.to_string())
 }
 
-fn cell_node(workbook: &Workbook, cell: &CellRef) -> CellNode {
-    CellNode {
-        sheet: display_sheet(workbook, &cell.sheet),
-        a1: cell.addr.to_a1(),
-    }
-}
-
-/// Clamps a requested depth into `1..=MAX_MAX_DEPTH`. The floor of 1 is
 /// The display (original-case) name for a graph name key, which — like a
 /// sheet — carries the case-folded form. Same fallback rationale as
 /// [`display_sheet`]: impossible to miss here since the graph is built from
@@ -249,6 +249,14 @@ fn display_name(workbook: &Workbook, folded: &str) -> String {
         .unwrap_or_else(|| folded.to_string())
 }
 
+fn cell_node(workbook: &Workbook, cell: &CellRef) -> CellNode {
+    CellNode {
+        sheet: display_sheet(workbook, &cell.sheet),
+        a1: cell.addr.to_a1(),
+    }
+}
+
+/// Clamps a requested depth into `1..=MAX_MAX_DEPTH`. The floor of 1 is
 /// deliberate: a depth of 0 would return an empty list with
 /// `truncated: false`, which is the one answer shape that lies.
 fn clamp_depth(requested: Option<u32>) -> u32 {
