@@ -265,7 +265,9 @@ pub fn evaluate(formula: &str, variables: JsValue) -> EvalResult {
 /// Returns `{ valid: true }` on success or `{ valid: false, error: "..." }` on failure.
 #[wasm_bindgen]
 pub fn validate(formula: &str) -> ValidateResult {
-    match truecalc_core::Engine::sheets().validate(formula) {
+    // Parsed without an `Engine`: a syntax check never reads the function
+    // registry, so building one per call was pure waste (issue #900).
+    match truecalc_core::parse_formula(formula) {
         Ok(_) => ValidateResult { valid: true, error: None },
         Err(e) => ValidateResult { valid: false, error: Some(e.to_string()) },
     }

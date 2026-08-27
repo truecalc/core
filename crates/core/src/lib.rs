@@ -75,6 +75,7 @@ pub use display::display_number;
 pub use engine::{Engine, EngineFlavor};
 #[allow(deprecated)]
 pub use parser::{parse, validate};
+pub use parser::parse_formula;
 pub use parser::Expr;
 pub use parser::Span;
 pub use parser::{CellAddr, Ref};

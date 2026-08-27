@@ -51,7 +51,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use icu_casemap::CaseMapperBorrowed;
-use truecalc_core::{CellAddr, Engine, EngineFlavor, Ref};
+use truecalc_core::{CellAddr, Ref};
 
 use crate::address::Address;
 use crate::casefold::simple_fold;
@@ -196,10 +196,6 @@ impl DependencyGraph {
     /// therefore never fails.
     pub fn build(workbook: &Workbook) -> Self {
         let folder = CaseMapperBorrowed::new();
-        let engine = match workbook.engine() {
-            EngineFlavor::Sheets => Engine::sheets(),
-            EngineFlavor::Excel => Engine::excel(),
-        };
 
         // Resolve named-range targets first (the name → target indirection
         // layer). A name whose ref names a missing sheet, or is itself
@@ -231,7 +227,10 @@ impl DependencyGraph {
                 };
                 let from = CellRef::new(sheet_folded.clone(), addr);
 
-                let refs = match engine.parse(formula) {
+                // Parsed without an `Engine`: parsing is flavor-independent
+                // and never reads the function registry, so building one per
+                // graph build was pure waste (issue #900).
+                let refs = match truecalc_core::parse_formula(formula) {
                     Ok(expr) => truecalc_core::extract_refs(&expr),
                     // An unparseable formula has one self-describing precedent
                     // and no edges — the recalc engine reports the parse error.

@@ -558,8 +558,23 @@ pub fn parse(formula: &str) -> Result<Expr, ParseError> {
     parse_formula(formula)
 }
 
-/// Crate-internal parser entry point used by [`crate::Engine`].
-pub(crate) fn parse_formula(formula: &str) -> Result<Expr, ParseError> {
+/// Parse a formula string into an expression tree, without an [`Engine`].
+///
+/// This is the parser entry point [`Engine::parse`] and [`Engine::validate`]
+/// call. It is exposed directly because parsing is **flavor-independent and
+/// registry-free**: it reads only the formula text, so a caller that needs an
+/// AST (or only a syntax check) never has to construct an [`Engine`] — and
+/// therefore never has to build the function [`Registry`], which parsing does
+/// not consult (issue #900). Building that registry costs orders of magnitude
+/// more than the parse it was being built for.
+///
+/// The leading `=` is optional.
+///
+/// [`Engine`]: crate::Engine
+/// [`Engine::parse`]: crate::Engine::parse
+/// [`Engine::validate`]: crate::Engine::validate
+/// [`Registry`]: crate::Registry
+pub fn parse_formula(formula: &str) -> Result<Expr, ParseError> {
     let input = formula.strip_prefix('=').unwrap_or(formula).trim();
     let p = Parser::new(formula);
     match p.parse_comparison(input) {
