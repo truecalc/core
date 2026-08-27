@@ -188,15 +188,19 @@ fn handle_request(req: &JsonValue, default_conformance: &str, engines: &Engines,
                 Ok(v) => (v, false),
                 Err(e) => (json!({ "error": e }), true),
             };
-            // A failed call answers with the error envelope, which is already an
-            // object; a successful one goes through the per-tool normaliser.
-            let structured = if is_error { result.clone() } else { structured_for(name, args, &result) };
             let mut tool_result = json!({
-                "content": [{ "type": "text", "text": serde_json::to_string(&result).expect("result serialisation is infallible") }],
-                "structuredContent": structured
+                "content": [{ "type": "text", "text": serde_json::to_string(&result).expect("result serialisation is infallible") }]
             });
             if is_error {
+                // The error envelope does not conform to the tool's own
+                // outputSchema (which describes a success), so structuredContent
+                // is omitted rather than filled with a non-conforming payload. A
+                // schema-validating client only checks structuredContent when
+                // it's present, so an isError result carrying none is a
+                // protocol-legal way to fail.
                 tool_result["isError"] = json!(true);
+            } else {
+                tool_result["structuredContent"] = structured_for(name, args, &result);
             }
             json!({
                 "jsonrpc": "2.0",
