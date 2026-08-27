@@ -2275,6 +2275,7 @@ dependencies = [
 name = "truecalc-mcp"
 version = "8.1.1"
 dependencies = [
+ "jsonschema",
  "serde",
  "serde_json",
  "truecalc-core",
