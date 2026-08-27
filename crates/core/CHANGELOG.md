@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.2.0](https://github.com/truecalc/core/compare/truecalc-core-v8.1.1...truecalc-core-v8.2.0) - 2026-08-27
+
+### Fixed
+
+- *(array)* broadcast SEARCH, FIND, EXACT under ARRAYFORMULA
+
+### Other
+
+- *(parser)* fix contradictory deprecation note, stale flavor docs, and a durability comment
+- *(workbook)* parse formulas without building a function registry
+- Merge pull request #889 from truecalc/chore/885-resolve-orphaned-modules
+- *(core)* guard against unreachable source files
+- *(mode_mult)* wire up failure.rs and revert its never-compiled edit
+- wire up 18 orphaned tests for SKEW, SKEW.P, TRIMMEAN, MODE.SNGL, SEARCHB
+- *(lookup)* delete orphaned index_fn module
+
 ## [8.0.0](https://github.com/truecalc/core/compare/truecalc-core-v7.1.1...truecalc-core-v8.0.0) - 2026-08-14
 
 ### Added
