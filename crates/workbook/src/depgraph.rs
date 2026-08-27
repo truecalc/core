@@ -198,6 +198,15 @@ pub struct DependencyGraph {
     /// Name → its resolved current target (the indirection layer). Absent if
     /// the name is undefined or dangles; retargeting updates this entry.
     name_targets: HashMap<String, NameTarget>,
+    /// Formula cells indexed by sheet and row: `sheet → row → the formula
+    /// cells on that row, in column order`. This is what makes "which formula
+    /// cells does this range cover?" cost the covered rows rather than the
+    /// whole workbook (issue #908).
+    ///
+    /// Only rows that actually *contain* a formula cell are keyed — never the
+    /// dense span of a range — so a reference over ten million mostly-empty
+    /// rows visits only the handful of rows that hold formulas.
+    formula_rows: HashMap<String, BTreeMap<u32, Vec<Address>>>,
 }
 
 /// What a named range currently resolves to (the name→target indirection).
@@ -249,6 +258,7 @@ impl DependencyGraph {
             range_dependents: Vec::new(),
             name_dependents: HashMap::new(),
             name_targets,
+            formula_rows: HashMap::new(),
         };
         // Stable index from a range node to its slot in `range_dependents`, so
         // repeated references to the same range share one compressed node.
@@ -319,6 +329,20 @@ impl DependencyGraph {
 
                 graph.precedents.insert(from, resolved);
             }
+        }
+
+        // Index the formula cells by sheet and row (issue #908). Walking the
+        // precedents map yields cells in canonical (sheet, row, column) order,
+        // so each row's vector comes out in column order for free, and only
+        // occupied rows become keys.
+        for cell in graph.precedents.keys() {
+            graph
+                .formula_rows
+                .entry(cell.sheet.clone())
+                .or_default()
+                .entry(cell.addr.row)
+                .or_default()
+                .push(cell.addr);
         }
 
         graph
@@ -584,38 +608,82 @@ impl DependencyGraph {
     /// and a [`Precedent::Unresolved`] yields nothing. Returned in canonical
     /// (sheet, address) order.
     ///
-    /// Cost is `O(1)` for a cell precedent and, currently, `O(formula cells)`
-    /// for a range or range-targeted name, since range membership is tested
-    /// rather than indexed — an upper bound expected to improve as the graph
-    /// gains a spatial index, not a contract callers should rely on staying
-    /// this expensive or this cheap.
+    /// Cost is `O(1)` for a cell precedent and, for a range or range-targeted
+    /// name, `O(formula cells on the rows the range spans)` — the rows are
+    /// indexed and only *occupied* rows are keyed, so neither the empty rows a
+    /// tall reference spans nor the formula cells elsewhere in the workbook are
+    /// visited (issue #908). Still an upper bound rather than a contract:
+    /// callers should not rely on it staying this expensive or this cheap.
     pub fn formula_precedent_cells(&self, prec: &Precedent) -> Vec<CellRef> {
+        self.formula_precedent_cells_examined(prec).0
+    }
+
+    /// [`formula_precedent_cells`](Self::formula_precedent_cells), plus how
+    /// many candidate formula cells the lookup examined to produce it.
+    ///
+    /// Instrumentation, not a feature: the range index of issue #908 is a
+    /// change in *how much is examined*, and wall-clock is too
+    /// machine-dependent to pin it. Both values come out of the one lookup, so
+    /// the count cannot drift from what the lookup actually does. Hidden from
+    /// the docs because callers want
+    /// [`formula_precedent_cells`](Self::formula_precedent_cells).
+    #[doc(hidden)]
+    pub fn formula_precedent_cells_examined(&self, prec: &Precedent) -> (Vec<CellRef>, usize) {
         match prec {
             Precedent::Cell(c) => {
                 if self.precedents.contains_key(c) {
-                    vec![c.clone()]
+                    (vec![c.clone()], 1)
                 } else {
-                    Vec::new()
+                    (Vec::new(), 1)
                 }
             }
-            Precedent::Range(r) => self
-                .precedents
-                .keys()
-                .filter(|c| r.contains(c))
-                .cloned()
-                .collect(),
+            Precedent::Range(r) => self.formula_cells_in_range(r),
             Precedent::Name(name) => match self.name_targets.get(name) {
-                Some(NameTarget::Cell(c)) if self.precedents.contains_key(c) => vec![c.clone()],
-                Some(NameTarget::Cell(_)) | None => Vec::new(),
-                Some(NameTarget::Range(r)) => self
-                    .precedents
-                    .keys()
-                    .filter(|c| r.contains(c))
-                    .cloned()
-                    .collect(),
+                Some(NameTarget::Cell(c)) if self.precedents.contains_key(c) => {
+                    (vec![c.clone()], 1)
+                }
+                Some(NameTarget::Cell(_)) => (Vec::new(), 1),
+                None => (Vec::new(), 0),
+                Some(NameTarget::Range(r)) => self.formula_cells_in_range(r),
             },
-            Precedent::Unresolved(_) => Vec::new(),
+            Precedent::Unresolved(_) => (Vec::new(), 0),
         }
+    }
+
+    /// The formula cells inside `range`, in canonical order, and the number of
+    /// formula cells examined to find them.
+    ///
+    /// Walks only the *occupied* rows the range spans (`formula_rows` is keyed
+    /// by row, so a `BTreeMap` range query skips every row that holds no
+    /// formula), then filters those rows' cells by column. The cells examined
+    /// are therefore the formula cells on the rows the range covers — not the
+    /// formula cells of the whole workbook, which is what the scan this
+    /// replaced cost (issue #908).
+    fn formula_cells_in_range(&self, range: &RangeRef) -> (Vec<CellRef>, usize) {
+        let mut out = Vec::new();
+        let mut examined = 0usize;
+        // Ranges resolved from formulas and names are top-left-first, but
+        // `RangeRef`'s fields are public and this is reached from a public
+        // entry point, so the corners can arrive the wrong way round.
+        // [`RangeRef::contains`] answers "no" to every cell for such a range;
+        // answer the same, rather than handing `BTreeMap::range` an inverted
+        // bound (which panics).
+        if range.start.row > range.end.row || range.start.column > range.end.column {
+            return (out, examined);
+        }
+        let Some(rows) = self.formula_rows.get(&range.sheet) else {
+            return (out, examined);
+        };
+        for addrs in rows.range(range.start.row..=range.end.row).map(|(_, a)| a) {
+            examined += addrs.len();
+            out.extend(
+                addrs
+                    .iter()
+                    .filter(|a| a.column >= range.start.column && a.column <= range.end.column)
+                    .map(|a| CellRef::new(range.sheet.clone(), *a)),
+            );
+        }
+        (out, examined)
     }
 }
 
