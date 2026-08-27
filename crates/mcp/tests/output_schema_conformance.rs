@@ -364,3 +364,37 @@ fn a_failed_call_is_still_flagged_as_one() {
         "an answer of \"this formula does not parse\" is a successful call"
     );
 }
+
+#[test]
+fn a_failed_call_on_a_declared_tool_carries_no_nonconforming_structured_content() {
+    // The exact gap `a_failed_call_is_still_flagged_as_one` leaves: it drives
+    // `evaluate {}` to failure but never looks at the payload. A
+    // schema-validating MCP client only validates `structuredContent` when the
+    // key is present at all (isError does not exempt an existing key from
+    // validation) — so a declared tool that fails must either omit
+    // `structuredContent` entirely or fill it with something that satisfies
+    // its own outputSchema. Emitting the bare `{"error": ...}` envelope
+    // (which has neither "type" nor "value" nor "message") is what broke a
+    // real SDK client with a thrown protocol error before this test existed.
+    //
+    // `get_stats` takes no arguments at all, so it has no failure arm to
+    // exercise here; the other five declared tools each have one.
+    for (name, bad_args) in [
+        ("evaluate", json!({})),
+        ("batch_evaluate", json!({})),
+        ("validate", json!({})),
+        ("explain", json!({})),
+        ("list_functions", json!({ "limit": -1 })),
+    ] {
+        let result = call_raw(name, bad_args.clone());
+        assert_eq!(
+            result["isError"],
+            json!(true),
+            "{name} {bad_args} should have failed"
+        );
+        if let Some(sc) = result.get("structuredContent") {
+            let schema = compile(&declaration(name)["outputSchema"]);
+            assert_valid(name, &bad_args, &schema, sc);
+        }
+    }
+}
