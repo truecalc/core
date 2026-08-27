@@ -445,52 +445,42 @@ impl DependencyGraph {
     /// the Sheets circular-dependency error semantics for the cells on a cycle
     /// are applied by the recalc engine (fixture-verified there), not here.
     pub fn topological_order(&self) -> Result<Vec<CellRef>, BTreeSet<CellRef>> {
-        // Index the formula cells in canonical order so Kahn's algorithm is
-        // O(V + E) and its tie-breaking is deterministic across surfaces.
-        let nodes: Vec<&CellRef> = self.precedents.keys().collect();
-        let index_of: HashMap<&CellRef, usize> =
-            nodes.iter().enumerate().map(|(i, n)| (*n, i)).collect();
-
-        // Formula-cell-only adjacency: precedent formula cell → dependent
-        // formula cell, with in-degrees for Kahn's algorithm. `BTreeSet` keeps
-        // each node's successors in canonical order and dedups parallel edges.
-        let mut succ: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); nodes.len()];
-        let mut indeg: Vec<usize> = vec![0; nodes.len()];
-        for (i, cell) in nodes.iter().enumerate() {
-            for prec in &self.precedents[*cell] {
-                for fp in self.formula_precedent_cells(prec) {
-                    // Edge fp(j) → cell(i): cell i depends on fp.
-                    if let Some(&j) = index_of.get(&fp) {
-                        if succ[j].insert(i) {
-                            indeg[i] += 1;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Kahn's algorithm; the ready set is a BTreeSet of indices, which —
-        // because `nodes` is in canonical order — pops in canonical order, so
-        // the topological order is itself deterministic.
-        let mut ready: BTreeSet<usize> = (0..nodes.len()).filter(|&i| indeg[i] == 0).collect();
-        let mut order: Vec<CellRef> = Vec::with_capacity(nodes.len());
-        while let Some(&node) = ready.iter().next() {
-            ready.remove(&node);
-            order.push(nodes[node].clone());
-            for &dep in &succ[node] {
-                indeg[dep] -= 1;
-                if indeg[dep] == 0 {
-                    ready.insert(dep);
-                }
-            }
-        }
-
-        if order.len() == nodes.len() {
-            Ok(order)
-        } else {
+        let edges = self.formula_edges();
+        match edges.topological_order() {
+            Some(order) => Ok(order),
             // Some cells never reached in-degree 0: they are on or downstream
             // of a cycle. Report exactly the cells *on* a cycle.
-            Err(self.cycle_cells())
+            None => Err(edges.cycle_members()),
+        }
+    }
+
+    /// The evaluation order and the cycle set together, from **one** pass over
+    /// the formula-cell edges.
+    ///
+    /// A recalculation needs both: the order to evaluate in, and the cells to
+    /// mark with the circular-dependency error. Asking for them separately
+    /// ([`cycle_cells`](Self::cycle_cells) then
+    /// [`topological_order`](Self::topological_order)) derives the same
+    /// formula-cell adjacency from the precedent lists twice and throws it away
+    /// twice. This builds it once. Nothing is cached and nothing has to be
+    /// invalidated; it is the same work, done once instead of twice.
+    ///
+    /// The order is [`topological_order`](Self::topological_order)'s when the
+    /// graph is acyclic (and the cycle set is then empty), and
+    /// [`acyclic_order_excluding`](Self::acyclic_order_excluding)'s over the
+    /// acyclic remainder when it is not.
+    pub fn evaluation_order(&self) -> (Vec<CellRef>, BTreeSet<CellRef>) {
+        let edges = self.formula_edges();
+        match edges.topological_order() {
+            Some(order) => (order, BTreeSet::new()),
+            None => {
+                // The graph has a cycle. Order the acyclic remainder, so cells
+                // that do not touch the cycle still evaluate in dependency
+                // order; the rest take the circular error.
+                let cycle = edges.cycle_members();
+                let order = edges.order_excluding(&cycle);
+                (order, cycle)
+            }
         }
     }
 
@@ -505,63 +495,7 @@ impl DependencyGraph {
     /// once). The order is deterministic (canonical tie-breaking), matching
     /// `topological_order`'s discipline.
     pub fn acyclic_order_excluding(&self, cycle: &BTreeSet<CellRef>) -> Vec<CellRef> {
-        let nodes: Vec<&CellRef> = self
-            .precedents
-            .keys()
-            .filter(|c| !cycle.contains(*c))
-            .collect();
-        let index_of: HashMap<&CellRef, usize> =
-            nodes.iter().enumerate().map(|(i, n)| (*n, i)).collect();
-
-        // Edges among non-cycle formula cells only (a precedent that is a cycle
-        // cell, a literal, or empty contributes no edge — a cell downstream of
-        // the cycle is then simply never reached and stays omitted).
-        let mut succ: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); nodes.len()];
-        let mut indeg: Vec<usize> = vec![0; nodes.len()];
-        for (i, cell) in nodes.iter().enumerate() {
-            for prec in &self.precedents[*cell] {
-                for fp in self.formula_precedent_cells(prec) {
-                    if cycle.contains(&fp) {
-                        // Downstream of the cycle: drop this node entirely so it
-                        // is never placed (it takes the circular error).
-                        continue;
-                    }
-                    if let Some(&j) = index_of.get(&fp) {
-                        if succ[j].insert(i) {
-                            indeg[i] += 1;
-                        }
-                    }
-                }
-            }
-        }
-        // A node that reads the cycle must be excluded from the order even
-        // though it has in-degree 0 over the surviving edges. Mark such nodes.
-        let mut tainted = vec![false; nodes.len()];
-        for (i, cell) in nodes.iter().enumerate() {
-            for prec in &self.precedents[*cell] {
-                for fp in self.formula_precedent_cells(prec) {
-                    if cycle.contains(&fp) {
-                        tainted[i] = true;
-                    }
-                }
-            }
-        }
-
-        let mut ready: BTreeSet<usize> = (0..nodes.len())
-            .filter(|&i| indeg[i] == 0 && !tainted[i])
-            .collect();
-        let mut order: Vec<CellRef> = Vec::new();
-        while let Some(&node) = ready.iter().next() {
-            ready.remove(&node);
-            order.push(nodes[node].clone());
-            for &dep in &succ[node] {
-                indeg[dep] -= 1;
-                if indeg[dep] == 0 && !tainted[dep] {
-                    ready.insert(dep);
-                }
-            }
-        }
-        order
+        self.formula_edges().order_excluding(cycle)
     }
 
     /// Every formula cell that lies on a dependency cycle (a strongly connected
@@ -572,27 +506,37 @@ impl DependencyGraph {
     /// of [`topological_order`](Self::topological_order) so it can be queried
     /// directly.
     pub fn cycle_cells(&self) -> BTreeSet<CellRef> {
-        // Tarjan's SCC over the formula-cell-only graph.
-        let nodes: Vec<CellRef> = self.precedents.keys().cloned().collect();
-        let index_of: HashMap<&CellRef, usize> =
-            nodes.iter().enumerate().map(|(i, n)| (n, i)).collect();
+        self.formula_edges().cycle_members()
+    }
 
-        // Successor list (precedent formula cell → dependent formula cell),
-        // matching topological_order's edge direction. Self loops are kept so a
-        // self-referential formula registers as its own cycle.
-        let mut adj: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); nodes.len()];
+    /// The formula-cell-only adjacency the ordering and cycle passes both run
+    /// over: precedent formula cell → dependent formula cell, with the nodes in
+    /// canonical order so every traversal over it is deterministic.
+    ///
+    /// Deriving it means expanding every precedent to the formula cells it
+    /// covers, which is the expensive part of ordering a graph; the callers
+    /// that need both an order and the cycle set take it once
+    /// ([`evaluation_order`](Self::evaluation_order)) rather than twice.
+    fn formula_edges(&self) -> FormulaEdges<'_> {
+        let nodes: Vec<&CellRef> = self.precedents.keys().collect();
+        let index_of: HashMap<&CellRef, usize> =
+            nodes.iter().enumerate().map(|(i, n)| (*n, i)).collect();
+
+        // `BTreeSet` keeps each node's successors in canonical order and dedups
+        // parallel edges (a formula reading the same cell twice).
+        let mut succ: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); nodes.len()];
         for (i, cell) in nodes.iter().enumerate() {
-            for prec in &self.precedents[cell] {
+            for prec in &self.precedents[*cell] {
                 for fp in self.formula_precedent_cells(prec) {
+                    // Edge fp(j) → cell(i): cell i depends on fp.
                     if let Some(&j) = index_of.get(&fp) {
-                        // Edge fp(j) → cell(i).
-                        adj[j].insert(i);
+                        succ[j].insert(i);
                     }
                 }
             }
         }
 
-        TarjanScc::new(&adj).cycle_members(&nodes)
+        FormulaEdges { nodes, succ }
     }
 
     /// Maps a precedent to the *formula* cells it covers (its intersection with
@@ -684,6 +628,107 @@ impl DependencyGraph {
             );
         }
         (out, examined)
+    }
+}
+
+/// The formula-cell-only adjacency of a [`DependencyGraph`]: the nodes in
+/// canonical order and, for each, the formula cells that read it.
+///
+/// Built by [`DependencyGraph::formula_edges`] and consumed by the ordering and
+/// cycle passes, which used to derive it independently from the precedent lists
+/// — the same work, done twice per recalculation.
+struct FormulaEdges<'a> {
+    /// Every formula cell, in canonical (sheet, address) order. Indices into
+    /// this vector are the node ids of `succ`.
+    nodes: Vec<&'a CellRef>,
+    /// `succ[j]` holds the nodes that read node `j` (edge `j → i` meaning
+    /// "`i` depends on `j`"), deduplicated and in canonical order.
+    succ: Vec<BTreeSet<usize>>,
+}
+
+impl FormulaEdges<'_> {
+    /// Kahn's algorithm over the whole node set, or `None` if a cycle prevents
+    /// every node from being placed.
+    ///
+    /// The ready set is a `BTreeSet` of indices, which — because `nodes` is in
+    /// canonical order — pops in canonical order, so the order is itself
+    /// deterministic.
+    fn topological_order(&self) -> Option<Vec<CellRef>> {
+        let mut indeg: Vec<usize> = vec![0; self.nodes.len()];
+        for deps in &self.succ {
+            for &i in deps {
+                indeg[i] += 1;
+            }
+        }
+
+        let mut ready: BTreeSet<usize> = (0..self.nodes.len()).filter(|&i| indeg[i] == 0).collect();
+        let mut order: Vec<CellRef> = Vec::with_capacity(self.nodes.len());
+        while let Some(&node) = ready.iter().next() {
+            ready.remove(&node);
+            order.push(self.nodes[node].clone());
+            for &dep in &self.succ[node] {
+                indeg[dep] -= 1;
+                if indeg[dep] == 0 {
+                    ready.insert(dep);
+                }
+            }
+        }
+
+        (order.len() == self.nodes.len()).then_some(order)
+    }
+
+    /// Kahn's algorithm over the nodes **not** in `cycle`, additionally
+    /// dropping every node that reads a cycle node (it takes the circular
+    /// error, and so does everything downstream of it).
+    fn order_excluding(&self, cycle: &BTreeSet<CellRef>) -> Vec<CellRef> {
+        // Surviving nodes, in canonical order; `slot` maps a node id to its
+        // position among them (`None` for a cycle node).
+        let kept: Vec<usize> = (0..self.nodes.len())
+            .filter(|&i| !cycle.contains(self.nodes[i]))
+            .collect();
+        let mut slot: Vec<Option<usize>> = vec![None; self.nodes.len()];
+        for (k, &i) in kept.iter().enumerate() {
+            slot[i] = Some(k);
+        }
+
+        let mut indeg: Vec<usize> = vec![0; kept.len()];
+        // A node that reads the cycle must be excluded from the order even
+        // though it has in-degree 0 over the surviving edges.
+        let mut tainted: Vec<bool> = vec![false; kept.len()];
+        for (j, deps) in self.succ.iter().enumerate() {
+            let from_cycle = slot[j].is_none();
+            for &i in deps {
+                let Some(k) = slot[i] else { continue };
+                if from_cycle {
+                    tainted[k] = true;
+                } else {
+                    indeg[k] += 1;
+                }
+            }
+        }
+
+        let mut ready: BTreeSet<usize> = (0..kept.len())
+            .filter(|&k| indeg[k] == 0 && !tainted[k])
+            .collect();
+        let mut order: Vec<CellRef> = Vec::new();
+        while let Some(&k) = ready.iter().next() {
+            ready.remove(&k);
+            order.push(self.nodes[kept[k]].clone());
+            for &i in &self.succ[kept[k]] {
+                let Some(dep) = slot[i] else { continue };
+                indeg[dep] -= 1;
+                if indeg[dep] == 0 && !tainted[dep] {
+                    ready.insert(dep);
+                }
+            }
+        }
+        order
+    }
+
+    /// Every node on a cycle: Tarjan's SCC, keeping components of size > 1 and
+    /// self loops.
+    fn cycle_members(&self) -> BTreeSet<CellRef> {
+        TarjanScc::new(&self.succ).cycle_members(&self.nodes)
     }
 }
 
@@ -967,7 +1012,7 @@ impl<'a> TarjanScc<'a> {
         }
     }
 
-    fn cycle_members(mut self, nodes: &[CellRef]) -> BTreeSet<CellRef> {
+    fn cycle_members(mut self, nodes: &[&CellRef]) -> BTreeSet<CellRef> {
         for v in 0..self.adj.len() {
             if self.index[v].is_none() {
                 self.strongconnect(v);
