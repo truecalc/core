@@ -553,7 +553,7 @@ impl<'a> Parser<'a> {
 ///
 /// The formula must start with `=`. Returns a [`ParseError`] if the input
 /// is not a valid formula.
-#[deprecated(since = "0.7.0", note = "use Engine::sheets()/Engine::excel() and engine.parse() — engine flavor is required; see ADR 2026-04-27; removal target: 0.7.0 coordinated release")]
+#[deprecated(since = "0.7.0", note = "use parse_formula() instead — parsing is flavor-independent, so no Engine is required; see ADR 2026-04-27; removal target: 0.7.0 coordinated release")]
 pub fn parse(formula: &str) -> Result<Expr, ParseError> {
     parse_formula(formula)
 }
@@ -569,6 +569,14 @@ pub fn parse(formula: &str) -> Result<Expr, ParseError> {
 /// more than the parse it was being built for.
 ///
 /// The leading `=` is optional.
+///
+/// This is not a reversal of the flavor-explicit direction taken for
+/// evaluation (see ADR 2026-04-27) — parsing and evaluation are different
+/// operations. Evaluation requires an engine flavor because function
+/// behavior can differ across flavors; parsing does not, and this is
+/// verified rather than assumed: the parser holds no reference to
+/// [`Registry`] or [`Engine`], and an unknown function name fails at
+/// evaluation time, not at parse time.
 ///
 /// [`Engine`]: crate::Engine
 /// [`Engine::parse`]: crate::Engine::parse

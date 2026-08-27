@@ -146,6 +146,13 @@ fn resolving_named_ranges_does_not_build_a_registry_per_reference() {
 /// syntactically invalid formula, and still accepts a valid one, under both
 /// engine flavors (the parser is flavor-independent — `Engine::parse` ignores
 /// the flavor — so validation behaves identically for Sheets and Excel).
+///
+/// This asserts a **current** fact about the grammar, not an invariant: it
+/// holds because Sheets and Excel share one grammar today. If Excel ever
+/// gains a divergent grammar, the fix is to re-thread flavor through the
+/// parse path (parsing, `extract_refs`, and `validate_formula` all currently
+/// assume a single flavor-agnostic grammar — see the module docs) — not to
+/// relax this assertion.
 #[test]
 fn set_still_validates_formula_syntax() {
     for flavor in [EngineFlavor::Sheets, EngineFlavor::Excel] {

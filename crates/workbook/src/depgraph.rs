@@ -17,8 +17,9 @@
 //!
 //! # How edges are derived ([`extract_refs`])
 //!
-//! For each formula cell the graph parses the verbatim formula with the
-//! workbook's locked engine, calls [`extract_refs`] on the AST, and resolves
+//! For each formula cell the graph parses the verbatim formula (parsing is
+//! flavor-independent and does not consult the workbook's locked engine,
+//! issue #900), calls [`extract_refs`] on the AST, and resolves
 //! each [`Ref`] to a concrete graph node:
 //!
 //! - [`Ref::Cell`] → a single-cell precedent; a bare `A1` resolves against the
@@ -183,7 +184,8 @@ impl DependencyGraph {
     /// Builds the dependency graph from `workbook`.
     ///
     /// Walks every populated cell on every sheet; for each *formula* cell,
-    /// parses the formula with the workbook's locked engine, extracts its refs
+    /// parses the formula (flavor-independent, no engine needed — issue #900),
+    /// extracts its refs
     /// ([`extract_refs`](truecalc_core::extract_refs)), resolves each to a
     /// concrete node, and records both the forward precedent list and the
     /// reverse edges. Named-range targets are resolved up front so name
