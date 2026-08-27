@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 
 pub mod depgraph;
 
-use depgraph::{CyclesResult, DependentsResult, PrecedentsResult};
+use depgraph::{DependentsResult, PrecedentsResult};
 
 use truecalc_core::types::SparklineValue;
 use truecalc_core::Engine;
@@ -328,7 +328,8 @@ impl JsWorkbook {
     /// The graph is rebuilt from the workbook's current formulas on every
     /// call, so the result is never stale: it reflects every `set` / `clear` /
     /// `defineName` since the last `recalc`, and is meaningful before any
-    /// `recalc` at all. Rebuilding costs `O(formula cells)` per call.
+    /// `recalc` at all. Building the graph costs `O(formula cells)` per call —
+    /// an upper bound expected to improve, not a fixed contract.
     ///
     /// Throws on an unknown sheet or a malformed A1 address.
     #[wasm_bindgen(js_name = precedentsOf)]
@@ -355,7 +356,12 @@ impl JsWorkbook {
     /// `dependents` is always an array; `[]` means nothing reads the cell.
     ///
     /// Bounds, truncation reporting and freshness are exactly as for
-    /// [`precedentsOf`](Self::precedents_of).
+    /// [`precedentsOf`](Self::precedents_of), with one addition: finding what
+    /// reads a cell means testing every distinct range node and every name
+    /// against it, so each emitted (or expanded) node costs `O(distinct
+    /// ranges + names)` on top of the `O(formula cells)` graph build — a
+    /// workbook with many named ranges or range formulas makes this call
+    /// noticeably more expensive than `precedentsOf` at the same size.
     ///
     /// Throws on an unknown sheet or a malformed A1 address.
     #[wasm_bindgen(js_name = dependentsOf)]
@@ -368,19 +374,5 @@ impl JsWorkbook {
     ) -> Result<DependentsResult, JsError> {
         depgraph::dependents_of(&self.inner, sheet, a1, max_depth, max_nodes)
             .map_err(|e| JsError::new(&e))
-    }
-
-    /// The cells caught in a circular reference: every formula cell on a
-    /// dependency cycle, which is exactly the set `recalc` gives the
-    /// circular-dependency error.
-    ///
-    /// Returns `{ cells: [{ sheet, a1 }], truncated, truncatedBy? }`. `cells`
-    /// is always an array and is empty when the workbook is acyclic.
-    ///
-    /// `maxNodes` defaults to `1000` and is clamped to `10000`; more cycle
-    /// cells than that sets `truncated` with `truncatedBy: "maxNodes"`.
-    #[wasm_bindgen(js_name = cycleCells)]
-    pub fn cycle_cells(&self, max_nodes: Option<u32>) -> CyclesResult {
-        depgraph::cycle_cells(&self.inner, max_nodes)
     }
 }

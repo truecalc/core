@@ -8,8 +8,6 @@
 //! - **What does this cell read?** — [`precedents_of`].
 //! - **What breaks if I change this cell?** — [`dependents_of`].
 //!
-//! plus [`cycle_cells`] for the cells caught in a circular reference.
-//!
 //! # Freshness
 //!
 //! [`Workbook`] caches no graph, so every query here calls
@@ -192,25 +190,6 @@ pub struct DependentsResult {
     /// Which bound stopped the walk. Present exactly when `truncated` is
     /// `true`.
     #[tsify(optional, type = "\"maxNodes\" | \"maxDepth\"")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub truncated_by: Option<String>,
-}
-
-/// Answer to: which cells are stuck in a circular reference?
-#[derive(Tsify, Serialize, Debug, Clone, PartialEq, Eq)]
-#[tsify(into_wasm_abi)]
-#[serde(rename_all = "camelCase")]
-pub struct CyclesResult {
-    /// Every formula cell lying on a dependency cycle — a self-reference, or a
-    /// strongly connected component of two or more cells. **Always present**,
-    /// empty when the workbook is acyclic. These are exactly the cells recalc
-    /// gives the circular-dependency error.
-    pub cells: Vec<CellNode>,
-    /// `true` when more cycle cells exist than `maxNodes` allowed.
-    pub truncated: bool,
-    /// Present exactly when `truncated` is `true`; always `maxNodes`, the only
-    /// bound this query has.
-    #[tsify(optional, type = "\"maxNodes\"")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub truncated_by: Option<String>,
 }
@@ -471,25 +450,4 @@ pub fn dependents_of(
         truncated: truncated_by.is_some(),
         truncated_by: truncated_by.map(str::to_string),
     })
-}
-
-/// Every formula cell lying on a dependency cycle, capped at `max_nodes`.
-///
-/// `max_nodes` defaults to [`DEFAULT_MAX_NODES`] and is clamped to
-/// [`MAX_MAX_NODES`]. Cannot fail: an acyclic workbook returns an empty list.
-pub fn cycle_cells(workbook: &Workbook, max_nodes: Option<u32>) -> CyclesResult {
-    let max_nodes = clamp_nodes(max_nodes);
-    let graph = DependencyGraph::build(workbook);
-    let all = graph.cycle_cells();
-    let truncated = all.len() > max_nodes;
-    let cells: Vec<CellNode> = all
-        .iter()
-        .take(max_nodes)
-        .map(|c| cell_node(workbook, c))
-        .collect();
-    CyclesResult {
-        cells,
-        truncated,
-        truncated_by: truncated.then(|| TRUNCATED_BY_MAX_NODES.to_string()),
-    }
 }

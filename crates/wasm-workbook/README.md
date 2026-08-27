@@ -271,12 +271,6 @@ wb.dependentsOf('Inputs', 'A1');
 //      truncated: false }
 ```
 
-### `wb.cycleCells(maxNodes?)`
-
-The cells caught in a circular reference — exactly the set `recalc` gives the
-circular-dependency error. Returns `{ cells, truncated, truncatedBy? }` with
-`cells` an array of `{ sheet, a1 }`, empty when the workbook is acyclic.
-
 ### Bounds and freshness
 
 Every dependency query is bounded on both depth and node count and **always

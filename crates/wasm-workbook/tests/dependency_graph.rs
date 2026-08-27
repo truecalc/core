@@ -1,5 +1,5 @@
 //! Coverage for the dependency-graph queries the JavaScript workbook surface
-//! exposes: `precedentsOf`, `dependentsOf` and `cycleCells`.
+//! exposes: `precedentsOf` and `dependentsOf`.
 //!
 //! These call the `truecalc_wasm_workbook::depgraph` functions the
 //! `JsWorkbook` methods are thin wrappers over, against a
@@ -7,9 +7,7 @@
 //! run natively under `cargo test` without a wasm runtime, matching this
 //! crate's existing convention (see `round_trip.rs`, `table_bindings.rs`).
 
-use truecalc_wasm_workbook::depgraph::{
-    cycle_cells, dependents_of, precedents_of, NameTargetRef, PrecedentRef,
-};
+use truecalc_wasm_workbook::depgraph::{dependents_of, precedents_of, NameTargetRef, PrecedentRef};
 use truecalc_workbook::{
     Address, CellInput, EngineFlavor, RecalcContext, Value, Workbook, Worksheet,
 };
@@ -273,7 +271,7 @@ fn a_named_range_precedent_carries_its_target() {
             .map(|n| n.reference.clone())
             .collect::<Vec<_>>(),
         vec![PrecedentRef::Name {
-            name: "rate".to_string(),
+            name: "Rate".to_string(),
             target: NameTargetRef::Cell {
                 sheet: "Sheet1".to_string(),
                 a1: "B1".to_string(),
@@ -322,26 +320,14 @@ fn an_unresolvable_reference_is_reported() {
 
 // --- Cycles ---------------------------------------------------------------
 
-/// A two-cell circular reference names both participants, and the traversals
-/// over it terminate instead of looping.
+/// A two-cell circular reference: the precedent/dependent walks over it
+/// terminate at the bound instead of spinning on the cycle.
 #[test]
-fn a_cycle_reports_its_participants_and_terminates() {
+fn a_cycle_terminates_precedent_and_dependent_walks() {
     let mut wb = workbook(&["Sheet1"]);
     set_formula(&mut wb, "Sheet1", "A1", "=B1+1");
     set_formula(&mut wb, "Sheet1", "B1", "=A1+1");
 
-    let c = cycle_cells(&wb, None);
-    assert_eq!(
-        c.cells
-            .iter()
-            .map(|n| format!("{}!{}", n.sheet, n.a1))
-            .collect::<Vec<_>>(),
-        vec!["Sheet1!A1".to_string(), "Sheet1!B1".to_string()]
-    );
-    assert!(!c.truncated);
-    assert_eq!(c.truncated_by, None);
-
-    // The walks terminate at the bound rather than spinning on the cycle.
     assert_eq!(
         precedent_cells(&wb, "Sheet1", "A1", 64),
         vec![(1, "Sheet1!B1".to_string()), (2, "Sheet1!A1".to_string())]
@@ -350,44 +336,6 @@ fn a_cycle_reports_its_participants_and_terminates() {
         dependent_cells(&wb, "Sheet1", "A1", 64),
         vec![(1, "Sheet1!B1".to_string()), (2, "Sheet1!A1".to_string())]
     );
-}
-
-/// A self-referential cell is its own cycle.
-#[test]
-fn a_self_reference_is_a_cycle() {
-    let mut wb = workbook(&["Sheet1"]);
-    set_formula(&mut wb, "Sheet1", "A1", "=A1+1");
-
-    let c = cycle_cells(&wb, None);
-    assert_eq!(c.cells.len(), 1);
-    assert_eq!(c.cells[0].a1, "A1");
-}
-
-/// An acyclic workbook returns an empty list, not a missing field.
-#[test]
-fn an_acyclic_workbook_reports_no_cycle_cells() {
-    let mut wb = workbook(&["Sheet1"]);
-    set_number(&mut wb, "Sheet1", "A1", 1.0);
-    set_formula(&mut wb, "Sheet1", "A2", "=A1+1");
-
-    let c = cycle_cells(&wb, None);
-    assert!(c.cells.is_empty());
-    assert!(!c.truncated);
-    let json = serde_json::to_value(c).unwrap();
-    assert_eq!(json["cells"], serde_json::json!([]));
-}
-
-/// Cycle listing is bounded too, and says so.
-#[test]
-fn cycle_listing_is_bounded() {
-    let mut wb = workbook(&["Sheet1"]);
-    set_formula(&mut wb, "Sheet1", "A1", "=B1+1");
-    set_formula(&mut wb, "Sheet1", "B1", "=A1+1");
-
-    let c = cycle_cells(&wb, Some(1));
-    assert_eq!(c.cells.len(), 1);
-    assert!(c.truncated);
-    assert_eq!(c.truncated_by.as_deref(), Some("maxNodes"));
 }
 
 // --- The bounds being hit -------------------------------------------------
