@@ -77,7 +77,13 @@ Evaluate a formula with optional variable bindings.
 { "formula": "SUM(A1, B1)", "variables": { "A1": 100, "B1": 200 } }
 ```
 
-Returns: `{ "value": 300, "type": "number" }`
+Returns: `{ "value": 300, "type": "number", "accepted": { "bound": { "A1": "number", "B1": "number" }, "conformance": "google-sheets" } }`
+
+`accepted` reports what the server resolved the request to — which names bound
+at which shape, and the conformance target actually used — so a list read as
+text or a defaulted target is visible without a second call. `workbook_set` and
+`workbook_get` echo the resolved sheet and cell the same way, and `workbook_set`
+also reports the kind it read the value as (`"as": "number"` for `"007"`).
 
 ### `validate`
 
@@ -87,7 +93,9 @@ Check whether a formula parses without errors.
 { "formula": "IF(score >= 60, \"pass\", \"fail\")" }
 ```
 
-Returns: `{ "valid": true }` or `{ "valid": false, "error": "..." }`
+Returns: `{ "valid": true }` or `{ "valid": false, "error": "..." }`. Both are
+successful calls — `isError` is set only when the server could not carry the
+call out at all, never because the payload mentions an error.
 
 ### `explain`
 

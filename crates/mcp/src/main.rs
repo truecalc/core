@@ -181,8 +181,13 @@ fn handle_request(req: &JsonValue, default_conformance: &str, engines: &Engines,
         "tools/call" => {
             let name = params["name"].as_str().unwrap_or("");
             let args = &params["arguments"];
-            let result = dispatch_tool(name, args, default_conformance, engines, store);
-            let is_error = result.get("error").is_some();
+            // The flag comes from the outcome type, never from probing the
+            // payload for an "error" key: `validate` answering {"valid": false}
+            // is a successful answer to a question, not a failed call.
+            let (result, is_error) = match dispatch_tool(name, args, default_conformance, engines, store) {
+                Ok(v) => (v, false),
+                Err(e) => (json!({ "error": e }), true),
+            };
             let mut tool_result = json!({
                 "content": [{ "type": "text", "text": serde_json::to_string(&result).expect("result serialisation is infallible") }]
             });
@@ -206,7 +211,7 @@ fn handle_request(req: &JsonValue, default_conformance: &str, engines: &Engines,
 
 // ─── Tool dispatch ────────────────────────────────────────────────────────────
 
-fn dispatch_tool(name: &str, args: &JsonValue, default_conformance: &str, engines: &Engines, store: &mut SessionStore) -> JsonValue {
+fn dispatch_tool(name: &str, args: &JsonValue, default_conformance: &str, engines: &Engines, store: &mut SessionStore) -> Result<JsonValue, String> {
     match name {
         "evaluate" => tool_evaluate(args, default_conformance, engines),
         "validate" => tool_validate(args, engines),
@@ -220,47 +225,38 @@ fn dispatch_tool(name: &str, args: &JsonValue, default_conformance: &str, engine
         "workbook_recalc" => tool_workbook_recalc(args, store),
         "workbook_export" => tool_workbook_export(args, store),
         "workbook_import" => tool_workbook_import(args, store),
-        _ => json!({ "error": format!("Unknown tool: {}", name) }),
+        _ => Err(format!("Unknown tool: {}", name)),
     }
 }
 
 // ─── Individual tools ─────────────────────────────────────────────────────────
 
-fn tool_evaluate(args: &JsonValue, default_conformance: &str, engines: &Engines) -> JsonValue {
-    let formula = match args["formula"].as_str() {
-        Some(f) => f,
-        None => return json!({ "error": "missing formula" }),
-    };
-    let conformance = args["conformance"].as_str().unwrap_or(default_conformance);
-    let engine = match engines.select(conformance) {
-        Some(e) => e,
-        None => return json!({ "error": format!("Unknown conformance target: '{}'", conformance) }),
-    };
-    let vars = match parse_variables(&args["variables"]) {
-        Ok(v) => v,
-        Err(e) => return json!({ "error": e }),
-    };
+fn tool_evaluate(args: &JsonValue, default_conformance: &str, engines: &Engines) -> Result<JsonValue, String> {
+    let formula = args["formula"].as_str().ok_or("missing formula")?;
+    let conformance = optional_str(args, "conformance")?.unwrap_or(default_conformance);
+    let engine = engines
+        .select(conformance)
+        .ok_or_else(|| format!("Unknown conformance target: '{}'", conformance))?;
+    let vars = parse_variables(&args["variables"])?;
     let value = engine.evaluate(formula, &vars);
-    value_to_json(&value)
+    let mut out = value_to_json(&value);
+    out["accepted"] = accepted_bindings(&vars, conformance);
+    Ok(out)
 }
 
-fn tool_validate(args: &JsonValue, engines: &Engines) -> JsonValue {
-    let formula = match args["formula"].as_str() {
-        Some(f) => f,
-        None => return json!({ "error": "missing formula" }),
-    };
+fn tool_validate(args: &JsonValue, engines: &Engines) -> Result<JsonValue, String> {
+    let formula = args["formula"].as_str().ok_or("missing formula")?;
+    // Both arms are Ok: the tool was asked whether the formula parses and it
+    // answered. Only a call it could not carry out is an error.
     match engines.google_sheets.validate(formula) {
-        Ok(_) => json!({ "valid": true }),
-        Err(e) => json!({ "valid": false, "error": e.to_string() }),
+        Ok(_) => Ok(json!({ "valid": true })),
+        Err(e) => Ok(json!({ "valid": false, "error": e.to_string() })),
     }
 }
 
-fn tool_explain(args: &JsonValue, engines: &Engines) -> JsonValue {
-    let formula = match args["formula"].as_str() {
-        Some(f) => f,
-        None => return json!({ "error": "missing formula" }),
-    };
-    match engines.google_sheets.parse(formula) {
+fn tool_explain(args: &JsonValue, engines: &Engines) -> Result<JsonValue, String> {
+    let formula = args["formula"].as_str().ok_or("missing formula")?;
+    Ok(match engines.google_sheets.parse(formula) {
         Ok(expr) => {
             let mut functions = Vec::new();
             collect_functions(&expr, &mut functions);
@@ -277,32 +273,26 @@ fn tool_explain(args: &JsonValue, engines: &Engines) -> JsonValue {
             "description": format!("Invalid formula: {}", e),
             "functions_used": []
         }),
-    }
+    })
 }
 
-fn tool_batch_evaluate(args: &JsonValue, default_conformance: &str, engines: &Engines) -> JsonValue {
-    let formulas = match args["formulas"].as_array() {
-        Some(a) => a,
-        None => return json!({ "error": "missing formulas array" }),
-    };
-    let conformance = args["conformance"].as_str().unwrap_or(default_conformance);
-    let engine = match engines.select(conformance) {
-        Some(e) => e,
-        None => return json!({ "error": format!("Unknown conformance target: '{}'", conformance) }),
-    };
-    let vars = match parse_variables(&args["variables"]) {
-        Ok(v) => v,
-        Err(e) => return json!({ "error": e }),
-    };
-    let results: Vec<JsonValue> = formulas
-        .iter()
-        .map(|f| {
-            let formula = f.as_str().unwrap_or("");
-            let value = engine.evaluate(formula, &vars);
-            value_to_json(&value)
-        })
-        .collect();
-    json!(results)
+fn tool_batch_evaluate(args: &JsonValue, default_conformance: &str, engines: &Engines) -> Result<JsonValue, String> {
+    let formulas = args["formulas"].as_array().ok_or("missing formulas array")?;
+    let conformance = optional_str(args, "conformance")?.unwrap_or(default_conformance);
+    let engine = engines
+        .select(conformance)
+        .ok_or_else(|| format!("Unknown conformance target: '{}'", conformance))?;
+    let vars = parse_variables(&args["variables"])?;
+    let mut results: Vec<JsonValue> = Vec::with_capacity(formulas.len());
+    for (i, f) in formulas.iter().enumerate() {
+        // Coerced to "", a non-string entry evaluates to an empty value in the
+        // middle of an otherwise correct batch — a hole the caller cannot see.
+        let formula = f
+            .as_str()
+            .ok_or_else(|| format!("\"formulas\"[{i}] must be a string, got {f}"))?;
+        results.push(value_to_json(&engine.evaluate(formula, &vars)));
+    }
+    Ok(json!(results))
 }
 
 /// How many entries a *filtered* `list_functions` call returns unless the
@@ -324,14 +314,43 @@ fn optional_str<'a>(args: &'a JsonValue, key: &str) -> Result<Option<&'a str>, S
     }
 }
 
-fn tool_list_functions(args: &JsonValue) -> JsonValue {
-    match list_functions_filtered(args) {
-        Ok(v) => v,
-        Err(e) => json!({ "error": e }),
+/// Read an optional integer argument, rejecting a value of the wrong type.
+/// `kind` names what would have been accepted, since "integer" alone does not
+/// explain why a negative seed or a fractional timestamp was refused.
+fn optional_int<T>(args: &JsonValue, key: &str, kind: &str, read: fn(&JsonValue) -> Option<T>) -> Result<Option<T>, String> {
+    match &args[key] {
+        JsonValue::Null => Ok(None),
+        v => read(v).map(Some).ok_or_else(|| format!("\"{key}\" must be {kind}, got {v}")),
     }
 }
 
-fn list_functions_filtered(args: &JsonValue) -> Result<JsonValue, String> {
+/// A one-word description of the shape a value bound at — enough to see that a
+/// list was read as a list, without restating the request.
+fn value_shape(v: &Value) -> String {
+    match v {
+        Value::Number(_) | Value::Date(_) => "number".to_owned(),
+        Value::Text(_) => "text".to_owned(),
+        Value::Bool(_) => "bool".to_owned(),
+        Value::Empty => "empty".to_owned(),
+        Value::Error(_) | Value::ErrorMsg(..) => "error".to_owned(),
+        Value::Zoned(_) => "zoned".to_owned(),
+        Value::Sparkline(_) => "sparkline".to_owned(),
+        Value::Array(items) => format!("array[{}]", items.len()),
+    }
+}
+
+/// What the server resolved an evaluate-shaped request to, in its own terms:
+/// which names bound at which shape, and the conformance target actually used.
+/// A caller that has to pay a round trip to check this will not check.
+fn accepted_bindings(vars: &HashMap<String, Value>, conformance: &str) -> JsonValue {
+    let bound: serde_json::Map<String, JsonValue> = vars
+        .iter()
+        .map(|(k, v)| (k.clone(), json!(value_shape(v))))
+        .collect();
+    json!({ "bound": bound, "conformance": conformance })
+}
+
+fn tool_list_functions(args: &JsonValue) -> Result<JsonValue, String> {
     if let Some(obj) = args.as_object() {
         for key in obj.keys() {
             if !LIST_FUNCTIONS_ARGS.contains(&key.as_str()) {
@@ -422,7 +441,7 @@ fn list_functions_filtered(args: &JsonValue) -> Result<JsonValue, String> {
     Ok(out)
 }
 
-fn tool_get_stats() -> JsonValue {
+fn tool_get_stats() -> Result<JsonValue, String> {
     let registry = Registry::new();
     let mut by_category: std::collections::BTreeMap<&str, u32> = std::collections::BTreeMap::new();
     let mut total: u32 = 0;
@@ -434,136 +453,105 @@ fn tool_get_stats() -> JsonValue {
         .iter()
         .map(|(cat, count)| json!({ "category": cat, "count": count }))
         .collect();
-    json!({
+    Ok(json!({
         "version": env!("CARGO_PKG_VERSION"),
         "total_functions": total,
         "by_category": categories
-    })
+    }))
 }
 
 // ─── Workbook tools ───────────────────────────────────────────────────────────
 
-fn tool_workbook_create(args: &JsonValue, store: &mut SessionStore) -> JsonValue {
-    let engine_str = match args["engine"].as_str() {
-        Some(e) => e,
-        None => return json!({ "error": "missing engine" }),
-    };
+fn tool_workbook_create(args: &JsonValue, store: &mut SessionStore) -> Result<JsonValue, String> {
+    let engine_str = args["engine"].as_str().ok_or("missing engine")?;
     let engine = match engine_str {
         "sheets" => WbEngine::Sheets,
         "excel" => WbEngine::Excel,
-        other => return json!({ "error": format!("unknown engine: {}", other) }),
+        other => return Err(format!("unknown engine: {}", other)),
     };
-    match store.create(engine) {
-        Ok(id) => json!({ "workbook_id": id }),
-        Err(e) => json!({ "error": e }),
-    }
+    store.create(engine).map(|id| json!({ "workbook_id": id }))
 }
 
-fn tool_workbook_set(args: &JsonValue, store: &mut SessionStore) -> JsonValue {
-    let workbook_id = match args["workbook_id"].as_str() {
-        Some(id) => id,
-        None => return json!({ "error": "missing workbook_id" }),
-    };
-    let sheet = match args["sheet"].as_str() {
-        Some(s) => s,
-        None => return json!({ "error": "missing sheet" }),
-    };
-    let cell = match args["cell"].as_str() {
-        Some(c) => c,
-        None => return json!({ "error": "missing cell" }),
-    };
-    let value = match args["value"].as_str() {
-        Some(v) => v,
-        None => return json!({ "error": "missing value" }),
-    };
+fn tool_workbook_set(args: &JsonValue, store: &mut SessionStore) -> Result<JsonValue, String> {
+    let workbook_id = args["workbook_id"].as_str().ok_or("missing workbook_id")?;
+    let sheet = args["sheet"].as_str().ok_or("missing sheet")?;
+    let cell = args["cell"].as_str().ok_or("missing cell")?;
+    let value = args["value"].as_str().ok_or("missing value")?;
 
-    let wb = match store.get_mut(workbook_id) {
-        Some(wb) => wb,
-        None => return json!({ "error": format!("workbook not found: {}", workbook_id) }),
-    };
+    let wb = store
+        .get_mut(workbook_id)
+        .ok_or_else(|| format!("workbook not found: {}", workbook_id))?;
 
-    let addr = match Address::from_a1(&cell.to_uppercase()) {
-        Some(a) => a,
-        None => return json!({ "error": format!("invalid cell address: {}", cell) }),
-    };
+    let addr = Address::from_a1(&cell.to_uppercase())
+        .ok_or_else(|| format!("invalid cell address: {}", cell))?;
 
-    let input = if value.starts_with('=') {
-        CellInput::Formula(value.to_owned())
+    // The kind the value was read as travels back with the answer: "007" is a
+    // number and "1/2" is text, and which one happened is not otherwise
+    // visible without reading the cell back.
+    let (input, read_as) = if value.starts_with('=') {
+        (CellInput::Formula(value.to_owned()), "formula")
     } else if value == "TRUE" || value == "true" {
-        CellInput::Literal(WbValue::Boolean(true))
+        (CellInput::Literal(WbValue::Boolean(true)), "boolean")
     } else if value == "FALSE" || value == "false" {
-        CellInput::Literal(WbValue::Boolean(false))
+        (CellInput::Literal(WbValue::Boolean(false)), "boolean")
     } else if let Ok(n) = value.parse::<f64>() {
-        CellInput::Literal(WbValue::Number(n))
+        (CellInput::Literal(WbValue::Number(n)), "number")
     } else if let Some(zi) = truecalc_core::types::zoned::parse_rfc9557(value) {
-        CellInput::Literal(WbValue::Zoned(Box::new(zi)))
+        (CellInput::Literal(WbValue::Zoned(Box::new(zi))), "zoned")
     } else {
-        CellInput::Literal(WbValue::Text(value.to_owned()))
+        (CellInput::Literal(WbValue::Text(value.to_owned())), "text")
     };
 
-    match wb.set(sheet, addr, input) {
-        Ok(_) => json!({ "ok": true }),
-        Err(e) => json!({ "error": e.to_string() }),
-    }
+    wb.set(sheet, addr, input).map_err(|e| e.to_string())?;
+    Ok(json!({
+        "ok": true,
+        "accepted": { "sheet": sheet, "cell": addr.to_a1(), "as": read_as }
+    }))
 }
 
-fn tool_workbook_get(args: &JsonValue, store: &mut SessionStore) -> JsonValue {
-    let workbook_id = match args["workbook_id"].as_str() {
-        Some(id) => id,
-        None => return json!({ "error": "missing workbook_id" }),
-    };
-    let sheet = match args["sheet"].as_str() {
-        Some(s) => s,
-        None => return json!({ "error": "missing sheet" }),
-    };
-    let cell = match args["cell"].as_str() {
-        Some(c) => c,
-        None => return json!({ "error": "missing cell" }),
-    };
+fn tool_workbook_get(args: &JsonValue, store: &mut SessionStore) -> Result<JsonValue, String> {
+    let workbook_id = args["workbook_id"].as_str().ok_or("missing workbook_id")?;
+    let sheet = args["sheet"].as_str().ok_or("missing sheet")?;
+    let cell = args["cell"].as_str().ok_or("missing cell")?;
 
-    let wb = match store.get_mut(workbook_id) {
-        Some(wb) => wb,
-        None => return json!({ "error": format!("workbook not found: {}", workbook_id) }),
-    };
+    let wb = store
+        .get_mut(workbook_id)
+        .ok_or_else(|| format!("workbook not found: {}", workbook_id))?;
 
-    let addr = match Address::from_a1(&cell.to_uppercase()) {
-        Some(a) => a,
-        None => return json!({ "error": format!("invalid cell address: {}", cell) }),
-    };
+    let addr = Address::from_a1(&cell.to_uppercase())
+        .ok_or_else(|| format!("invalid cell address: {}", cell))?;
 
     if wb.sheet(sheet).is_none() {
-        return json!({ "error": format!("sheet not found: {}", sheet) });
+        return Err(format!("sheet not found: {}", sheet));
     }
 
     // `resolved` returns `None` for a genuinely empty address (never authored,
     // not covered by a spill) once the sheet itself is known to exist — that is
     // a normal empty read, not an invalid one, and must return the same shape
     // recalc/formula-indirection already return for an empty value.
-    match wb.resolved(sheet, addr) {
+    let mut out = match wb.resolved(sheet, addr) {
         Some(resolved) => wb_value_to_json(&resolved.value),
         None => wb_value_to_json(&WbValue::Empty),
-    }
+    };
+    out["accepted"] = json!({ "sheet": sheet, "cell": addr.to_a1() });
+    Ok(out)
 }
 
-fn tool_workbook_recalc(args: &JsonValue, store: &mut SessionStore) -> JsonValue {
-    let workbook_id = match args["workbook_id"].as_str() {
-        Some(id) => id,
-        None => return json!({ "error": "missing workbook_id" }),
-    };
+fn tool_workbook_recalc(args: &JsonValue, store: &mut SessionStore) -> Result<JsonValue, String> {
+    let workbook_id = args["workbook_id"].as_str().ok_or("missing workbook_id")?;
 
-    let timestamp_ms = args["timestamp_ms"].as_i64().unwrap_or(0);
-    let timezone = args["timezone"].as_str().unwrap_or("UTC");
-    let rng_seed = args["rng_seed"].as_u64().unwrap_or(0);
+    // Defaulted, a value we cannot read answers for a context the caller never
+    // asked for: NOW() at the epoch, RAND() from seed 0.
+    let timestamp_ms = optional_int(args, "timestamp_ms", "a whole number of milliseconds", JsonValue::as_i64)?.unwrap_or(0);
+    let timezone = optional_str(args, "timezone")?.unwrap_or("UTC");
+    let rng_seed = optional_int(args, "rng_seed", "a non-negative integer", JsonValue::as_u64)?.unwrap_or(0);
 
-    let ctx = match RecalcContext::new(timestamp_ms, timezone, rng_seed) {
-        Some(c) => c,
-        None => return json!({ "error": format!("unknown timezone: {}", timezone) }),
-    };
+    let ctx = RecalcContext::new(timestamp_ms, timezone, rng_seed)
+        .ok_or_else(|| format!("unknown timezone: {}", timezone))?;
 
-    let wb = match store.get_mut(workbook_id) {
-        Some(wb) => wb,
-        None => return json!({ "error": format!("workbook not found: {}", workbook_id) }),
-    };
+    let wb = store
+        .get_mut(workbook_id)
+        .ok_or_else(|| format!("workbook not found: {}", workbook_id))?;
 
     let changes = wb.recalc(&ctx);
     let change_list: Vec<JsonValue> = changes
@@ -575,35 +563,23 @@ fn tool_workbook_recalc(args: &JsonValue, store: &mut SessionStore) -> JsonValue
             "after": wb_value_to_json(&c.new),
         }))
         .collect();
-    json!({ "changes": change_list })
+    Ok(json!({ "changes": change_list }))
 }
 
-fn tool_workbook_export(args: &JsonValue, store: &mut SessionStore) -> JsonValue {
-    let workbook_id = match args["workbook_id"].as_str() {
-        Some(id) => id,
-        None => return json!({ "error": "missing workbook_id" }),
-    };
+fn tool_workbook_export(args: &JsonValue, store: &mut SessionStore) -> Result<JsonValue, String> {
+    let workbook_id = args["workbook_id"].as_str().ok_or("missing workbook_id")?;
 
-    let wb = match store.get_mut(workbook_id) {
-        Some(wb) => wb,
-        None => return json!({ "error": format!("workbook not found: {}", workbook_id) }),
-    };
+    let wb = store
+        .get_mut(workbook_id)
+        .ok_or_else(|| format!("workbook not found: {}", workbook_id))?;
 
-    wb.to_json()
-        .map(|s| json!({ "json": s }))
-        .unwrap_or_else(|e| json!({ "error": e.to_string() }))
+    wb.to_json().map(|s| json!({ "json": s })).map_err(|e| e.to_string())
 }
 
-fn tool_workbook_import(args: &JsonValue, store: &mut SessionStore) -> JsonValue {
-    let json_str = match args["json"].as_str() {
-        Some(s) => s,
-        None => return json!({ "error": "missing json" }),
-    };
+fn tool_workbook_import(args: &JsonValue, store: &mut SessionStore) -> Result<JsonValue, String> {
+    let json_str = args["json"].as_str().ok_or("missing json")?;
 
-    match store.import(json_str) {
-        Ok(id) => json!({ "workbook_id": id }),
-        Err(e) => json!({ "error": e }),
-    }
+    store.import(json_str).map(|id| json!({ "workbook_id": id }))
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -717,13 +693,18 @@ fn parse_variable(v: &JsonValue) -> Result<Value, String> {
 }
 
 fn parse_variables(vars_json: &JsonValue) -> Result<HashMap<String, Value>, String> {
+    let obj = match vars_json {
+        JsonValue::Null => return Ok(HashMap::new()),
+        JsonValue::Object(obj) => obj,
+        // Ignored, this leaves every name unbound, and an unbound name
+        // evaluates to empty rather than raising.
+        other => return Err(format!("\"variables\" must be an object of name → value, got {other}")),
+    };
     let mut map = HashMap::new();
-    if let Some(obj) = vars_json.as_object() {
-        for (k, v) in obj {
-            let val = parse_variable(v)
-                .map_err(|why| format!("unsupported variable binding for \"{k}\": {why}"))?;
-            map.insert(k.clone(), val);
-        }
+    for (k, v) in obj {
+        let val = parse_variable(v)
+            .map_err(|why| format!("unsupported variable binding for \"{k}\": {why}"))?;
+        map.insert(k.clone(), val);
     }
     Ok(map)
 }
