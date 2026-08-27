@@ -553,13 +553,36 @@ impl<'a> Parser<'a> {
 ///
 /// The formula must start with `=`. Returns a [`ParseError`] if the input
 /// is not a valid formula.
-#[deprecated(since = "0.7.0", note = "use Engine::sheets()/Engine::excel() and engine.parse() — engine flavor is required; see ADR 2026-04-27; removal target: 0.7.0 coordinated release")]
+#[deprecated(since = "0.7.0", note = "use parse_formula() instead — parsing is flavor-independent, so no Engine is required; see ADR 2026-04-27; removal target: 0.7.0 coordinated release")]
 pub fn parse(formula: &str) -> Result<Expr, ParseError> {
     parse_formula(formula)
 }
 
-/// Crate-internal parser entry point used by [`crate::Engine`].
-pub(crate) fn parse_formula(formula: &str) -> Result<Expr, ParseError> {
+/// Parse a formula string into an expression tree, without an [`Engine`].
+///
+/// This is the parser entry point [`Engine::parse`] and [`Engine::validate`]
+/// call. It is exposed directly because parsing is **flavor-independent and
+/// registry-free**: it reads only the formula text, so a caller that needs an
+/// AST (or only a syntax check) never has to construct an [`Engine`] — and
+/// therefore never has to build the function [`Registry`], which parsing does
+/// not consult (issue #900). Building that registry costs orders of magnitude
+/// more than the parse it was being built for.
+///
+/// The leading `=` is optional.
+///
+/// This is not a reversal of the flavor-explicit direction taken for
+/// evaluation (see ADR 2026-04-27) — parsing and evaluation are different
+/// operations. Evaluation requires an engine flavor because function
+/// behavior can differ across flavors; parsing does not, and this is
+/// verified rather than assumed: the parser holds no reference to
+/// [`Registry`] or [`Engine`], and an unknown function name fails at
+/// evaluation time, not at parse time.
+///
+/// [`Engine`]: crate::Engine
+/// [`Engine::parse`]: crate::Engine::parse
+/// [`Engine::validate`]: crate::Engine::validate
+/// [`Registry`]: crate::Registry
+pub fn parse_formula(formula: &str) -> Result<Expr, ParseError> {
     let input = formula.strip_prefix('=').unwrap_or(formula).trim();
     let p = Parser::new(formula);
     match p.parse_comparison(input) {

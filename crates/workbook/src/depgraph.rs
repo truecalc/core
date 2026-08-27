@@ -17,8 +17,9 @@
 //!
 //! # How edges are derived ([`extract_refs`])
 //!
-//! For each formula cell the graph parses the verbatim formula with the
-//! workbook's locked engine, calls [`extract_refs`] on the AST, and resolves
+//! For each formula cell the graph parses the verbatim formula (parsing is
+//! flavor-independent and does not consult the workbook's locked engine,
+//! issue #900), calls [`extract_refs`] on the AST, and resolves
 //! each [`Ref`] to a concrete graph node:
 //!
 //! - [`Ref::Cell`] → a single-cell precedent; a bare `A1` resolves against the
@@ -51,7 +52,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use icu_casemap::CaseMapperBorrowed;
-use truecalc_core::{CellAddr, Engine, EngineFlavor, Ref};
+use truecalc_core::{CellAddr, Ref};
 
 use crate::address::Address;
 use crate::casefold::simple_fold;
@@ -183,7 +184,8 @@ impl DependencyGraph {
     /// Builds the dependency graph from `workbook`.
     ///
     /// Walks every populated cell on every sheet; for each *formula* cell,
-    /// parses the formula with the workbook's locked engine, extracts its refs
+    /// parses the formula (flavor-independent, no engine needed — issue #900),
+    /// extracts its refs
     /// ([`extract_refs`](truecalc_core::extract_refs)), resolves each to a
     /// concrete node, and records both the forward precedent list and the
     /// reverse edges. Named-range targets are resolved up front so name
@@ -196,10 +198,6 @@ impl DependencyGraph {
     /// therefore never fails.
     pub fn build(workbook: &Workbook) -> Self {
         let folder = CaseMapperBorrowed::new();
-        let engine = match workbook.engine() {
-            EngineFlavor::Sheets => Engine::sheets(),
-            EngineFlavor::Excel => Engine::excel(),
-        };
 
         // Resolve named-range targets first (the name → target indirection
         // layer). A name whose ref names a missing sheet, or is itself
@@ -231,7 +229,10 @@ impl DependencyGraph {
                 };
                 let from = CellRef::new(sheet_folded.clone(), addr);
 
-                let refs = match engine.parse(formula) {
+                // Parsed without an `Engine`: parsing is flavor-independent
+                // and never reads the function registry, so building one per
+                // graph build was pure waste (issue #900).
+                let refs = match truecalc_core::parse_formula(formula) {
                     Ok(expr) => truecalc_core::extract_refs(&expr),
                     // An unparseable formula has one self-describing precedent
                     // and no edges — the recalc engine reports the parse error.

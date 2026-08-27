@@ -1430,13 +1430,12 @@ impl GridResolver<'_> {
     /// Resolves a named range's canonical `ref` string (`Sheet!A1` /
     /// `Sheet!A1:B2`) the same way a literal reference resolves.
     fn resolve_name_ref(&mut self, r: &str) -> CoreValue {
-        let engine = match self.workbook.engine() {
-            EngineFlavor::Sheets => Engine::sheets(),
-            EngineFlavor::Excel => Engine::excel(),
-        };
         // The ref string parses as a one-reference formula; extract and resolve.
+        // Parsed without an `Engine`: parsing is flavor-independent and never
+        // reads the function registry, so constructing one per resolved
+        // named-range reference was pure waste (issue #900).
         let formula = format!("={r}");
-        match engine.parse(&formula) {
+        match truecalc_core::parse_formula(&formula) {
             Ok(expr) => {
                 let refs = truecalc_core::extract_refs(&expr);
                 match refs.first() {

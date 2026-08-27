@@ -27,7 +27,6 @@
 //! leaves the cell awaiting a later recalc.
 
 use icu_casemap::CaseMapperBorrowed;
-use truecalc_core::Engine;
 
 use crate::address::Address;
 use crate::casefold::simple_fold;
@@ -576,17 +575,19 @@ impl Workbook {
         Ok(())
     }
 
-    /// Validates a formula's syntax against the workbook's locked engine flavor
-    /// (issue #536: "parsed with the workbook's locked engine"). Parses only —
-    /// no evaluation — so an unevaluated formula cell is still guaranteed to
-    /// hold syntactically valid text.
+    /// Validates a formula's syntax (issue #536: "parsed with the workbook's
+    /// locked engine"). Parses only — no evaluation — so an unevaluated formula
+    /// cell is still guaranteed to hold syntactically valid text.
+    ///
+    /// Calls the parser directly rather than through an [`Engine`]: parsing is
+    /// flavor-independent (`Engine::parse` ignores the flavor and forwards to
+    /// this same entry point) and never reads the function registry, so
+    /// building an engine here bought nothing and cost a full 518-function
+    /// registry construction on **every formula cell written** — orders of
+    /// magnitude more than the parse itself (issue #900).
     fn validate_formula(&self, formula: &str) -> Result<(), WorkbookError> {
-        let engine = match self.engine() {
-            truecalc_core::EngineFlavor::Sheets => Engine::sheets(),
-            truecalc_core::EngineFlavor::Excel => Engine::excel(),
-        };
-        engine
-            .validate(formula)
+        truecalc_core::parse_formula(formula)
+            .map(|_| ())
             .map_err(|e| WorkbookError::Mutation(format!("formula {formula:?} is invalid: {e}")))
     }
 }

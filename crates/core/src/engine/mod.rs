@@ -68,12 +68,19 @@ impl Engine {
     ///
     /// The formula may start with `=`. Returns a [`ParseError`] if the input
     /// is not a valid formula.
+    ///
+    /// Parsing is flavor-independent and never reads the function registry, so
+    /// a caller that only needs the AST can call [`crate::parse_formula`]
+    /// directly instead of constructing an engine (issue #900).
     pub fn parse(&self, formula: &str) -> Result<Expr, ParseError> {
         parse_formula(formula)
     }
 
     /// Validate that a formula string is syntactically correct without
     /// returning the AST.
+    ///
+    /// A syntax check is exactly a parse: see [`Engine::parse`] for why a
+    /// caller that only validates need not build an engine.
     pub fn validate(&self, formula: &str) -> Result<(), ParseError> {
         self.parse(formula).map(|_| ())
     }
