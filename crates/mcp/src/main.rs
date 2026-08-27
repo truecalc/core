@@ -188,8 +188,12 @@ fn handle_request(req: &JsonValue, default_conformance: &str, engines: &Engines,
                 Ok(v) => (v, false),
                 Err(e) => (json!({ "error": e }), true),
             };
+            // A failed call answers with the error envelope, which is already an
+            // object; a successful one goes through the per-tool normaliser.
+            let structured = if is_error { result.clone() } else { structured_for(name, args, &result) };
             let mut tool_result = json!({
-                "content": [{ "type": "text", "text": serde_json::to_string(&result).expect("result serialisation is infallible") }]
+                "content": [{ "type": "text", "text": serde_json::to_string(&result).expect("result serialisation is infallible") }],
+                "structuredContent": structured
             });
             if is_error {
                 tool_result["isError"] = json!(true);
@@ -229,7 +233,86 @@ fn dispatch_tool(name: &str, args: &JsonValue, default_conformance: &str, engine
     }
 }
 
+type OutputSchemaFn = fn() -> JsonValue;
+
+/// The tools that publish an `outputSchema`, each joined to the function that
+/// describes what it returns. One table: `tools_list` reads it, and the
+/// conformance test drives every name in it through the real dispatch and
+/// validates the real answer against the real declaration.
+///
+/// The six `workbook_*` tools deliberately declare nothing yet. They answer in
+/// `structuredContent` like everything else; their declarations belong to
+/// whichever surface hosts them once this binary narrows to a stateless
+/// evaluator, and will describe stateful, cell-shaped answers this one does not
+/// have to name.
+const DECLARED_OUTPUT_SCHEMAS: [(&str, OutputSchemaFn); 6] = [
+    ("evaluate", output_schema_evaluate),
+    ("validate", output_schema_validate),
+    ("explain", output_schema_explain),
+    ("batch_evaluate", output_schema_batch_evaluate),
+    ("list_functions", output_schema_list_functions),
+    ("get_stats", output_schema_get_stats),
+];
+
+/// The same object with `key` present, set to `default` wherever the tool left
+/// it out.
+fn stated(value: &JsonValue, key: &str, default: JsonValue) -> JsonValue {
+    let mut out = value.clone();
+    if let Some(obj) = out.as_object_mut() {
+        obj.entry(key).or_insert(default);
+    }
+    out
+}
+
+/// What a tool puts in `structuredContent`.
+///
+/// `structuredContent` is a new channel — nothing has ever read it — so a field
+/// that `content` emits only when it has something to say can be stated
+/// unconditionally here at no cost to any existing caller. A caller that has to
+/// test whether a key is present in order to learn what happened is inferring,
+/// and inference is exactly what a declared response shape exists to remove.
+fn structured_for(name: &str, args: &JsonValue, result: &JsonValue) -> JsonValue {
+    match name {
+        // An `outputSchema` must have an object at its root, and this tool
+        // answers with a bare array. The new channel names the array rather
+        // than reshaping it.
+        "batch_evaluate" => {
+            let results: Vec<JsonValue> = result
+                .as_array()
+                .map(|entries| entries.iter().map(|v| stated(v, "message", JsonValue::Null)).collect())
+                .unwrap_or_default();
+            json!({ "results": results })
+        }
+        // `message` is the engine's detail for an error value, emitted only for
+        // the one variant that carries one.
+        "evaluate" | "workbook_get" => stated(result, "message", JsonValue::Null),
+        // `error` says why a formula does not parse, emitted only when one does
+        // not.
+        "validate" => stated(result, "error", JsonValue::Null),
+        "list_functions" => {
+            let mut out = stated(result, "not_found", json!([]));
+            // Which cap ran is decided by the request and was not otherwise
+            // visible: `total_matched` and `returned` show that entries were
+            // dropped, never that the rule changed underneath.
+            out["limitApplied"] = match list_functions_limit(args) {
+                Ok(Some(n)) => json!(n),
+                _ => JsonValue::Null,
+            };
+            out
+        }
+        _ => result.clone(),
+    }
+}
+
 // ─── Individual tools ─────────────────────────────────────────────────────────
+
+/// What `evaluate` returns.
+fn output_schema_evaluate() -> JsonValue {
+    let mut schema = value_object_schema();
+    schema["properties"]["accepted"] = accepted_bindings_schema();
+    schema["required"] = json!(["type", "value", "message", "accepted"]);
+    schema
+}
 
 fn tool_evaluate(args: &JsonValue, default_conformance: &str, engines: &Engines) -> Result<JsonValue, String> {
     let formula = args["formula"].as_str().ok_or("missing formula")?;
@@ -244,6 +327,22 @@ fn tool_evaluate(args: &JsonValue, default_conformance: &str, engines: &Engines)
     Ok(out)
 }
 
+/// What `validate` returns. Both arms are a successful answer to the question
+/// asked, so neither is flagged as a failed call.
+fn output_schema_validate() -> JsonValue {
+    json!({
+        "type": "object",
+        "properties": {
+            "valid": { "type": "boolean", "description": "Whether the formula parses." },
+            "error": {
+                "type": ["string", "null"],
+                "description": "Why it does not parse; null when it does. Always present."
+            }
+        },
+        "required": ["valid", "error"]
+    })
+}
+
 fn tool_validate(args: &JsonValue, engines: &Engines) -> Result<JsonValue, String> {
     let formula = args["formula"].as_str().ok_or("missing formula")?;
     // Both arms are Ok: the tool was asked whether the formula parses and it
@@ -252,6 +351,26 @@ fn tool_validate(args: &JsonValue, engines: &Engines) -> Result<JsonValue, Strin
         Ok(_) => Ok(json!({ "valid": true })),
         Err(e) => Ok(json!({ "valid": false, "error": e.to_string() })),
     }
+}
+
+/// What `explain` returns. A formula that does not parse still answers here:
+/// `description` says so and `functions_used` is empty.
+fn output_schema_explain() -> JsonValue {
+    json!({
+        "type": "object",
+        "properties": {
+            "description": {
+                "type": "string",
+                "description": "One sentence naming the functions the formula uses, or saying why it could not be read."
+            },
+            "functions_used": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Function names, sorted and deduplicated. Empty for a formula with no calls and for one that does not parse."
+            }
+        },
+        "required": ["description", "functions_used"]
+    })
 }
 
 fn tool_explain(args: &JsonValue, engines: &Engines) -> Result<JsonValue, String> {
@@ -273,6 +392,23 @@ fn tool_explain(args: &JsonValue, engines: &Engines) -> Result<JsonValue, String
             "description": format!("Invalid formula: {}", e),
             "functions_used": []
         }),
+    })
+}
+
+/// What `batch_evaluate` returns. The `content` channel keeps emitting the bare
+/// array; `results` names it so the declaration has the object root the
+/// protocol requires.
+fn output_schema_batch_evaluate() -> JsonValue {
+    json!({
+        "type": "object",
+        "properties": {
+            "results": {
+                "type": "array",
+                "items": value_object_schema(),
+                "description": "One entry per submitted formula, in the order submitted."
+            }
+        },
+        "required": ["results"]
     })
 }
 
@@ -339,6 +475,22 @@ fn value_shape(v: &Value) -> String {
     }
 }
 
+/// What [`accepted_bindings`] emits.
+fn accepted_bindings_schema() -> JsonValue {
+    json!({
+        "type": "object",
+        "properties": {
+            "bound": {
+                "type": "object",
+                "additionalProperties": { "type": "string" },
+                "description": "Variable name → the shape it bound at, e.g. \"number\", \"zoned\" or \"array[3]\". Empty when no variables were given."
+            },
+            "conformance": { "type": "string", "description": "The conformance target actually used." }
+        },
+        "required": ["bound", "conformance"]
+    })
+}
+
 /// What the server resolved an evaluate-shaped request to, in its own terms:
 /// which names bound at which shape, and the conformance target actually used.
 /// A caller that has to pay a round trip to check this will not check.
@@ -348,6 +500,60 @@ fn accepted_bindings(vars: &HashMap<String, Value>, conformance: &str) -> JsonVa
         .map(|(k, v)| (k.clone(), json!(value_shape(v))))
         .collect();
     json!({ "bound": bound, "conformance": conformance })
+}
+
+/// The cap this call runs under, as chosen by the request: `None` is uncapped.
+///
+/// Extracted so the answer can report which rule ran without restating it —
+/// a second copy of this decision is a second thing to keep in step.
+fn list_functions_limit(args: &JsonValue) -> Result<Option<usize>, String> {
+    match &args["limit"] {
+        JsonValue::Null => {
+            let filtered = !args["category"].is_null()
+                || !args["name_contains"].is_null()
+                || !args["names"].is_null();
+            Ok(filtered.then_some(LIST_FUNCTIONS_DEFAULT_LIMIT))
+        }
+        v => match v.as_u64().filter(|n| *n > 0) {
+            Some(n) => Ok(Some(n as usize)),
+            None => Err(format!("\"limit\" must be a positive integer, got {v}")),
+        },
+    }
+}
+
+/// What `list_functions` returns.
+fn output_schema_list_functions() -> JsonValue {
+    json!({
+        "type": "object",
+        "properties": {
+            "functions": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": { "type": "string" },
+                        "category": { "type": "string" },
+                        "syntax": { "type": "string" },
+                        "description": { "type": "string" }
+                    },
+                    "required": ["name", "category", "syntax", "description"]
+                },
+                "description": "The matching entries, sorted by name and capped at \"limitApplied\". May be empty."
+            },
+            "total_matched": { "type": "integer", "description": "How many entries matched the filters, before the cap." },
+            "returned": { "type": "integer", "description": "How many entries are in \"functions\"." },
+            "not_found": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Requested names matching no function. Empty when every requested name exists, and empty when no \"names\" filter was given. Always present."
+            },
+            "limitApplied": {
+                "type": ["integer", "null"],
+                "description": "The cap in force for this call: the caller's own \"limit\" when given, 100 for a filtered call that gave none, and null when the call was unfiltered and therefore uncapped. Always present."
+            }
+        },
+        "required": ["functions", "total_matched", "returned", "not_found", "limitApplied"]
+    })
 }
 
 fn tool_list_functions(args: &JsonValue) -> Result<JsonValue, String> {
@@ -378,19 +584,7 @@ fn tool_list_functions(args: &JsonValue) -> Result<JsonValue, String> {
         ),
         other => return Err(format!("\"names\" must be an array of strings, got {other}")),
     };
-    let limit = match &args["limit"] {
-        JsonValue::Null => {
-            if category.is_none() && name_contains.is_none() && names.is_none() {
-                usize::MAX
-            } else {
-                LIST_FUNCTIONS_DEFAULT_LIMIT
-            }
-        }
-        v => match v.as_u64().filter(|n| *n > 0) {
-            Some(n) => n as usize,
-            None => return Err(format!("\"limit\" must be a positive integer, got {v}")),
-        },
-    };
+    let limit = list_functions_limit(args)?.unwrap_or(usize::MAX);
 
     let registry = Registry::new();
     if let Some(cat) = &category {
@@ -439,6 +633,30 @@ fn tool_list_functions(args: &JsonValue) -> Result<JsonValue, String> {
         out["not_found"] = json!(not_found);
     }
     Ok(out)
+}
+
+/// What `get_stats` returns.
+fn output_schema_get_stats() -> JsonValue {
+    json!({
+        "type": "object",
+        "properties": {
+            "version": { "type": "string", "description": "The engine version this server was built from." },
+            "total_functions": { "type": "integer", "description": "How many functions the registry holds." },
+            "by_category": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "category": { "type": "string" },
+                        "count": { "type": "integer" }
+                    },
+                    "required": ["category", "count"]
+                },
+                "description": "Every category and its size, sorted by category name."
+            }
+        },
+        "required": ["version", "total_functions", "by_category"]
+    })
 }
 
 fn tool_get_stats() -> Result<JsonValue, String> {
@@ -732,6 +950,34 @@ fn sparkline_to_json(spec: &SparklineSpec) -> JsonValue {
     json!({ "charttype": spec.chart_type.as_str(), "data": data, "options": options })
 }
 
+/// What [`value_to_json`] emits, as a schema — with `message` stated
+/// unconditionally, which is what [`structured_for`] makes true of the copy in
+/// `structuredContent`.
+///
+/// The `enum` lists every string this function can emit and no more. Publishing
+/// a narrower set than the server can produce would make a conforming caller
+/// reject a valid answer; a wider one is only noise.
+fn value_object_schema() -> JsonValue {
+    json!({
+        "type": "object",
+        "properties": {
+            "type": {
+                "type": "string",
+                "enum": ["number", "text", "bool", "empty", "error", "zoned", "array", "sparkline"],
+                "description": "The type of the VALUE. Not a response-shape tag: this server's evaluator tools all answer in one shape. \"number\" also covers a date serial; \"zoned\" is deliberately not collapsed to it."
+            },
+            "value": {
+                "description": "The value itself; its JSON type follows \"type\". Null for \"empty\", an error code such as \"#DIV/0!\" for \"error\", a nested array of these same objects for \"array\"."
+            },
+            "message": {
+                "type": ["string", "null"],
+                "description": "The engine's detail for an error value. Null for every other type, and for an error that carries no detail. Always present."
+            }
+        },
+        "required": ["type", "value", "message"]
+    })
+}
+
 fn value_to_json(v: &Value) -> JsonValue {
     match v {
         Value::Number(n) | Value::Date(n) => json!({ "value": n, "type": "number" }),
@@ -770,7 +1016,7 @@ fn collect_functions(expr: &Expr, out: &mut Vec<String>) {
 // ─── tools/list metadata ─────────────────────────────────────────────────────
 
 fn tools_list() -> JsonValue {
-    json!([
+    let mut tools = json!([
         {
             "name": "evaluate",
             "description": "Evaluate a spreadsheet formula with optional variable bindings.",
@@ -911,5 +1157,15 @@ fn tools_list() -> JsonValue {
                 "required": ["json"]
             }
         }
-    ])
+    ]);
+    // Each schema lives next to the tool it describes rather than inside the
+    // literal above: a description kept out of sight of the code it describes
+    // is a description that drifts.
+    for tool in tools.as_array_mut().expect("tools/list is an array") {
+        let name = tool["name"].as_str().unwrap_or_default().to_owned();
+        if let Some((_, schema)) = DECLARED_OUTPUT_SCHEMAS.iter().find(|(n, _)| *n == name) {
+            tool["outputSchema"] = schema();
+        }
+    }
+    tools
 }
