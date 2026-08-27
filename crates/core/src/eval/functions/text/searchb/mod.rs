@@ -114,3 +114,6 @@ pub fn searchb_fn(args: &[Value]) -> Value {
         },
     }
 }
+
+#[cfg(test)]
+mod tests;
