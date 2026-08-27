@@ -50,6 +50,18 @@ impl Address {
 
     /// Re-emits the plain-uppercase A1 key (`A1`, `BC42`) — the inverse of
     /// [`Address::from_a1`] and the exact key the canonical serializer writes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `row` or `column` is outside the bounds this type is
+    /// documented to hold (rows `1..=10_000_000`, columns `1..=18_278`).
+    /// Every constructor enforces these bounds, so this is only reachable by
+    /// setting the public `row`/`column` fields directly rather than going
+    /// through [`Address::new`]. The column-axis panic (an out-of-bounds
+    /// `column`) is pre-existing; the row-axis panic is new here — before,
+    /// an out-of-bounds `row` silently produced a key that was well-formed
+    /// but meaningless (and so never matched a real grid entry) instead of
+    /// panicking.
     pub fn to_a1(&self) -> String {
         self.a1_key().as_str().to_owned()
     }
@@ -57,6 +69,12 @@ impl Address {
     /// Renders the plain-uppercase A1 key into a stack buffer, allocating
     /// nothing. The borrowed form of [`to_a1`](Self::to_a1): identical bytes,
     /// no heap. Read-side grid operations key the cell map through this.
+    ///
+    /// # Panics
+    ///
+    /// Same bounds requirement as [`Address::to_a1`]: an out-of-bounds `row`
+    /// or `column` overflows the fixed-size stack buffer and panics rather
+    /// than producing a garbage key.
     pub(crate) fn a1_key(&self) -> A1Key {
         let mut key = A1Key {
             buf: [0; A1_KEY_CAPACITY],

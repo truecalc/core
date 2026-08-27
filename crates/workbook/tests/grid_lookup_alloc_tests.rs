@@ -1,9 +1,10 @@
 //! Allocation-free grid lookups (issue #887).
 //!
 //! `Worksheet` keys its sparse grid by plain A1 `String`s. Every read-side
-//! accessor used to build that key with `Address::to_a1()` — two heap
-//! allocations (the column letters, then the row digits) on **every** cell
-//! access. A formula that scans a range pays this once per element visited, so
+//! accessor used to build that key with `Address::to_a1()` — three heap
+//! allocations (the column letters, then the row digits, then the `push_str`
+//! regrow that joins them) on **every** cell access. A formula that scans a
+//! range pays this once per element visited, so
 //! a workbook of range-reading formulas paid it O(cells scanned) times per
 //! pass. `BTreeMap<String, _>` probes through `Borrow<str>`, so the owned key
 //! was never needed: the accessors now render the key into a stack buffer.
@@ -80,8 +81,8 @@ fn allocations_to_recalc(rows: u32) -> usize {
     allocations_during(|| wb.recalc(&ctx))
 }
 
-/// Measured on this change at `LOOKUPS = 10_000`: 20_000 allocations before
-/// (two per `to_a1`), 0 after.
+/// Measured on this change at `LOOKUPS = 10_000`: 60_000 allocations before
+/// (three per `to_a1`), 0 after.
 const LOOKUPS: u32 = 10_000;
 
 /// The marginal cost of scanning one more range element, in allocations.
