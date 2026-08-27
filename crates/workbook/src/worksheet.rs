@@ -59,12 +59,12 @@ impl Worksheet {
 
     /// The cell at `addr`, or `None` if that address is empty.
     pub fn get(&self, addr: Address) -> Option<&Cell> {
-        self.cells.get(&addr.to_a1())
+        self.cells.get(addr.a1_key().as_str())
     }
 
     /// Mutable access to the cell at `addr`, or `None` if that address is empty.
     pub fn get_mut(&mut self, addr: Address) -> Option<&mut Cell> {
-        self.cells.get_mut(&addr.to_a1())
+        self.cells.get_mut(addr.a1_key().as_str())
     }
 
     /// Writes `cell` at `addr`, returning the cell previously there (if any).
@@ -82,12 +82,12 @@ impl Worksheet {
     /// an empty entry would be byte-distinguishable from the absent cell it
     /// denotes (schema spec §4).
     pub fn clear(&mut self, addr: Address) -> Option<Cell> {
-        self.cells.remove(&addr.to_a1())
+        self.cells.remove(addr.a1_key().as_str())
     }
 
     /// Whether a cell is present at `addr`.
     pub fn contains(&self, addr: Address) -> bool {
-        self.cells.contains_key(&addr.to_a1())
+        self.cells.contains_key(addr.a1_key().as_str())
     }
 
     /// The number of populated cells.

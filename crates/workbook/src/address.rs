@@ -50,10 +50,99 @@ impl Address {
 
     /// Re-emits the plain-uppercase A1 key (`A1`, `BC42`) — the inverse of
     /// [`Address::from_a1`] and the exact key the canonical serializer writes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `row` or `column` is outside the bounds this type is
+    /// documented to hold (rows `1..=10_000_000`, columns `1..=18_278`).
+    /// Every constructor enforces these bounds, so this is only reachable by
+    /// setting the public `row`/`column` fields directly rather than going
+    /// through [`Address::new`]. The column-axis panic (an out-of-bounds
+    /// `column`) is pre-existing; the row-axis panic is new here — before,
+    /// an out-of-bounds `row` silently produced a key that was well-formed
+    /// but meaningless (and so never matched a real grid entry) instead of
+    /// panicking.
     pub fn to_a1(&self) -> String {
-        let mut s = column_to_letters(self.column);
-        s.push_str(&self.row.to_string());
-        s
+        self.a1_key().as_str().to_owned()
+    }
+
+    /// Renders the plain-uppercase A1 key into a stack buffer, allocating
+    /// nothing. The borrowed form of [`to_a1`](Self::to_a1): identical bytes,
+    /// no heap. Read-side grid operations key the cell map through this.
+    ///
+    /// # Panics
+    ///
+    /// Same bounds requirement as [`Address::to_a1`]: an out-of-bounds `row`
+    /// or `column` overflows the fixed-size stack buffer and panics rather
+    /// than producing a garbage key.
+    pub(crate) fn a1_key(&self) -> A1Key {
+        let mut key = A1Key {
+            buf: [0; A1_KEY_CAPACITY],
+            len: 0,
+        };
+
+        // Column: bijective base-26 digits come out least-significant first,
+        // so stage them and copy back in reverse.
+        let mut letters = [0u8; MAX_COLUMN_LETTERS];
+        let mut n = 0;
+        let mut column = self.column;
+        while column > 0 {
+            letters[n] = b'A' + ((column - 1) % 26) as u8;
+            n += 1;
+            column = (column - 1) / 26;
+        }
+        while n > 0 {
+            n -= 1;
+            key.push(letters[n]);
+        }
+
+        // Row: same story for the decimal digits. A row is always >= 1, so this
+        // never emits the empty string.
+        let mut digits = [0u8; MAX_ROW_DIGITS];
+        let mut d = 0;
+        let mut row = self.row;
+        while row > 0 {
+            digits[d] = b'0' + (row % 10) as u8;
+            d += 1;
+            row /= 10;
+        }
+        while d > 0 {
+            d -= 1;
+            key.push(digits[d]);
+        }
+
+        key
+    }
+}
+
+/// The widest in-bounds column (`ZZZ`) is three letters.
+const MAX_COLUMN_LETTERS: usize = 3;
+/// The widest in-bounds row (`10000000`) is eight digits.
+const MAX_ROW_DIGITS: usize = 8;
+/// Every in-bounds A1 key fits in `ZZZ10000000`.
+const A1_KEY_CAPACITY: usize = MAX_COLUMN_LETTERS + MAX_ROW_DIGITS;
+
+/// A plain-uppercase A1 key rendered into a fixed stack buffer.
+///
+/// A [`Worksheet`](crate::Worksheet) keys its grid by `String`, but
+/// `BTreeMap<String, _>` probes through `Borrow<str>` — a lookup only needs a
+/// `&str`, never an owned key. Rendering here instead of into a `String` is
+/// what keeps a range scan from paying a heap allocation per cell it visits.
+pub(crate) struct A1Key {
+    buf: [u8; A1_KEY_CAPACITY],
+    len: usize,
+}
+
+impl A1Key {
+    fn push(&mut self, byte: u8) {
+        self.buf[self.len] = byte;
+        self.len += 1;
+    }
+
+    /// The rendered key. Byte-for-byte what [`Address::to_a1`] returns.
+    pub(crate) fn as_str(&self) -> &str {
+        // Every byte written is an ASCII uppercase letter or digit.
+        std::str::from_utf8(&self.buf[..self.len]).expect("A1 keys are ASCII")
     }
 }
 
@@ -98,21 +187,4 @@ pub fn parse_a1(key: &str) -> Option<Address> {
     }
 
     Address::new(row, column)
-}
-
-/// Converts a 1-based column index to its bijective base-26 letters
-/// (`1 → "A"`, `26 → "Z"`, `27 → "AA"`, `18_278 → "ZZZ"`). The input is
-/// assumed in bounds (it always is when called on an [`Address`] column).
-pub(crate) fn column_to_letters(mut column: u32) -> String {
-    let mut buf = [0u8; 3]; // ZZZ is the widest in-bounds column.
-    let mut len = 0;
-    while column > 0 {
-        let rem = ((column - 1) % 26) as u8;
-        buf[len] = b'A' + rem;
-        len += 1;
-        column = (column - 1) / 26;
-    }
-    buf[..len].reverse();
-    // Safe: every byte written is an ASCII uppercase letter.
-    String::from_utf8(buf[..len].to_vec()).expect("ASCII letters are valid UTF-8")
 }
