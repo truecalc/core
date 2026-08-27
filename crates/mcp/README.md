@@ -77,7 +77,13 @@ Evaluate a formula with optional variable bindings.
 { "formula": "SUM(A1, B1)", "variables": { "A1": 100, "B1": 200 } }
 ```
 
-Returns: `{ "value": 300, "type": "number" }`
+Returns: `{ "value": 300, "type": "number", "accepted": { "bound": { "A1": "number", "B1": "number" }, "conformance": "google-sheets" } }`
+
+`accepted` reports what the server resolved the request to — which names bound
+at which shape, and the conformance target actually used — so a list read as
+text or a defaulted target is visible without a second call. `workbook_set` and
+`workbook_get` echo the resolved sheet and cell the same way, and `workbook_set`
+also reports the kind it read the value as (`"as": "number"` for `"007"`).
 
 ### `validate`
 
@@ -87,7 +93,9 @@ Check whether a formula parses without errors.
 { "formula": "IF(score >= 60, \"pass\", \"fail\")" }
 ```
 
-Returns: `{ "valid": true }` or `{ "valid": false, "error": "..." }`
+Returns: `{ "valid": true }` or `{ "valid": false, "error": "..." }`. Both are
+successful calls — `isError` is set only when the server could not carry the
+call out at all, never because the payload mentions an error.
 
 ### `explain`
 
@@ -114,7 +122,21 @@ Returns an array of results in the same order.
 
 ### `list_functions`
 
-Return the full catalogue of supported spreadsheet functions with category, syntax, and description.
+Return supported spreadsheet functions with category, syntax, and description.
+All filters are optional and combine with AND; omitting them returns the full
+catalogue as before (~70 KB).
+
+```json
+{ "category": "lookup", "name_contains": "lookup", "names": ["SUM", "XLOOKUP"], "limit": 25 }
+```
+
+- `category` — exact category name; an unknown one is an error listing the known categories
+- `name_contains` — case-insensitive substring of the function name
+- `names` — exact names to look up in one call; any that do not exist come back in `not_found`
+- `limit` — maximum entries (default: 100 for a filtered call, uncapped otherwise)
+
+Every response carries `total_matched` and `returned`, so a capped page is
+visible without a second call.
 
 ## Supported functions
 
