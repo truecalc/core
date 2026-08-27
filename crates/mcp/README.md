@@ -114,7 +114,21 @@ Returns an array of results in the same order.
 
 ### `list_functions`
 
-Return the full catalogue of supported spreadsheet functions with category, syntax, and description.
+Return supported spreadsheet functions with category, syntax, and description.
+All filters are optional and combine with AND; omitting them returns the full
+catalogue as before (~70 KB).
+
+```json
+{ "category": "lookup", "name_contains": "lookup", "names": ["SUM", "XLOOKUP"], "limit": 25 }
+```
+
+- `category` — exact category name; an unknown one is an error listing the known categories
+- `name_contains` — case-insensitive substring of the function name
+- `names` — exact names to look up in one call; any that do not exist come back in `not_found`
+- `limit` — maximum entries (default: 100 for a filtered call, uncapped otherwise)
+
+Every response carries `total_matched` and `returned`, so a capped page is
+visible without a second call.
 
 ## Supported functions
 

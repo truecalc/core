@@ -212,7 +212,7 @@ fn dispatch_tool(name: &str, args: &JsonValue, default_conformance: &str, engine
         "validate" => tool_validate(args, engines),
         "explain" => tool_explain(args, engines),
         "batch_evaluate" => tool_batch_evaluate(args, default_conformance, engines),
-        "list_functions" => tool_list_functions(),
+        "list_functions" => tool_list_functions(args),
         "get_stats" => tool_get_stats(),
         "workbook_create" => tool_workbook_create(args, store),
         "workbook_set" => tool_workbook_set(args, store),
@@ -305,10 +305,91 @@ fn tool_batch_evaluate(args: &JsonValue, default_conformance: &str, engines: &En
     json!(results)
 }
 
-fn tool_list_functions() -> JsonValue {
+/// How many entries a *filtered* `list_functions` call returns unless the
+/// caller says otherwise. The unfiltered call is the pre-existing "dump the
+/// catalogue" request and stays uncapped, so nothing that relies on it changes.
+const LIST_FUNCTIONS_DEFAULT_LIMIT: usize = 100;
+
+const LIST_FUNCTIONS_ARGS: [&str; 4] = ["category", "name_contains", "names", "limit"];
+
+/// Read an optional string argument, rejecting a value of the wrong type.
+///
+/// `unwrap_or(default)` would take `{"category": 7}` as "no category given"
+/// and answer the narrow question with the whole catalogue.
+fn optional_str<'a>(args: &'a JsonValue, key: &str) -> Result<Option<&'a str>, String> {
+    match &args[key] {
+        JsonValue::Null => Ok(None),
+        JsonValue::String(s) => Ok(Some(s.as_str())),
+        other => Err(format!("\"{key}\" must be a string, got {other}")),
+    }
+}
+
+fn tool_list_functions(args: &JsonValue) -> JsonValue {
+    match list_functions_filtered(args) {
+        Ok(v) => v,
+        Err(e) => json!({ "error": e }),
+    }
+}
+
+fn list_functions_filtered(args: &JsonValue) -> Result<JsonValue, String> {
+    if let Some(obj) = args.as_object() {
+        for key in obj.keys() {
+            if !LIST_FUNCTIONS_ARGS.contains(&key.as_str()) {
+                return Err(format!(
+                    "unsupported argument \"{key}\"; supported: {}",
+                    LIST_FUNCTIONS_ARGS.join(", ")
+                ));
+            }
+        }
+    }
+
+    let category = optional_str(args, "category")?.map(|c| c.to_ascii_lowercase());
+    let name_contains = optional_str(args, "name_contains")?.map(|n| n.to_ascii_uppercase());
+    let names: Option<Vec<String>> = match &args["names"] {
+        JsonValue::Null => None,
+        JsonValue::Array(items) => Some(
+            items
+                .iter()
+                .map(|i| {
+                    i.as_str()
+                        .map(|s| s.to_ascii_uppercase())
+                        .ok_or_else(|| format!("\"names\" must contain strings, got {i}"))
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
+        other => return Err(format!("\"names\" must be an array of strings, got {other}")),
+    };
+    let limit = match &args["limit"] {
+        JsonValue::Null => {
+            if category.is_none() && name_contains.is_none() && names.is_none() {
+                usize::MAX
+            } else {
+                LIST_FUNCTIONS_DEFAULT_LIMIT
+            }
+        }
+        v => match v.as_u64().filter(|n| *n > 0) {
+            Some(n) => n as usize,
+            None => return Err(format!("\"limit\" must be a positive integer, got {v}")),
+        },
+    };
+
     let registry = Registry::new();
+    if let Some(cat) = &category {
+        let mut known: Vec<&str> = registry.list_functions().map(|(_, m)| m.category).collect();
+        known.sort_unstable();
+        known.dedup();
+        if !known.contains(&cat.as_str()) {
+            return Err(format!("unknown category \"{cat}\"; known: {}", known.join(", ")));
+        }
+    }
+
     let mut entries: Vec<JsonValue> = registry
         .list_functions()
+        .filter(|(name, meta)| {
+            category.as_ref().is_none_or(|c| meta.category == c)
+                && name_contains.as_ref().is_none_or(|n| name.contains(n.as_str()))
+                && names.as_ref().is_none_or(|wanted| wanted.iter().any(|w| w == name))
+        })
         .map(|(name, meta)| json!({
             "name": name,
             "category": meta.category,
@@ -317,7 +398,28 @@ fn tool_list_functions() -> JsonValue {
         }))
         .collect();
     entries.sort_by_key(|e| e["name"].as_str().unwrap_or("").to_owned());
-    json!({ "functions": entries })
+
+    // A requested name that matched nothing is reported: the caller asked
+    // about it by name, and an entry missing from the list is otherwise
+    // indistinguishable from one that was simply capped away.
+    let not_found: Vec<&String> = names
+        .iter()
+        .flatten()
+        .filter(|w| !entries.iter().any(|e| e["name"].as_str() == Some(w.as_str())))
+        .collect();
+
+    let total_matched = entries.len();
+    entries.truncate(limit);
+    let returned = entries.len();
+    let mut out = json!({
+        "functions": entries,
+        "total_matched": total_matched,
+        "returned": returned,
+    });
+    if !not_found.is_empty() {
+        out["not_found"] = json!(not_found);
+    }
+    Ok(out)
 }
 
 fn tool_get_stats() -> JsonValue {
@@ -738,8 +840,16 @@ fn tools_list() -> JsonValue {
         },
         {
             "name": "list_functions",
-            "description": "Return the catalogue of supported spreadsheet functions.",
-            "inputSchema": { "type": "object", "properties": {} }
+            "description": "Return supported spreadsheet functions. Prefer a filter: the unfiltered catalogue is ~70 KB (~17.5k tokens). Filters combine with AND; a filtered call returns at most 100 entries unless \"limit\" says otherwise, and \"total_matched\" always reports how many matched.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "category": { "type": "string", "description": "Exact category, e.g. \"lookup\" (see get_stats for the categories and their sizes)" },
+                    "name_contains": { "type": "string", "description": "Case-insensitive substring of the function name, e.g. \"lookup\"" },
+                    "names": { "type": "array", "items": { "type": "string" }, "description": "Exact function names to look up in one call; any that do not exist come back in \"not_found\"" },
+                    "limit": { "type": "integer", "description": "Maximum entries to return (default: 100 for a filtered call, uncapped otherwise)" }
+                }
+            }
         },
         {
             "name": "get_stats",
