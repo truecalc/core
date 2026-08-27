@@ -268,6 +268,25 @@ fn stated(value: &JsonValue, key: &str, default: JsonValue) -> JsonValue {
     out
 }
 
+/// The same as [`stated`], but applied to every value object nested inside an
+/// `"array"` result too, at every depth. `value_object_schema`'s own
+/// description says `value` for `"array"` is "a nested array of these same
+/// objects", and those objects `require` `message` — so a leaf produced by
+/// `value_to_json`'s recursion (which does not itself state `message`) must go
+/// through the same normalisation the top level gets, or the description is
+/// false one level down.
+fn stated_recursive(value: &JsonValue, key: &str, default: JsonValue) -> JsonValue {
+    let mut out = stated(value, key, default.clone());
+    if out.get("type").and_then(JsonValue::as_str) == Some("array") {
+        if let Some(items) = out.get("value").and_then(JsonValue::as_array) {
+            let normalised: Vec<JsonValue> =
+                items.iter().map(|item| stated_recursive(item, key, default.clone())).collect();
+            out["value"] = json!(normalised);
+        }
+    }
+    out
+}
+
 /// What a tool puts in `structuredContent`.
 ///
 /// `structuredContent` is a new channel — nothing has ever read it — so a field
@@ -283,13 +302,14 @@ fn structured_for(name: &str, args: &JsonValue, result: &JsonValue) -> JsonValue
         "batch_evaluate" => {
             let results: Vec<JsonValue> = result
                 .as_array()
-                .map(|entries| entries.iter().map(|v| stated(v, "message", JsonValue::Null)).collect())
+                .map(|entries| entries.iter().map(|v| stated_recursive(v, "message", JsonValue::Null)).collect())
                 .unwrap_or_default();
             json!({ "results": results })
         }
         // `message` is the engine's detail for an error value, emitted only for
-        // the one variant that carries one.
-        "evaluate" | "workbook_get" => stated(result, "message", JsonValue::Null),
+        // the one variant that carries one. Recurses into "array" results so a
+        // nested value object gets the same treatment the top level does.
+        "evaluate" | "workbook_get" => stated_recursive(result, "message", JsonValue::Null),
         // `error` says why a formula does not parse, emitted only when one does
         // not.
         "validate" => stated(result, "error", JsonValue::Null),

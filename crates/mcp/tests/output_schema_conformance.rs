@@ -398,3 +398,27 @@ fn a_failed_call_on_a_declared_tool_carries_no_nonconforming_structured_content(
         }
     }
 }
+
+#[test]
+fn nested_array_values_carry_message_too() {
+    // `value_object_schema`'s own description says `value` for `"array"` is "a
+    // nested array of these same objects", and those objects `require`
+    // `message`. The schema itself does not enforce this recursively — `value`
+    // has no `items` sub-schema — so nothing catches a leaf missing the field.
+    // This walks the real payload the way the description promises a reader
+    // can, at every depth.
+    fn assert_message_present(node: &JsonValue) {
+        assert!(
+            node.get("message").is_some(),
+            "value object is missing \"message\": {node}"
+        );
+        if node["type"] == json!("array") {
+            for item in node["value"].as_array().expect("array value") {
+                assert_message_present(item);
+            }
+        }
+    }
+
+    let result = call_raw("evaluate", json!({ "formula": "=SEQUENCE(2)" }));
+    assert_message_present(&structured(&result));
+}
