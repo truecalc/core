@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.2.0](https://github.com/truecalc/core/compare/truecalc-mcp-v8.1.1...truecalc-mcp-v8.2.0) - 2026-08-27
+
+### Added
+
+- *(mcp)* declare an output schema for the six evaluator tools
+- *(mcp)* echo what was accepted, and flag errors from the outcome
+- *(mcp)* filter list_functions by category, name and count
+- *(mcp)* accept array variable bindings
+
+### Fixed
+
+- *(mcp)* recurse the message normalisation into nested array values
+- *(mcp)* omit structuredContent on the error arm of tools/call
+- *(mcp)* reject undecodable variable bindings instead of dropping them
+- *(mcp)* propagate default-sheet failure instead of panicking
+- *(mcp)* seed a default Sheet1 on workbook_create
+
+### Other
+
+- *(mcp)* assert declared schemas stay open at every nested object
+- *(mcp)* validate a declared tool's structuredContent on the error arm
+- *(mcp)* rustfmt the new test files
+
 ## [8.1.1](https://github.com/truecalc/core/compare/truecalc-mcp-v8.1.0...truecalc-mcp-v8.1.1) - 2026-08-14
 
 ### Other

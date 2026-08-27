@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.2.0](https://github.com/truecalc/core/compare/truecalc-workbook-v8.1.1...truecalc-workbook-v8.2.0) - 2026-08-27
+
+### Other
+
+- Merge pull request #903 from truecalc/perf/887-avoid-a1-alloc-per-lookup
+- *(workbook)* fix allocation-count comments and document the a1_key panic path
+- *(workbook)* key grid lookups by a borrowed A1 str, not an owned String
+- *(workbook)* build the engine once per recalc, not once per cell
+
 ## [8.0.0](https://github.com/truecalc/core/compare/truecalc-workbook-v7.1.1...truecalc-workbook-v8.0.0) - 2026-08-14
 
 ### Added
