@@ -215,6 +215,81 @@ const result = wb.resolved('Sheet1', 'A2');
 // => { type: 'number', value: 20 }
 ```
 
+### `wb.precedentsOf(sheet, cell, maxDepth?, maxNodes?)`
+
+What a cell **reads** — the answer to "where does this number come from?".
+
+- `sheet` — sheet name
+- `cell` — A1-style cell reference
+- `maxDepth` — how many levels to follow. Default `1` (direct precedents only),
+  clamped to `64`.
+- `maxNodes` — cap on the number of precedents returned. Default `1000`,
+  clamped to `10000`.
+
+Returns `{ cell, precedents, truncated, truncatedBy? }`. Each precedent is
+`{ depth, reference }`, where `reference` is a discriminated union tagged by
+`kind`:
+
+| `kind`       | Shape                                                             |
+|--------------|-------------------------------------------------------------------|
+| `cell`       | `{ kind: 'cell', sheet: 'Inputs', a1: 'A1' }`                     |
+| `range`      | `{ kind: 'range', sheet: 'Inputs', range: 'A1:A20' }`             |
+| `name`       | `{ kind: 'name', name: 'rate', target: { kind: 'cell', ... } }`   |
+| `unresolved` | `{ kind: 'unresolved', text: 'Nope!A1' }`                         |
+
+A range is one node, never expanded into its member cells. Every `cell` and
+`range` carries its own `sheet`, so cross-sheet precedents stay cross-sheet.
+`precedents` is always an array — a literal, an empty cell and a constant
+formula all return `[]`.
+
+```js
+wb.addSheet('Inputs');
+wb.addSheet('Report');
+wb.set('Inputs', 'A1', '10');
+wb.set('Report', 'B1', '=Inputs!A1 * 2');
+
+wb.precedentsOf('Report', 'B1');
+// => { cell: { sheet: 'Report', a1: 'B1' },
+//      precedents: [ { depth: 1, reference: { kind: 'cell', sheet: 'Inputs', a1: 'A1' } } ],
+//      truncated: false }
+```
+
+### `wb.dependentsOf(sheet, cell, maxDepth?, maxNodes?)`
+
+What **reads** a cell — the answer to "what breaks if I change this?".
+Same arguments and bounds as `precedentsOf`.
+
+Returns `{ cell, dependents, truncated, truncatedBy? }`, where each dependent is
+`{ depth, sheet, a1 }`. Dependents are always concrete formula cells, and
+include cells that reach this one through a range containing it or a named range
+targeting it. `dependents` is always an array; `[]` means nothing reads the cell.
+
+```js
+wb.dependentsOf('Inputs', 'A1');
+// => { cell: { sheet: 'Inputs', a1: 'A1' },
+//      dependents: [ { depth: 1, sheet: 'Report', a1: 'B1' } ],
+//      truncated: false }
+```
+
+### `wb.cycleCells(maxNodes?)`
+
+The cells caught in a circular reference — exactly the set `recalc` gives the
+circular-dependency error. Returns `{ cells, truncated, truncatedBy? }` with
+`cells` an array of `{ sheet, a1 }`, empty when the workbook is acyclic.
+
+### Bounds and freshness
+
+Every dependency query is bounded on both depth and node count and **always
+reports whether it stopped early**: `truncated` is `true` and `truncatedBy` is
+`'maxDepth'` or `'maxNodes'`. Branch on `truncated` — it is always present;
+`truncatedBy` appears only when truncated. A request above the ceilings is
+clamped, which is safe precisely because the clamp still sets `truncated`.
+
+The queries read the workbook's **current** formulas, named ranges and sheet
+names on every call. They need no `recalc()`, they reflect every `set` /
+`clear` / `defineName` since the last one, and they can never return a stale
+graph. The trade is cost: each call rebuilds the graph, `O(formula cells)`.
+
 ### `wb.toJSON()`
 
 Serializes the entire workbook state (sheets, cell values, formulas, named ranges)
