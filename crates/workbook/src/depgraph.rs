@@ -84,6 +84,13 @@ impl CellRef {
     /// Builds the graph key for `addr` on the sheet named `sheet`, applying the
     /// simple case folding (schema spec §2) the graph indexes sheets by.
     ///
+    /// Named `from_display_name` — not `resolve` — because it does not consult
+    /// a [`Workbook`](crate::Workbook): it only folds the caller's spelling
+    /// into the graph's key form, the same way [`new`](Self::new) builds a
+    /// `CellRef` from an already-folded one. `resolve_ref` and
+    /// `resolve_query_cell` elsewhere in this crate *do* look a sheet up
+    /// against a workbook; this does not, so it does not share their name.
+    ///
     /// The [`sheet`](Self::sheet) field is public but holds a *folded* name, so
     /// a `CellRef` constructed literally from a user-facing sheet name (a tab
     /// label, a JSON key, an API argument) silently matches nothing in the
@@ -93,7 +100,7 @@ impl CellRef {
     /// Folding is idempotent, so passing an already-folded name is a no-op.
     /// The sheet is *not* required to exist — an unknown sheet simply produces
     /// a key nothing in the graph matches.
-    pub fn resolve(sheet: &str, addr: Address) -> Self {
+    pub fn from_display_name(sheet: &str, addr: Address) -> Self {
         let folder = CaseMapperBorrowed::new();
         Self::new(simple_fold(&folder, sheet), addr)
     }
@@ -194,8 +201,14 @@ pub struct DependencyGraph {
 }
 
 /// What a named range currently resolves to (the name→target indirection).
+///
+/// Exactly the two shapes a resolved name target can take — unlike
+/// [`Precedent`], it has no `Name` variant (names do not chain) and no
+/// `Unresolved` variant (an unresolved name has no target at all, hence
+/// [`name_target_of`](DependencyGraph::name_target_of) returning `None`
+/// rather than this type wrapped around an absence).
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum NameTarget {
+pub enum NameTarget {
     Cell(CellRef),
     Range(RangeRef),
 }
@@ -386,18 +399,14 @@ impl DependencyGraph {
     ///
     /// The forward half of the name → target indirection whose reverse half is
     /// [`name_dependents_of`](Self::name_dependents_of). A caller walking a
-    /// formula's precedents needs it to report what a
-    /// [`Precedent::Name`] actually points at; the returned [`Precedent`] is
-    /// always [`Precedent::Cell`] or [`Precedent::Range`], never
-    /// [`Precedent::Name`] (names do not chain) or
-    /// [`Precedent::Unresolved`] (an unresolved name yields `None`).
-    pub fn name_target_of(&self, name: &str) -> Option<Precedent> {
+    /// formula's precedents needs it to report what a [`Precedent::Name`]
+    /// actually points at; [`NameTarget`] is the two-variant type for exactly
+    /// that answer, so the signature itself rules out a name or an
+    /// unresolved reference coming back — no doc caveat required.
+    pub fn name_target_of(&self, name: &str) -> Option<NameTarget> {
         let folder = CaseMapperBorrowed::new();
         let folded = simple_fold(&folder, name);
-        match self.name_targets.get(&folded)? {
-            NameTarget::Cell(c) => Some(Precedent::Cell(c.clone())),
-            NameTarget::Range(r) => Some(Precedent::Range(r.clone())),
-        }
+        self.name_targets.get(&folded).cloned()
     }
 
     /// A topological order of the formula cells: every cell appears after all
@@ -575,9 +584,11 @@ impl DependencyGraph {
     /// and a [`Precedent::Unresolved`] yields nothing. Returned in canonical
     /// (sheet, address) order.
     ///
-    /// Cost is `O(1)` for a cell precedent and `O(formula cells)` for a range
-    /// or range-targeted name, since range membership is tested rather than
-    /// indexed.
+    /// Cost is `O(1)` for a cell precedent and, currently, `O(formula cells)`
+    /// for a range or range-targeted name, since range membership is tested
+    /// rather than indexed — an upper bound expected to improve as the graph
+    /// gains a spatial index, not a contract callers should rely on staying
+    /// this expensive or this cheap.
     pub fn formula_precedent_cells(&self, prec: &Precedent) -> Vec<CellRef> {
         match prec {
             Precedent::Cell(c) => {

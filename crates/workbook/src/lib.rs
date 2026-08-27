@@ -80,7 +80,7 @@ mod worksheet;
 
 pub use address::Address;
 pub use cell::Cell;
-pub use depgraph::{CellRef, DependencyGraph, Precedent, RangeRef};
+pub use depgraph::{CellRef, DependencyGraph, NameTarget, Precedent, RangeRef};
 pub use engine::EngineFlavor;
 pub use error::WorkbookError;
 pub use mutate::{CellInput, Resolved};

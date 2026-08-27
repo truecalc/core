@@ -32,7 +32,7 @@ use serde::Serialize;
 use std::collections::HashSet;
 use tsify_next::Tsify;
 
-use truecalc_workbook::{Address, CellRef, DependencyGraph, Precedent, Workbook};
+use truecalc_workbook::{Address, CellRef, DependencyGraph, NameTarget, Precedent, Workbook};
 
 /// Depth used when a caller passes no `maxDepth`: direct precedents /
 /// dependents only, the answer a formula bar or a "trace precedents" button
@@ -214,7 +214,7 @@ fn resolve_query_cell(
         sheet: worksheet.name().to_string(),
         a1: addr.to_a1(),
     };
-    Ok((CellRef::resolve(sheet, addr), cell_node))
+    Ok((CellRef::from_display_name(sheet, addr), cell_node))
 }
 
 /// The display (original-case) sheet name for a graph key, which carries the
@@ -263,15 +263,15 @@ fn precedent_ref(workbook: &Workbook, graph: &DependencyGraph, prec: &Precedent)
         Precedent::Name(name) => PrecedentRef::Name {
             name: name.clone(),
             target: match graph.name_target_of(name) {
-                Some(Precedent::Cell(c)) => NameTargetRef::Cell {
+                Some(NameTarget::Cell(c)) => NameTargetRef::Cell {
                     sheet: display_sheet(workbook, &c.sheet),
                     a1: c.addr.to_a1(),
                 },
-                Some(Precedent::Range(r)) => NameTargetRef::Range {
+                Some(NameTarget::Range(r)) => NameTargetRef::Range {
                     sheet: display_sheet(workbook, &r.sheet),
                     range: format!("{}:{}", r.start.to_a1(), r.end.to_a1()),
                 },
-                _ => NameTargetRef::Unresolved,
+                None => NameTargetRef::Unresolved,
             },
         },
         Precedent::Unresolved(text) => PrecedentRef::Unresolved { text: text.clone() },

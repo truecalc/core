@@ -11,8 +11,8 @@
 use std::collections::{BTreeSet, HashSet};
 
 use truecalc_workbook::{
-    Address, Cell, CellRef, DependencyGraph, EngineFlavor, NamedRange, Precedent, Value, Workbook,
-    Worksheet,
+    Address, Cell, CellRef, DependencyGraph, EngineFlavor, NameTarget, NamedRange, Precedent,
+    Value, Workbook, Worksheet,
 };
 
 /// A Sheets workbook with one sheet named `Sheet1`.
@@ -381,7 +381,7 @@ fn cell_ref_resolve_folds_the_sheet_name_so_the_key_matches() {
     // casing, and folding an already-folded name is a no-op.
     for spelling in ["Sheet1", "SHEET1", "sheet1"] {
         assert_eq!(
-            g.precedents_of(&CellRef::resolve(spelling, addr("B1"))),
+            g.precedents_of(&CellRef::from_display_name(spelling, addr("B1"))),
             Some(&[Precedent::Cell(cref("sheet1", "A1"))][..]),
             "{spelling} should resolve to the graph's key"
         );
@@ -403,7 +403,7 @@ fn name_target_of_reports_a_cell_target() {
     for spelling in ["Rate", "RATE", "rate"] {
         assert_eq!(
             g.name_target_of(spelling),
-            Some(Precedent::Cell(cref("sheet1", "B1"))),
+            Some(NameTarget::Cell(cref("sheet1", "B1"))),
             "{spelling} should resolve"
         );
     }
@@ -420,7 +420,7 @@ fn name_target_of_reports_a_range_target() {
     let g = DependencyGraph::build(&wb);
 
     match g.name_target_of("Block") {
-        Some(Precedent::Range(r)) => {
+        Some(NameTarget::Range(r)) => {
             assert_eq!(r.sheet, "sheet1");
             assert_eq!(r.start, addr("A1"));
             assert_eq!(r.end, addr("B2"));
