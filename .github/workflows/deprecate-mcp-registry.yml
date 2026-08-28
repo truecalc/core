@@ -31,7 +31,7 @@ jobs:
           jq -n '{
             "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
             name: "io.github.truecalc/truecalc-mcp",
-            description: "Retired. TrueCalc formula evaluation is no longer distributed as a free MCP server. The calculation engine remains open source and published.",
+            description: "Retired. No longer distributed as a free MCP server. The TrueCalc engine remains open source.",
             version: "8.2.1",
             status: "deprecated",
             repository: { url: "https://github.com/truecalc/core", source: "github" }
