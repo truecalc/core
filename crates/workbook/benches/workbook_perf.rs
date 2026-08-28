@@ -244,8 +244,11 @@ fn bench_to_json(c: &mut Criterion) {
 }
 
 /// Machine-speed probe. Fixed allocate-and-hash workload with **no dependency
-/// on any truecalc code**, so it never legitimately changes: any movement is
-/// the machine, not the engine.
+/// on any truecalc code**, so any movement is the machine (or the Rust
+/// toolchain), not the engine. It is not immune to change from *outside*
+/// truecalc: it still depends on `std`'s `HashMap`, `SipHash`, `format!` and
+/// the platform allocator, so a rustc/std upgrade can shift every baseline at
+/// once — that would show up as every benchmark moving together, not one.
 ///
 /// The regression gate divides every other benchmark's measured time by this
 /// one, which cancels the bulk of the difference between a developer laptop and
