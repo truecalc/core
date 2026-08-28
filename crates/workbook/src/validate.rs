@@ -12,7 +12,8 @@
 //!   reconstructed rectangle; overlapping rectangles; out-of-bounds rectangle);
 //! - §7 named-range name/`ref` validity, case-insensitive uniqueness, no
 //!   dangling sheet refs;
-//! - §6/Decision 5 resource limits (cells, text length, array elements, sheets,
+//! - §6/Decision 5 resource limits (cells — enforced on `wasm32` only, see the
+//!   [`crate::limits`] module docs — plus text length, array elements, sheets,
 //!   formula length, named-range count, table count).
 //!
 //! Input is the duplicate-checked [`serde_json::Value`] tree; this runs before

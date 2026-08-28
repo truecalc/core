@@ -253,7 +253,8 @@ impl Workbook {
     /// formatting, `names` sorted by `name`.
     ///
     /// Errors if a value is non-finite (forbidden, schema spec §8.4) or if the
-    /// canonical bytes exceed the 100 MiB cap (scope ADR Decision 5).
+    /// canonical bytes exceed the 100 MiB cap — enforced on `wasm32` only, see
+    /// the [`limits`](crate::limits) module docs (scope ADR Decision 5).
     pub fn to_json(&self) -> Result<String, WorkbookError> {
         // Serialize through the typed serde layer (which already emits the §6
         // value encodings and rejects NaN/Inf), then canonicalize the tree.
