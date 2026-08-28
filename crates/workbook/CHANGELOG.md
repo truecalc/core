@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.2.1](https://github.com/truecalc/core/compare/truecalc-workbook-v8.2.0...truecalc-workbook-v8.2.1) - 2026-08-28
+
+### Fixed
+
+- *(workbook)* hide the wasm32-only cap predicates from the public API
+- *(workbook)* move const-vs-const model checks into const blocks
+- *(workbook)* enforce the cell and serialized-byte caps on wasm32 only
+- *(workbook)* seed volatile cells onto the recalc frontier before draining it
+
+### Other
+
+- *(bench)* record the incremental_recalc/block_subtotals_edit_root/10000 baseline
+- Merge remote-tracking branch 'origin/main' into chore/899-923-perf-gate
+- Merge pull request #932 from truecalc/feat/limits-wasm-only
+- *(workbook)* qualify the remaining unconditional 100 MiB cap claims
+- *(workbook)* cover the wasm32 cap gating in the Node example, not just a dead test
+- *(workbook)* fix import ordering in the new limits gating test
+- *(workbook)* cover the wasm32-only gating of the two size caps
+- *(workbook)* guard range dependency edges at recalc level
+- Merge pull request #917 from truecalc/feat/908-depgraph-index
+- Merge pull request #915 from truecalc/feat/904-cell-value-perf
+- *(workbook)* resolve a cell without allocating a key or re-folding sheets
+- *(workbook)* index the stored grid's spill anchors instead of scanning
+
 ## [8.2.0](https://github.com/truecalc/core/compare/truecalc-workbook-v8.1.1...truecalc-workbook-v8.2.0) - 2026-08-27
 
 ### Other
