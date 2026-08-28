@@ -1,3 +1,31 @@
+This repository is not licensed under a single license. What follows is the
+MIT License, and it covers most of the workspace, but not all of it.
+
+MIT (the text below):
+  truecalc-core          crates/core          crates.io: truecalc-core
+                                              npm / JSR: @truecalc/core
+  truecalc-wasm          crates/wasm
+  truecalc-python        crates/python        PyPI: truecalc
+  xtask                  xtask
+
+Elastic License 2.0 (see crates/workbook/LICENSE):
+  truecalc-workbook      crates/workbook      crates.io: truecalc-workbook
+  truecalc-wasm-workbook crates/wasm-workbook npm / JSR: @truecalc/workbook
+
+ELv2 is source-available, not open source: use, copy, modify and redistribute
+are granted; offering the software to third parties as a hosted or managed
+service is not. The full text is at crates/workbook/LICENSE, unmodified.
+
+Every version published up to and including 8.2.2 — of every package above,
+truecalc-workbook and @truecalc/workbook included — was released under MIT
+and remains MIT permanently. This change applies only to versions published
+after 8.2.2. Nothing already published is being relicensed or withdrawn.
+
+The @truecalc/workbook package additionally ships a NOTICE file reproducing
+this MIT notice, because the compiled artifact statically links truecalc-core.
+
+--------------------------------------------------------------------------
+
 MIT License
 
 Copyright (c) 2026 tryganit

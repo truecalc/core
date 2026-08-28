@@ -128,8 +128,40 @@ Registry. Versions already published are left in place; there
 will be no new ones.
 
 This does not change the engine. `truecalc-core` and `truecalc-workbook`
-remain public, MIT-licensed, and published to crates.io, npm, and JSR —
-one engine, no second calculation path.
+remain public and published to crates.io, npm, and JSR — one engine, no
+second calculation path. On licensing, see below: `truecalc-core` is MIT,
+`truecalc-workbook` is Elastic License 2.0.
+
+## Licensing
+
+The workspace is not under a single license.
+
+| Package | Where | License |
+|---|---|---|
+| `truecalc-core` · `@truecalc/core` | `crates/core`, `crates/wasm` | MIT |
+| `truecalc` (PyPI) | `crates/python` | MIT |
+| `truecalc-workbook` · `@truecalc/workbook` | `crates/workbook`, `crates/wasm-workbook` | [Elastic License 2.0](crates/workbook/LICENSE) |
+
+`truecalc-core` — the parser and evaluator, and the conformance fixtures it is
+checked against — is MIT and stays MIT. It is the verifiability claim: anyone
+can read it, run it, and confirm the maths against real Google Sheets.
+
+`truecalc-workbook` — the document model, dependency graph, and recalculation —
+is source-available under ELv2. You may use, copy, modify and redistribute it.
+You may not offer it to third parties as a hosted or managed service that gives
+them access to a substantial set of its functionality.
+
+**Nothing already published changes.** Every version up to and including 8.2.2,
+of every package above, was released under MIT and remains MIT permanently. If
+you installed `truecalc-workbook 8.2.2` or `@truecalc/workbook@8.2.2`, you have
+an MIT copy and keep it. The new terms apply only to versions published after
+8.2.2.
+
+**Why ELv2 and not BSL 1.1** — maintenance overhead, not legal strength. BSL
+requires a Change Date tracked per release plus an Additional Use Grant that has
+to be drafted and then defended in interpretation. ELv2 is one unmodified
+document with no per-release bookkeeping, and the text here is the official one,
+unedited.
 
 ## Documentation
 

@@ -9,7 +9,10 @@ ignore = [
 
 [licenses]
 version = 2
-allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "Unicode-DFS-2016", "Unicode-3.0", "ISC", "BSD-2-Clause", "BSD-3-Clause", "Zlib", "MPL-2.0", "CC0-1.0", "OpenSSL"]
+# Elastic-2.0 is this workspace's own truecalc-workbook / truecalc-wasm-workbook,
+# not a third-party dependency. cargo-deny walks workspace members too, so it
+# has to be allowed here or `cargo deny check` fails on our own crates.
+allow = ["MIT", "Elastic-2.0", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "Unicode-DFS-2016", "Unicode-3.0", "ISC", "BSD-2-Clause", "BSD-3-Clause", "Zlib", "MPL-2.0", "CC0-1.0", "OpenSSL"]
 
 [bans]
 multiple-versions = "warn"
