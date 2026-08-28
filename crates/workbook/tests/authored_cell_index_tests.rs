@@ -224,6 +224,21 @@ fn wb_with_spill() -> Workbook {
     wb
 }
 
+/// Two sheets whose names case-fold to the same key: `"Data"` (tab 0, empty)
+/// and `"DATA"` (tab 1, A1:A2 authored). `insert_sheet`/`from_json` reject
+/// folded duplicates, so this shape is only reachable by pushing straight onto
+/// `Workbook::sheets_mut()`, which no production code does — but if it is
+/// reached, the index must resolve the folded key the same way the deleted
+/// scan's `sheets().iter().find` did: first-wins.
+fn wb_case_colliding_sheets() -> Workbook {
+    let mut wb = wb_with(&["Data"]);
+    let mut data_upper = Worksheet::new("DATA");
+    data_upper.set(addr("A1"), Cell::literal(Value::Number(1.0)).unwrap());
+    data_upper.set(addr("A2"), Cell::literal(Value::Number(1.0)).unwrap());
+    wb.sheets_mut().push(data_upper);
+    wb
+}
+
 fn corpus() -> Vec<(&'static str, Workbook)> {
     vec![
         ("empty", wb_with(&["S", "Other"])),
@@ -233,6 +248,7 @@ fn corpus() -> Vec<(&'static str, Workbook)> {
         ("two sheets", wb_two_sheets()),
         ("ragged", wb_ragged()),
         ("spill", wb_with_spill()),
+        ("case-colliding sheet names", wb_case_colliding_sheets()),
     ]
 }
 
@@ -269,8 +285,8 @@ fn index_matches_the_scan_over_every_rectangle_in_a_small_grid() {
             }
         }
     }
-    // 7 workbooks x 2 sheets x 6^4 rectangles.
-    assert_eq!(compared, 7 * 2 * 6 * 6 * 6 * 6);
+    // 8 workbooks x 2 sheets x 6^4 rectangles.
+    assert_eq!(compared, 8 * 2 * 6 * 6 * 6 * 6);
 }
 
 /// The cases the issue calls out by name, asserted one at a time so a failure
@@ -335,6 +351,26 @@ fn index_matches_the_scan_on_the_named_edge_cases() {
         "ragged, trailing empty rows",
         &ragged,
         &rect("S", 4, 1, 9, 2),
+    );
+
+    let colliding = wb_case_colliding_sheets();
+    // Case-colliding sheet names: "Data" (tab 0, empty) and "DATA" (tab 1,
+    // A1:A2 authored) fold to the same key. First-wins must resolve to the
+    // empty tab-0 sheet, matching the deleted scan's `sheets().iter().find`.
+    assert_agrees(
+        "case-colliding sheet names",
+        &colliding,
+        &rect("Data", 1, 1, 2, 1),
+    );
+    assert_agrees(
+        "case-colliding sheet names, DATA spelling",
+        &colliding,
+        &rect("DATA", 1, 1, 2, 1),
+    );
+    assert!(
+        AuthoredCellIndex::build(&colliding)
+            .range_has_unauthored_cell(&rect("Data", 1, 1, 2, 1)),
+        "first-wins: the empty tab-0 sheet must answer, not the authored tab-1 one"
     );
 }
 

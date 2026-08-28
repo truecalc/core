@@ -73,13 +73,16 @@ impl AuthoredCellIndex {
             for columns in rows.values_mut() {
                 columns.sort_unstable();
             }
-            sheets.insert(
-                simple_fold(&folder, sheet.name()),
-                SheetRows {
+            // First-wins, matching the deleted scan's `sheets().iter().find`:
+            // two sheet names that fold to the same key (e.g. "Data" and
+            // "DATA") must resolve to the first one, not whichever inserts
+            // last.
+            sheets
+                .entry(simple_fold(&folder, sheet.name()))
+                .or_insert_with(|| SheetRows {
                     total: sheet.len() as u64,
                     rows,
-                },
-            );
+                });
         }
         Self { sheets }
     }
