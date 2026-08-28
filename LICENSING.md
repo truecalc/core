@@ -16,11 +16,12 @@ The ELv2 text lives with the packages it covers.
 
 ## Nothing already published changes
 
-**Every version up to and including 8.2.2 — of every package in the table,
-`truecalc-workbook` and `@truecalc/workbook` included — was released under MIT
-and remains MIT permanently.**
+**Every version published before 9.0.0 — every 8.x release and everything
+before it, of every package in the table, `truecalc-workbook` and
+`@truecalc/workbook` included — was released under MIT and remains MIT
+permanently.**
 
-If you have `truecalc-workbook 8.2.2` or `@truecalc/workbook@8.2.2`, you have an
+If you have any 8.x of `truecalc-workbook` or `@truecalc/workbook`, you have an
 MIT copy and you keep it. Nothing is being relicensed retroactively, withdrawn,
 or yanked. Those versions stay on crates.io, npm, JSR, and PyPI under the terms
 they were published under.

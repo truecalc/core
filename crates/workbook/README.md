@@ -123,8 +123,9 @@ This crate and `truecalc-wasm-workbook` (published to npm and JSR as
 [`truecalc-core`](https://crates.io/crates/truecalc-core), the formula parser
 and evaluator this crate depends on, remains MIT.
 
-Every version of `truecalc-workbook` published up to and including 8.2.2 was
-released under MIT and stays MIT permanently. `9.0.0` is the first version
-under the new terms; nothing already published is relicensed or withdrawn.
+Every version of `truecalc-workbook` published before 9.0.0 — every 8.x release
+and everything before it — was released under MIT and stays MIT permanently.
+`9.0.0` is the first version under the new terms; nothing already published
+is relicensed or withdrawn.
 
 Full detail: [LICENSING.md](../../LICENSING.md).

@@ -12,7 +12,8 @@ WebAssembly-powered spreadsheet formula engine for JavaScript/TypeScript.
 
 > **Licensing:** `truecalc-core` / `@truecalc/core` is MIT. `truecalc-workbook` /
 > `@truecalc/workbook` is source-available under the Elastic License 2.0 from
-> 9.0.0 onward — **8.2.2 and everything before it remain MIT permanently.**
+> 9.0.0 onward — **every 8.x release and everything before it remains MIT
+> permanently.**
 > See [LICENSING.md](LICENSING.md).
 
 [DeepWiki](https://deepwiki.com/truecalc/core)
@@ -150,8 +151,8 @@ model, dependency graph, and recalculation — is source-available: you may use,
 copy, modify and redistribute it, but not offer it to third parties as a hosted
 or managed service.
 
-**Nothing already published changes.** Every version up to and including 8.2.2
-was released under MIT and remains MIT permanently. `9.0.0` is the first version
+**Nothing already published changes.** Every version published before 9.0.0 was
+released under MIT and remains MIT permanently. `9.0.0` is the first version
 under the new terms.
 
 Full detail, and why the line falls where it does: **[LICENSING.md](LICENSING.md)**.
