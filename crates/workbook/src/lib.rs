@@ -58,6 +58,7 @@
 //!   evaluation lives there.
 
 mod address;
+mod authored_index;
 mod canonical;
 mod casefold;
 mod cell;
@@ -80,6 +81,7 @@ mod workbook;
 mod worksheet;
 
 pub use address::Address;
+pub use authored_index::AuthoredCellIndex;
 pub use cell::Cell;
 pub use depgraph::{CellRef, DependencyGraph, NameTarget, Precedent, RangeRef};
 pub use engine::EngineFlavor;
