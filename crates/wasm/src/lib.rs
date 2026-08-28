@@ -102,8 +102,7 @@ pub fn json_to_value(v: &serde_json::Value) -> Value {
 /// the `array` variant is recursive -- each element is itself an `EvalResult`,
 /// so a 2-D array result is an array of `array` rows whose elements are scalar
 /// `EvalResult`s. This mirrors how `truecalc-core` represents array values
-/// internally (1-D arrays are flat, 2-D arrays nest row sub-arrays) and matches
-/// the recursive shape `truecalc-mcp` already emits.
+/// internally (1-D arrays are flat, 2-D arrays nest row sub-arrays).
 ///
 /// # Surface shape (npm `@truecalc/core` >= 0.7.0)
 ///

@@ -32,7 +32,7 @@ pyo3 = { version = "0.29", features = ["abi3-py39"] }
 #   * With it OFF, linking needs a libpython on the build machine. On macOS it
 #     additionally needs `-undefined dynamic_lookup`, which could only be set as
 #     workspace-wide rustflags — relaxing undefined-symbol checking for every
-#     other binary here, including truecalc-mcp. Not worth it for one crate.
+#     other binary here. Not worth it for one crate.
 #
 # So: off by default (maturin turns it on), and excluded from the workspace test
 # run rather than papered over. `cargo clippy --workspace` is unaffected because

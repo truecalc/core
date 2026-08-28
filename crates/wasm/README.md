@@ -9,7 +9,7 @@
 
 WebAssembly-powered spreadsheet formula engine for JavaScript/TypeScript.
 
-A comprehensive library of spreadsheet functions (see the live count above). Runs in Node.js, Bun, Deno, and the browser — no server needed. Ground-truth conformance against real Google Sheets. The same engine is also available as a [Rust crate](https://crates.io/crates/truecalc-core) and as an [MCP server](https://crates.io/crates/truecalc-mcp) for AI assistants.
+A comprehensive library of spreadsheet functions (see the live count above). Runs in Node.js, Bun, Deno, and the browser — no server needed. Ground-truth conformance against real Google Sheets. The same engine is also available as a [Rust crate](https://crates.io/crates/truecalc-core).
 
 ```js
 const { evaluate } = require('@truecalc/core');

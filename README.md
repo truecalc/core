@@ -3,7 +3,6 @@
 [![npm](https://img.shields.io/npm/v/@truecalc/core)](https://www.npmjs.com/package/@truecalc/core)
 [![npm downloads](https://img.shields.io/npm/dm/@truecalc/core)](https://www.npmjs.com/package/@truecalc/core)
 [![truecalc-core](https://img.shields.io/crates/v/truecalc-core?label=truecalc-core)](https://crates.io/crates/truecalc-core)
-[![truecalc-mcp](https://img.shields.io/crates/v/truecalc-mcp?label=truecalc-mcp)](https://crates.io/crates/truecalc-mcp)
 [![docs.rs](https://img.shields.io/docsrs/truecalc-core)](https://docs.rs/truecalc-core)
 [![license](https://img.shields.io/crates/l/truecalc-core)](LICENSE)
 [![functions](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/truecalc/core/gh-pages/functions-badge.json)](https://truecalc.github.io/core/)
@@ -13,7 +12,7 @@ WebAssembly-powered spreadsheet formula engine for JavaScript/TypeScript.
 
 [DeepWiki](https://deepwiki.com/truecalc/core)
 
-A comprehensive library of spreadsheet functions (see the live count above). Runs in Node.js, Bun, Deno, and the browser — no server needed. Ground-truth conformance against real Google Sheets. The same engine is also available as a [Rust crate](https://crates.io/crates/truecalc-core) and as an [MCP server](https://crates.io/crates/truecalc-mcp) for AI assistants.
+A comprehensive library of spreadsheet functions (see the live count above). Runs in Node.js, Bun, Deno, and the browser — no server needed. Ground-truth conformance against real Google Sheets. The same engine is also available as a [Rust crate](https://crates.io/crates/truecalc-core).
 
 ```js
 const { evaluate } = require('@truecalc/core');
@@ -119,6 +118,18 @@ Returns metadata for all built-in functions.
 ```js
 const fns = list_functions();
 ```
+
+## MCP server
+
+The free `truecalc-mcp` server is **retired**. It is no longer built,
+published, or maintained: not to crates.io, not to npm as `@truecalc/mcp`,
+not via `cargo install`, `cargo binstall`, `npx`, `uvx`, Homebrew, Docker,
+or the MCP Registry. Versions already published are left in place; there
+will be no new ones.
+
+This does not change the engine. `truecalc-core` and `truecalc-workbook`
+remain public, MIT-licensed, and published to crates.io, npm, and JSR —
+one engine, no second calculation path.
 
 ## Documentation
 

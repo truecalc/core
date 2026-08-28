@@ -8,7 +8,7 @@
 
 Formula engine with exact Google Sheets semantics — stateless, embeddable, bring your own data model.
 
-A large, growing function library (see the live count above) with exact Google Sheets semantics. Ground-truth conformance validated case by case against real Google Sheets — not a spec interpretation. Stateless and embeddable: bring your own data model, no workbook required. Also available as a [WebAssembly npm package](https://www.npmjs.com/package/@truecalc/core) and as an [MCP server](https://crates.io/crates/truecalc-mcp) for AI assistants.
+A large, growing function library (see the live count above) with exact Google Sheets semantics. Ground-truth conformance validated case by case against real Google Sheets — not a spec interpretation. Stateless and embeddable: bring your own data model, no workbook required. Also available as a [WebAssembly npm package](https://www.npmjs.com/package/@truecalc/core).
 
 ```rust
 let result = Engine::sheets().evaluate("=SUM(A1,B1)", &vars);

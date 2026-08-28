@@ -94,7 +94,6 @@ Same engine, other ecosystems:
 
 - [`@truecalc/core`](https://www.npmjs.com/package/@truecalc/core) — JavaScript / TypeScript
 - [`truecalc-core`](https://crates.io/crates/truecalc-core) — Rust
-- [`truecalc-mcp`](https://crates.io/crates/truecalc-mcp) — MCP server for AI assistants
 
 ## License
 
