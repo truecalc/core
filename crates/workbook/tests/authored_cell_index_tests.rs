@@ -239,6 +239,25 @@ fn wb_case_colliding_sheets() -> Workbook {
     wb
 }
 
+/// One row, columns B through AA (2..=27) authored, with **A1 itself as the
+/// hole**. Past column Z, canonical A1-key order is not column order —
+/// `"AA1" < "B1"` lexicographically — so this row's cells arrive off
+/// `Worksheet::iter()` as `AA, B, C, .., Z` rather than `B, C, .., Z, AA`.
+/// Every test workbook elsewhere in this corpus lives in columns A-E, where
+/// canonical order coincidentally *is* column order, so none of them can
+/// exercise `columns.sort_unstable()` in `AuthoredCellIndex::build`. This one
+/// can: A1:B1 is not fully authored (A1 is empty), but a lookup that trusted
+/// the unsorted push order `[27, 2, 3, .., 26]` for its binary search would
+/// find two entries "at or before column 2" (27 and 2) and misreport A1:B1 as
+/// fully authored — a stale value left on the grid, not just a wrong bool.
+fn wb_past_column_z_with_a_hole() -> Workbook {
+    let mut wb = wb_with(&["S"]);
+    for c in 2..=27u32 {
+        set_num(&mut wb, "S", &Address::new(1, c).unwrap().to_a1(), 1.0);
+    }
+    wb
+}
+
 fn corpus() -> Vec<(&'static str, Workbook)> {
     vec![
         ("empty", wb_with(&["S", "Other"])),
@@ -249,6 +268,7 @@ fn corpus() -> Vec<(&'static str, Workbook)> {
         ("ragged", wb_ragged()),
         ("spill", wb_with_spill()),
         ("case-colliding sheet names", wb_case_colliding_sheets()),
+        ("past column Z with a hole", wb_past_column_z_with_a_hole()),
     ]
 }
 
@@ -285,8 +305,8 @@ fn index_matches_the_scan_over_every_rectangle_in_a_small_grid() {
             }
         }
     }
-    // 8 workbooks x 2 sheets x 6^4 rectangles.
-    assert_eq!(compared, 8 * 2 * 6 * 6 * 6 * 6);
+    // 9 workbooks x 2 sheets x 6^4 rectangles.
+    assert_eq!(compared, 9 * 2 * 6 * 6 * 6 * 6);
 }
 
 /// The cases the issue calls out by name, asserted one at a time so a failure
@@ -371,6 +391,30 @@ fn index_matches_the_scan_on_the_named_edge_cases() {
         AuthoredCellIndex::build(&colliding)
             .range_has_unauthored_cell(&rect("Data", 1, 1, 2, 1)),
         "first-wins: the empty tab-0 sheet must answer, not the authored tab-1 one"
+    );
+
+    let past_z = wb_past_column_z_with_a_hole();
+    // Past column Z: A1 is the hole, B1:AA1 (columns 2-27) are authored. The
+    // smallest rectangle that catches an unsorted per-row column list is
+    // A1:B1 — see `wb_past_column_z_with_a_hole` for why.
+    assert_agrees(
+        "past column Z, over the hole",
+        &past_z,
+        &rect("S", 1, 1, 1, 2),
+    );
+    assert!(
+        AuthoredCellIndex::build(&past_z).range_has_unauthored_cell(&rect("S", 1, 1, 1, 2)),
+        "A1 is empty; A1:B1 must report an unauthored cell, not \"fully authored\""
+    );
+    assert_agrees(
+        "past column Z, whole authored row",
+        &past_z,
+        &rect("S", 1, 2, 1, 27),
+    );
+    assert_agrees(
+        "past column Z, row including the hole",
+        &past_z,
+        &rect("S", 1, 1, 1, 27),
     );
 }
 
