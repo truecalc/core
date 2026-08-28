@@ -38,6 +38,7 @@
 //! error without looping forever. Cycle membership comes from the graph's
 //! Tarjan SCC pass ([`DependencyGraph::cycle_cells`]); see [`CIRCULAR_ERROR`].
 
+use std::cell::{RefCell, RefMut};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use chrono::{NaiveDate, TimeZone, Timelike, Utc};
@@ -50,11 +51,13 @@ use crate::address::Address;
 use crate::casefold::simple_fold;
 use crate::cell::Cell;
 use crate::depgraph::{CellRef, DependencyGraph, Precedent, RangeRef};
+use crate::grid_spills::GridSpillIndex;
 use crate::named_ref;
 use crate::spill::{spill_rect, SpillRect, BLOCKED_SPILL_ERROR};
 use crate::table_ref;
 use crate::value::Value;
 use crate::workbook::Workbook;
+use crate::worksheet::Worksheet;
 
 /// The error a cell on (or downstream of) a circular dependency takes.
 ///
@@ -409,16 +412,22 @@ impl Workbook {
         let empty_values: BTreeMap<CellRef, Value> = BTreeMap::new();
         let empty_spills: BTreeMap<CellRef, SpillRect> = BTreeMap::new();
         let empty_cells: BTreeSet<CellRef> = BTreeSet::new();
+        // Nothing is being recomputed, so every anchor on the stored grid is
+        // authoritative and the index excludes none of them.
+        let sheet_indices = self.sheet_indices_by_folded_name();
+        let grid_spills = GridSpillIndex::build(self, &empty_cells);
         let mut resolver = GridResolver {
             workbook: self,
             own_sheet: &own_sheet,
+            sheet_indices: &sheet_indices,
             new_values: &empty_values,
             spills: &empty_spills,
             prev_values: &empty_values,
             prev_spills: &empty_spills,
             cycle: &empty_cells,
-            recomputed: &empty_cells,
+            grid_spills: &grid_spills,
             current_cell: Some((&own_sheet, addr)),
+            scratch_key: fresh_scratch_key(),
         };
 
         let Some(formula) = self.cell_at(&cell_ref).and_then(Cell::formula) else {
@@ -433,11 +442,7 @@ impl Workbook {
             EngineFlavor::Sheets => Engine::sheets(),
             EngineFlavor::Excel => Engine::excel(),
         };
-        let sheet_index = self
-            .sheets()
-            .iter()
-            .position(|ws| simple_fold(&folder, ws.name()) == own_sheet)
-            .unwrap_or(0) as u32;
+        let sheet_index = sheet_indices.get(&own_sheet).copied().unwrap_or(0);
         let rng_cell = Some((ctx.rng_seed(), sheet_index, addr.row, addr.column));
 
         let core = engine.evaluate_with_resolver_at_keyed_hooked(
@@ -529,6 +534,12 @@ impl Workbook {
             EngineFlavor::Excel => Engine::excel(),
         };
         let sheet_indices = self.sheet_indices_by_folded_name();
+        // The stored grid's spill anchors, indexed once for the whole recompute
+        // (issue #910). Both of its inputs are fixed here: the stored grid does
+        // not change until `apply_changes` runs after the last pass, and
+        // `to_eval` is fixed on entry. Without it, every read of an *empty*
+        // cell fell through to a scan of every authored cell on the sheet.
+        let grid_spills = GridSpillIndex::build(self, &to_eval);
 
         let max_passes = order.len().saturating_add(2).max(1);
         for _ in 0..max_passes {
@@ -560,7 +571,7 @@ impl Workbook {
                     &new_values,
                     &spills,
                     &cycle,
-                    &to_eval,
+                    &grid_spills,
                 );
                 // Resolve array results into a placed spill or a blocked-spill
                 // error; a placed spill records its rectangle so later anchors
@@ -605,8 +616,9 @@ impl Workbook {
     /// values computed so far this recalc, falling back to the stored grid for
     /// everything else.
     ///
-    /// `engine` and `sheet_indices` are built once per recalc by the caller and
-    /// shared across every cell of the pass (issue #886).
+    /// `engine`, `sheet_indices` and `grid_spills` are built once per recalc by
+    /// the caller and shared across every cell of the pass (issues #886, #904
+    /// and #910).
     #[allow(clippy::too_many_arguments)]
     fn eval_formula_cell(
         &self,
@@ -621,7 +633,7 @@ impl Workbook {
         prev_values: &BTreeMap<CellRef, Value>,
         prev_spills: &BTreeMap<CellRef, SpillRect>,
         cycle: &BTreeSet<CellRef>,
-        recomputed: &BTreeSet<CellRef>,
+        grid_spills: &GridSpillIndex,
     ) -> Value {
         let formula = match self.cell_at(cell).and_then(Cell::formula) {
             Some(f) => f.to_owned(),
@@ -632,13 +644,15 @@ impl Workbook {
         let mut resolver = GridResolver {
             workbook: self,
             own_sheet: &cell.sheet,
+            sheet_indices,
             new_values,
             spills,
             prev_values,
             prev_spills,
             cycle,
-            recomputed,
+            grid_spills,
             current_cell: Some((&cell.sheet, cell.addr)),
+            scratch_key: fresh_scratch_key(),
         };
         let core = engine.evaluate_with_resolver_at_keyed(
             &formula,
@@ -1032,6 +1046,13 @@ impl Workbook {
 struct GridResolver<'a> {
     workbook: &'a Workbook,
     own_sheet: &'a str,
+    /// Every sheet's tab index, keyed by its case-folded name, built once per
+    /// recalc by the caller. Resolving a read's target sheet is a map probe
+    /// against this (issue #904); it used to be a linear scan of the sheet list
+    /// that case-folded — and so allocated — every sheet name, **per element
+    /// scanned**, to find a sheet that cannot change between the elements of
+    /// one range.
+    sheet_indices: &'a BTreeMap<String, u32>,
     new_values: &'a BTreeMap<CellRef, Value>,
     /// Spills placed so far **this pass** (anchor → rectangle): a read of a cell
     /// inside one of these rectangles resolves to the spilled array element
@@ -1044,15 +1065,12 @@ struct GridResolver<'a> {
     /// The previous pass's spills (same fallback role as `prev_values`).
     prev_spills: &'a BTreeMap<CellRef, SpillRect>,
     cycle: &'a BTreeSet<CellRef>,
-    /// The formula cells being recomputed this recalc (`to_eval`). The stored
-    /// grid still holds these anchors' *pre-recalc* arrays until `apply_changes`
-    /// runs, so the `grid_spilled_value` fallback must ignore an anchor in this
-    /// set: its authoritative spill state for this recalc is the per-pass
-    /// `spills`/`prev_spills`, not the stale grid (issue #591 — otherwise a
-    /// reader of a cell an anchor *stops* spilling onto, e.g. when the anchor
-    /// blocks or shrinks, would resolve the vacated cell from the obsolete
-    /// stored array).
-    recomputed: &'a BTreeSet<CellRef>,
+    /// The stored grid's spill anchors, indexed once per recalc, already
+    /// excluding the anchors being recomputed (issue #591 — see
+    /// [`GridSpillIndex::build`]). Backs the `grid_spilled_value` fallback,
+    /// which used to re-derive this by scanning every authored cell on the
+    /// sheet on every read of an empty cell (issue #910).
+    grid_spills: &'a GridSpillIndex,
     /// The evaluating cell's own `(folded sheet name, address)` — set at the
     /// same call site that computes `rng_cell`'s `(sheet_index, row, col)`, so
     /// both stay in sync by construction. Used by `resolve_table_ref` to look
@@ -1062,6 +1080,26 @@ struct GridResolver<'a> {
     /// resolver constructed without a specific evaluating cell would have
     /// nothing to thread here).
     current_cell: Option<(&'a str, Address)>,
+    /// A reusable `CellRef` for this resolver's map probes.
+    ///
+    /// `cell_value` probes three `CellRef`-keyed maps, and the owned sheet name
+    /// those keys need used to be allocated fresh **per element scanned**
+    /// (issue #904). Every element of one range shares a sheet name, so
+    /// [`GridResolver::probe_key`] refills this key in place instead:
+    /// `String::clear` keeps the buffer, so the `push_str` that follows reuses
+    /// it. `RefCell` rather than `&mut self` because `resolve_range` and
+    /// `resolve_table_ref` hold shared borrows of `self` across their
+    /// `cell_value` calls.
+    scratch_key: RefCell<CellRef>,
+}
+
+/// An empty scratch key for a freshly built [`GridResolver`]. The address is a
+/// placeholder: `probe_key` overwrites both fields before any probe reads them.
+fn fresh_scratch_key() -> RefCell<CellRef> {
+    RefCell::new(CellRef {
+        sheet: String::new(),
+        addr: Address::new(1, 1).expect("A1 is in bounds"),
+    })
 }
 
 impl GridResolver<'_> {
@@ -1070,24 +1108,16 @@ impl GridResolver<'_> {
     /// a cycle resolves to the circular error (so a cell that *reads* a cycle
     /// inherits the taint).
     fn cell_value(&self, sheet_folded: &str, addr: Address) -> CoreValue {
-        let key = CellRef {
-            sheet: sheet_folded.to_owned(),
-            addr,
-        };
-        if self.cycle.contains(&key) {
-            return CoreValue::Error(ErrorKind::Ref);
-        }
-        if let Some(v) = self.new_values.get(&key) {
-            return workbook_to_core(v);
-        }
-        let folder = CaseMapperBorrowed::new();
-        if let Some(c) = self
-            .workbook
-            .sheets()
-            .iter()
-            .find(|s| simple_fold(&folder, s.name()) == sheet_folded)
-            .and_then(|s| s.get(addr))
         {
+            let key = self.probe_key(sheet_folded, addr);
+            if self.cycle.contains(&key) {
+                return CoreValue::Error(ErrorKind::Ref);
+            }
+            if let Some(v) = self.new_values.get(&key) {
+                return workbook_to_core(v);
+            }
+        }
+        if let Some(c) = self.sheet(sheet_folded).and_then(|s| s.get(addr)) {
             return workbook_to_core(c.value());
         }
         // Not authored and not freshly computed: it may be a spilled cell of an
@@ -1103,7 +1133,7 @@ impl GridResolver<'_> {
         }
         // A cell whose value the previous pass computed but this pass has not
         // reached yet (a reader's plain-cell precedent ordered after it).
-        if let Some(v) = self.prev_values.get(&key) {
+        if let Some(v) = self.prev_values.get(&self.probe_key(sheet_folded, addr)) {
             return workbook_to_core(v);
         }
         // Final fallback (matters for *incremental* recalc): the cell may be
@@ -1116,42 +1146,57 @@ impl GridResolver<'_> {
         CoreValue::Empty
     }
 
+    /// The map-probe key for `(sheet_folded, addr)`, refilling the scratch
+    /// [`CellRef`] in place rather than allocating a fresh owned sheet name per
+    /// probe (issue #904). Consecutive probes of one range share a sheet name,
+    /// so the `push_str` reuses the buffer `clear` left behind.
+    ///
+    /// The borrow must not be held across anything that could re-enter
+    /// `cell_value`; every use below is scoped to a single probe.
+    fn probe_key(&self, sheet_folded: &str, addr: Address) -> RefMut<'_, CellRef> {
+        let mut key = self.scratch_key.borrow_mut();
+        if key.sheet != sheet_folded {
+            key.sheet.clear();
+            key.sheet.push_str(sheet_folded);
+        }
+        key.addr = addr;
+        key
+    }
+
+    /// The sheet whose folded name is `sheet_folded`, via the recalc-wide index
+    /// (issue #904): a map probe, with no case-folding and no allocation.
+    fn sheet(&self, sheet_folded: &str) -> Option<&Worksheet> {
+        let index = *self.sheet_indices.get(sheet_folded)? as usize;
+        self.workbook.sheets().get(index)
+    }
+
     /// The value spilled to `addr` on `sheet_folded` per the **stored grid**:
-    /// scans authored anchors whose stored value is an array and reconstructs
+    /// finds the anchor whose stored rectangle covers `addr` and reconstructs
     /// the element (schema spec §5). Used as the incremental-recalc fallback for
     /// spills whose anchor is not re-evaluated this pass.
+    ///
+    /// Only the sheet's *spill anchors* are examined, from the recalc-wide
+    /// [`GridSpillIndex`] — which also applies the `#591` exclusion of anchors
+    /// being recomputed. This used to scan every authored cell on the sheet, on
+    /// every read of an empty cell, at one allocation per cell scanned (issue
+    /// #910).
     fn grid_spilled_value(&self, sheet_folded: &str, addr: Address) -> Option<Value> {
-        let folder = CaseMapperBorrowed::new();
-        let sheet = self
-            .workbook
-            .sheets()
-            .iter()
-            .find(|s| simple_fold(&folder, s.name()) == sheet_folded)?;
-        for (anchor_addr, cell) in sheet.iter() {
+        let anchors = self.grid_spills.anchors(sheet_folded);
+        if anchors.is_empty() {
+            return None;
+        }
+        let sheet = self.sheet(sheet_folded)?;
+        for &(anchor_addr, rect) in anchors {
             if anchor_addr == addr {
                 continue;
             }
-            // An anchor being recomputed this recalc has its current spill state
-            // in the per-pass maps; its stored array is stale until
-            // `apply_changes`, so never resolve through it here (issue #591).
-            let anchor_key = CellRef {
-                sheet: sheet_folded.to_owned(),
-                addr: anchor_addr,
-            };
-            if self.recomputed.contains(&anchor_key) {
-                continue;
-            }
-            let Value::Array(rows) = cell.value() else {
+            let Some((i, j)) = rect.offset_of(addr) else {
                 continue;
             };
-            let nrows = rows.len();
-            let ncols = rows.first().map_or(0, Vec::len);
-            let Some(rect) = crate::spill::spill_rect(anchor_addr, nrows, ncols) else {
-                continue;
+            let Some(Value::Array(rows)) = sheet.get(anchor_addr).map(Cell::value) else {
+                continue; // unreachable: the index only holds array anchors
             };
-            if let Some((i, j)) = rect.offset_of(addr) {
-                return rows.get(i).and_then(|r| r.get(j)).cloned();
-            }
+            return rows.get(i).and_then(|r| r.get(j)).cloned();
         }
         None
     }

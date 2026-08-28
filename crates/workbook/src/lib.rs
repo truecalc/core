@@ -64,6 +64,7 @@ mod cell;
 mod depgraph;
 mod engine;
 mod error;
+mod grid_spills;
 pub mod limits;
 mod mutate;
 mod named_range;
