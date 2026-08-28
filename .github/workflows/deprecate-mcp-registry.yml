@@ -1,0 +1,45 @@
+# One-shot: mark the retired MCP server as deprecated in the MCP Registry.
+#
+# The registry authorises the `io.github.truecalc/*` namespace through GitHub
+# Actions OIDC — the token proves this workflow runs inside this repository. A
+# personal token cannot do it: it only ever grants `io.github.<user>/*`, even
+# for a public org admin.
+#
+# Delete this workflow once it has run. It is the last remaining publish path
+# for a product that no longer exists.
+name: Deprecate MCP Registry listing
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write # OIDC — how the MCP Registry authenticates this workflow
+
+jobs:
+  deprecate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install mcp-publisher
+        run: |
+          set -euo pipefail
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Render the deprecation entry
+        run: |
+          set -euo pipefail
+          jq -n '{
+            "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+            name: "io.github.truecalc/truecalc-mcp",
+            description: "Retired. TrueCalc formula evaluation is no longer distributed as a free MCP server. The calculation engine remains open source and published.",
+            version: "8.2.1",
+            status: "deprecated",
+            repository: { url: "https://github.com/truecalc/core", source: "github" }
+          }' > server.json
+          cat server.json
+
+      - name: Publish to MCP Registry
+        run: |
+          set -euo pipefail
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish server.json
