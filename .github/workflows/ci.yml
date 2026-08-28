@@ -268,7 +268,7 @@ jobs:
       - name: Run benchmarks
         continue-on-error: true
         run: |
-          cargo bench -p truecalc-workbook --bench workbook_perf -- --output-format bencher 2>&1 | tee /tmp/bench_output.txt
+          cargo bench -p truecalc-workbook --bench workbook_perf -- --output-format bencher | tee /tmp/bench_output.txt
 
       - name: Check perf regressions
         run: python3 .github/scripts/check_perf_regression.py < /tmp/bench_output.txt

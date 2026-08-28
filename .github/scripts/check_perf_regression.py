@@ -9,6 +9,17 @@ Reads `cargo bench --output-format bencher` lines from stdin:
 and checks them against crates/workbook/benches/baselines.json. Exits 1 on any
 failure.
 
+Criterion writes `test NAME ... ` to stdout without a trailing newline, so if
+its stderr (e.g. a "Failed to access file ... sample.json" warning on a first
+run with no prior baseline) ever lands in the same stream, it can splice text
+between the `...` and `bench:`, pushing the reading onto a later line. The
+parser below is a small state machine that keeps looking for `bench: N
+ns/iter` on the lines following an unterminated `test NAME ... ` until it
+finds one or another `test` line starts. CI itself no longer merges stderr
+into this stream (see `.github/workflows/ci.yml`), but this keeps the gate
+correct if that ever regresses, and it caught a real week-long silent pass
+(#899).
+
 Three things are checked, and all three are failures:
 
 1. **Regression** — a benchmark got materially slower than its baseline.
@@ -40,15 +51,32 @@ import re
 BASELINES_PATH = (
     Path(__file__).parent.parent.parent / "crates" / "workbook" / "benches" / "baselines.json"
 )
-LINE_RE = re.compile(r"^test (.+?) \.\.\. bench:\s+([\d,]+) ns/iter")
+TEST_RE = re.compile(r"^test (.+?) \.\.\.\s*(.*)$")
+BENCH_RE = re.compile(r"bench:\s+([\d,]+) ns/iter")
 
 
 def parse_measurements(stream):
     measured = {}
-    for line in stream:
-        m = LINE_RE.match(line.strip())
+    pending_name = None
+    for raw_line in stream:
+        line = raw_line.strip()
+        m = TEST_RE.match(line)
         if m:
-            measured[m.group(1).strip()] = int(m.group(2).replace(",", ""))
+            name, remainder = m.group(1).strip(), m.group(2)
+            bm = BENCH_RE.search(remainder)
+            if bm:
+                measured[name] = int(bm.group(1).replace(",", ""))
+                pending_name = None
+            else:
+                # No reading on this line yet (e.g. Criterion's stderr spliced
+                # in here) - keep looking on the lines that follow.
+                pending_name = name
+            continue
+        if pending_name is not None:
+            bm = BENCH_RE.search(line)
+            if bm:
+                measured[pending_name] = int(bm.group(1).replace(",", ""))
+                pending_name = None
     return measured
 
 

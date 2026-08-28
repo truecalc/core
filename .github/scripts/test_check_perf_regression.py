@@ -76,6 +76,41 @@ def main():
     code, out = run_gate(bench_output())
     check("clean run passes", code == 0, out)
 
+    # Criterion writes `test NAME ... ` to stdout without a trailing newline;
+    # its stderr (e.g. "Failed to access file ... sample.json" on a first
+    # run) can land on the same stream and splice text between `...` and
+    # `bench:`, pushing the reading onto a later line:
+    #
+    #   test from_json/500rows ... Criterion.rs ERROR: error: Failed to
+    #   access file ".../sample.json": No such file or directory (os error 2)
+    #   bench:      812351 ns/iter (+/- 13236)
+    #
+    # This exact shape made every CI run silently check zero benchmarks for
+    # weeks (#899) — the gate reported every baseline as MISSING even though
+    # the benchmarks had run. Pin that it now parses.
+    split_name = "from_json/500rows"
+    split_ns = int(BASELINES["benchmarks"][split_name]["ref_units"] * REF_NS)
+    lines = [f"test {REFERENCE} ... bench: {REF_NS} ns/iter (+/- 1000)"]
+    for name, entry in BASELINES["benchmarks"].items():
+        if name == split_name:
+            lines.append(
+                f"test {name} ... Criterion.rs ERROR: error: Failed to access file"
+            )
+            lines.append(
+                f'".../target/criterion/{name}/base/sample.json": '
+                "No such file or directory (os error 2)"
+            )
+            lines.append(f"bench:      {split_ns} ns/iter (+/- 13236)")
+        else:
+            ns = int(entry["ref_units"] * REF_NS)
+            lines.append(f"test {name} ... bench: {ns} ns/iter (+/- 1000)")
+    code, out = run_gate("\n".join(lines) + "\n")
+    check(
+        "split test/bench line across interleaved stderr still parses",
+        code == 0 and f"MISSING   {split_name}" not in out,
+        out,
+    )
+
     # Noise inside the bands must pass. The bands are wide on purpose: a gate
     # that fires on ordinary CI noise gets switched off by whoever it annoys.
     band = {n: 2.4 for n in names_matching("full_recalc/")}

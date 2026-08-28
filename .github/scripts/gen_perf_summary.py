@@ -18,7 +18,49 @@ from pathlib import Path
 BASELINES_PATH = (
     Path(__file__).parent.parent.parent / "crates" / "workbook" / "benches" / "baselines.json"
 )
-LINE_RE = re.compile(r"^test (.+?) \.\.\. bench:\s+([\d,]+) ns/iter \(\+/- ([\d,]+)\)")
+# Criterion writes `test NAME ... ` without a trailing newline, so its stderr
+# can splice text between `...` and `bench:`, pushing the reading onto a
+# later line. This is a small state machine, matching check_perf_regression.py:
+# keep looking for `bench: N ns/iter (+/- M)` on the lines following an
+# unterminated `test NAME ... ` until it is found or another `test` line
+# starts.
+TEST_RE = re.compile(r"^test (.+?) \.\.\.\s*(.*)$")
+BENCH_RE = re.compile(r"bench:\s+([\d,]+) ns/iter \(\+/- ([\d,]+)\)")
+
+
+def parse_measurements(stream):
+    measured = []
+    pending_name = None
+    for raw_line in stream:
+        line = raw_line.strip()
+        m = TEST_RE.match(line)
+        if m:
+            name, remainder = m.group(1).strip(), m.group(2)
+            bm = BENCH_RE.search(remainder)
+            if bm:
+                measured.append(
+                    {
+                        "name": name,
+                        "mean_ns": int(bm.group(1).replace(",", "")),
+                        "stddev_ns": int(bm.group(2).replace(",", "")),
+                    }
+                )
+                pending_name = None
+            else:
+                pending_name = name
+            continue
+        if pending_name is not None:
+            bm = BENCH_RE.search(line)
+            if bm:
+                measured.append(
+                    {
+                        "name": pending_name,
+                        "mean_ns": int(bm.group(1).replace(",", "")),
+                        "stddev_ns": int(bm.group(2).replace(",", "")),
+                    }
+                )
+                pending_name = None
+    return measured
 
 
 def main():
@@ -28,20 +70,15 @@ def main():
     reference = data["reference"]
     recorded_at = data.get("recorded_at", "")
 
-    measured = []
-    for line in sys.stdin:
-        m = LINE_RE.match(line.strip())
-        if not m:
-            continue
-        measured.append(
-            {
-                "name": m.group(1).strip(),
-                "mean_ns": int(m.group(2).replace(",", "")),
-                "stddev_ns": int(m.group(3).replace(",", "")),
-            }
-        )
+    measured = parse_measurements(sys.stdin)
 
     ref_ns = next((b["mean_ns"] for b in measured if b["name"] == reference), None)
+    if ref_ns is None:
+        print(
+            f"Reference benchmark {reference!r} not found in bench output; "
+            "ref_units and vs_baseline_pct will be null for every benchmark.",
+            file=sys.stderr,
+        )
 
     benchmarks = []
     for b in measured:
