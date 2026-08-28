@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.2.3](https://github.com/truecalc/core/compare/truecalc-workbook-v8.2.2...truecalc-workbook-v8.2.3) - 2026-08-28
+
+### Fixed
+
+- *(bench)* record the four baselines this change actually moved
+
+### Other
+
+- *(workbook)* resolve sheets through a per-recalc index, not a folding scan
+
 ## [8.2.2](https://github.com/truecalc/core/compare/truecalc-workbook-v8.2.1...truecalc-workbook-v8.2.2) - 2026-08-28
 
 ### Fixed
