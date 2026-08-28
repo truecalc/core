@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 description = "MCP server exposing truecalc formula evaluation as a tool for AI assistants"
 repository.workspace = true
+publish = false
 readme = "README.md"
 keywords = ["mcp", "spreadsheet", "formula", "ai", "claude"]
 categories = ["command-line-utilities"]
