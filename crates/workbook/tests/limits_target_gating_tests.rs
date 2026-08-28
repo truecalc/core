@@ -45,8 +45,10 @@ fn other_targets_accept_a_document_past_both_caps() {
     const MODEL_CELLS: usize = 1_651_024;
     const MODEL_BYTES: usize = 134_000_000;
 
-    assert!(MODEL_CELLS > MAX_CELLS_PER_WORKBOOK);
-    assert!(MODEL_BYTES > MAX_SERIALIZED_BYTES);
+    // Compile-time checks, not runtime assertions: both sides are `const`, so
+    // `assert!` here would only assert on the compiler (clippy::assertions_on_constants).
+    const { assert!(MODEL_CELLS > MAX_CELLS_PER_WORKBOOK) };
+    const { assert!(MODEL_BYTES > MAX_SERIALIZED_BYTES) };
 
     assert!(!exceeds_cell_cap(MODEL_CELLS));
     assert!(!exceeds_serialized_cap(MODEL_BYTES));
