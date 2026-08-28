@@ -7,7 +7,7 @@
 //! `Workbook::set` to `Workbook::to_json`.
 
 use truecalc_workbook::limits::{
-    MAX_CELLS_PER_WORKBOOK, MAX_SERIALIZED_BYTES, exceeds_cell_cap, exceeds_serialized_cap,
+    exceeds_cell_cap, exceeds_serialized_cap, MAX_CELLS_PER_WORKBOOK, MAX_SERIALIZED_BYTES,
 };
 
 /// The constants themselves are unchanged on every target. Downstream hosts
