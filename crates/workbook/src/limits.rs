@@ -10,9 +10,53 @@
 //! the serialized byte cap is enforced at serialize/deserialize time only
 //! (computing canonical byte length per mutation would be O(document) per
 //! edit — ADR Decision 5).
+//!
+//! # Two of these limits are enforced on `wasm32` only
+//!
+//! [`MAX_CELLS_PER_WORKBOOK`] and [`MAX_SERIALIZED_BYTES`] exist because of a
+//! property of the 32-bit WebAssembly target, not because a workbook that
+//! large is meaningless. Both constants keep their values on every target — a
+//! 64-bit tool can still ask "would a browser load this?" **by comparing
+//! against the constants directly.** The crate-internal checks that actually
+//! reject, `exceeds_cell_cap` and `exceeds_serialized_cap`, only do so when
+//! `target_arch = "wasm32"` — off `wasm32` they always return `false`, so they
+//! answer a different, narrower question ("does *this build* reject it?") and
+//! are not exported for that reason (see their doc comments).
+//!
+//! The `wasm32` constraint is the **address space**. A wasm32 linear memory is
+//! indexed by a 32-bit pointer and so cannot exceed 4,294,967,296 bytes; a
+//! growth request past that byte fails identically in Node and in desktop
+//! browsers. Measured against this crate a stored cell costs about 108 bytes
+//! as a number and about 149 as a formula, which puts the real ceiling at
+//! roughly 29–40 million cells — the same order as the cap.
+//!
+//! What makes that wall worth a cap, rather than something to let fail on its
+//! own, is *how* it fails. It is not a refusal a caller can catch and report:
+//! the allocation failure aborts the entire wasm module. Because one wasm
+//! instance normally backs every workbook a host has open, a single oversized
+//! workbook destroys the unrelated ones alongside it. These caps turn that into
+//! an ordinary [`WorkbookError`](crate::WorkbookError) raised before any of the
+//! memory is asked for, and are currently the only thing that does.
+//!
+//! No other target has that wall. A 64-bit build is bounded by machine memory,
+//! which is both far larger and operator-controlled, so a wasm-shaped cap there
+//! only refuses documents the engine handles comfortably. (Exhausting machine
+//! memory is still an abort rather than an error — but it is a host-level
+//! failure at a height the operator chooses, not a fixed ceiling an ordinary
+//! spreadsheet reaches.)
+//!
+//! This stays consistent with "library constants, not schema constants": off
+//! `wasm32` these limits are effectively *raised*, which is non-breaking, and
+//! the `wasm32` behaviour is unchanged, so nothing is lowered anywhere. A
+//! document a 64-bit build accepts may of course exceed what a `wasm32` build
+//! will load, which is the same version-dependent validation described above.
 
 /// Maximum populated cells across the whole workbook. Spilled/materialized
 /// cells count toward this cap (ADR Decision 5).
+///
+/// **Enforced on `wasm32` only** — see the module docs. This constant itself
+/// keeps its value on every target; the crate-internal `exceeds_cell_cap`
+/// predicate every enforcement site uses is what varies by build.
 pub const MAX_CELLS_PER_WORKBOOK: usize = 1_000_000;
 
 /// Maximum length of a `text` value, in Unicode scalar values.
@@ -50,4 +94,77 @@ pub const MAX_TABLES: usize = 10_000;
 /// Maximum serialized canonical JSON document size, in bytes (100 MiB).
 /// A workbook exceeding this cannot be serialized, and `from_json` rejects
 /// oversized inputs (ADR Decision 5).
+///
+/// **Enforced on `wasm32` only** — see the module docs. This constant itself
+/// keeps its value on every target; the crate-internal
+/// `exceeds_serialized_cap` predicate every enforcement site uses is what
+/// varies by build. This cap is gated together with
+/// [`MAX_CELLS_PER_WORKBOOK`] because the two were deliberately matched:
+/// canonical JSON costs roughly 53 bytes per numeric cell and ~81 per formula
+/// cell, so one million formula cells is about 81 MiB — 81% of this.
+/// Relaxing the cell cap alone would only move the same address-space
+/// failure from `set` to `to_json`.
 pub const MAX_SERIALIZED_BYTES: usize = 100 * 1024 * 1024;
+
+/// Whether a workbook holding `cells` populated cells breaches
+/// [`MAX_CELLS_PER_WORKBOOK`] on a target that enforces it.
+///
+/// Always `false` off `wasm32`: the cap tracks the 32-bit address-space wall
+/// described in the module docs, and no other target has one.
+///
+/// **Internal enforcement policy, not a public API.** This answers "does
+/// *this build* reject it?", not "would a browser load this?" — the two
+/// questions differ off `wasm32`, where this always returns `false`. A host
+/// asking the browser-load question should compare against
+/// [`MAX_CELLS_PER_WORKBOOK`] directly. `#[doc(hidden)]` rather than
+/// `pub(crate)` because the gating integration test in `tests/` is a separate
+/// crate and needs to reach this (CLAUDE.md §9 forbids inline `#[cfg(test)]`
+/// in production sources); the precedent for that shape is
+/// `DepGraph::formula_precedent_cells_examined`. Being `const fn` does not
+/// mean "same result on every target" here — it means "evaluable at compile
+/// time on whichever target is compiling", so a downstream `const` built
+/// against this can bake in a native `false` without warning, and rustdoc
+/// renders the host (x86_64) body, so docs.rs would otherwise show this
+/// always returning `false` right next to a constants page that still says
+/// 1,000,000.
+#[doc(hidden)]
+#[inline]
+#[must_use]
+pub const fn exceeds_cell_cap(cells: usize) -> bool {
+    #[cfg(target_arch = "wasm32")]
+    {
+        cells > MAX_CELLS_PER_WORKBOOK
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = cells;
+        false
+    }
+}
+
+/// Whether a serialized document of `bytes` bytes breaches
+/// [`MAX_SERIALIZED_BYTES`] on a target that enforces it.
+///
+/// Always `false` off `wasm32`, for the reason given on
+/// [`MAX_SERIALIZED_BYTES`].
+///
+/// **Internal enforcement policy, not a public API** — see
+/// [`exceeds_cell_cap`]'s doc comment, which this mirrors: it answers "does
+/// *this build* reject it?", a host asking "would a browser load this?"
+/// should compare against [`MAX_SERIALIZED_BYTES`] directly, and `const fn`
+/// here means "evaluable at compile time on whichever target is compiling",
+/// not "same result everywhere".
+#[doc(hidden)]
+#[inline]
+#[must_use]
+pub const fn exceeds_serialized_cap(bytes: usize) -> bool {
+    #[cfg(target_arch = "wasm32")]
+    {
+        bytes > MAX_SERIALIZED_BYTES
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = bytes;
+        false
+    }
+}

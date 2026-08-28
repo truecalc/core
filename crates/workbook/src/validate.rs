@@ -12,7 +12,8 @@
 //!   reconstructed rectangle; overlapping rectangles; out-of-bounds rectangle);
 //! - §7 named-range name/`ref` validity, case-insensitive uniqueness, no
 //!   dangling sheet refs;
-//! - §6/Decision 5 resource limits (cells, text length, array elements, sheets,
+//! - §6/Decision 5 resource limits (cells — enforced on `wasm32` only, see the
+//!   [`crate::limits`] module docs — plus text length, array elements, sheets,
 //!   formula length, named-range count, table count).
 //!
 //! Input is the duplicate-checked [`serde_json::Value`] tree; this runs before
@@ -92,7 +93,7 @@ pub fn validate_document(root: &Value) -> Result<(), String> {
         total_cells += validate_sheet_cells(sheet_obj, name)?;
     }
 
-    if total_cells > limits::MAX_CELLS_PER_WORKBOOK {
+    if limits::exceeds_cell_cap(total_cells) {
         return Err(format!(
             "workbook has {total_cells} populated cells, exceeding the limit of {} \
              (scope ADR Decision 5)",

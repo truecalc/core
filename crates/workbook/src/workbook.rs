@@ -227,9 +227,11 @@ impl Workbook {
     ///   anchor's rectangle, no overlapping rectangles, none out of bounds);
     /// - **§7** named-range names and `ref`s are valid and canonical, names are
     ///   unique case-insensitively, and no `ref` dangles to a missing sheet;
-    /// - **Decision 5** input size and all structural limits are enforced.
+    /// - **Decision 5** input size and all structural limits are enforced (the
+    ///   input-size and cell-count caps on `wasm32` only — see the
+    ///   [`limits`](crate::limits) module docs).
     pub fn from_json(bytes: &[u8]) -> Result<Self, WorkbookError> {
-        if bytes.len() > limits::MAX_SERIALIZED_BYTES {
+        if limits::exceeds_serialized_cap(bytes.len()) {
             return Err(WorkbookError::Validation(format!(
                 "input is {} bytes, exceeding the {}-byte limit (scope ADR Decision 5)",
                 bytes.len(),
@@ -251,7 +253,8 @@ impl Workbook {
     /// formatting, `names` sorted by `name`.
     ///
     /// Errors if a value is non-finite (forbidden, schema spec §8.4) or if the
-    /// canonical bytes exceed the 100 MiB cap (scope ADR Decision 5).
+    /// canonical bytes exceed the 100 MiB cap — enforced on `wasm32` only, see
+    /// the [`limits`](crate::limits) module docs (scope ADR Decision 5).
     pub fn to_json(&self) -> Result<String, WorkbookError> {
         // Serialize through the typed serde layer (which already emits the §6
         // value encodings and rejects NaN/Inf), then canonicalize the tree.
@@ -260,7 +263,7 @@ impl Workbook {
         sort_names_by_name(&mut tree);
         sort_tables_by_name(&mut tree);
         let canonical = canonical::to_canonical_string(&tree).map_err(WorkbookError::Validation)?;
-        if canonical.len() > limits::MAX_SERIALIZED_BYTES {
+        if limits::exceeds_serialized_cap(canonical.len()) {
             return Err(WorkbookError::Validation(format!(
                 "canonical workbook is {} bytes, exceeding the {}-byte limit                  (scope ADR Decision 5)",
                 canonical.len(),

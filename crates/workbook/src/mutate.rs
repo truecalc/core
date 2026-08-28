@@ -11,7 +11,9 @@
 //!   ([`MAX_CELLS_PER_WORKBOOK`](crate::limits::MAX_CELLS_PER_WORKBOOK)), a
 //!   `text` value's length, an `array` value's element count, a formula's
 //!   length, and the named-range count — so a mutation that would breach a cap
-//!   fails immediately rather than at serialize time. The serialized **byte**
+//!   fails immediately rather than at serialize time. (The cell-count cap is
+//!   enforced on `wasm32` only; see the [`limits`](crate::limits) module
+//!   docs.) The serialized **byte**
 //!   cap is the lone exception: it stays a serialize-time check
 //!   ([`to_json`](crate::Workbook::to_json)), since recomputing canonical byte
 //!   length per edit is O(document) per mutation (Decision 5, `limits` docs).
@@ -132,8 +134,9 @@ impl Workbook {
         })?;
 
         // Eager workbook cell-count cap: only a *new* cell grows the count.
+        // `+ 1` is the cell this call is about to add.
         let introduces_new_cell = !self.sheets()[idx].contains(addr);
-        if introduces_new_cell && self.total_cells() >= limits::MAX_CELLS_PER_WORKBOOK {
+        if introduces_new_cell && limits::exceeds_cell_cap(self.total_cells() + 1) {
             return Err(WorkbookError::Mutation(format!(
                 "cannot set cell: workbook already holds {} populated cells, the limit \
                  (scope ADR Decision 5)",
