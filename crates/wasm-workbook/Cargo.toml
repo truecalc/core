@@ -2,7 +2,13 @@
 name = "truecalc-wasm-workbook"
 version.workspace = true
 edition.workspace = true
-license.workspace = true
+# Not `license.workspace = true`. This crate compiles `truecalc-workbook`
+# (Elastic-2.0) into the artifact published to npm and JSR as
+# `@truecalc/workbook`, so the wrapper must carry the same terms as the code
+# it ships. wasm-pack copies this field into the generated package.json.
+# The artifact also links MIT `truecalc-core`; its notice is preserved in
+# ./NOTICE, which the release workflow ships in the published tarball.
+license = "Elastic-2.0"
 publish = false  # published to npm via wasm-pack, not crates.io
 description = "Spreadsheet workbook for the browser — full Workbook API compiled to WebAssembly"
 repository.workspace = true

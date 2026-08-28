@@ -4,7 +4,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@truecalc/workbook)](https://www.npmjs.com/package/@truecalc/workbook)
 [![crates.io](https://img.shields.io/crates/v/truecalc-core)](https://crates.io/crates/truecalc-core)
 [![docs.rs](https://img.shields.io/docsrs/truecalc-core)](https://docs.rs/truecalc-core)
-[![license](https://img.shields.io/crates/l/truecalc-core)](LICENSE)
+[![license](https://img.shields.io/badge/license-Elastic--2.0-blue)](LICENSE)
 
 Spreadsheet workbook for JavaScript — full recalculation engine compiled to WebAssembly.
 Manage multiple sheets, set cell values and formulas, and trigger recalculation with a
@@ -307,3 +307,20 @@ Deserializes a workbook from a JSON string produced by `toJSON()`. Returns a new
 const wb2 = JsWorkbook.fromJSON(json);
 wb2.recalc(JSON.stringify({ timestamp_ms: 0, timezone: 'UTC', rng_seed: 0 }));
 ```
+
+## License
+
+[Elastic License 2.0](LICENSE) (`Elastic-2.0`) — source-available, not MIT.
+You may use, copy, modify and redistribute it; you may not offer it to third
+parties as a hosted or managed service that provides access to a substantial
+set of its functionality.
+
+This package compiles the ELv2 `truecalc-workbook` crate together with the MIT
+`truecalc-core` crate; `NOTICE` in this package reproduces core's MIT copyright
+and permission notice, as MIT requires.
+
+`@truecalc/core` — stateless formula evaluation, no workbook — remains MIT.
+
+Every version of `@truecalc/workbook` published up to and including 8.2.2 was
+released under MIT and stays MIT permanently — the change applies only to
+versions published after it.

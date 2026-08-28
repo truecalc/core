@@ -86,4 +86,17 @@ one in a long-running process.
 
 ## License
 
-MIT
+[Elastic License 2.0](LICENSE) (`Elastic-2.0`) — source-available, not MIT.
+You may use, copy, modify and redistribute it; you may not offer it to third
+parties as a hosted or managed service that provides access to a substantial
+set of its functionality.
+
+This package compiles the ELv2 `truecalc-workbook` crate together with the MIT
+`truecalc-core` crate; `NOTICE` in this package reproduces core's MIT copyright
+and permission notice, as MIT requires.
+
+`@truecalc/core` — stateless formula evaluation, no workbook — remains MIT.
+
+Every version of `@truecalc/workbook` published up to and including 8.2.2 was
+released under MIT and stays MIT permanently — the change applies only to
+versions published after it.

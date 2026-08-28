@@ -1,0 +1,41 @@
+@truecalc/workbook — third-party notices
+========================================
+
+This package (the `truecalc-wasm-workbook` crate, published to npm and JSR as
+`@truecalc/workbook`) is licensed under the Elastic License 2.0. See LICENSE.
+
+The compiled WebAssembly artifact in this package statically links two
+TrueCalc crates:
+
+  * truecalc-workbook — Elastic License 2.0 (see LICENSE)
+  * truecalc-core     — MIT, reproduced below
+
+`truecalc-core` remains MIT-licensed and is published independently to
+crates.io as `truecalc-core` and to npm/JSR as `@truecalc/core`. Its MIT
+copyright and permission notice is reproduced here as MIT requires.
+
+--------------------------------------------------------------------------
+truecalc-core — https://crates.io/crates/truecalc-core
+--------------------------------------------------------------------------
+
+MIT License
+
+Copyright (c) 2026 tryganit
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

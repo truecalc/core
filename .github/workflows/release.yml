@@ -102,8 +102,32 @@ jobs:
       - name: Build WASM workbook
         run: wasm-pack build crates/wasm-workbook --target web
 
-      - name: Set npm package name
-        run: node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('package.json')); p.name='@truecalc/workbook'; fs.writeFileSync('package.json', JSON.stringify(p, null, 2)+'\n')"
+      # wasm-pack derives `license` from Cargo.toml (Elastic-2.0) and copies the
+      # crate's LICENSE into pkg/; npm packs a LICENSE file regardless of `files`.
+      # NOTICE is neither copied nor packed by default, and it has to ship: the
+      # wasm artifact statically links MIT `truecalc-core`, and MIT requires its
+      # copyright and permission notice to travel with the code. The license
+      # assertion below is a guard, not decoration — a silent revert to the
+      # workspace MIT default would publish ELv2 code under MIT.
+      - name: Set npm package name and ship the license notices
+        run: |
+          set -euo pipefail
+          cp ../NOTICE NOTICE
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('package.json'));
+            p.name = '@truecalc/workbook';
+            if (p.license !== 'Elastic-2.0') {
+              console.error('expected license Elastic-2.0, got ' + p.license);
+              process.exit(1);
+            }
+            if (!Array.isArray(p.files)) {
+              console.error('package.json has no \`files\` array — refusing to publish blind');
+              process.exit(1);
+            }
+            for (const f of ['LICENSE', 'NOTICE']) if (!p.files.includes(f)) p.files.push(f);
+            fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
+          "
         working-directory: crates/wasm-workbook/pkg
 
       - uses: actions/setup-node@v4
@@ -138,9 +162,15 @@ jobs:
           - crate: wasm
             package: "@truecalc/core"
             entry: truecalc_wasm.js
+            # @truecalc/core compiles only truecalc-core, which stays MIT.
+            license: MIT
           - crate: wasm-workbook
             package: "@truecalc/workbook"
             entry: truecalc_wasm_workbook.js
+            # @truecalc/workbook compiles truecalc-workbook, which is ELv2. This
+            # must track crates/wasm-workbook/Cargo.toml — a hardcoded "MIT" here
+            # would publish ELv2 code to JSR under MIT.
+            license: Elastic-2.0
     steps:
       - uses: actions/checkout@v4
         with:
@@ -188,6 +218,16 @@ jobs:
       - name: Use the Deno-specific README
         run: cp crates/${{ matrix.crate }}/README.jsr.md crates/${{ matrix.crate }}/pkg/README.md
 
+      # Only wasm-workbook has one: its artifact links MIT truecalc-core, and MIT
+      # requires the notice to travel with the code. wasm-pack already copied the
+      # crate LICENSE into pkg/.
+      - name: Ship the third-party notice, if the crate has one
+        run: |
+          set -euo pipefail
+          if [ -f crates/${{ matrix.crate }}/NOTICE ]; then
+            cp crates/${{ matrix.crate }}/NOTICE crates/${{ matrix.crate }}/pkg/NOTICE
+          fi
+
       # The version is DERIVED, never typed in — a hand-edited jsr.json is
       # exactly how registries drift out of lockstep (#797). It is read from the
       # package.json wasm-pack just generated, which is the identical file the
@@ -212,7 +252,8 @@ jobs:
             --arg name "${{ matrix.package }}" \
             --arg version "$VERSION" \
             --arg entry "./${{ matrix.entry }}" \
-            '{name: $name, version: $version, license: "MIT", exports: $entry,
+            --arg license "${{ matrix.license }}" \
+            '{name: $name, version: $version, license: $license, exports: $entry,
               publish: {exclude: ["!*.wasm"]}}' \
             > jsr.json
 
