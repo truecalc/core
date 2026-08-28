@@ -20,7 +20,11 @@ fn cap_constants_are_unchanged_on_every_target() {
 }
 
 /// A workbook exactly at the cap is within it on every target: both predicates
-/// are strictly-greater-than tests.
+/// are strictly-greater-than tests. Off `wasm32` this is trivially true (the
+/// predicates always return `false`), so it does not pin the `>` vs `>=`
+/// boundary by itself — that boundary is pinned by
+/// `examples/workbook-node/index.mjs`, which runs against the real wasm32
+/// build in CI and is the only place the distinction can actually be caught.
 #[test]
 fn a_document_exactly_at_either_cap_is_never_rejected() {
     assert!(!exceeds_cell_cap(MAX_CELLS_PER_WORKBOOK));
@@ -29,6 +33,14 @@ fn a_document_exactly_at_either_cap_is_never_rejected() {
     assert!(!exceeds_serialized_cap(0));
 }
 
+// This test never runs in CI and cannot be made to: nothing in this repo
+// compiles `crates/workbook/tests/` for wasm32 (a dev-dependency in that tree
+// doesn't build for the target — `cargo check -p truecalc-workbook --tests
+// --target wasm32-unknown-unknown` fails), and CI's wasm32 stage only runs
+// `wasm-pack build` (build only, no test execution). Left in place as a
+// statement of intended behavior, not as coverage — the real coverage for
+// this cfg's assertions is `examples/workbook-node/index.mjs`, which runs
+// against the actual wasm build in CI.
 #[cfg(target_arch = "wasm32")]
 #[test]
 fn wasm32_still_rejects_past_either_cap() {
