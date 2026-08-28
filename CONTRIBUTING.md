@@ -74,28 +74,18 @@ with a Google Sheets screenshot), and the actual result from truecalc.
 
 ## Where issues are filed
 
-The two engine crates are heading for different licenses. `truecalc-core`
-stays MIT and fully open. `truecalc-workbook` moves to a source-available
-license. Issue location follows that line, so it is a rule rather than a
-case-by-case judgement:
+All of the project's own issue tracking happens in one central private
+tracker: planning, roadmap, and work in flight, across every repository, in
+one place.
 
-- Issues about `truecalc-core` — functions, evaluation, conformance with the
-  reference spreadsheet — are filed here, in public. If you depend on an MIT
-  crate, you should be able to see what is broken in it.
-- Issues about `truecalc-workbook` — recalculation, the dependency graph,
-  performance work — are filed on a private tracker.
-- Security reports never move to the private tracker. They stay public, or
-  follow the disclosure process in [SECURITY.md](SECURITY.md).
-- Anything that affects users of the MIT crate stays public.
+That is where the project organises its own work — it is not a way of
+refusing reports. Issue filing stays enabled on this repository, and bug
+reports are welcome here, in public. If you depend on a published crate and
+something is wrong, report it here; it will be picked up. The source and
+every pull request stay public, as they always have.
 
-It is worth being precise about what this does and does not do. The source and
-every pull request remain public — the repository is public, and a
-source-available license requires visibility — so no implementation is hidden.
-What moves to the private tracker is the analysis: profiles, measurements, and
-the reasoning that located a defect. Finding a problem is the expensive part;
-fixing it once you know where it is usually is not.
-
-Issues already filed here remain public. None are being retracted.
+Security reports are the exception: please don't open a public issue for a
+vulnerability — follow the disclosure process in [SECURITY.md](SECURITY.md).
 
 ## Reporting security issues
 
