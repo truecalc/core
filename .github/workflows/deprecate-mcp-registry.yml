@@ -29,7 +29,9 @@ jobs:
         run: |
           set -euo pipefail
           ./mcp-publisher login github-oidc
-          ./mcp-publisher status \
+          # `status` prompts "Continue? [y/N]" before applying. CI has no stdin,
+          # so it reads EOF and exits 1. There is no --yes flag; feed it one.
+          echo y | ./mcp-publisher status \
             --status deleted \
             --all-versions \
             --message "Retired. The free MCP server is no longer distributed; the TrueCalc engine remains open source." \
