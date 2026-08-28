@@ -1,119 +1,119 @@
 {
   "baseline_recorded_at": "2026-08-28",
   "reference": "calibration/hash_alloc",
-  "reference_mean_ns": 4949074,
+  "reference_mean_ns": 4959262,
   "benchmarks": [
     {
       "name": "calibration/hash_alloc",
-      "mean_ns": 4949074,
-      "stddev_ns": 109351,
+      "mean_ns": 4959262,
+      "stddev_ns": 123049,
       "ref_units": 1.0,
       "vs_baseline_pct": null
     },
     {
       "name": "full_recalc/independent/100",
-      "mean_ns": 715890,
-      "stddev_ns": 10442,
-      "ref_units": 0.1447,
-      "vs_baseline_pct": 0.77
+      "mean_ns": 707385,
+      "stddev_ns": 3326,
+      "ref_units": 0.1426,
+      "vs_baseline_pct": -0.7
     },
     {
       "name": "full_recalc/independent/1000",
-      "mean_ns": 6157163,
-      "stddev_ns": 163761,
-      "ref_units": 1.2441,
-      "vs_baseline_pct": -7.12
+      "mean_ns": 6123364,
+      "stddev_ns": 367428,
+      "ref_units": 1.2347,
+      "vs_baseline_pct": -7.82
     },
     {
       "name": "full_recalc/independent/5000",
-      "mean_ns": 33493974,
-      "stddev_ns": 1385317,
-      "ref_units": 6.7677,
-      "vs_baseline_pct": -2.02
+      "mean_ns": 35149895,
+      "stddev_ns": 502320,
+      "ref_units": 7.0877,
+      "vs_baseline_pct": 2.62
     },
     {
       "name": "full_recalc/row_totals/500",
-      "mean_ns": 6913181,
-      "stddev_ns": 148935,
-      "ref_units": 1.3969,
-      "vs_baseline_pct": 0.95
+      "mean_ns": 6832645,
+      "stddev_ns": 26940,
+      "ref_units": 1.3778,
+      "vs_baseline_pct": -0.43
     },
     {
       "name": "full_recalc/row_totals/2000",
-      "mean_ns": 30219293,
-      "stddev_ns": 409322,
-      "ref_units": 6.106,
-      "vs_baseline_pct": 1.44
+      "mean_ns": 33126847,
+      "stddev_ns": 1186984,
+      "ref_units": 6.6798,
+      "vs_baseline_pct": 10.98
     },
     {
       "name": "full_recalc/block_subtotals/2000",
-      "mean_ns": 5902167,
-      "stddev_ns": 33226,
-      "ref_units": 1.1926,
-      "vs_baseline_pct": -7.79
+      "mean_ns": 5744620,
+      "stddev_ns": 41473,
+      "ref_units": 1.1584,
+      "vs_baseline_pct": -10.44
     },
     {
       "name": "full_recalc/block_subtotals/10000",
-      "mean_ns": 36275356,
-      "stddev_ns": 550157,
-      "ref_units": 7.3297,
-      "vs_baseline_pct": -9.18
+      "mean_ns": 37265706,
+      "stddev_ns": 348624,
+      "ref_units": 7.5144,
+      "vs_baseline_pct": -6.89
     },
     {
       "name": "full_recalc/tall_sparse/20000",
-      "mean_ns": 200495305,
-      "stddev_ns": 3234724,
-      "ref_units": 40.5117,
-      "vs_baseline_pct": 1.28
+      "mean_ns": 220221137,
+      "stddev_ns": 12491484,
+      "ref_units": 44.406,
+      "vs_baseline_pct": 11.02
     },
     {
       "name": "depgraph_build/tall_sparse/20000",
-      "mean_ns": 48159767,
-      "stddev_ns": 1292549,
-      "ref_units": 9.7311,
-      "vs_baseline_pct": -2.68
+      "mean_ns": 52231680,
+      "stddev_ns": 965358,
+      "ref_units": 10.5321,
+      "vs_baseline_pct": 5.33
     },
     {
       "name": "depgraph_build/row_totals/2000",
-      "mean_ns": 4262246,
-      "stddev_ns": 20073,
-      "ref_units": 0.8612,
-      "vs_baseline_pct": -9.46
+      "mean_ns": 4456044,
+      "stddev_ns": 42018,
+      "ref_units": 0.8985,
+      "vs_baseline_pct": -5.54
     },
     {
       "name": "incremental_recalc/independent_edit_root/100",
-      "mean_ns": 491423,
-      "stddev_ns": 1303,
-      "ref_units": 0.0993,
-      "vs_baseline_pct": 0.91
+      "mean_ns": 518442,
+      "stddev_ns": 5815,
+      "ref_units": 0.1045,
+      "vs_baseline_pct": 6.2
     },
     {
       "name": "incremental_recalc/independent_edit_root/1000",
-      "mean_ns": 3677977,
-      "stddev_ns": 12511,
-      "ref_units": 0.7432,
-      "vs_baseline_pct": -5.45
+      "mean_ns": 3863349,
+      "stddev_ns": 47738,
+      "ref_units": 0.779,
+      "vs_baseline_pct": -0.89
     },
     {
       "name": "incremental_recalc/block_subtotals_edit_root/10000",
-      "mean_ns": 5506353,
-      "stddev_ns": 24382,
-      "ref_units": 1.1126,
-      "vs_baseline_pct": -8.01
+      "mean_ns": 5956659,
+      "stddev_ns": 56227,
+      "ref_units": 1.2011,
+      "vs_baseline_pct": -0.69
     },
     {
       "name": "from_json/500rows",
-      "mean_ns": 1639702,
-      "stddev_ns": 22047,
-      "ref_units": 0.3313,
-      "vs_baseline_pct": 16.94
+      "mean_ns": 1655712,
+      "stddev_ns": 14030,
+      "ref_units": 0.3339,
+      "vs_baseline_pct": 17.86
     },
     {
       "name": "to_json/500rows",
-      "mean_ns": 972278,
-      "stddev_ns": 11062,
-      "ref_units": 0.1965,
-      "vs_baseline_pct": -11.33
+      "mean_ns": 957570,
+      "stddev_ns": 8680,
+      "ref_units": 0.1931,
+      "vs_baseline_pct": -12.86
     }
   ]
 }
