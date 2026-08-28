@@ -123,8 +123,8 @@ const fns = list_functions();
 
 The free `truecalc-mcp` server is **retired**. It is no longer built,
 published, or maintained: not to crates.io, not to npm as `@truecalc/mcp`,
-not via `cargo install`, `cargo binstall`, `npx`, `uvx`, Homebrew, Docker,
-or the MCP Registry. Versions already published are left in place; there
+not via `cargo install`, `cargo binstall`, `npx`, Homebrew, or the MCP
+Registry. Versions already published are left in place; there
 will be no new ones.
 
 This does not change the engine. `truecalc-core` and `truecalc-workbook`
