@@ -262,18 +262,24 @@ impl Workbook {
                 }
             }
         }
+        // Volatile cells are always dirty (scope ADR Decision 3). Seeded onto
+        // the frontier *before* it drains — not just inserted into `dirty` —
+        // so the transitive-closure walk below also propagates out from them.
+        // Issue #926: a volatile cell inserted into `dirty` after the
+        // frontier had already drained recomputed itself but never dirtied
+        // its own dependents, so anything downstream of e.g. `=TODAY()` kept
+        // a stale value under incremental recalc.
+        for cell in graph.formula_cells() {
+            if self.is_volatile(cell) && dirty.insert(cell.clone()) {
+                frontier.push_back(cell.clone());
+            }
+        }
         // Transitive closure over the formula-cell dependents.
         while let Some(cell) = frontier.pop_front() {
             for dep in graph.direct_dependents_of(&cell) {
                 if dirty.insert(dep.clone()) {
                     frontier.push_back(dep);
                 }
-            }
-        }
-        // Volatile cells are always dirty (scope ADR Decision 3).
-        for cell in graph.formula_cells() {
-            if self.is_volatile(cell) {
-                dirty.insert(cell.clone());
             }
         }
 
