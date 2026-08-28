@@ -1,6 +1,6 @@
 use crate::eval::functions::check_arity;
 use crate::types::{ErrorKind, Value};
-use super::array_utils::{flatten_to_rows, flatten_to_flat, values_equal, value_compare, wildcard_match_value, has_wildcards};
+use super::array_utils::{flatten_to_flat, values_equal, value_compare, wildcard_match_value, has_wildcards};
 
 /// Helper: coerce a Value to an index (i64). Handles Number and Bool; propagates errors.
 /// Returns Err(Value::Error(...)) if coercion fails.
@@ -14,9 +14,27 @@ fn coerce_index(v: &Value) -> Result<i64, Value> {
     }
 }
 
+/// One row of a two-dimensional array, borrowed. An element that is itself an
+/// array is that row's cells; a bare scalar is a one-cell row, which is how a
+/// ragged literal such as `{1,2;3}` reads.
+fn row_of(v: &Value) -> &[Value] {
+    match v {
+        Value::Array(cols) => cols,
+        other => std::slice::from_ref(other),
+    }
+}
+
 /// `INDEX(array, row, [col])` — returns the value at row/col of array.
 /// Row and col are 1-based. Negative -> #VALUE!, out of bounds -> #REF!.
 /// row=0 or col=0 means "all" (returns entire row/col or for 1D: first element).
+///
+/// Reading one element allocates nothing whatever the array's size: the array
+/// is addressed through a borrowed slice rather than flattened into a copy
+/// first. That copy used to make a single lookup cost O(elements), so the
+/// obvious workload — one lookup per row of an inline data set — cost
+/// O(elements^2). Keep any new branch here indexing in place; returning a
+/// whole row or column is the only case that may allocate, and only in
+/// proportion to what it returns.
 pub fn index_fn(args: &[Value]) -> Value {
     if let Some(err) = check_arity(args, 2, 3) {
         return err;
@@ -46,36 +64,43 @@ pub fn index_fn(args: &[Value]) -> Value {
         0
     };
 
-    let rows = flatten_to_rows(array_val);
-    let is_2d = matches!(array_val, Value::Array(v) if v.iter().any(|e| matches!(e, Value::Array(_))));
+    // The array's elements, borrowed. Copying the array to read one element out
+    // of it made a single lookup cost O(elements) — see the top-level note.
+    let elems: &[Value] = match array_val {
+        Value::Array(v) => v,
+        other => std::slice::from_ref(other),
+    };
+    let is_2d = elems.iter().any(|e| matches!(e, Value::Array(_)));
 
     if is_2d {
         // row=0 means return entire column; col=0 means return entire row
         if row_idx == 0 && col_idx == 0 {
             return array_val.clone();
         }
-        if row_idx > rows.len() {
+        if row_idx > elems.len() {
             return Value::Error(ErrorKind::Ref);
         }
         if row_idx == 0 {
             // Return entire column col_idx across all rows
             let col = col_idx;
-            if col < 1 || rows.iter().any(|r| col > r.len()) {
+            if col < 1 || elems.iter().any(|r| col > row_of(r).len()) {
                 return Value::Error(ErrorKind::Ref);
             }
-            let col_vals: Vec<Value> = rows.iter().map(|r| r[col - 1].clone()).collect();
+            let col_vals: Vec<Value> = elems.iter().map(|r| row_of(r)[col - 1].clone()).collect();
             return Value::Array(col_vals);
         }
-        let row = &rows[row_idx - 1];
+        let row = row_of(&elems[row_idx - 1]);
         if col_idx == 0 {
-            return Value::Array(row.clone());
+            return Value::Array(row.to_vec());
         }
         if col_idx > row.len() {
             return Value::Error(ErrorKind::Ref);
         }
         row[col_idx - 1].clone()
     } else {
-        let flat = flatten_to_flat(array_val);
+        // No element is itself an array, so flattening the array would return
+        // exactly these elements — read them in place instead.
+        let flat = elems;
         if col_idx == 0 {
             // row=0: return entire array; row>=1: return that element
             if row_idx == 0 {
