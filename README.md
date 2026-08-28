@@ -10,6 +10,11 @@
 
 WebAssembly-powered spreadsheet formula engine for JavaScript/TypeScript.
 
+> **Licensing:** `truecalc-core` / `@truecalc/core` is MIT. `truecalc-workbook` /
+> `@truecalc/workbook` is source-available under the Elastic License 2.0 from
+> 9.0.0 onward — **8.2.2 and everything before it remain MIT permanently.**
+> See [LICENSING.md](LICENSING.md).
+
 [DeepWiki](https://deepwiki.com/truecalc/core)
 
 A comprehensive library of spreadsheet functions (see the live count above). Runs in Node.js, Bun, Deno, and the browser — no server needed. Ground-truth conformance against real Google Sheets. The same engine is also available as a [Rust crate](https://crates.io/crates/truecalc-core).
@@ -134,34 +139,22 @@ second calculation path. On licensing, see below: `truecalc-core` is MIT,
 
 ## Licensing
 
-The workspace is not under a single license.
+| Package | License |
+|---|---|
+| `truecalc-core` · `@truecalc/core` · `truecalc` (PyPI) | MIT |
+| `truecalc-workbook` · `@truecalc/workbook` | [Elastic License 2.0](crates/workbook/LICENSE) |
 
-| Package | Where | License |
-|---|---|---|
-| `truecalc-core` · `@truecalc/core` | `crates/core`, `crates/wasm` | MIT |
-| `truecalc` (PyPI) | `crates/python` | MIT |
-| `truecalc-workbook` · `@truecalc/workbook` | `crates/workbook`, `crates/wasm-workbook` | [Elastic License 2.0](crates/workbook/LICENSE) |
+`truecalc-core` — the parser, the evaluator, and the conformance fixtures it is
+checked against — is MIT and stays MIT. `truecalc-workbook` — the document
+model, dependency graph, and recalculation — is source-available: you may use,
+copy, modify and redistribute it, but not offer it to third parties as a hosted
+or managed service.
 
-`truecalc-core` — the parser and evaluator, and the conformance fixtures it is
-checked against — is MIT and stays MIT. It is the verifiability claim: anyone
-can read it, run it, and confirm the maths against real Google Sheets.
+**Nothing already published changes.** Every version up to and including 8.2.2
+was released under MIT and remains MIT permanently. `9.0.0` is the first version
+under the new terms.
 
-`truecalc-workbook` — the document model, dependency graph, and recalculation —
-is source-available under ELv2. You may use, copy, modify and redistribute it.
-You may not offer it to third parties as a hosted or managed service that gives
-them access to a substantial set of its functionality.
-
-**Nothing already published changes.** Every version up to and including 8.2.2,
-of every package above, was released under MIT and remains MIT permanently. If
-you installed `truecalc-workbook 8.2.2` or `@truecalc/workbook@8.2.2`, you have
-an MIT copy and keep it. The new terms apply only to versions published after
-8.2.2.
-
-**Why ELv2 and not BSL 1.1** — maintenance overhead, not legal strength. BSL
-requires a Change Date tracked per release plus an Additional Use Grant that has
-to be drafted and then defended in interpretation. ELv2 is one unmodified
-document with no per-release bookkeeping, and the text here is the official one,
-unedited.
+Full detail, and why the line falls where it does: **[LICENSING.md](LICENSING.md)**.
 
 ## Documentation
 
