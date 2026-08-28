@@ -570,21 +570,29 @@ fn a_tall_range_over_empty_rows_costs_nothing_extra() {
 /// A gap stops the walk where it is found rather than after the whole
 /// rectangle: the sparse-range shape must not pay for the rows past the first
 /// hole.
+///
+/// A single-column rectangle (area 200 over 199 authored cells) is answered by
+/// the `area > sheet.total` early-out before the row walk ever starts, so
+/// `examined` would be `0` regardless of where the hole falls — vacuously
+/// satisfying the assertion below without exercising the walk at all. A second
+/// authored column (399 authored cells, area still 200) defeats that early-out
+/// and forces the walk to run, so this test actually exercises the row-walk
+/// early exit it claims to.
 #[test]
 fn a_gap_ends_the_walk_at_the_gap() {
     let mut wb = wb_with(&["S"]);
     for r in 1..=200u32 {
-        if r == 3 {
-            continue; // the hole
+        if r != 3 {
+            set_num(&mut wb, "S", &Address::new(r, 1).unwrap().to_a1(), 1.0);
         }
-        set_num(&mut wb, "S", &Address::new(r, 1).unwrap().to_a1(), 1.0);
+        set_num(&mut wb, "S", &Address::new(r, 2).unwrap().to_a1(), 1.0); // extra column
     }
     let index = AuthoredCellIndex::build(&wb);
     let (has_unauthored, examined) =
         index.range_has_unauthored_cell_examined(&rect("S", 1, 1, 200, 1));
     assert!(has_unauthored);
-    assert!(
-        examined <= 10,
+    assert_eq!(
+        examined, 10,
         "the walk should stop at row 3, not run to row 200; examined {examined}"
     );
 }
