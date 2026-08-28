@@ -41,8 +41,21 @@ fixed allocate-and-hash workload with no dependency on truecalc code, so it
 moves only with the machine. Dividing by it is what lets a baseline recorded on
 one machine mean something on another; an absolute-ns baseline is only valid on
 the hardware that recorded it.
+
+Run with --record to regenerate baselines.json from a bench run instead of
+checking it:
+
+    cargo bench -p truecalc-workbook --bench workbook_perf -- \
+        --output-format bencher | python3 check_perf_regression.py --record
+
+Hand-editing fifteen numbers is what makes reflexively updating baselines
+sloppy; this makes recording them as easy as running the bench once. Confirm
+a FASTER result reproduces on a second run before recording it - a single
+anomalously fast run (thermal throttling recovery, a quiet CI runner, noise)
+should not be baked in as the new baseline.
 """
 
+import datetime
 import json
 import sys
 from pathlib import Path
@@ -80,7 +93,51 @@ def parse_measurements(stream):
     return measured
 
 
+def record_baselines(stream):
+    """Regenerate baselines.json's `benchmarks` map from a bench run read on
+    stdin, in place. Everything else in the file (recorded_on, note,
+    reference, regression_pct, improvement_pct) is left untouched."""
+    with open(BASELINES_PATH) as f:
+        data = json.load(f)
+    reference = data["reference"]
+
+    measured = parse_measurements(stream)
+    if reference not in measured:
+        print(
+            f"Reference benchmark {reference!r} not found in bench output; "
+            "cannot record. Did the bench run fail?",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    ref_ns = measured[reference]
+
+    data["benchmarks"] = {
+        # Preserve the order benchmarks ran in (parse_measurements keeps
+        # insertion order), which follows criterion_group!'s declaration
+        # order in workbook_perf.rs - the same grouping the file already
+        # uses - rather than scrambling it alphabetically.
+        name: {"ref_units": round(ns / ref_ns, 4), "best_ns_recorded": ns}
+        for name, ns in measured.items()
+        if name != reference
+    }
+    data["reference_best_ns_recorded"] = ref_ns
+    data["recorded_at"] = datetime.date.today().isoformat()
+
+    with open(BASELINES_PATH, "w") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+
+    print(
+        f"Recorded {len(data['benchmarks'])} benchmarks to {BASELINES_PATH} "
+        f"(reference {reference} = {ref_ns:,} ns)."
+    )
+
+
 def main():
+    if "--record" in sys.argv[1:]:
+        record_baselines(sys.stdin)
+        return
+
     with open(BASELINES_PATH) as f:
         data = json.load(f)
 
@@ -115,7 +172,7 @@ def main():
         failures.append(
             f"  UNGATED   {name}: ran but has no baseline entry, so nothing is "
             f'checking it. Add: "{name}": {{ "ref_units": {ratio:.4f}, '
-            f'"mean_ns_at_record": {measured[name]} }}'
+            f'"best_ns_recorded": {measured[name]} }}'
         )
 
     checked = 0
@@ -138,9 +195,12 @@ def main():
         elif units < baseline_units * (1 - improvement_pct / 100):
             failures.append(
                 f"  FASTER    {name}: {detail}. Floor is -{improvement_pct}%. "
-                "A win this large must be recorded, not passed silently: set "
-                f'"ref_units": {units:.4f} in baselines.json (and check the '
-                "benchmark still measures what it claims to)."
+                "A win this large must be recorded, not passed silently. "
+                "Re-run the bench once and confirm it reproduces - a single "
+                "anomalously fast run should not be baked in - then record it "
+                f'with --record (or set "ref_units": {units:.4f} in '
+                "baselines.json by hand) and check the benchmark still "
+                "measures what it claims to."
             )
 
     if failures:
