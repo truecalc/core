@@ -32,7 +32,6 @@ use std::collections::{BTreeMap, HashMap};
 
 use icu_casemap::CaseMapperBorrowed;
 
-use crate::address::Address;
 use crate::casefold::simple_fold;
 use crate::depgraph::RangeRef;
 use crate::workbook::Workbook;
@@ -100,48 +99,6 @@ impl AuthoredCellIndex {
     #[doc(hidden)]
     pub fn range_has_unauthored_cell(&self, r: &RangeRef) -> bool {
         self.range_has_unauthored_cell_examined(r).0
-    }
-
-    /// Whether the rectangle `r` holds an authored cell that is **not** one of
-    /// `exempt` (issue #925).
-    ///
-    /// The question behind it: could a spill anchored at `r`'s top-left corner
-    /// have reached its bottom-right one? An array is only placed if its whole
-    /// target rectangle is free, so a single authored cell anywhere in between
-    /// proves it could not have — whatever the spill's actual dimensions were.
-    ///
-    /// `exempt` is the edit's own cells. An edit both destroys the footprint
-    /// being reasoned about *and* may have authored a cell that was empty while
-    /// that footprint existed, so the edited cells must not count as blockers of
-    /// the very spill whose disappearance is being reconstructed.
-    ///
-    /// Conservative in the same direction as the rest of the seeding: an
-    /// inverted rectangle or a missing sheet answers "no blocker", which widens
-    /// the dirty set rather than narrowing it.
-    ///
-    /// Cost is one B-tree walk over the *occupied* rows the rectangle spans, and
-    /// at most `exempt.len() + 1` column probes per such row — the walk stops at
-    /// the first cell that is not exempt.
-    #[doc(hidden)]
-    pub fn rect_has_authored_cell_besides(&self, r: &RangeRef, exempt: &[Address]) -> bool {
-        if r.start.row > r.end.row || r.start.column > r.end.column {
-            return false;
-        }
-        let Some(sheet) = self.sheets.get(&r.sheet) else {
-            return false;
-        };
-        for (&row, columns) in sheet.rows.range(r.start.row..=r.end.row) {
-            let lo = columns.partition_point(|&c| c < r.start.column);
-            for &col in &columns[lo..] {
-                if col > r.end.column {
-                    break;
-                }
-                if !exempt.iter().any(|a| a.row == row && a.column == col) {
-                    return true;
-                }
-            }
-        }
-        false
     }
 
     /// [`range_has_unauthored_cell`](Self::range_has_unauthored_cell), plus how

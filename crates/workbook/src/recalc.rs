@@ -375,7 +375,7 @@ impl Workbook {
         // emits no change event (`diff_against_snapshot`), so `incremental ≡
         // full` is preserved while the minimal-closure guarantee still holds for
         // ordinary (non-spill) edits, which seed nothing here.
-        self.seed_spill_sensitive(&graph, &edited_refs, &mut frontier);
+        self.seed_spill_sensitive(&graph, &mut frontier);
 
         // The single transitive closure over everything seeded above.
         frontier.close_over_dependents(&graph);
@@ -944,9 +944,6 @@ impl Workbook {
     /// carries no edge for those transitions and `set` discarded the pre-edit
     /// footprint.
     ///
-    /// `edited` is the edit's own cells (folded), and it is load-bearing for
-    /// rules 4 and 5 below — see [`vacated_by_an_edit`](Self::vacated_by_an_edit).
-    ///
     /// A cell is seeded when it is, or reads something that can become or cease
     /// being, a spill:
     ///
@@ -961,9 +958,13 @@ impl Workbook {
     ///     whose `B1` was spilled by a now-shrunk anchor (the vacated-reader
     ///     case), or a reader of a cell a spill is about to grow onto.
     ///  4. **Every reader of a range that overlaps a current spill rectangle, or
-    ///     that a lost footprint could have reached** — a range aggregation
-    ///     whose window includes spilled cells, so a change to that spill
-    ///     (grow/shrink/block) re-aggregates.
+    ///     that holds any non-authored cell** — a range aggregation whose window
+    ///     includes spilled cells re-aggregates when that spill changes
+    ///     (grow/shrink/block); a non-authored cell in the window catches the
+    ///     case no other mechanism can see, a spill a *previous* recalc (not
+    ///     necessarily this edit) retired, since neither the dependency graph
+    ///     nor the widen loop has a way to reconstruct a footprint that is
+    ///     already gone by the time either runs (issue #949).
     ///  5. **Every reader of a *name* whose current target is one of those** —
     ///     the name's target is put through rule 3 or rule 4, exactly as if the
     ///     formula had referenced it directly.
@@ -971,13 +972,8 @@ impl Workbook {
     /// The blocked-spill error string equals [`BLOCKED_SPILL_ERROR`]; a cell
     /// merely *holding* that error that is not actually a former/blocked spill
     /// anchor is harmless to re-evaluate (it recomputes to the same value).
-    fn seed_spill_sensitive(
-        &self,
-        graph: &DependencyGraph,
-        edited: &[CellRef],
-        frontier: &mut DirtyFrontier,
-    ) {
-        self.seed_spill_sensitive_built_index(graph, edited, frontier);
+    fn seed_spill_sensitive(&self, graph: &DependencyGraph, frontier: &mut DirtyFrontier) {
+        self.seed_spill_sensitive_built_index(graph, frontier);
     }
 
     /// [`seed_spill_sensitive`](Self::seed_spill_sensitive), plus whether it
@@ -993,7 +989,6 @@ impl Workbook {
     pub fn seed_spill_sensitive_built_index(
         &self,
         graph: &DependencyGraph,
-        edited: &[CellRef],
         frontier: &mut DirtyFrontier,
     ) -> bool {
         let rects = self.anchor_rectangles();
@@ -1016,7 +1011,7 @@ impl Workbook {
             if !seed {
                 if let Some(precedents) = graph.precedents_of(cell) {
                     seed = precedents.iter().any(|p| {
-                        self.precedent_is_spill_sensitive(p, graph, &rects, edited, &mut authored)
+                        self.precedent_is_spill_sensitive(p, graph, &rects, &mut authored)
                     });
                 }
             }
@@ -1037,12 +1032,11 @@ impl Workbook {
         precedent: &Precedent,
         graph: &DependencyGraph,
         rects: &BTreeMap<CellRef, SpillRect>,
-        edited: &[CellRef],
         authored: &mut Option<AuthoredCellIndex>,
     ) -> bool {
         match precedent {
             Precedent::Cell(c) => self.cell_is_spill_sensitive(c),
-            Precedent::Range(r) => self.range_is_spill_sensitive(r, rects, edited, authored),
+            Precedent::Range(r) => self.range_is_spill_sensitive(r, rects, authored),
             // A name is an indirection, not a separate kind of reference: what
             // its reader actually reads is the name's current target, so put
             // that target through the same rule the reader would have got by
@@ -1058,9 +1052,7 @@ impl Workbook {
             // cells; it has nothing that can spill, so it seeds nothing.
             Precedent::Name(name) => match graph.name_target_of(name) {
                 Some(NameTarget::Cell(c)) => self.cell_is_spill_sensitive(&c),
-                Some(NameTarget::Range(r)) => {
-                    self.range_is_spill_sensitive(&r, rects, edited, authored)
-                }
+                Some(NameTarget::Range(r)) => self.range_is_spill_sensitive(&r, rects, authored),
                 None => false,
             },
             Precedent::Unresolved(_) => false,
@@ -1073,109 +1065,32 @@ impl Workbook {
         self.cell_at(c).is_none()
     }
 
-    /// Rule 4: a range is spill-sensitive if it overlaps a spill rectangle that
-    /// is on the grid **now**, or if a spill rectangle that was on the grid
-    /// before this edit could have reached into it.
+    /// Rule 4: a range precedent is spill-sensitive if it overlaps a current
+    /// spill rectangle (a spill could grow/shrink/block within it) *or* if it
+    /// contains any non-authored cell — which catches a cell a spill *used to*
+    /// cover but no longer does (the lost pre-edit footprint of a
+    /// shrink/collapse), since that cell is now empty.
+    ///
+    /// The narrower alternative — reasoning from the edit's own cells about
+    /// which footprint could have vacated into `r` — is unsound: a spill
+    /// footprint a *previous* recalc retired (not this edit) can leave a
+    /// non-authored cell in `r` with no edited cell anywhere near it, and a
+    /// completely correct `edited` list gives no way to find that cell from the
+    /// post-edit grid alone (issue #949). Recovering the narrower
+    /// rule needs the previous recalc's placed rectangles carried forward on
+    /// the workbook, which this rule does not have.
     fn range_is_spill_sensitive(
         &self,
         r: &RangeRef,
         rects: &BTreeMap<CellRef, SpillRect>,
-        edited: &[CellRef],
         authored: &mut Option<AuthoredCellIndex>,
     ) -> bool {
-        // A spill that exists right now can grow, shrink or block within the
-        // window. Pure rectangle arithmetic, so it never builds the index.
-        if rects
+        rects
             .iter()
             .any(|(anchor, rect)| anchor.sheet == r.sheet && rect_overlaps_range(rect, r))
-        {
-            return true;
-        }
-        self.vacated_by_an_edit(r, edited, authored)
-    }
-
-    /// Whether a spill footprint destroyed by *this* edit could have covered
-    /// part of `r` — the case no other mechanism can see (issue #925).
-    ///
-    /// # Why an edit, and only an edit
-    ///
-    /// A cell of `r` that is unauthored today but held a spilled value at the
-    /// end of the last recalc needs its readers dirtied, and neither the
-    /// dependency graph nor the widen loop can find it: a spilled cell is not a
-    /// graph node, and the widen loop compares footprints *after* the edit, by
-    /// which time the old one is gone.
-    ///
-    /// But such a footprint can only have vanished in one way. Nothing has been
-    /// recomputed yet, so every anchor that still holds an array is in `rects`
-    /// and was handled above; an anchor whose array is *missing* from the grid
-    /// therefore had its stored value discarded, and only `set`/`clear` does
-    /// that. Its anchor is consequently one of the `edited` cells.
-    ///
-    /// # Why an edited cell far enough away proves nothing was lost
-    ///
-    /// A spill anchored at `E` covering `U` requires the whole rectangle from
-    /// `E` to `U` to have been free — otherwise it would have been blocked and
-    /// never placed. Every cell of `r` that `E` could reach lies at or beyond
-    /// `nw`, the top-left corner of `r`'s intersection with the quadrant below
-    /// and right of `E`, so every such rectangle contains the rectangle from `E`
-    /// to `nw`. One authored cell in *that* rectangle rules out the whole of
-    /// `r`, in a single lookup.
-    ///
-    /// The edit's own cells are exempt from being blockers: the edit may have
-    /// authored a cell that was empty while the footprint existed.
-    ///
-    /// # Direction of error
-    ///
-    /// Every fallback here answers "sensitive": an unknown sheet, an inverted
-    /// rectangle, an edit whose position cannot rule anything out. Over-dirtying
-    /// costs a recompute that emits no change; under-dirtying leaves a stale
-    /// value.
-    fn vacated_by_an_edit(
-        &self,
-        r: &RangeRef,
-        edited: &[CellRef],
-        authored: &mut Option<AuthoredCellIndex>,
-    ) -> bool {
-        let exempt: Vec<Address> = edited
-            .iter()
-            .filter(|e| e.sheet == r.sheet)
-            .map(|e| e.addr)
-            .collect();
-        for e in edited.iter().filter(|e| e.sheet == r.sheet) {
-            // `r`'s intersection with the quadrant below and right of the edit.
-            // An edit past `r`'s bottom-right corner cannot have spilled into it.
-            if e.addr.row > r.end.row || e.addr.column > r.end.column {
-                continue;
-            }
-            let Some(nw) = Address::new(
-                e.addr.row.max(r.start.row),
-                e.addr.column.max(r.start.column),
-            ) else {
-                return true;
-            };
-            let index = authored.get_or_insert_with(|| AuthoredCellIndex::build(self));
-            // Anything authored between the edit and `nw` blocked every spill
-            // the edit could have carried into `r`.
-            let approach = RangeRef {
-                sheet: r.sheet.clone(),
-                start: e.addr,
-                end: nw,
-            };
-            if index.rect_has_authored_cell_besides(&approach, &exempt) {
-                continue;
-            }
-            // The reachable part of `r` must actually hold a cell a spill could
-            // have occupied — a fully authored window never held one.
-            let reachable = RangeRef {
-                sheet: r.sheet.clone(),
-                start: nw,
-                end: r.end,
-            };
-            if index.range_has_unauthored_cell(&reachable) {
-                return true;
-            }
-        }
-        false
+            || authored
+                .get_or_insert_with(|| AuthoredCellIndex::build(self))
+                .range_has_unauthored_cell(r)
     }
 
     /// Every spill rectangle currently on the stored grid (anchor → rectangle),

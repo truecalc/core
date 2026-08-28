@@ -12,7 +12,15 @@
 //!
 //! ## What it generates
 //!
-//! Three shapes, chosen because they discriminate differently:
+//! Three shapes. `Plain` discriminates from the other two outright — it never
+//! generates an array literal at all. `SpillHeavy` and `ConditionalArray` both
+//! generate arrays, but at different rates (`extra` differs between them) and
+//! diverge further in `apply_edit`, whose footprint-changes-mid-recalc edit
+//! only `ConditionalArray` applies. That `extra` gap is load-bearing: giving
+//! both shapes the same `extra` made their `build()` draw from the identical
+//! distribution, so for a given seed the two shapes produced byte-identical
+//! workbooks and differed only via that one `apply_edit` arm — the harness
+//! looked like it ran three independent generators when it only ran two.
 //!
 //!  * [`Shape::Plain`] — two sheets, cross-sheet references, defined names and
 //!    name **retargeting**, ranges, `TODAY`/`RAND`, `clear`, and
@@ -196,7 +204,13 @@ fn formula(rng: &mut Rng, shape: Shape, own_sheet: &str, names: &[String]) -> St
     let common = 10usize;
     let extra = match shape {
         Shape::Plain => 0,
-        Shape::SpillHeavy => 4,
+        // Narrower than `ConditionalArray`'s: `SpillHeavy` only ever draws
+        // arms 10/11 (plain array anchors), never the conditional-footprint
+        // arms 12/13, which `ConditionalArray` alone should generate. Giving
+        // both shapes `extra = 4` made the two draw from the same
+        // distribution, so `build()` produced byte-identical workbooks for a
+        // given seed and the shapes diverged only via `apply_edit`'s arm 6.
+        Shape::SpillHeavy => 2,
         Shape::ConditionalArray => 4,
     };
     match rng.below(common + extra) {
@@ -471,11 +485,17 @@ fn conditional_array_workbooks_agree() {
 ///
 /// The sweeps above default to a few hundred seeds so they fit in an ordinary
 /// `cargo test`. Every defect this harness has caught so far diverges on the
-/// order of one workbook in a thousand, which that budget does not reach: each
-/// of the three groups below was green at the default seed count and only
-/// showed up at 8,000 seeds a shape. A seed is a complete reproduction, so
-/// pinning the ones that discriminate turns a sweep that has to get lucky into
-/// a guard that does not.
+/// order of one workbook in a thousand (or rarer), which that budget does not
+/// reach. A seed is a complete reproduction, so pinning the ones that
+/// discriminate turns a sweep that has to get lucky into a guard that does
+/// not.
+///
+/// `SpillHeavy`'s seeds in each group are tied to its `extra` weight in
+/// [`formula`]: changing that weight changes every `SpillHeavy` workbook this
+/// harness generates from a given seed, so a seed pinned before a weight
+/// change can stop discriminating afterward without the underlying code
+/// changing at all. `Plain` and `ConditionalArray` seeds are not affected by
+/// `SpillHeavy`'s weight.
 ///
 /// Add to this list whenever a sweep at scale finds a new divergence — the
 /// failure output prints the seed for exactly that purpose.
@@ -485,18 +505,19 @@ fn pinned_regression_seeds() {
     // `Precedent::Name` stops being put through its target's rule.
     const NAME_SEEDING: [(Shape, u64); 5] = [
         (Shape::Plain, 1219),
-        (Shape::SpillHeavy, 723),
-        (Shape::SpillHeavy, 4933),
+        (Shape::SpillHeavy, 2602),
+        (Shape::SpillHeavy, 2835),
         (Shape::ConditionalArray, 723),
         (Shape::ConditionalArray, 6279),
     ];
-    // Group 2 — the vacated-footprint branch of range seeding. These diverge if
-    // a range reader stops being seeded when an edit destroyed a spill that
-    // could have reached into it.
+    // Group 2 — the broad "does this range hold a non-authored cell" fallback
+    // of range seeding. These diverge if that fallback is dropped and a range
+    // reader is seeded only when it overlaps a spill rectangle that is on the
+    // grid right now.
     const RANGE_SEEDING: [(Shape, u64); 5] = [
         (Shape::Plain, 4504),
-        (Shape::SpillHeavy, 366),
-        (Shape::SpillHeavy, 5485),
+        (Shape::SpillHeavy, 2176),
+        (Shape::SpillHeavy, 4025),
         (Shape::ConditionalArray, 366),
         (Shape::ConditionalArray, 6837),
     ];
@@ -505,17 +526,38 @@ fn pinned_regression_seeds() {
     // instead of restarting from the grid the recalc began with: a cell that
     // reads inside its own spill footprint then lands on the opposite phase
     // from the full recalc.
+    //
+    // These three no longer diverge under the broad range fallback above
+    // (issue #949): broadening range seeding back out pulls a
+    // self-referential-footprint reader into the *first* widen pass more
+    // often, which is exactly the situation the rewind exists for, so the
+    // second pass rarely runs at all against this generator any more. A sweep
+    // of 100,000 seeds per shape with the rewind disabled found no divergence
+    // either. Kept as a passive regression check — they still pass, and would
+    // matter again if range seeding narrows in the future — but they are not
+    // load-bearing evidence for the rewind today; see PR #948's review.
     const WIDEN_REWIND: [(Shape, u64); 3] = [
         (Shape::SpillHeavy, 4494),
         (Shape::SpillHeavy, 6916),
         (Shape::ConditionalArray, 6657),
     ];
+    // Group 4 — a spill footprint retired by a *previous* recalc rather than
+    // the edit under test (issue #949). These diverge if range seeding falls
+    // back to "overlaps a spill rectangle on the grid now" without also
+    // catching a non-authored cell the current grid can no longer explain.
+    // See also the named reproduction,
+    // `a_range_reader_sees_a_footprint_a_previous_recalc_retired`.
+    const PREVIOUS_RECALC_VACATED_FOOTPRINT: [(Shape, u64); 1] = [(Shape::SpillHeavy, 4520)];
 
     let mut failures: Vec<String> = Vec::new();
     for (group, seeds) in [
         ("name seeding", &NAME_SEEDING[..]),
-        ("vacated-range seeding", &RANGE_SEEDING[..]),
+        ("range seeding", &RANGE_SEEDING[..]),
         ("widen-loop rewind", &WIDEN_REWIND[..]),
+        (
+            "previous-recalc vacated footprint",
+            &PREVIOUS_RECALC_VACATED_FOOTPRINT[..],
+        ),
     ] {
         for &(shape, seed) in seeds {
             if let Err(report) = run_seed(shape, seed) {
@@ -560,6 +602,58 @@ fn a_cell_reading_inside_its_own_spill_footprint_matches_a_full_recalc() {
         full.to_json().unwrap(),
         "a cell reading inside its own spill footprint must converge to the \
          full-recalc grid"
+    );
+}
+
+/// A fixed, non-random instance of the class no edit-local reasoning can
+/// recover from: a spill footprint retired by a *previous* recalc, not the
+/// edit under test.
+///
+/// `B4`'s array spills onto `B6` while the grid settles; `T!D5` sums a range
+/// covering `B6` and stores a value computed against that spill. By the time
+/// the grid is settled, `B4` no longer holds an array, and `B4` was never an
+/// edited cell — the edit below only ever touches `B3`. A rule that reasons
+/// from the edit's own cells about which footprint could have vacated has
+/// nothing to find `B4` from, so `D5` keeps a stale value (issue #925
+/// follow-up).
+#[test]
+fn a_range_reader_sees_a_footprint_a_previous_recalc_retired() {
+    let mut live = Workbook::new(EngineFlavor::Sheets);
+    live.add_sheet(Worksheet::new("S")).unwrap();
+    live.add_sheet(Worksheet::new("T")).unwrap();
+    live.set("S", addr(6, 1), CellInput::Literal(Value::Number(4.0)))
+        .unwrap(); // A6
+    live.set("S", addr(3, 4), CellInput::Literal(Value::Number(9.0)))
+        .unwrap(); // D3
+    live.set("S", addr(3, 2), CellInput::Formula("=IF(B6>2,4,8)".into()))
+        .unwrap(); // B3
+    live.set(
+        "S",
+        addr(4, 2),
+        CellInput::Formula("=IF(B3>4,{1;8;12},4)".into()),
+    )
+    .unwrap(); // B4
+    live.set("T", addr(5, 4), CellInput::Formula("=SUM(S!A6:B6)".into()))
+        .unwrap(); // D5
+
+    // Two full recalcs to settle: the first pass computes B3 against B6
+    // vacant, spills B4 onto B6, and evaluates D5 against that spill; the
+    // second pass then sees B3 = 4 and collapses B4 to a scalar, vacating B6.
+    live.recalc(&ctx());
+    live.recalc(&ctx());
+
+    live.set("S", addr(3, 2), CellInput::Formula("={3,6,6}".into()))
+        .unwrap(); // B3
+    let mut full = live.clone();
+    full.recalc(&ctx());
+    live.recalc_incremental(&ctx(), &[("S".to_owned(), addr(3, 2))]);
+
+    assert_eq!(
+        live.to_json().unwrap(),
+        full.to_json().unwrap(),
+        "a range reader must not keep a value computed against a spill \
+         footprint a previous recalc retired, even though the reader was \
+         never itself edited"
     );
 }
 

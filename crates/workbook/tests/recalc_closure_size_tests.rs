@@ -17,15 +17,23 @@
 //!    narrowing, `Precedent::Name` was unconditionally spill-sensitive, so every
 //!    reader of the name was dirty on every incremental recalc.
 //!  * **sparse range** — a column with gaps, aggregated by a rolling `SUM`.
-//!    Before the narrowing, *any* unauthored cell in a range seeded its reader,
-//!    so every one of those aggregations was dirty on every recalc.
+//!    *Any* unauthored cell in a range seeds its reader, so every one of those
+//!    aggregations is dirty on every recalc. A narrower rule was tried and
+//!    reverted: it only ruled a range's reader out by reasoning from the
+//!    *edit's* own cells about which footprint could have vacated into it, but
+//!    a spill footprint a *previous* recalc retired (not the edit under test)
+//!    leaves a stale value with no edited cell nearby to reason from — a real,
+//!    reproduced defect, not a hypothetical (issue #949). This shape
+//!    stays broad until that is solved properly.
 //!  * **spill-heavy** — array anchors and their readers, where the seeding is
 //!    load-bearing and must **not** narrow.
 //!
-//! The counts are upper bounds (`<=`), not equalities, in the two narrowed
-//! shapes: an over-dirtying regression must fail, but a future change that
-//! narrows *further* should not have to edit this file. The spill shape asserts
-//! a lower bound instead — under-dirtying there is the failure mode.
+//! The named-assumption count is an upper bound (`<=`), not an equality: an
+//! over-dirtying regression must fail, but a future change that narrows
+//! further should not have to edit this file. The spill shape asserts a lower
+//! bound instead — under-dirtying there is the failure mode. The sparse-range
+//! shape asserts a lower bound too, for now — it documents the current
+//! (unnarrowed) breadth rather than a target to hold to.
 
 use truecalc_workbook::{
     Address, CellInput, EngineFlavor, RecalcContext, Value, Workbook, Worksheet,
@@ -188,17 +196,22 @@ fn a_named_assumption_does_not_dirty_every_reader_of_the_name() {
 }
 
 #[test]
-fn a_sparse_column_aggregation_is_not_dirty_on_every_edit() {
+fn a_sparse_column_aggregation_is_still_dirty_on_every_edit_pending_925_followup() {
     let mut wb = sparse_range_workbook();
     let (closure, elapsed) = measure(&mut wb, "S", addr(1, 1), 30);
     report("sparse-range", closure, elapsed, 30);
-    // Only `B1` reads `A1`. The 189 rolling `SUM`s read ranges full of gaps,
-    // but no spill can reach those gaps from `A1` — `A2` is authored, so an
-    // array at `A1` would be blocked before it got there.
+    // Only `B1` reads `A1` directly, but every one of the 189 rolling `SUM`s
+    // reads a range full of gaps, and the broad rule seeds any range reader
+    // holding a non-authored cell — so all 189 are in the closure alongside
+    // `B1`. This is the known-lost optimization: a narrower rule existed and
+    // was reverted for unsoundness (issue #949). This assertion
+    // documents today's breadth, not a target — it must move only alongside a
+    // real fix to the range rule, never a silent regression.
     assert!(
-        closure <= 1,
-        "a rolling SUM over a column with gaps must not be dirty just for \
-         having gaps; closure held {closure} cells"
+        closure >= 189,
+        "a rolling SUM over a column with gaps is expected to be dirty on \
+         every edit until the range rule is narrowed safely; closure held \
+         only {closure} cells"
     );
 }
 
