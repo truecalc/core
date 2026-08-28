@@ -25,21 +25,12 @@ jobs:
           set -euo pipefail
           curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
 
-      - name: Render the deprecation entry
-        run: |
-          set -euo pipefail
-          jq -n '{
-            "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-            name: "io.github.truecalc/truecalc-mcp",
-            description: "Retired. No longer distributed as a free MCP server. The TrueCalc engine remains open source.",
-            version: "8.2.1",
-            status: "deprecated",
-            repository: { url: "https://github.com/truecalc/core", source: "github" }
-          }' > server.json
-          cat server.json
-
-      - name: Publish to MCP Registry
+      - name: Mark every version deleted
         run: |
           set -euo pipefail
           ./mcp-publisher login github-oidc
-          ./mcp-publisher publish server.json
+          ./mcp-publisher status \
+            --status deleted \
+            --all-versions \
+            --message "Retired. The free MCP server is no longer distributed; the TrueCalc engine remains open source." \
+            io.github.truecalc/truecalc-mcp
