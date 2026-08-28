@@ -88,7 +88,7 @@ pub use engine::EngineFlavor;
 pub use error::WorkbookError;
 pub use mutate::{CellInput, Resolved};
 pub use named_range::NamedRange;
-pub use recalc::{Change, RecalcContext, CIRCULAR_ERROR};
+pub use recalc::{Change, DirtyFrontier, RecalcContext, CIRCULAR_ERROR};
 pub use spill::{SpillRect, BLOCKED_SPILL_ERROR};
 pub use table::Table;
 pub use value::Value;

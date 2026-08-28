@@ -202,6 +202,64 @@ pub struct Change {
     pub new: Value,
 }
 
+/// The dirty set an incremental recalc will recompute, paired with the queue of
+/// cells whose dependents have not been walked yet.
+///
+/// Issues #926 and #930 were one defect at two sites: a seeding stage inserted
+/// a cell into the dirty set *after* the closure walk had finished, so the cell
+/// recomputed but nothing downstream of it did — a silently stale value under a
+/// method that promises `incremental ≡ full`. Fixing each site by moving it
+/// above the walk left the next seeding stage free to reintroduce the bug, so
+/// the ordering is enforced by the type instead: [`insert`](Self::insert) is the
+/// only way into the dirty set and it always queues the cell, and
+/// [`close_over_dependents`](Self::close_over_dependents) drains that queue. A
+/// stage that dirties a cell without dirtying its dependents is not expressible.
+#[doc(hidden)]
+#[derive(Debug, Default)]
+pub struct DirtyFrontier {
+    dirty: BTreeSet<CellRef>,
+    queue: VecDeque<CellRef>,
+}
+
+impl DirtyFrontier {
+    /// An empty frontier.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Marks `cell` dirty and queues it for the dependents walk. Returns
+    /// whether it was newly dirty.
+    fn insert(&mut self, cell: CellRef) -> bool {
+        if self.dirty.insert(cell.clone()) {
+            self.queue.push_back(cell);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Walks `direct_dependents_of` out of every queued cell until the dirty set
+    /// is closed under it — the transitive closure over every seeded cell,
+    /// whichever stage seeded it.
+    fn close_over_dependents(&mut self, graph: &DependencyGraph) {
+        while let Some(cell) = self.queue.pop_front() {
+            for dep in graph.direct_dependents_of(&cell) {
+                self.insert(dep);
+            }
+        }
+    }
+
+    /// How many cells are dirty.
+    fn len(&self) -> usize {
+        self.dirty.len()
+    }
+
+    /// The dirty cells, for handing to `recompute`.
+    fn cells(&self) -> &BTreeSet<CellRef> {
+        &self.dirty
+    }
+}
+
 impl Workbook {
     /// Recomputes **every** formula cell in dependency order against `ctx`,
     /// writing each new result back into the grid and returning the ordered
@@ -243,9 +301,13 @@ impl Workbook {
         let graph = DependencyGraph::build(self);
         let folder = CaseMapperBorrowed::new();
 
-        // Seed the dirty frontier with the dependents of each edited cell.
-        let mut dirty: BTreeSet<CellRef> = BTreeSet::new();
-        let mut frontier: VecDeque<CellRef> = VecDeque::new();
+        // One seeding phase — every source below feeds the same
+        // [`DirtyFrontier`] — followed by one closure walk. Every seeded cell
+        // therefore propagates to its own dependents, whichever stage seeded it
+        // (issues #926, #930).
+        let mut frontier = DirtyFrontier::new();
+
+        // (a) The edited cells and their dependents.
         for (sheet, addr) in edited {
             let folded = simple_fold(&folder, sheet);
             let seed = CellRef {
@@ -254,33 +316,18 @@ impl Workbook {
             };
             // The edited cell itself recomputes only if it is a formula; its
             // dependents always do.
-            if graph.is_formula(&seed) && dirty.insert(seed.clone()) {
-                frontier.push_back(seed.clone());
+            if graph.is_formula(&seed) {
+                frontier.insert(seed.clone());
             }
             for dep in graph.direct_dependents_of(&seed) {
-                if dirty.insert(dep.clone()) {
-                    frontier.push_back(dep);
-                }
+                frontier.insert(dep);
             }
         }
-        // Volatile cells are always dirty (scope ADR Decision 3). Seeded onto
-        // the frontier *before* it drains — not just inserted into `dirty` —
-        // so the transitive-closure walk below also propagates out from them.
-        // Issue #926: a volatile cell inserted into `dirty` after the
-        // frontier had already drained recomputed itself but never dirtied
-        // its own dependents, so anything downstream of e.g. `=TODAY()` kept
-        // a stale value under incremental recalc.
+
+        // (b) Volatile cells are always dirty (scope ADR Decision 3).
         for cell in graph.formula_cells() {
-            if self.is_volatile(cell) && dirty.insert(cell.clone()) {
-                frontier.push_back(cell.clone());
-            }
-        }
-        // Transitive closure over the formula-cell dependents.
-        while let Some(cell) = frontier.pop_front() {
-            for dep in graph.direct_dependents_of(&cell) {
-                if dirty.insert(dep.clone()) {
-                    frontier.push_back(dep);
-                }
+            if self.is_volatile(cell) {
+                frontier.insert(cell.clone());
             }
         }
 
@@ -308,7 +355,10 @@ impl Workbook {
         // emits no change event (`diff_against_snapshot`), so `incremental ≡
         // full` is preserved while the minimal-closure guarantee still holds for
         // ordinary (non-spill) edits, which seed nothing here.
-        self.seed_spill_sensitive(&graph, &mut dirty);
+        self.seed_spill_sensitive(&graph, &mut frontier);
+
+        // The single transitive closure over everything seeded above.
+        frontier.close_over_dependents(&graph);
 
         // A cell that reads a *spilled* cell has no dependency-graph edge to its
         // spilling anchor (a spilled cell is not a formula node, P3.2), so the
@@ -323,23 +373,26 @@ impl Workbook {
         // no anchor's spill footprint changes, and finally diff the resulting
         // grid against the snapshot. The loop is bounded by the formula-cell
         // count (each pass strictly grows the dirty set or stops).
+        //
+        // The widened readers go through the same frontier and are closed over
+        // too, so this stage cannot dirty a cell without dirtying what reads it
+        // either.
         let pre = self.snapshot_formula_values(&graph);
         let max_widen = graph.formula_cells().count().saturating_add(2).max(1);
         for _ in 0..max_widen {
             let before = self.anchor_rectangles();
-            self.recompute(&graph, ctx, dirty.clone());
+            self.recompute(&graph, ctx, frontier.cells().clone());
             let after = self.anchor_rectangles();
 
-            let mut added = false;
+            let was = frontier.len();
             for (sheet, addr) in changed_rectangle_cells(&before, &after) {
                 let spilled_ref = CellRef { sheet, addr };
                 for dep in graph.direct_dependents_of(&spilled_ref) {
-                    if dirty.insert(dep) {
-                        added = true;
-                    }
+                    frontier.insert(dep);
                 }
             }
-            if !added {
+            frontier.close_over_dependents(&graph);
+            if frontier.len() == was {
                 break;
             }
         }
@@ -844,7 +897,7 @@ impl Workbook {
         snap
     }
 
-    /// Adds every spill-occupancy-sensitive formula cell to `dirty` (issue
+    /// Adds every spill-occupancy-sensitive formula cell to `frontier` (issue
     /// #591), so an incremental recalc reproduces a full recalc across any spill
     /// footprint or blocked-status change even though the dependency graph
     /// carries no edge for those transitions and `set` discarded the pre-edit
@@ -870,8 +923,8 @@ impl Workbook {
     /// The blocked-spill error string equals [`BLOCKED_SPILL_ERROR`]; a cell
     /// merely *holding* that error that is not actually a former/blocked spill
     /// anchor is harmless to re-evaluate (it recomputes to the same value).
-    fn seed_spill_sensitive(&self, graph: &DependencyGraph, dirty: &mut BTreeSet<CellRef>) {
-        self.seed_spill_sensitive_built_index(graph, dirty);
+    fn seed_spill_sensitive(&self, graph: &DependencyGraph, frontier: &mut DirtyFrontier) {
+        self.seed_spill_sensitive_built_index(graph, frontier);
     }
 
     /// [`seed_spill_sensitive`](Self::seed_spill_sensitive), plus whether it
@@ -887,7 +940,7 @@ impl Workbook {
     pub fn seed_spill_sensitive_built_index(
         &self,
         graph: &DependencyGraph,
-        dirty: &mut BTreeSet<CellRef>,
+        frontier: &mut DirtyFrontier,
     ) -> bool {
         let rects = self.anchor_rectangles();
         // Built lazily, on the first range precedent examined: this decision
@@ -914,7 +967,7 @@ impl Workbook {
                 }
             }
             if seed {
-                dirty.insert(cell.clone());
+                frontier.insert(cell.clone());
             }
         }
         authored.is_some()
