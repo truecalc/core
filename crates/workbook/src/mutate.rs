@@ -144,7 +144,27 @@ impl Workbook {
             )));
         }
 
-        let prev = self.sheets_mut()[idx].set(addr, cell);
+        // Dependency-graph cache (see the `graph_cache` module docs). The
+        // graph is a function of the workbook's formula cells, sheet names,
+        // name/table declarations, and — only when a table is declared — the
+        // text stored in that table's header row. So this write is
+        // structure-preserving exactly when it neither creates nor destroys a
+        // formula node *and* no table exists whose header text it could be.
+        //
+        // "A literal write cannot change the graph" is therefore false in
+        // general: writing text into a declared table's header cell moves what
+        // `T[column]` resolves to. It is true only in a workbook with no
+        // tables, which is the condition tested here.
+        let writes_formula = cell.formula().is_some();
+        let prev = self.sheets_mut_untracked()[idx].set(addr, cell);
+        let replaced_formula = prev.as_ref().and_then(Cell::formula).is_some();
+        if writes_formula || replaced_formula || !self.tables().is_empty() {
+            self.invalidate_graph_cache();
+        }
+        // Auto-expansion retargets a table `ref`, which is a graph input; it
+        // invalidates through `tables_mut` on the path that actually expands,
+        // and is a no-op (so correctly non-invalidating) on the path that does
+        // not.
         self.expand_table_on_append(idx, addr);
         Ok(prev)
     }
@@ -223,7 +243,16 @@ impl Workbook {
     /// an empty value (schema spec §4). Returns `None` if the sheet or cell is
     /// absent.
     pub fn clear(&mut self, sheet: &str, addr: Address) -> Option<Cell> {
-        self.sheet_mut(sheet).and_then(|ws| ws.clear(addr))
+        let idx = self.sheet_index(sheet)?;
+        let prev = self.sheets_mut_untracked()[idx].clear(addr);
+        // Same rule as `set`, minus the "writes a formula" half: removing a
+        // literal from a table-free workbook removes no node, no edge, and no
+        // header text the graph can see.
+        let removed_formula = prev.as_ref().and_then(Cell::formula).is_some();
+        if removed_formula || !self.tables().is_empty() {
+            self.invalidate_graph_cache();
+        }
+        prev
     }
 
     /// The total number of populated cells across every sheet — the quantity

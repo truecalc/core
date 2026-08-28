@@ -1,26 +1,29 @@
 //! Read-only dependency-graph queries for the JavaScript workbook surface.
 //!
-//! The workbook already derives a [`DependencyGraph`] on every recalculation
-//! and drops it again — nothing is retained on the [`Workbook`]. This module
-//! serializes that same derived view so a JavaScript host can answer the two
-//! questions the grid itself cannot:
+//! This module serializes a [`DependencyGraph`] so a JavaScript host can
+//! answer the two questions the grid itself cannot:
 //!
 //! - **What does this cell read?** — [`precedents_of`].
 //! - **What breaks if I change this cell?** — [`dependents_of`].
 //!
-//! # Freshness
+//! # Freshness and reuse
 //!
-//! [`Workbook`] caches no graph, so every query here calls
-//! [`DependencyGraph::build`] against the workbook **as it is right now**. A
-//! query therefore can never return a stale answer, and — because the graph is
-//! a function of formula *text*, sheet names and named-range targets, not of
-//! evaluated values — it is correct even before the first `recalc()` and
-//! immediately after a `set()` / `clear()` / `defineName()` with no recalc in
-//! between. The price is that a query is not a cheap accessor: building the
-//! graph costs `O(formula cells)` (an upper bound expected to improve, not a
-//! fixed contract), and [`dependents_of`] additionally costs `O(distinct
-//! range nodes + names)` per node it walks. A host driving these from a UI
-//! event should debounce rather than call on every selection change.
+//! [`Workbook`] caches its dependency graph across recalculations (see
+//! `truecalc_workbook`'s `graph_cache` module docs). Both queries here read
+//! that cache through [`Workbook::cached_graph_entry`] when it is warm — a
+//! warm entry equals a build against the workbook as it is now, so reusing it
+//! is never stale — and fall back to [`DependencyGraph::build`] when it is
+//! cold. Taking `&Workbook`, they can *read* a warm entry but not populate a
+//! cold one (same constraint `Workbook::trace_cell` documents for itself), so
+//! a query immediately after a `set()` / `clear()` / `defineName()` with no
+//! `recalc()` in between still builds fresh every time — correct either way,
+//! because the graph is a function of formula *text*, sheet names and
+//! named-range targets, not of evaluated values, so it is meaningful even
+//! before the first `recalc()`. A cold build costs `O(formula cells)` (an
+//! upper bound expected to improve, not a fixed contract), and
+//! [`dependents_of`] additionally costs `O(distinct range nodes + names)` per
+//! node it walks. A host driving these from a UI event should debounce
+//! rather than call on every selection change.
 //!
 //! # Bounds
 //!
@@ -315,7 +318,15 @@ pub fn precedents_of(
     let (root, cell) = resolve_query_cell(workbook, sheet, a1)?;
     let max_depth = clamp_depth(max_depth);
     let max_nodes = clamp_nodes(max_nodes);
-    let graph = DependencyGraph::build(workbook);
+    let cached = workbook.cached_graph_entry();
+    let built;
+    let graph: &DependencyGraph = match &cached {
+        Some(entry) => entry.graph(),
+        None => {
+            built = DependencyGraph::build(workbook);
+            &built
+        }
+    };
 
     let mut precedents: Vec<PrecedentNode> = Vec::new();
     // `Precedent` is `Hash + Eq`, so it is its own dedupe key: the same
@@ -344,7 +355,7 @@ pub fn precedents_of(
                 }
                 precedents.push(PrecedentNode {
                     depth,
-                    reference: precedent_ref(workbook, &graph, prec),
+                    reference: precedent_ref(workbook, graph, prec),
                 });
                 // Only formula cells have precedents of their own, so this is
                 // exactly the set with anything left to say at depth + 1.
@@ -411,7 +422,15 @@ pub fn dependents_of(
     let (root, cell) = resolve_query_cell(workbook, sheet, a1)?;
     let max_depth = clamp_depth(max_depth);
     let max_nodes = clamp_nodes(max_nodes);
-    let graph = DependencyGraph::build(workbook);
+    let cached = workbook.cached_graph_entry();
+    let built;
+    let graph: &DependencyGraph = match &cached {
+        Some(entry) => entry.graph(),
+        None => {
+            built = DependencyGraph::build(workbook);
+            &built
+        }
+    };
 
     let mut dependents: Vec<DependentNode> = Vec::new();
     let mut emitted: HashSet<CellRef> = HashSet::new();

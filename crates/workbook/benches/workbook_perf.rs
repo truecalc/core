@@ -190,10 +190,43 @@ fn bench_incremental_recalc(c: &mut Criterion) {
 
     // Editing A1 in the independent fixture dirties exactly one formula (B1).
     // This guards the *minimality* of the dirty set, not chain propagation.
+    //
+    // `template` is pre-recalculated, so its graph cache is warm, and
+    // `Workbook::clone` inherits the cache `Arc` (graph_cache module docs) -
+    // every iteration below starts warm and never rebuilds the graph. That is
+    // deliberate: it isolates the dirty-set question from graph-build cost,
+    // which `depgraph_build` above already covers on its own. It is *not* a
+    // measurement of a host's first incremental recalc after loading a
+    // workbook and editing a cell - that path is cold, and is measured
+    // separately by `incremental_recalc_cold` below. Do not read a change
+    // here as "incremental recalc got faster" without checking which of the
+    // two moved.
     let mut group = c.benchmark_group("incremental_recalc/independent_edit_root");
     for n in [100u32, 1000] {
         let mut template = build_independent(n);
         template.recalc(&ctx);
+        group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, _| {
+            b.iter(|| {
+                let mut wb = template.clone();
+                let a1 = Address::new(1, 1).unwrap();
+                wb.set("Sheet1", a1, CellInput::Literal(Value::Number(99.0)))
+                    .unwrap();
+                wb.recalc_incremental(&ctx, &[("Sheet1".to_string(), a1)])
+            });
+        });
+    }
+    group.finish();
+
+    // Same edit, same fixture, but `template` here is never recalculated
+    // before the loop, so its graph cache starts cold and a clone inherits
+    // that empty cache slot (same reasoning as `full_recalc`'s templates,
+    // which are never pre-recalc'd either). `recalc_incremental` must build
+    // the graph inside the timed closure on every iteration - this is the
+    // cost the warm group above cannot see: a host's *first* incremental
+    // recalc after loading a workbook and editing a cell.
+    let mut group = c.benchmark_group("incremental_recalc_cold/independent_edit_root");
+    for n in [100u32, 1000] {
+        let template = build_independent(n);
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, _| {
             b.iter(|| {
                 let mut wb = template.clone();

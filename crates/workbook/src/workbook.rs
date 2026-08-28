@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -7,6 +9,7 @@ use crate::canonical;
 use crate::casefold::simple_fold;
 use crate::engine::EngineFlavor;
 use crate::error::WorkbookError;
+use crate::graph_cache::{CachedGraph, GraphCache};
 use crate::limits;
 use crate::named_range::NamedRange;
 use crate::strict_json;
@@ -21,9 +24,15 @@ pub const SCHEMA_VERSION: &str = "2";
 /// An engine-locked spreadsheet workbook — a pure value object (no hidden
 /// state, no callbacks). Schema spec §2.
 ///
-/// All five fields are always serialized, even when empty. Field declaration
-/// order (`engine`, `names`, `sheets`, `tables`, `version`) matches canonical
-/// (JCS) key order.
+/// All five *document* fields are always serialized, even when empty. Field
+/// declaration order (`engine`, `names`, `sheets`, `tables`, `version`)
+/// matches canonical (JCS) key order.
+///
+/// `graph_cache` is not part of the document: it is derived state the workbook
+/// memoizes across recalculations (see the `graph_cache` module docs). It is
+/// skipped by serde, ignored by `PartialEq`, and contributes nothing to
+/// `Hash`, so the value object is exactly what it was before the cache
+/// existed.
 #[derive(Debug, Clone, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Workbook {
@@ -34,6 +43,8 @@ pub struct Workbook {
     tables: Vec<Table>,
     #[serde(deserialize_with = "de_version")]
     version: String,
+    #[serde(skip)]
+    graph_cache: GraphCache,
 }
 
 impl Workbook {
@@ -49,6 +60,7 @@ impl Workbook {
             sheets: Vec::new(),
             tables: Vec::new(),
             version: SCHEMA_VERSION.to_owned(),
+            graph_cache: GraphCache::default(),
         }
     }
 
@@ -68,7 +80,12 @@ impl Workbook {
     }
 
     /// Mutable access to the worksheets.
+    ///
+    /// Invalidates the dependency-graph cache on the borrow: what the caller
+    /// does with a `&mut Vec<Worksheet>` is unobservable from here, so the
+    /// only sound assumption is that it changed the graph.
     pub fn sheets_mut(&mut self) -> &mut Vec<Worksheet> {
+        self.graph_cache.invalidate();
         &mut self.sheets
     }
 
@@ -78,7 +95,11 @@ impl Workbook {
     }
 
     /// Mutable access to the named ranges.
+    ///
+    /// Invalidates the dependency-graph cache on the borrow (see
+    /// [`sheets_mut`](Self::sheets_mut)).
     pub fn names_mut(&mut self) -> &mut Vec<NamedRange> {
+        self.graph_cache.invalidate();
         &mut self.names
     }
 
@@ -88,7 +109,11 @@ impl Workbook {
     }
 
     /// Mutable access to the table declarations.
+    ///
+    /// Invalidates the dependency-graph cache on the borrow (see
+    /// [`sheets_mut`](Self::sheets_mut)).
     pub fn tables_mut(&mut self) -> &mut Vec<Table> {
+        self.graph_cache.invalidate();
         &mut self.tables
     }
 
@@ -99,7 +124,11 @@ impl Workbook {
     }
 
     /// Mutable access to the worksheet named `name` (case-insensitive).
+    ///
+    /// Invalidates the dependency-graph cache on the borrow (see
+    /// [`sheets_mut`](Self::sheets_mut)).
     pub fn sheet_mut(&mut self, name: &str) -> Option<&mut Worksheet> {
+        self.graph_cache.invalidate();
         match self.sheet_index(name) {
             Some(i) => Some(&mut self.sheets[i]),
             None => None,
@@ -155,6 +184,10 @@ impl Workbook {
                 existing.name()
             )));
         }
+        // A new sheet changes the sheet name set, which is one of the graph's
+        // inputs: a formula that referenced this name resolved to `Unresolved`
+        // before and resolves for real now.
+        self.graph_cache.invalidate();
         self.sheets.insert(index, sheet);
         Ok(())
     }
@@ -166,7 +199,11 @@ impl Workbook {
     /// dangling-ref invariant is re-checked at [`to_json`](Self::to_json) /
     /// [`from_json`](Self::from_json) (schema spec §7).
     pub fn remove_sheet(&mut self, name: &str) -> Option<Worksheet> {
-        self.sheet_index(name).map(|i| self.sheets.remove(i))
+        let i = self.sheet_index(name)?;
+        // Removes every formula node on that sheet, and turns every reference
+        // to it into `Unresolved`.
+        self.graph_cache.invalidate();
+        Some(self.sheets.remove(i))
     }
 
     /// Renames the sheet currently named `from` (case-insensitive) to `to`.
@@ -187,6 +224,9 @@ impl Workbook {
                 )));
             }
         }
+        // Re-keys every node on the sheet and re-resolves every qualified
+        // reference to the old and the new name.
+        self.graph_cache.invalidate();
         self.sheets[idx].set_name(to);
         Ok(())
     }
@@ -201,9 +241,113 @@ impl Workbook {
                 "cannot move sheet from {from} to {to}: valid tab positions are 0..{len}"
             )));
         }
+        // Tab order is not a graph input by construction (the graph keys
+        // sheets by folded name, never by index), but `DependencyGraph::build`
+        // before and after a reorder does *not* compare equal: `range_dependents`
+        // (`depgraph.rs`) is a `Vec` ordered by first encounter during the
+        // `workbook.sheets()` walk, so tab order leaks into that field. What
+        // actually makes a reorder safe to skip is that nothing recalculation
+        // observes is sensitive to it: `evaluation_order` comes from a
+        // `BTreeMap`, `formula_edges`'s successors are `BTreeSet`s, and
+        // `direct_dependents_of` collects into a `BTreeSet` before returning -
+        // every order-sensitive part of the graph gets set-ified before a
+        // caller can see it. The cache is dropped anyway: a move is a rare,
+        // human-scale operation, and "every sheet operation invalidates" is a
+        // rule a future reader can apply without re-deriving this.
+        self.graph_cache.invalidate();
         let sheet = self.sheets.remove(from);
         self.sheets.insert(to, sheet);
         Ok(())
+    }
+
+    /// The cached dependency graph and evaluation order, if the cache is warm.
+    ///
+    /// Warm means "equal to a build against the workbook as it is now" — see
+    /// the `graph_cache` module docs for the invalidation contract that
+    /// maintains it. `pub`, not `pub(crate)`, so a read-only, host-facing
+    /// graph query that only has `&Workbook` to work with (the wasm
+    /// `precedentsOf`/`dependentsOf` binding) can reuse a warm cache instead
+    /// of building its own copy — the same constraint
+    /// [`trace_cell`](Self::trace_cell) documents for itself: it can read a
+    /// warm entry but, taking `&self`, cannot populate a cold one.
+    pub fn cached_graph_entry(&self) -> Option<Arc<CachedGraph>> {
+        self.graph_cache.get()
+    }
+
+    /// Records a freshly built graph as the cache entry.
+    pub(crate) fn store_cached_graph(&mut self, entry: Arc<CachedGraph>) {
+        self.graph_cache.store(entry);
+    }
+
+    /// Drops the cache entry. Always sound; the cost of a spurious call is one
+    /// rebuild.
+    pub(crate) fn invalidate_graph_cache(&mut self) {
+        self.graph_cache.invalidate();
+    }
+
+    /// Releases the cached dependency graph, if one is held, reclaiming the
+    /// ~545 B/cell (wasm32) / ~856 B/cell (native) it retains for every
+    /// formula cell — see the `limits` module docs for the multi-workbook
+    /// arithmetic this exists for.
+    ///
+    /// The workbook itself is unchanged: the next `recalc` / `recalc_incremental`
+    /// / `explain` call simply rebuilds the graph, exactly as it would after a
+    /// mutation the `graph_cache` module invalidates on (`graph_builds` ticks
+    /// up by one).
+    ///
+    /// Named for what it releases, not for the mechanism, and kept apart from
+    /// [`invalidate_graph_cache`](Self::invalidate_graph_cache) (`pub(crate)`)
+    /// on purpose: that one is this crate's word for "a mutation made the
+    /// entry stale, it must rebuild before next use" — an internal
+    /// correctness call the workbook makes about itself. This is a different
+    /// call: a still-*valid* cache the *host* chooses to give back for its
+    /// memory. The dependency-graph cache is currently the only derived state
+    /// a workbook holds, but the name says what a caller gets (memory back),
+    /// not how, so a second cache could join it later without renaming this.
+    pub fn drop_derived_state(&mut self) {
+        self.invalidate_graph_cache();
+    }
+
+    /// Mutable access to the worksheets that does **not** invalidate the
+    /// dependency-graph cache.
+    ///
+    /// Every caller must be a write the graph provably cannot see, and must
+    /// say which clause of the `graph_cache` contract makes it so. Today that
+    /// is exactly two: `Workbook::set`/`Workbook::clear` of a literal over a
+    /// non-formula cell, and recalc's value write-back — both only while the
+    /// workbook declares no tables, since a table header's stored text *is* a
+    /// graph input. If you are not certain, use
+    /// [`sheets_mut`](Self::sheets_mut).
+    pub(crate) fn sheets_mut_untracked(&mut self) -> &mut Vec<Worksheet> {
+        &mut self.sheets
+    }
+
+    /// How many dependency graphs this workbook has built.
+    ///
+    /// Instrumentation, not a feature: "graph builds per recalculation" is the
+    /// exact-count metric behind the graph cache, and wall clock is too
+    /// machine-dependent to assert on in a test. Hidden from the docs because
+    /// no caller needs it.
+    ///
+    /// **Does not count a cold [`trace_cell`](Self::trace_cell)/`explain`.**
+    /// `trace_cell` takes `&self` and so cannot call `store_cached_graph`
+    /// (needs `&mut self`); its cold path builds a `DependencyGraph` locally
+    /// and discards it without ever calling the `GraphCache` store that is
+    /// the only place this counter increments. A cold `explain` on a
+    /// workbook therefore leaves this at `0` (and
+    /// [`graph_cache_is_warm`](Self::graph_cache_is_warm) at `false`) even
+    /// though a graph was, in fact, built — do not write a test asserting
+    /// "explain builds no graph" from this counter.
+    #[doc(hidden)]
+    pub fn graph_builds(&self) -> u64 {
+        self.graph_cache.builds()
+    }
+
+    /// Whether the dependency-graph cache currently holds an entry.
+    /// Instrumentation, same rationale as [`graph_builds`](Self::graph_builds).
+    #[doc(hidden)]
+    pub fn graph_cache_is_warm(&self) -> bool {
+        self.graph_cache.is_warm()
     }
 
     /// Parses a workbook from JSON bytes, enforcing every document-level rule
