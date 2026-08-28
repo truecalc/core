@@ -165,6 +165,34 @@ fn names_that_fold_to_the_same_key_resolve_first_wins_like_the_scan() {
     assert_eq!(index.index_of_name("Other"), Some(1));
     assert_eq!(index.len(), 3);
     assert!(!index.is_empty());
+
+    // End-to-end: first-wins has to be what a formula actually evaluates
+    // through, not just what the index answers in isolation. Give tab 0
+    // ("Data") and tab 2 ("DATA") distinguishable A1s directly (bypassing
+    // `wb.set`, which cannot address tab 2 by name at all under the
+    // collision), then write and read an ambiguous "Data" formula through the
+    // public API. Every resolution step — the write's own target, the
+    // formula's containing sheet, and the read — must agree on "first tab
+    // wins", or the formula and its operand can silently come from different
+    // physical sheets.
+    let a1 = Address::new(1, 1).unwrap();
+    let b1 = Address::new(1, 2).unwrap();
+    wb.set("Data", a1, CellInput::Literal(Value::Number(1.0)))
+        .unwrap();
+    wb.sheets_mut()[2]
+        .cells_mut()
+        .insert(a1.to_a1(), Cell::literal(Value::Number(999.0)).unwrap());
+    wb.set("Data", b1, CellInput::Formula("=A1+100".to_owned()))
+        .unwrap();
+    wb.recalc(&ctx());
+    assert_eq!(
+        wb.get("Data", b1).unwrap().value(),
+        &Value::Number(101.0),
+        "an ambiguous \"Data\" write, and the unqualified read inside its own \
+         formula, must both resolve to the first colliding tab (1 + 100); a \
+         value of 1099 would mean the formula's operand was read from the \
+         later colliding \"DATA\" tab instead of the sheet it was written on"
+    );
 }
 
 #[test]

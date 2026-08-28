@@ -26,6 +26,14 @@
 //! | folds per warm full recalc, 200 sheets × 10 rows | 603,600 | **600** |
 //! | folds per incremental recalc, 200 sheets × 10 rows | 1,006,204 | **1,401** |
 //!
+//! That zero is the **matched-spelling** case: `SheetIndex::index_of_name`
+//! only skips folding when a reference's qualifier matches a tab's authored
+//! spelling exactly. A qualifier that does not — `=data!A1` against a tab
+//! named `Data`, an extremely common real-world spelling — falls through to
+//! folding the query on every resolution, which is `O(name-length)` again
+//! (though still not `O(sheets × name-length)`, what the old scan cost):
+//! measured, 2 folds and 2×name-length bytes per extra formula cell.
+//!
 //! **This file owns its test binary.** The counters are process-wide, so a
 //! sibling `#[test]` running concurrently in the same binary would be counted
 //! into the measurement — `grid_lookup_alloc_tests.rs` documents the same
@@ -101,6 +109,47 @@ fn multi_sheet_cross(sheets: usize, rows: u32, name_len: usize) -> Workbook {
         }
     }
     wb
+}
+
+/// Like [`multi_sheet_cross`], but every formula's qualifier is spelled in a
+/// **different case** from the tab's authored name (`=S0XXX!A{r}+1` against a
+/// tab actually named `S0xxx`).
+///
+/// `SheetIndex::index_of_name` only skips folding when the query matches a
+/// tab's authored spelling exactly (`sheet_index.rs`); a qualifier that does
+/// not — `=data!A1` against a tab named `Data` is an extremely common
+/// real-world spelling — falls through to folding the query name on every
+/// resolution. That is still `O(name-length)`, not `O(sheets × name-length)`,
+/// but it is not zero, and this fixture is what pins the difference.
+fn multi_sheet_cross_mismatched_case(sheets: usize, rows: u32, name_len: usize) -> Workbook {
+    let mut wb = Workbook::new(EngineFlavor::Sheets);
+    for s in 0..sheets {
+        let stem = format!("S{s}");
+        let pad = "x".repeat(name_len.saturating_sub(stem.len()));
+        wb.add_sheet(Worksheet::new(format!("{stem}{pad}")))
+            .unwrap();
+    }
+    let source = wb.sheets()[0].name().to_uppercase();
+    for s in 0..sheets {
+        for row in 1..=rows {
+            wb.sheets_mut()[s].cells_mut().insert(
+                Address::new(row, 1).unwrap().to_a1(),
+                Cell::literal(Value::Number(f64::from(row))).unwrap(),
+            );
+            wb.sheets_mut()[s].cells_mut().insert(
+                Address::new(row, 2).unwrap().to_a1(),
+                Cell::with_formula(format!("={source}!A{row}+1"), Value::Empty),
+            );
+        }
+    }
+    wb
+}
+
+/// [`folds_to_recalc_cross`], for the case-mismatched shape.
+fn folds_to_recalc_cross_mismatched(sheets: usize, rows: u32, name_len: usize) -> (u64, u64) {
+    let mut wb = multi_sheet_cross_mismatched_case(sheets, rows, name_len);
+    wb.recalc(&ctx());
+    folds_during(|| wb.recalc(&ctx()))
 }
 
 /// Folds performed, and bytes folded, while running `body`.
@@ -261,5 +310,56 @@ fn sheet_lookup_costs_no_folds_per_cell_and_none_per_name_character() {
         inc_calls <= budget,
         "an incremental recalc of {sheets} sheets × 10 rows performed \
          {inc_calls} folds (budget {budget})"
+    );
+
+    // ── 6. Unless the qualifier's case doesn't match the tab ─────────────
+    // `index_of_name`'s authored-name fast path only fires on an exact
+    // spelling; `=data!A1` against a tab named `Data` — an extremely common
+    // real-world spelling — falls through to folding the query on every
+    // resolution. Not `O(sheets)`, but not zero either: pin what it actually
+    // costs so "name length cannot re-enter" is a claim about the fast path,
+    // not about every qualifier. Measured: 2 folds per extra cell, and the
+    // bytes folded scale with the *tab name's* length (3-character names:
+    // 6 bytes/cell; 60-character names: 120 bytes/cell) — `O(name-length)`,
+    // not the `O(sheets × name-length)` the old scan cost, but not the
+    // exactly-zero the matched-case path gets either.
+    let (mm_small_calls, mm_small_bytes) = folds_to_recalc_cross_mismatched(10, 10, 3);
+    let (mm_large_calls, mm_large_bytes) = folds_to_recalc_cross_mismatched(10, 20, 3);
+    assert_eq!(
+        mm_large_calls - mm_small_calls,
+        2 * extra_cells as u64,
+        "a full recalc of case-mismatched cross-sheet formulas folded {} times \
+         for {extra_cells} extra formula cells ({mm_small_calls} at 100 cells, \
+         {mm_large_calls} at 200); expected exactly 2 folds per extra cell",
+        mm_large_calls - mm_small_calls
+    );
+    assert_eq!(
+        mm_large_bytes - mm_small_bytes,
+        2 * 3 * extra_cells as u64,
+        "a full recalc of case-mismatched cross-sheet formulas with \
+         3-character tab names folded {} bytes for {extra_cells} extra \
+         formula cells; expected exactly 2 folds × 3 bytes per extra cell",
+        mm_large_bytes - mm_small_bytes
+    );
+
+    let (mm_long_small_calls, mm_long_small_bytes) = folds_to_recalc_cross_mismatched(10, 10, 60);
+    let (mm_long_calls, mm_long_bytes) = folds_to_recalc_cross_mismatched(10, 20, 60);
+    assert_eq!(
+        mm_long_calls - mm_long_small_calls,
+        2 * extra_cells as u64,
+        "the fold *count* per cell must not depend on tab-name length even on \
+         the mismatched-case path: {} folds for {extra_cells} extra cells with \
+         60-character names, vs {} with 3-character names",
+        mm_long_calls - mm_long_small_calls,
+        mm_large_calls - mm_small_calls
+    );
+    assert_eq!(
+        mm_long_bytes - mm_long_small_bytes,
+        2 * 60 * extra_cells as u64,
+        "a full recalc of case-mismatched cross-sheet formulas with \
+         60-character tab names folded {} bytes for {extra_cells} extra \
+         formula cells; expected exactly 2 folds × 60 bytes per extra cell — \
+         name length re-enters through a case-mismatched qualifier",
+        mm_long_bytes - mm_long_small_bytes
     );
 }
