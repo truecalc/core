@@ -871,11 +871,30 @@ impl Workbook {
     /// merely *holding* that error that is not actually a former/blocked spill
     /// anchor is harmless to re-evaluate (it recomputes to the same value).
     fn seed_spill_sensitive(&self, graph: &DependencyGraph, dirty: &mut BTreeSet<CellRef>) {
+        self.seed_spill_sensitive_built_index(graph, dirty);
+    }
+
+    /// [`seed_spill_sensitive`](Self::seed_spill_sensitive), plus whether it
+    /// built the authored-cell index.
+    ///
+    /// Instrumentation, not a feature: the index is built lazily now, on the
+    /// first range precedent actually examined, rather than once unconditionally
+    /// per seeding pass — a workbook with no range precedents anywhere must not
+    /// pay for a full sheet sweep it never needed (issue #927 follow-up).
+    /// Hidden from the docs because callers want
+    /// [`seed_spill_sensitive`](Self::seed_spill_sensitive).
+    #[doc(hidden)]
+    pub fn seed_spill_sensitive_built_index(
+        &self,
+        graph: &DependencyGraph,
+        dirty: &mut BTreeSet<CellRef>,
+    ) -> bool {
         let rects = self.anchor_rectangles();
-        // Built once for the whole pass, not once per range precedent: this
-        // decision is asked `O(range precedents)` times and used to cost a
-        // full sheet scan each time (issue #927).
-        let authored = AuthoredCellIndex::build(self);
+        // Built lazily, on the first range precedent examined: this decision
+        // is asked `O(range precedents)` times, and eagerly building it before
+        // knowing any range precedent exists made it an unconditional full
+        // sheet sweep on top of `anchor_rectangles` (issue #927 follow-up).
+        let mut authored: Option<AuthoredCellIndex> = None;
         for cell in graph.formula_cells() {
             // (1)/(2): the cell itself is (or held) a spill.
             let is_spill_cell = match self.cell_at(cell).map(Cell::value) {
@@ -891,23 +910,28 @@ impl Workbook {
                 if let Some(precedents) = graph.precedents_of(cell) {
                     seed = precedents
                         .iter()
-                        .any(|p| self.precedent_is_spill_sensitive(p, &rects, &authored));
+                        .any(|p| self.precedent_is_spill_sensitive(p, &rects, &mut authored));
                 }
             }
             if seed {
                 dirty.insert(cell.clone());
             }
         }
+        authored.is_some()
     }
 
     /// Whether a single precedent reads a cell that is, or could become, a
     /// spilled cell (issue #591): a non-authored single-cell target (empty or
     /// spilled today), or a range overlapping a current spill rectangle.
+    ///
+    /// `authored` builds the index on first use and reuses it after —
+    /// `AuthoredCellIndex::build` only runs if a [`Precedent::Range`] is
+    /// actually examined.
     fn precedent_is_spill_sensitive(
         &self,
         precedent: &Precedent,
         rects: &BTreeMap<CellRef, SpillRect>,
-        authored: &AuthoredCellIndex,
+        authored: &mut Option<AuthoredCellIndex>,
     ) -> bool {
         match precedent {
             // A single-cell precedent that is not authored is empty or spilled
@@ -922,7 +946,9 @@ impl Workbook {
                 rects
                     .iter()
                     .any(|(anchor, rect)| anchor.sheet == r.sheet && rect_overlaps_range(rect, r))
-                    || authored.range_has_unauthored_cell(r)
+                    || authored
+                        .get_or_insert_with(|| AuthoredCellIndex::build(self))
+                        .range_has_unauthored_cell(r)
             }
             // A name resolves to a cell or range; treat it conservatively as
             // spill-sensitive so a name pointing at a spilled cell still seeds

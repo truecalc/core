@@ -41,6 +41,8 @@
 //! for that reason rather than for this one, so it is left to whoever fixes
 //! it.
 
+use std::collections::BTreeSet;
+
 use truecalc_workbook::{
     Address, AuthoredCellIndex, Cell, CellInput, DependencyGraph, EngineFlavor, Precedent,
     RangeRef, RecalcContext, Value, Workbook, Worksheet,
@@ -639,6 +641,51 @@ fn a_gap_ends_the_walk_at_the_gap() {
         examined, 10,
         "the walk should stop at row 3, not run to row 200; examined {examined}"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Laziness: no range precedent, no build.
+// ---------------------------------------------------------------------------
+
+/// `seed_spill_sensitive` builds `AuthoredCellIndex` lazily, only when a
+/// [`Precedent::Range`] is actually examined — building it unconditionally
+/// before knowing any range precedent exists made it an *added* full sheet
+/// sweep on top of `anchor_rectangles`, on every incremental recalc, whether
+/// or not the workbook has a single range reference (issue #927 follow-up).
+///
+/// A thousand authored cells and one formula that reads a single cell (not a
+/// range) has no `Precedent::Range` anywhere, so the index must never be
+/// built.
+#[test]
+fn no_range_precedent_means_the_index_is_never_built() {
+    let mut wb = wb_with(&["S"]);
+    for r in 1..=1_000u32 {
+        set_num(&mut wb, "S", &Address::new(r, 1).unwrap().to_a1(), 1.0);
+    }
+    set_formula(&mut wb, "S", "B1", "=A1+1"); // a cell precedent, not a range
+    let graph = DependencyGraph::build(&wb);
+    let mut dirty = BTreeSet::new();
+    let built = wb.seed_spill_sensitive_built_index(&graph, &mut dirty);
+    assert!(
+        !built,
+        "no range precedent exists anywhere in the workbook; the index must \
+         not be built"
+    );
+}
+
+/// The mirror case: one range precedent among many cell precedents does still
+/// build the index — laziness must not silently drop the correctness check
+/// (issue #927's original bug) in the name of avoiding the cost.
+#[test]
+fn one_range_precedent_still_builds_the_index() {
+    let mut wb = wb_with(&["S"]);
+    set_num(&mut wb, "S", "A1", 1.0);
+    set_num(&mut wb, "S", "A2", 1.0);
+    set_formula(&mut wb, "S", "B1", "=SUM(A1:A2)");
+    let graph = DependencyGraph::build(&wb);
+    let mut dirty = BTreeSet::new();
+    let built = wb.seed_spill_sensitive_built_index(&graph, &mut dirty);
+    assert!(built, "B1 reads a range precedent; the index must be built");
 }
 
 // ---------------------------------------------------------------------------

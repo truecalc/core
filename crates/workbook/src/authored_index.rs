@@ -49,9 +49,11 @@ struct SheetRows {
 
 /// Every sheet's authored cells, indexed by folded sheet name and row.
 ///
-/// Built once per incremental seeding pass in `O(authored cells)` — the cost of
-/// a single one of the scans it replaces — and then queried once per range
-/// precedent.
+/// Built lazily, at most once per incremental seeding pass, on the first range
+/// precedent actually examined — a pass with no range precedent anywhere
+/// never builds it at all. When it is built, the cost is `O(authored cells)`,
+/// on top of whatever else the pass already does; it is not folded into that
+/// other work, so a workbook with range precedents still pays for it once.
 #[doc(hidden)]
 pub struct AuthoredCellIndex {
     sheets: HashMap<String, SheetRows>,
