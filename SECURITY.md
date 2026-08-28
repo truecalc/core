@@ -18,5 +18,5 @@ so the issue can be discussed and fixed before any public disclosure.
 ## Supported versions
 
 Only the latest published release of each package (`truecalc-core`,
-`truecalc-mcp`, `@truecalc/core`) is supported. Please upgrade to the
-latest version before reporting an issue, if possible.
+`@truecalc/core`) is supported. Please upgrade to the latest version
+before reporting an issue, if possible.

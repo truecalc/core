@@ -21,7 +21,6 @@ The workspace has several crates:
 - `crates/core` (`truecalc-core`) — the engine itself.
 - `crates/wasm` (`@truecalc/core` on npm) — the WebAssembly bindings.
 - `crates/workbook` / `crates/wasm-workbook` — the workbook runtime.
-- `crates/mcp` (`truecalc-mcp`) — the MCP server for AI assistants.
 - `xtask` — code-generation and maintenance tasks.
 
 ## Conformance fixtures are immutable ground truth
