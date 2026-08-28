@@ -92,7 +92,7 @@ pub fn validate_document(root: &Value) -> Result<(), String> {
         total_cells += validate_sheet_cells(sheet_obj, name)?;
     }
 
-    if total_cells > limits::MAX_CELLS_PER_WORKBOOK {
+    if limits::exceeds_cell_cap(total_cells) {
         return Err(format!(
             "workbook has {total_cells} populated cells, exceeding the limit of {} \
              (scope ADR Decision 5)",
