@@ -1,7 +1,7 @@
 {
   "recorded_at": "2026-08-28",
   "recorded_on": "Apple M1 Max (10 core), macOS 14.4, rustc 1.94.1, release profile; best of 5 full bench runs",
-  "note": "ref_units = min(benchmark time) / min(reference time), each the best of 5 full bench runs, not necessarily the same run - best-of-5 minima can (and do) come from different runs. This is a deliberate choice, not an oversight: best-of-5 biases the floor in the safe direction, and the resulting bias in ref_units is small and one-directional (recorded baselines read slightly inflated, so future runs read slightly more negative). The gate compares ratios, not nanoseconds, so a baseline recorded on one machine still means something on another. best_ns_recorded and reference_best_ns_recorded are informational only - nothing is checked against them. The bands are two-sided on purpose: see .github/scripts/check_perf_regression.py.",
+  "note": "ref_units = min(benchmark time) / min(reference time), each the best of 5 full bench runs, not necessarily the same run - best-of-5 minima can (and do) come from different runs. This is a deliberate choice, not an oversight: best-of-5 biases the floor in the safe direction, and the resulting bias in ref_units is small and one-directional (recorded baselines read slightly inflated, so future runs read slightly more negative). The gate compares ratios, not nanoseconds, so a baseline recorded on one machine still means something on another. best_ns_recorded and reference_best_ns_recorded are informational only - nothing is checked against them. The bands are two-sided on purpose: see .github/scripts/check_perf_regression.py. The five multi_sheet entries were recorded 2026-08-29 on the same machine, best of 3 runs; every other entry is unchanged from the 2026-08-28 recording, which the sheet-index change does not move (measured against the base commit on the same machine: every pre-existing benchmark's absolute time is within run-to-run noise of it).",
   "reference": "calibration/hash_alloc",
   "reference_best_ns_recorded": 3270207,
   "regression_pct": 150,
@@ -35,6 +35,18 @@
       "ref_units": 8.0703,
       "best_ns_recorded": 26391430
     },
+    "full_recalc/multi_sheet/200x50": {
+      "ref_units": 13.8314,
+      "best_ns_recorded": 45612155
+    },
+    "full_recalc/multi_sheet_long_names/200x50": {
+      "ref_units": 13.2369,
+      "best_ns_recorded": 43651501
+    },
+    "full_recalc/multi_sheet_cross_refs/200x50": {
+      "ref_units": 13.4762,
+      "best_ns_recorded": 44440765
+    },
     "full_recalc/tall_sparse/20000": {
       "ref_units": 39.9981,
       "best_ns_recorded": 130802021
@@ -47,6 +59,10 @@
       "ref_units": 0.9512,
       "best_ns_recorded": 3110508
     },
+    "depgraph_build/multi_sheet_cross_refs/200x50": {
+      "ref_units": 3.2537,
+      "best_ns_recorded": 10729783
+    },
     "incremental_recalc/independent_edit_root/100": {
       "ref_units": 0.0984,
       "best_ns_recorded": 321871
@@ -58,6 +74,10 @@
     "incremental_recalc/block_subtotals_edit_root/10000": {
       "ref_units": 1.2095,
       "best_ns_recorded": 3823493
+    },
+    "incremental_recalc/multi_sheet_edit_root/200x50": {
+      "ref_units": 3.2604,
+      "best_ns_recorded": 10751809
     },
     "from_json/500rows": {
       "ref_units": 0.2833,

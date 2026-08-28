@@ -56,6 +56,7 @@ use crate::depgraph::{CellRef, DependencyGraph, NameTarget, Precedent, RangeRef}
 use crate::graph_cache::CachedGraph;
 use crate::grid_spills::GridSpillIndex;
 use crate::named_ref;
+use crate::sheet_index::SheetIndex;
 use crate::spill::{spill_rect, SpillRect, BLOCKED_SPILL_ERROR};
 use crate::table_ref;
 use crate::value::Value;
@@ -351,6 +352,12 @@ impl Workbook {
         let cached = self.dependency_graph_cached();
         let graph = &cached.graph;
         let folder = CaseMapperBorrowed::new();
+        // Every sheet's tab index, folded once, for the whole incremental pass
+        // (issue #952). The sheet list cannot change while a recalc runs, so
+        // one index serves the volatile sweep, the spill seeding, the snapshot
+        // and the final diff — each of which used to re-scan and re-fold the
+        // whole sheet list once per formula cell.
+        let sheets = SheetIndex::build(self);
 
         // One seeding phase — every source below feeds the same
         // [`DirtyFrontier`] — followed by one closure walk. Every seeded cell
@@ -379,7 +386,7 @@ impl Workbook {
 
         // (b) Volatile cells are always dirty (scope ADR Decision 3).
         for cell in graph.formula_cells() {
-            if self.is_volatile(cell) {
+            if self.is_volatile(&sheets, cell) {
                 frontier.insert(cell.clone());
             }
         }
@@ -408,7 +415,7 @@ impl Workbook {
         // emits no change event (`diff_against_snapshot`), so `incremental ≡
         // full` is preserved while the minimal-closure guarantee still holds for
         // ordinary (non-spill) edits, which seed nothing here.
-        self.seed_spill_sensitive(graph, &mut frontier);
+        self.seed_spill_sensitive(&sheets, graph, &mut frontier);
 
         // The single transitive closure over everything seeded above.
         frontier.close_over_dependents(graph);
@@ -430,7 +437,7 @@ impl Workbook {
         // The widened readers go through the same frontier and are closed over
         // too, so this stage cannot dirty a cell without dirtying what reads it
         // either.
-        let pre = self.snapshot_formula_values(graph);
+        let pre = self.snapshot_formula_values(&sheets, graph);
         let max_widen = graph.formula_cells().count().saturating_add(2).max(1);
         for pass in 0..max_widen {
             if pass > 0 {
@@ -451,7 +458,7 @@ impl Workbook {
                 // made the seeding's *breadth* load-bearing for byte-identity:
                 // a wide dirty set hid the second attempt by having already
                 // dirtied whatever the widening would add.
-                self.apply_changes(pre.clone());
+                self.apply_changes(&sheets, pre.clone());
             }
             let before = self.anchor_rectangles();
             self.recompute(&cached, ctx, frontier.cells().clone());
@@ -470,7 +477,7 @@ impl Workbook {
             }
         }
         let closure = frontier.len();
-        (self.diff_against_snapshot(pre), closure)
+        (self.diff_against_snapshot(&sheets, pre), closure)
     }
 
     /// Explains one cell's value against the **currently stored grid** (issue
@@ -563,12 +570,12 @@ impl Workbook {
         let empty_cells: BTreeSet<CellRef> = BTreeSet::new();
         // Nothing is being recomputed, so every anchor on the stored grid is
         // authoritative and the index excludes none of them.
-        let sheet_indices = self.sheet_indices_by_folded_name();
+        let sheets = SheetIndex::build(self);
         let grid_spills = GridSpillIndex::build(self, &empty_cells);
         let mut resolver = GridResolver {
             workbook: self,
             own_sheet: &own_sheet,
-            sheet_indices: &sheet_indices,
+            sheets: &sheets,
             new_values: &empty_values,
             spills: &empty_spills,
             prev_values: &empty_values,
@@ -579,7 +586,7 @@ impl Workbook {
             scratch_key: fresh_scratch_key(),
         };
 
-        let Some(formula) = self.cell_at(&cell_ref).and_then(Cell::formula) else {
+        let Some(formula) = self.cell_at(&sheets, &cell_ref).and_then(Cell::formula) else {
             // Not a formula: nothing to trace. Resolve the cell's own value
             // through the same fallback chain a precedent read would use, so
             // e.g. a spilled (non-anchor) cell still resolves correctly.
@@ -591,7 +598,7 @@ impl Workbook {
             EngineFlavor::Sheets => Engine::sheets(),
             EngineFlavor::Excel => Engine::excel(),
         };
-        let sheet_index = sheet_indices.get(&own_sheet).copied().unwrap_or(0);
+        let sheet_index = sheets.index_of_folded(&own_sheet).unwrap_or(0) as u32;
         let rng_cell = Some((ctx.rng_seed(), sheet_index, addr.row, addr.column));
 
         let core = engine.evaluate_with_resolver_at_keyed_hooked(
@@ -609,7 +616,7 @@ impl Workbook {
         // stored grid (`place_spill`/`spill_blocked` read `self.cell_at`
         // directly, so passing fresh, empty per-pass maps here reads exactly
         // that — no real spill state is mutated).
-        self.place_spill(&cell_ref, raw, &empty_values, &mut BTreeMap::new())
+        self.place_spill(&sheets, &cell_ref, raw, &empty_values, &mut BTreeMap::new())
     }
 
     /// Shared evaluation core: evaluates `to_eval` (a set of formula cells) in
@@ -678,7 +685,7 @@ impl Workbook {
             EngineFlavor::Sheets => Engine::sheets(),
             EngineFlavor::Excel => Engine::excel(),
         };
-        let sheet_indices = self.sheet_indices_by_folded_name();
+        let sheets = SheetIndex::build(self);
         // The stored grid's spill anchors, indexed once for the whole recompute
         // (issue #910). Both of its inputs are fixed here: the stored grid does
         // not change until `apply_changes` runs after the last pass, and
@@ -707,7 +714,7 @@ impl Workbook {
                 let raw = self.eval_formula_cell(
                     cell,
                     &engine,
-                    &sheet_indices,
+                    &sheets,
                     now_serial,
                     now_utc_nanos,
                     rng_seed,
@@ -722,7 +729,7 @@ impl Workbook {
                 // error; a placed spill records its rectangle so later anchors
                 // and readers see it. Occupancy is judged against authored cells
                 // and the spills placed so far this pass.
-                let stored = self.place_spill(cell, raw, &next_values, &mut next_spills);
+                let stored = self.place_spill(&sheets, cell, raw, &next_values, &mut next_spills);
                 next_values.insert(cell.clone(), stored);
             }
             let converged = next_values == new_values && next_spills == spills;
@@ -740,36 +747,22 @@ impl Workbook {
             }
         }
 
-        self.apply_changes(new_values)
-    }
-
-    /// The sheet index every sheet occupies, keyed by its case-folded name —
-    /// the `sheet_index` half of the per-cell RNG key. Built once per recalc
-    /// (issue #886) so a formula cell costs a map lookup rather than a
-    /// `CaseMapperBorrowed::new()` and a linear, allocating scan of the sheet
-    /// list.
-    fn sheet_indices_by_folded_name(&self) -> BTreeMap<String, u32> {
-        let folder = CaseMapperBorrowed::new();
-        self.sheets()
-            .iter()
-            .enumerate()
-            .map(|(i, ws)| (simple_fold(&folder, ws.name()), i as u32))
-            .collect()
+        self.apply_changes(&sheets, new_values)
     }
 
     /// Evaluates a single formula cell through a resolver that reads the *new*
     /// values computed so far this recalc, falling back to the stored grid for
     /// everything else.
     ///
-    /// `engine`, `sheet_indices` and `grid_spills` are built once per recalc by
-    /// the caller and shared across every cell of the pass (issues #886, #904
-    /// and #910).
+    /// `engine`, `sheets` and `grid_spills` are built once per recalc by
+    /// the caller and shared across every cell of the pass (issues #886, #904,
+    /// #910 and #952).
     #[allow(clippy::too_many_arguments)]
     fn eval_formula_cell(
         &self,
         cell: &CellRef,
         engine: &Engine,
-        sheet_indices: &BTreeMap<String, u32>,
+        sheets: &SheetIndex,
         now_serial: Option<f64>,
         now_utc_nanos: Option<i64>,
         rng_seed: u64,
@@ -780,16 +773,16 @@ impl Workbook {
         cycle: &BTreeSet<CellRef>,
         grid_spills: &GridSpillIndex,
     ) -> Value {
-        let formula = match self.cell_at(cell).and_then(Cell::formula) {
+        let formula = match self.cell_at(sheets, cell).and_then(Cell::formula) {
             Some(f) => f.to_owned(),
             None => return Value::Empty,
         };
-        let sheet_index = sheet_indices.get(&cell.sheet).copied().unwrap_or(0);
+        let sheet_index = sheets.index_of_folded(&cell.sheet).unwrap_or(0) as u32;
         let rng_cell = Some((rng_seed, sheet_index, cell.addr.row, cell.addr.column));
         let mut resolver = GridResolver {
             workbook: self,
             own_sheet: &cell.sheet,
-            sheet_indices,
+            sheets,
             new_values,
             spills,
             prev_values,
@@ -824,6 +817,7 @@ impl Workbook {
     /// ([`BLOCKED_SPILL_ERROR`]) and stores no array (§5, §12).
     fn place_spill(
         &self,
+        sheets: &SheetIndex,
         cell: &CellRef,
         value: Value,
         new_values: &BTreeMap<CellRef, Value>,
@@ -839,7 +833,7 @@ impl Workbook {
             // Out-of-bounds rectangle is blocked (§5).
             return Value::Error(BLOCKED_SPILL_ERROR.to_owned());
         };
-        if self.spill_blocked(cell, &rect, new_values, placed) {
+        if self.spill_blocked(sheets, cell, &rect, new_values, placed) {
             return Value::Error(BLOCKED_SPILL_ERROR.to_owned());
         }
         placed.insert(cell.clone(), rect);
@@ -852,6 +846,7 @@ impl Workbook {
     /// anchor's placed spill (`placed`). Schema spec §5.
     fn spill_blocked(
         &self,
+        sheets: &SheetIndex,
         cell: &CellRef,
         rect: &SpillRect,
         new_values: &BTreeMap<CellRef, Value>,
@@ -863,7 +858,7 @@ impl Workbook {
                 addr,
             };
             // An authored cell in the way (literal or formula).
-            if self.cell_at(&target).is_some() {
+            if self.cell_at(sheets, &target).is_some() {
                 return true;
             }
             // A formula cell evaluated this recalc that is not itself authored
@@ -918,12 +913,17 @@ impl Workbook {
 
     /// Writes the recomputed values back, emitting a [`Change`] for each cell
     /// whose value actually changed, in pinned (sheet index, row, column) order.
-    fn apply_changes(&mut self, new_values: BTreeMap<CellRef, Value>) -> Vec<Change> {
-        let folder = CaseMapperBorrowed::new();
-        // Resolve folded sheet names to tab index + authored name once.
+    fn apply_changes(
+        &mut self,
+        sheets: &SheetIndex,
+        new_values: BTreeMap<CellRef, Value>,
+    ) -> Vec<Change> {
+        // Resolve folded sheet names to tab index + authored name through the
+        // index built once for the recalc (issue #952); this used to be a
+        // linear, folding scan of the sheet list per changed cell.
         let mut changes: Vec<(usize, Change)> = Vec::new();
         for (cell, new) in new_values {
-            let Some(idx) = self.sheet_index_folded(&folder, &cell.sheet) else {
+            let Some(idx) = sheets.index_of_folded(&cell.sheet) else {
                 continue; // sheet vanished (cannot happen mid-recalc)
             };
             let sheet_name = self.sheets()[idx].name().to_owned();
@@ -980,8 +980,8 @@ impl Workbook {
     /// Whether `cell`'s formula calls any volatile function (`NOW`, `TODAY`,
     /// `RAND`, `RANDBETWEEN`, `RANDARRAY` — core's `VOLATILE_FUNCTIONS`).
     /// A volatile cell is always dirty in incremental recalc.
-    fn is_volatile(&self, cell: &CellRef) -> bool {
-        let Some(formula) = self.cell_at(cell).and_then(Cell::formula) else {
+    fn is_volatile(&self, sheets: &SheetIndex, cell: &CellRef) -> bool {
+        let Some(formula) = self.cell_at(sheets, cell).and_then(Cell::formula) else {
             return false;
         };
         let upper = formula.to_ascii_uppercase();
@@ -994,11 +994,15 @@ impl Workbook {
     /// pre-operation snapshot an incremental recalc diffs its final grid against
     /// to emit change events with correct `old` values despite internal
     /// re-recomputes (spill widening).
-    fn snapshot_formula_values(&self, graph: &DependencyGraph) -> BTreeMap<CellRef, Value> {
+    fn snapshot_formula_values(
+        &self,
+        sheets: &SheetIndex,
+        graph: &DependencyGraph,
+    ) -> BTreeMap<CellRef, Value> {
         let mut snap = BTreeMap::new();
         for cell in graph.formula_cells() {
             let value = self
-                .cell_at(cell)
+                .cell_at(sheets, cell)
                 .map(|c| c.value().clone())
                 .unwrap_or(Value::Empty);
             snap.insert(cell.clone(), value);
@@ -1040,8 +1044,13 @@ impl Workbook {
     /// The blocked-spill error string equals [`BLOCKED_SPILL_ERROR`]; a cell
     /// merely *holding* that error that is not actually a former/blocked spill
     /// anchor is harmless to re-evaluate (it recomputes to the same value).
-    fn seed_spill_sensitive(&self, graph: &DependencyGraph, frontier: &mut DirtyFrontier) {
-        self.seed_spill_sensitive_built_index(graph, frontier);
+    fn seed_spill_sensitive(
+        &self,
+        sheets: &SheetIndex,
+        graph: &DependencyGraph,
+        frontier: &mut DirtyFrontier,
+    ) {
+        self.seed_spill_sensitive_indexed(sheets, graph, frontier);
     }
 
     /// [`seed_spill_sensitive`](Self::seed_spill_sensitive), plus whether it
@@ -1059,6 +1068,20 @@ impl Workbook {
         graph: &DependencyGraph,
         frontier: &mut DirtyFrontier,
     ) -> bool {
+        self.seed_spill_sensitive_indexed(&SheetIndex::build(self), graph, frontier)
+    }
+
+    /// [`seed_spill_sensitive_built_index`](Self::seed_spill_sensitive_built_index)
+    /// against a sheet index the caller already built for this recalc — the
+    /// real body of both. Split out so the recalc path folds the sheet list
+    /// once for the whole pass rather than once per formula cell examined here
+    /// (issue #952).
+    fn seed_spill_sensitive_indexed(
+        &self,
+        sheets: &SheetIndex,
+        graph: &DependencyGraph,
+        frontier: &mut DirtyFrontier,
+    ) -> bool {
         let rects = self.anchor_rectangles();
         // Built lazily, on the first range precedent examined: this decision
         // is asked `O(range precedents)` times, and eagerly building it before
@@ -1067,7 +1090,7 @@ impl Workbook {
         let mut authored: Option<AuthoredCellIndex> = None;
         for cell in graph.formula_cells() {
             // (1)/(2): the cell itself is (or held) a spill.
-            let is_spill_cell = match self.cell_at(cell).map(Cell::value) {
+            let is_spill_cell = match self.cell_at(sheets, cell).map(Cell::value) {
                 Some(Value::Array(_)) => true,
                 Some(Value::Error(code)) | Some(Value::ErrorMsg(code, _)) => {
                     code == BLOCKED_SPILL_ERROR
@@ -1079,7 +1102,7 @@ impl Workbook {
             if !seed {
                 if let Some(precedents) = graph.precedents_of(cell) {
                     seed = precedents.iter().any(|p| {
-                        self.precedent_is_spill_sensitive(p, graph, &rects, &mut authored)
+                        self.precedent_is_spill_sensitive(sheets, p, graph, &rects, &mut authored)
                     });
                 }
             }
@@ -1097,13 +1120,14 @@ impl Workbook {
     /// `AuthoredCellIndex::build` only runs if a range is actually examined.
     fn precedent_is_spill_sensitive(
         &self,
+        sheets: &SheetIndex,
         precedent: &Precedent,
         graph: &DependencyGraph,
         rects: &BTreeMap<CellRef, SpillRect>,
         authored: &mut Option<AuthoredCellIndex>,
     ) -> bool {
         match precedent {
-            Precedent::Cell(c) => self.cell_is_spill_sensitive(c),
+            Precedent::Cell(c) => self.cell_is_spill_sensitive(sheets, c),
             Precedent::Range(r) => self.range_is_spill_sensitive(r, rects, authored),
             // A name is an indirection, not a separate kind of reference: what
             // its reader actually reads is the name's current target, so put
@@ -1119,7 +1143,7 @@ impl Workbook {
             // A name with no current target resolves to an error rather than to
             // cells; it has nothing that can spill, so it seeds nothing.
             Precedent::Name(name) => match graph.name_target_of(name) {
-                Some(NameTarget::Cell(c)) => self.cell_is_spill_sensitive(&c),
+                Some(NameTarget::Cell(c)) => self.cell_is_spill_sensitive(sheets, &c),
                 Some(NameTarget::Range(r)) => self.range_is_spill_sensitive(&r, rects, authored),
                 None => false,
             },
@@ -1129,8 +1153,8 @@ impl Workbook {
 
     /// Rule 3: a single-cell target that is not authored is empty or spilled
     /// today, and may flip either way (grow/shrink/block/unblock).
-    fn cell_is_spill_sensitive(&self, c: &CellRef) -> bool {
-        self.cell_at(c).is_none()
+    fn cell_is_spill_sensitive(&self, sheets: &SheetIndex, c: &CellRef) -> bool {
+        self.cell_at(sheets, c).is_none()
     }
 
     /// Rule 4: a range precedent is spill-sensitive if it overlaps a current
@@ -1193,11 +1217,14 @@ impl Workbook {
     /// Emits the change list for an incremental recalc by diffing the final grid
     /// against the pre-operation `snapshot`: one [`Change`] per formula cell
     /// whose value differs, in the pinned (sheet tab index, row, column) order.
-    fn diff_against_snapshot(&self, snapshot: BTreeMap<CellRef, Value>) -> Vec<Change> {
-        let folder = CaseMapperBorrowed::new();
+    fn diff_against_snapshot(
+        &self,
+        sheets: &SheetIndex,
+        snapshot: BTreeMap<CellRef, Value>,
+    ) -> Vec<Change> {
         let mut changes: Vec<(usize, Change)> = Vec::new();
         for (cell, old) in snapshot {
-            let Some(idx) = self.sheet_index_folded(&folder, &cell.sheet) else {
+            let Some(idx) = sheets.index_of_folded(&cell.sheet) else {
                 continue;
             };
             let new = self.sheets()[idx]
@@ -1226,21 +1253,14 @@ impl Workbook {
     }
 
     /// The cell at a [`CellRef`] (folded sheet + address), or `None`.
-    fn cell_at(&self, cell: &CellRef) -> Option<&Cell> {
-        let folder = CaseMapperBorrowed::new();
-        let idx = self.sheet_index_folded(&folder, &cell.sheet)?;
+    ///
+    /// `sheets` is the caller's per-recalc [`SheetIndex`]. Resolving the sheet
+    /// used to be a linear `position` scan that case-folded — and so allocated
+    /// — every sheet name it passed, performed once per formula cell; on a
+    /// 200-sheet workbook that scan was 90% of `recalc` (issue #952).
+    fn cell_at(&self, sheets: &SheetIndex, cell: &CellRef) -> Option<&Cell> {
+        let idx = sheets.index_of_folded(&cell.sheet)?;
         self.sheets()[idx].get(cell.addr)
-    }
-
-    /// Tab index of the sheet whose folded name equals `folded`.
-    fn sheet_index_folded(
-        &self,
-        folder: &CaseMapperBorrowed<'static>,
-        folded: &str,
-    ) -> Option<usize> {
-        self.sheets()
-            .iter()
-            .position(|s| simple_fold(folder, s.name()) == folded)
     }
 }
 
@@ -1249,13 +1269,13 @@ impl Workbook {
 struct GridResolver<'a> {
     workbook: &'a Workbook,
     own_sheet: &'a str,
-    /// Every sheet's tab index, keyed by its case-folded name, built once per
-    /// recalc by the caller. Resolving a read's target sheet is a map probe
-    /// against this (issue #904); it used to be a linear scan of the sheet list
-    /// that case-folded — and so allocated — every sheet name, **per element
+    /// Every sheet's tab index, built once per recalc by the caller.
+    /// Resolving a read's target sheet is a map probe against this (issues
+    /// #904, #952); it used to be a linear scan of the sheet list that
+    /// case-folded — and so allocated — every sheet name, **per element
     /// scanned**, to find a sheet that cannot change between the elements of
     /// one range.
-    sheet_indices: &'a BTreeMap<String, u32>,
+    sheets: &'a SheetIndex,
     new_values: &'a BTreeMap<CellRef, Value>,
     /// Spills placed so far **this pass** (anchor → rectangle): a read of a cell
     /// inside one of these rectangles resolves to the spilled array element
@@ -1369,7 +1389,7 @@ impl GridResolver<'_> {
     /// The sheet whose folded name is `sheet_folded`, via the recalc-wide index
     /// (issue #904): a map probe, with no case-folding and no allocation.
     fn sheet(&self, sheet_folded: &str) -> Option<&Worksheet> {
-        let index = *self.sheet_indices.get(sheet_folded)? as usize;
+        let index = self.sheets.index_of_folded(sheet_folded)?;
         self.workbook.sheets().get(index)
     }
 
@@ -1434,14 +1454,16 @@ impl GridResolver<'_> {
 
     /// Resolves the folded target sheet name for a `Ref`'s optional sheet
     /// qualifier, or `None` if the named sheet does not exist.
+    ///
+    /// Through the recalc-wide index (issue #952): this used to be
+    /// `workbook.sheet(name)` — a linear scan that case-folded every sheet name
+    /// it passed — plus a second fold of the name it found, run once per
+    /// *qualified* reference resolved, so a cross-sheet formula paid it on
+    /// every evaluation of every cell.
     fn target_sheet(&self, sheet: &Option<String>) -> Option<String> {
-        let folder = CaseMapperBorrowed::new();
         match sheet {
             None => Some(self.own_sheet.to_owned()),
-            Some(name) => self
-                .workbook
-                .sheet(name)
-                .map(|s| simple_fold(&folder, s.name())),
+            Some(name) => self.sheets.folded_of_name(name).map(str::to_owned),
         }
     }
 }
