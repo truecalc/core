@@ -143,6 +143,22 @@ def main():
     code, out = run_gate(bench_output({n: 47.0 for n in range_names}))
     check("47x range regression fails", code == 1 and "SLOWER" in out, out)
 
+    # The band boundary itself, not just comfortably-inside or wildly-outside
+    # cases: a real #923 regression landed at +154% against a +150% ceiling,
+    # a coin flip this suite did not previously exercise.
+    boundary_target = next(iter(BASELINES["benchmarks"]))
+    regression_pct = BASELINES["regression_pct"]
+    just_under = 1 + (regression_pct - 1) / 100
+    just_over = 1 + (regression_pct + 1) / 100
+    code, out = run_gate(bench_output({boundary_target: just_under}))
+    check(f"+{regression_pct - 1}% (just inside the ceiling) passes", code == 0, out)
+    code, out = run_gate(bench_output({boundary_target: just_over}))
+    check(
+        f"+{regression_pct + 1}% (just past the ceiling) fails",
+        code == 1 and "SLOWER" in out,
+        out,
+    )
+
     # A benchmark that stops running is not coverage; it is a hole.
     victim = next(iter(BASELINES["benchmarks"]))
     code, out = run_gate(bench_output(drop=(victim,)))
