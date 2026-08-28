@@ -390,8 +390,7 @@ fn index_matches_the_scan_on_the_named_edge_cases() {
         &rect("DATA", 1, 1, 2, 1),
     );
     assert!(
-        AuthoredCellIndex::build(&colliding)
-            .range_has_unauthored_cell(&rect("Data", 1, 1, 2, 1)),
+        AuthoredCellIndex::build(&colliding).range_has_unauthored_cell(&rect("Data", 1, 1, 2, 1)),
         "first-wins: the empty tab-0 sheet must answer, not the authored tab-1 one"
     );
 
