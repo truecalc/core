@@ -200,8 +200,11 @@ fn a_spill_seeded_cells_range_mediated_dependents_are_refreshed_two_hops_out() {
 /// Same shape, but `G1` reads the range through the defined name `SEEDED`.
 /// `G1` is *not* the discriminating assertion here: `precedent_is_spill_sensitive`
 /// treats every `Precedent::Name` as spill-sensitive unconditionally, so `G1` is
-/// in `dirty` whether or not this bug is present. `H1`, reached only by walking
-/// out of `G1`, is what actually depends on the frontier fix.
+/// in `dirty` whether or not this bug is present — and `H1` is not
+/// discriminating either, because a half-fix that seeds each seeded cell's
+/// *direct* dependents picks `H1` up as a dependent of the unconditionally
+/// seeded `G1`. The assertion that depends on real frontier propagation is
+/// `I1`, two hops past the name reader.
 #[test]
 fn a_spill_seeded_cells_name_mediated_dependent_is_refreshed_two_hops_out() {
     let mut wb = wb_with(&["S"]);
@@ -216,9 +219,11 @@ fn a_spill_seeded_cells_name_mediated_dependent_is_refreshed_two_hops_out() {
         .unwrap();
     wb.set("S", a1("H1"), CellInput::Formula("=G1*2".into()))
         .unwrap();
+    wb.set("S", a1("I1"), CellInput::Formula("=H1+0".into()))
+        .unwrap();
     wb.recalc(&ctx());
     assert_eq!(val(&wb, "S", "G1"), Value::Number(51.0));
-    assert_eq!(val(&wb, "S", "H1"), Value::Number(102.0));
+    assert_eq!(val(&wb, "S", "I1"), Value::Number(102.0));
 
     let full = overwrite_anchor_with_literal(&mut wb);
     recalc_incremental_on_a1(&mut wb);
@@ -231,6 +236,13 @@ fn a_spill_seeded_cells_name_mediated_dependent_is_refreshed_two_hops_out() {
         "H1 enters the dirty closure only by walking out of G1, which the name \
          edge SEEDED -> G1 (through the spill-seeded E1) must have put there; a \
          stale 102 means the spill seed never reached the name-mediated reader"
+    );
+    assert_eq!(
+        val(&wb, "S", "I1"),
+        Value::Number(2.0),
+        "I1 is two hops past the name reader G1; a stale 102 here catches a fix \
+         that seeds each seeded cell's direct dependents instead of walking the \
+         frontier out of them"
     );
     assert_eq!(wb, full, "incremental recalc did not reproduce full recalc");
 }
