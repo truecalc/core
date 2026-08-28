@@ -8,6 +8,17 @@
 //!   `tall_sparse`) — formulas whose precedents are ranges. These drive the
 //!   range-overlap index, which is a different (and historically much hotter)
 //!   code path than single-cell precedents.
+//! * **Multi-sheet fixtures** (`multi_sheet`, `multi_sheet_long_names`) — the
+//!   same cell shape spread across many tabs. Every other fixture here builds
+//!   one `Sheet1`, and that blind spot is exactly why an
+//!   `O(cells × sheets × sheet-name-length)` sheet lookup — 90% of a 200-sheet
+//!   recalc — stayed invisible to this suite for as long as it did (issue
+//!   #952). Real models are many-sheet by nature; 200 tabs is a small financial
+//!   model, not a stress test. `multi_sheet_long_names` is the same workbook
+//!   with realistic tab names (`Cash Flow Statement 2027`) rather than `S17`,
+//!   because sheet-name length was itself a performance parameter: naming tabs
+//!   the way people actually name them cost 3.6x the wall clock. The two must
+//!   now measure the same.
 //!
 //! `calibration/hash_alloc` is deliberately *not* a workbook benchmark. It is a
 //! fixed allocate-and-hash workload used as a machine-speed probe: the
@@ -108,6 +119,79 @@ fn build_tall_sparse(n: u32) -> Workbook {
     wb
 }
 
+/// `sheets` tabs, each `rows` rows of an `A{r}` literal and a `B{r} = =A{r}+1`
+/// formula, with tab names produced by `name`.
+///
+/// Deliberately the *same* per-cell shape as `independent`, so the only
+/// difference between the two is how the cells are distributed across tabs.
+fn build_multi_sheet(sheets: usize, rows: u32, name: impl Fn(usize) -> String) -> Workbook {
+    let mut wb = Workbook::new(EngineFlavor::Sheets);
+    for s in 0..sheets {
+        wb.add_sheet(Worksheet::new(name(s))).unwrap();
+    }
+    for s in 0..sheets {
+        let sheet = wb.sheets()[s].name().to_owned();
+        for row in 1..=rows {
+            wb.set(
+                &sheet,
+                Address::new(row, 1).unwrap(),
+                CellInput::Literal(Value::Number(f64::from(row))),
+            )
+            .unwrap();
+            wb.set(
+                &sheet,
+                Address::new(row, 2).unwrap(),
+                CellInput::Formula(format!("=A{row}+1")),
+            )
+            .unwrap();
+        }
+    }
+    wb
+}
+
+/// Terse tab names, the shape a benchmark author reaches for.
+fn short_sheet_name(i: usize) -> String {
+    format!("S{i}")
+}
+
+/// Tab names of the length people actually use in a financial model.
+fn long_sheet_name(i: usize) -> String {
+    format!("Cash Flow Statement 20{i:02}")
+}
+
+/// [`build_multi_sheet`], but every formula is a **qualified cross-sheet**
+/// reference into the first tab (`='Cash Flow Statement 2000'!A{r}+1`).
+///
+/// A bare reference names no sheet, so it exercises none of the sheet lookup
+/// either during graph build (which resolves each reference's target sheet) or
+/// during evaluation (which resolves it again per read). Only a qualified
+/// reference does, and a many-sheet model is full of them.
+fn build_multi_sheet_cross(sheets: usize, rows: u32, name: impl Fn(usize) -> String) -> Workbook {
+    let mut wb = Workbook::new(EngineFlavor::Sheets);
+    for s in 0..sheets {
+        wb.add_sheet(Worksheet::new(name(s))).unwrap();
+    }
+    let source = wb.sheets()[0].name().to_owned();
+    for s in 0..sheets {
+        let sheet = wb.sheets()[s].name().to_owned();
+        for row in 1..=rows {
+            wb.set(
+                &sheet,
+                Address::new(row, 1).unwrap(),
+                CellInput::Literal(Value::Number(f64::from(row))),
+            )
+            .unwrap();
+            wb.set(
+                &sheet,
+                Address::new(row, 2).unwrap(),
+                CellInput::Formula(format!("='{source}'!A{row}+1")),
+            )
+            .unwrap();
+        }
+    }
+    wb
+}
+
 fn bench_full_recalc(c: &mut Criterion) {
     let ctx = make_ctx();
 
@@ -149,6 +233,40 @@ fn bench_full_recalc(c: &mut Criterion) {
     }
     group.finish();
 
+    // 200 tabs x 50 rows = 10,000 formula cells, the same cell shape as
+    // `independent/5000` twice over, only spread across tabs.
+    for (label, name) in [
+        (
+            "full_recalc/multi_sheet",
+            short_sheet_name as fn(usize) -> String,
+        ),
+        ("full_recalc/multi_sheet_long_names", long_sheet_name),
+    ] {
+        let mut group = c.benchmark_group(label);
+        group.sample_size(20);
+        let template = build_multi_sheet(200, 50, name);
+        group.bench_function("200x50", |b| {
+            b.iter(|| {
+                let mut wb = template.clone();
+                wb.recalc(&ctx)
+            });
+        });
+        group.finish();
+    }
+
+    // Same many-sheet workbook, but every formula names its sheet, so
+    // evaluation resolves a sheet name on every read.
+    let mut group = c.benchmark_group("full_recalc/multi_sheet_cross_refs");
+    group.sample_size(20);
+    let template = build_multi_sheet_cross(200, 50, long_sheet_name);
+    group.bench_function("200x50", |b| {
+        b.iter(|| {
+            let mut wb = template.clone();
+            wb.recalc(&ctx)
+        });
+    });
+    group.finish();
+
     let mut group = c.benchmark_group("full_recalc/tall_sparse");
     group.sample_size(10);
     group.measurement_time(Duration::from_secs(10));
@@ -180,6 +298,15 @@ fn bench_depgraph_build(c: &mut Criterion) {
     let totals = build_row_totals(2000);
     group.bench_function("row_totals/2000", |b| {
         b.iter(|| DependencyGraph::build(black_box(&totals)));
+    });
+
+    // Graph build resolves each reference's target sheet, so it carried the
+    // same sheet-lookup term the recalc path did (issue #952). It only carries
+    // it for *qualified* references, so this fixture uses them - a bare-ref
+    // many-sheet workbook measures nothing here.
+    let multi = build_multi_sheet_cross(200, 50, long_sheet_name);
+    group.bench_function("multi_sheet_cross_refs/200x50", |b| {
+        b.iter(|| DependencyGraph::build(black_box(&multi)));
     });
 
     group.finish();
@@ -237,6 +364,26 @@ fn bench_incremental_recalc(c: &mut Criterion) {
             });
         });
     }
+    group.finish();
+
+    // The many-sheet shape, edited the same way. Incremental recalc used to
+    // carry a *steeper* sheet-count slope than a full recalc did — it ran three
+    // further per-formula-cell sheet scans (the volatile sweep, the pre-edit
+    // snapshot, and spill seeding) on top of evaluation's (issue #952).
+    let mut group = c.benchmark_group("incremental_recalc/multi_sheet_edit_root");
+    group.sample_size(20);
+    let mut template = build_multi_sheet(200, 50, long_sheet_name);
+    template.recalc(&ctx);
+    let first = template.sheets()[0].name().to_owned();
+    group.bench_function("200x50", |b| {
+        b.iter(|| {
+            let mut wb = template.clone();
+            let a1 = Address::new(1, 1).unwrap();
+            wb.set(&first, a1, CellInput::Literal(Value::Number(99.0)))
+                .unwrap();
+            wb.recalc_incremental(&ctx, &[(first.clone(), a1)])
+        });
+    });
     group.finish();
 
     // Editing A1 in the block-subtotal fixture dirties every subtotal whose

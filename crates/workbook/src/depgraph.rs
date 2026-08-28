@@ -57,6 +57,7 @@ use truecalc_core::{CellAddr, Ref};
 use crate::address::Address;
 use crate::casefold::simple_fold;
 use crate::named_ref;
+use crate::sheet_index::SheetIndex;
 use crate::value::Value;
 use crate::workbook::Workbook;
 
@@ -240,6 +241,13 @@ impl DependencyGraph {
     /// therefore never fails.
     pub fn build(workbook: &Workbook) -> Self {
         let folder = CaseMapperBorrowed::new();
+        // The sheet list, folded once for the whole build (issue #952).
+        // Resolving a reference's target sheet used to be
+        // `workbook.sheet(name)` — a linear scan that case-folded every sheet
+        // name it passed — performed once per cross-sheet reference, so graph
+        // build carried the same `O(refs × sheets × name-length)` term the
+        // recalc path did.
+        let sheets = SheetIndex::build(workbook);
 
         // Resolve named-range targets first (the name → target indirection
         // layer). A name whose ref names a missing sheet, or is itself
@@ -247,7 +255,7 @@ impl DependencyGraph {
         let mut name_targets: HashMap<String, NameTarget> = HashMap::new();
         for nr in workbook.names() {
             let folded = simple_fold(&folder, &nr.name);
-            if let Some(target) = resolve_name_ref(&nr.r#ref, &folder, workbook) {
+            if let Some(target) = resolve_name_ref(&nr.r#ref, &sheets) {
                 name_targets.insert(folded, target);
             }
         }
@@ -264,8 +272,8 @@ impl DependencyGraph {
         // repeated references to the same range share one compressed node.
         let mut range_slots: HashMap<RangeRef, usize> = HashMap::new();
 
-        for sheet in workbook.sheets() {
-            let sheet_folded = simple_fold(&folder, sheet.name());
+        for (i, sheet) in workbook.sheets().iter().enumerate() {
+            let sheet_folded = sheets.folded_name(i).to_owned();
             for (addr, cell) in sheet.iter() {
                 let Some(formula) = cell.formula() else {
                     continue;
@@ -291,7 +299,7 @@ impl DependencyGraph {
                 let mut seen: HashSet<Precedent> = HashSet::new();
                 let mut resolved: Vec<Precedent> = Vec::new();
                 for r in &refs {
-                    let prec = resolve_ref(r, &from.sheet, from.addr, &folder, workbook);
+                    let prec = resolve_ref(r, &from.sheet, from.addr, &folder, &sheets, workbook);
                     if seen.insert(prec.clone()) {
                         resolved.push(prec);
                     }
@@ -743,14 +751,15 @@ fn resolve_ref(
     own_sheet: &str,
     own_addr: Address,
     folder: &CaseMapperBorrowed<'static>,
+    sheets: &SheetIndex,
     workbook: &Workbook,
 ) -> Precedent {
     match r {
         Ref::Cell { sheet, addr } => {
             let sheet_folded = match sheet {
                 None => own_sheet.to_owned(),
-                Some(name) => match workbook.sheet(name) {
-                    Some(_) => simple_fold(folder, name),
+                Some(name) => match sheets.folded_of_name(name) {
+                    Some(folded) => folded.to_owned(),
                     // `relative_display` (not `to_string`) so a missing-sheet
                     // reference reached via `$A$1` dedupes with one reached
                     // via `A1` — `$` anchors don't change what's unresolved.
@@ -765,8 +774,8 @@ fn resolve_ref(
         Ref::Range { sheet, start, end } => {
             let sheet_folded = match sheet {
                 None => own_sheet.to_owned(),
-                Some(name) => match workbook.sheet(name) {
-                    Some(_) => simple_fold(folder, name),
+                Some(name) => match sheets.folded_of_name(name) {
+                    Some(folded) => folded.to_owned(),
                     None => return Precedent::Unresolved(r.relative_display()),
                 },
             };
@@ -805,6 +814,7 @@ fn resolve_ref(
             own_sheet,
             own_addr,
             folder,
+            sheets,
             workbook,
         ),
     }
@@ -845,6 +855,11 @@ fn resolve_ref(
 /// `current_cell`, so an unqualified `[@column]` picks the same table here as
 /// it does for real value resolution. A qualified reference looks the table
 /// up by name directly.
+// Eight arguments: the sheet index joined an already-long parameter list
+// (issue #952). Same rationale as `recalc.rs`'s `eval_formula_cell` — these are
+// the inputs one reference resolution needs, and bundling them into a struct
+// would add a type whose only purpose is to satisfy the lint.
+#[allow(clippy::too_many_arguments)]
 fn resolve_table_precedent(
     table: Option<&str>,
     column: &str,
@@ -852,6 +867,7 @@ fn resolve_table_precedent(
     own_sheet: &str,
     own_addr: Address,
     folder: &CaseMapperBorrowed<'static>,
+    sheets: &SheetIndex,
     workbook: &Workbook,
 ) -> Precedent {
     let target = match table {
@@ -889,14 +905,24 @@ fn resolve_table_precedent(
     let Some(bounds) = crate::table_ref::parsed_range_bounds(&t.r#ref, &parsed) else {
         return Precedent::Unresolved(t.r#ref.clone());
     };
-    let sheet_folded = simple_fold(folder, &bounds.sheet);
+    // One index probe answers both "which tab?" and "what is its folded
+    // name?", where this used to fold `bounds.sheet` and then scan-and-fold the
+    // whole sheet list a second time (issue #952).
+    let sheet_idx = sheets.index_of_name(&bounds.sheet);
+    let sheet_folded = match sheet_idx {
+        Some(i) => sheets.folded_name(i).to_owned(),
+        // No such tab: no header can match, so the lookup below finds nothing
+        // and the reference resolves as unresolved — exactly what the missing
+        // sheet produced before.
+        None => simple_fold(folder, &bounds.sheet),
+    };
 
     // Column-index-by-header lookup, same pattern as `recalc.rs`'s
     // `GridResolver::resolve_table_ref`: a column that isn't actually in the
     // table's header row produces no precedent (it's not a real dependency,
     // the formula will error at recalc time regardless of what changes).
     let column_folded = simple_fold(folder, column);
-    let sheet = workbook.sheet(&bounds.sheet);
+    let sheet = sheet_idx.map(|i| &workbook.sheets()[i]);
     let mut found = None;
     for c in bounds.col_start..=bounds.col_end {
         let Some(header_addr) = Address::new(bounds.row_start, c) else {
@@ -940,15 +966,10 @@ fn resolve_table_precedent(
 /// Resolves a named range's canonical `ref` string to its concrete target,
 /// requiring the target sheet to exist. Returns `None` when the ref is
 /// malformed or names a missing sheet (a dangling name has no target).
-fn resolve_name_ref(
-    r: &str,
-    folder: &CaseMapperBorrowed<'static>,
-    workbook: &Workbook,
-) -> Option<NameTarget> {
+fn resolve_name_ref(r: &str, sheets: &SheetIndex) -> Option<NameTarget> {
     let parsed = named_ref::parse_canonical_ref(r).ok()?;
     // The ref's sheet must exist; key the target by its folded name.
-    let sheet = workbook.sheet(&parsed.sheet)?;
-    let sheet_folded = simple_fold(folder, sheet.name());
+    let sheet_folded = sheets.folded_of_name(&parsed.sheet)?.to_owned();
 
     // Recover the A1 part (parse_canonical_ref already validated it).
     let a1_part = r.rsplit_once('!').map(|(_, a)| a).unwrap_or(r);
