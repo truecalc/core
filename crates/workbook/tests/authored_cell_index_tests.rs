@@ -43,8 +43,8 @@
 //! `recalc_spill_seed_frontier_tests.rs`.
 
 use truecalc_workbook::{
-    Address, AuthoredCellIndex, Cell, CellInput, DependencyGraph, DirtyFrontier, EngineFlavor,
-    Precedent, RangeRef, RecalcContext, Value, Workbook, Worksheet,
+    Address, AuthoredCellIndex, Cell, CellInput, CellRef, DependencyGraph, DirtyFrontier,
+    EngineFlavor, Precedent, RangeRef, RecalcContext, Value, Workbook, Worksheet,
 };
 
 fn addr(a1: &str) -> Address {
@@ -663,7 +663,10 @@ fn no_range_precedent_means_the_index_is_never_built() {
     set_formula(&mut wb, "S", "B1", "=A1+1"); // a cell precedent, not a range
     let graph = DependencyGraph::build(&wb);
     let mut frontier = DirtyFrontier::new();
-    let built = wb.seed_spill_sensitive_built_index(&graph, &mut frontier);
+    // An edit that *would* make the index worth building if any range existed,
+    // so the assertion is about the absence of ranges and nothing else.
+    let edited = [CellRef::from_display_name("S", addr("A1"))];
+    let built = wb.seed_spill_sensitive_built_index(&graph, &edited, &mut frontier);
     assert!(
         !built,
         "no range precedent exists anywhere in the workbook; the index must \
@@ -682,7 +685,10 @@ fn one_range_precedent_still_builds_the_index() {
     set_formula(&mut wb, "S", "B1", "=SUM(A1:A2)");
     let graph = DependencyGraph::build(&wb);
     let mut frontier = DirtyFrontier::new();
-    let built = wb.seed_spill_sensitive_built_index(&graph, &mut frontier);
+    // The range holds no spill today, so the index is what decides whether a
+    // footprint the edit destroyed could have reached into it (issue #925).
+    let edited = [CellRef::from_display_name("S", addr("A1"))];
+    let built = wb.seed_spill_sensitive_built_index(&graph, &edited, &mut frontier);
     assert!(built, "B1 reads a range precedent; the index must be built");
 }
 

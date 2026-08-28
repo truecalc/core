@@ -466,6 +466,71 @@ fn conditional_array_workbooks_agree() {
     sweep(Shape::ConditionalArray);
 }
 
+/// Seeds that are known to discriminate, run every time regardless of the seed
+/// budget.
+///
+/// The sweeps above default to a few hundred seeds so they fit in an ordinary
+/// `cargo test`. Every defect this harness has caught so far diverges on the
+/// order of one workbook in a thousand, which that budget does not reach: each
+/// of the three groups below was green at the default seed count and only
+/// showed up at 8,000 seeds a shape. A seed is a complete reproduction, so
+/// pinning the ones that discriminate turns a sweep that has to get lucky into
+/// a guard that does not.
+///
+/// Add to this list whenever a sweep at scale finds a new divergence — the
+/// failure output prints the seed for exactly that purpose.
+#[test]
+fn pinned_regression_seeds() {
+    // Group 1 — the name branch of spill seeding. These diverge if a
+    // `Precedent::Name` stops being put through its target's rule.
+    const NAME_SEEDING: [(Shape, u64); 5] = [
+        (Shape::Plain, 1219),
+        (Shape::SpillHeavy, 723),
+        (Shape::SpillHeavy, 4933),
+        (Shape::ConditionalArray, 723),
+        (Shape::ConditionalArray, 6279),
+    ];
+    // Group 2 — the vacated-footprint branch of range seeding. These diverge if
+    // a range reader stops being seeded when an edit destroyed a spill that
+    // could have reached into it.
+    const RANGE_SEEDING: [(Shape, u64); 5] = [
+        (Shape::Plain, 4504),
+        (Shape::SpillHeavy, 366),
+        (Shape::SpillHeavy, 5485),
+        (Shape::ConditionalArray, 366),
+        (Shape::ConditionalArray, 6837),
+    ];
+    // Group 3 — the widen loop's rewind to the pre-recalc grid. These diverge
+    // if a second widen attempt continues from the first attempt's output
+    // instead of restarting from the grid the recalc began with: a cell that
+    // reads inside its own spill footprint then lands on the opposite phase
+    // from the full recalc.
+    const WIDEN_REWIND: [(Shape, u64); 3] = [
+        (Shape::SpillHeavy, 4494),
+        (Shape::SpillHeavy, 6916),
+        (Shape::ConditionalArray, 6657),
+    ];
+
+    let mut failures: Vec<String> = Vec::new();
+    for (group, seeds) in [
+        ("name seeding", &NAME_SEEDING[..]),
+        ("vacated-range seeding", &RANGE_SEEDING[..]),
+        ("widen-loop rewind", &WIDEN_REWIND[..]),
+    ] {
+        for &(shape, seed) in seeds {
+            if let Err(report) = run_seed(shape, seed) {
+                failures.push(format!("[{group}] {report}"));
+            }
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{} pinned seed(s) diverged:\n\n{}",
+        failures.len(),
+        failures.join("\n\n")
+    );
+}
+
 /// A fixed, non-random instance of the self-referential-spill shape: `C1`'s own
 /// array spills into `C2`, and `C1` reads `C2`. Kept alongside the sweeps
 /// because a named shape is what a future reader debugs against, and because it
