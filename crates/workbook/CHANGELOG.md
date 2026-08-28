@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.2.2](https://github.com/truecalc/core/compare/truecalc-workbook-v8.2.1...truecalc-workbook-v8.2.2) - 2026-08-28
+
+### Fixed
+
+- *(workbook)* address the graph-cache review findings
+- *(workbook)* revert the unsound half of narrow range seeding
+- *(workbook)* close the dirty closure over every seeding stage
+
+### Other
+
+- *(workbook)* cache the dependency graph across recalculations
+- *(workbook)* seed only the names and ranges that can reach a spill
+- *(workbook)* randomized incremental-vs-full differential harness
+- *(workbook)* assert two hops past the name-mediated reader
+
 ## [8.2.1](https://github.com/truecalc/core/compare/truecalc-workbook-v8.2.0...truecalc-workbook-v8.2.1) - 2026-08-28
 
 ### Fixed
