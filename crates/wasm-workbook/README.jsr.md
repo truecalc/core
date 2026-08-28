@@ -86,7 +86,7 @@ one in a long-running process.
 
 ## License
 
-[Elastic License 2.0](LICENSE) (`Elastic-2.0`) — source-available, not MIT.
+[Elastic License 2.0](https://github.com/truecalc/core/blob/main/crates/wasm-workbook/LICENSE) (`Elastic-2.0`) — source-available, not MIT.
 You may use, copy, modify and redistribute it; you may not offer it to third
 parties as a hosted or managed service that provides access to a substantial
 set of its functionality.

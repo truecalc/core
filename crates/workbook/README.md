@@ -3,7 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/truecalc-workbook)](https://crates.io/crates/truecalc-workbook)
 [![crates.io downloads](https://img.shields.io/crates/d/truecalc-workbook)](https://crates.io/crates/truecalc-workbook)
 [![docs.rs](https://img.shields.io/docsrs/truecalc-workbook)](https://docs.rs/truecalc-workbook)
-[![license](https://img.shields.io/badge/license-Elastic--2.0-blue)](LICENSE)
+[![license](https://img.shields.io/badge/license-Elastic--2.0-blue)](https://github.com/truecalc/core/blob/main/crates/workbook/LICENSE)
 
 Workbook layer for the [truecalc](https://github.com/truecalc/core) spreadsheet engine: engine-locked workbook, worksheet, and cell value types with a canonical JSON serialization contract.
 
@@ -113,7 +113,7 @@ results.
 
 ## License
 
-[Elastic License 2.0](LICENSE) (`Elastic-2.0`) — source-available, not MIT.
+[Elastic License 2.0](https://github.com/truecalc/core/blob/main/crates/workbook/LICENSE) (`Elastic-2.0`) — source-available, not MIT.
 You may use, copy, modify and redistribute it; you may not offer it to third
 parties as a hosted or managed service that provides access to a substantial
 set of its functionality.
@@ -128,4 +128,4 @@ and everything before it — was released under MIT and stays MIT permanently.
 `9.0.0` is the first version under the new terms; nothing already published
 is relicensed or withdrawn.
 
-Full detail: [LICENSING.md](../../LICENSING.md).
+Full detail: [LICENSING.md](https://github.com/truecalc/core/blob/main/LICENSING.md).

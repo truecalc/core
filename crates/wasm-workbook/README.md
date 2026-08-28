@@ -4,7 +4,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@truecalc/workbook)](https://www.npmjs.com/package/@truecalc/workbook)
 [![crates.io](https://img.shields.io/crates/v/truecalc-core)](https://crates.io/crates/truecalc-core)
 [![docs.rs](https://img.shields.io/docsrs/truecalc-core)](https://docs.rs/truecalc-core)
-[![license](https://img.shields.io/badge/license-Elastic--2.0-blue)](LICENSE)
+[![license](https://img.shields.io/badge/license-Elastic--2.0-blue)](https://github.com/truecalc/core/blob/main/crates/wasm-workbook/LICENSE)
 
 Spreadsheet workbook for JavaScript — full recalculation engine compiled to WebAssembly.
 Manage multiple sheets, set cell values and formulas, and trigger recalculation with a
@@ -310,7 +310,7 @@ wb2.recalc(JSON.stringify({ timestamp_ms: 0, timezone: 'UTC', rng_seed: 0 }));
 
 ## License
 
-[Elastic License 2.0](LICENSE) (`Elastic-2.0`) — source-available, not MIT.
+[Elastic License 2.0](https://github.com/truecalc/core/blob/main/crates/wasm-workbook/LICENSE) (`Elastic-2.0`) — source-available, not MIT.
 You may use, copy, modify and redistribute it; you may not offer it to third
 parties as a hosted or managed service that provides access to a substantial
 set of its functionality.
@@ -326,4 +326,4 @@ and everything before it — was released under MIT and stays MIT permanently.
 `9.0.0` is the first version under the new terms; nothing already published
 is relicensed or withdrawn.
 
-Full detail: [LICENSING.md](../../LICENSING.md).
+Full detail: [LICENSING.md](https://github.com/truecalc/core/blob/main/LICENSING.md).
