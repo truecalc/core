@@ -1,119 +1,119 @@
 {
   "baseline_recorded_at": "2026-08-28",
   "reference": "calibration/hash_alloc",
-  "reference_mean_ns": 4961891,
+  "reference_mean_ns": 4996053,
   "benchmarks": [
     {
       "name": "calibration/hash_alloc",
-      "mean_ns": 4961891,
-      "stddev_ns": 22447,
+      "mean_ns": 4996053,
+      "stddev_ns": 13053,
       "ref_units": 1.0,
       "vs_baseline_pct": null
     },
     {
       "name": "full_recalc/independent/100",
-      "mean_ns": 718771,
-      "stddev_ns": 3510,
-      "ref_units": 0.1449,
-      "vs_baseline_pct": 0.91
+      "mean_ns": 719625,
+      "stddev_ns": 7344,
+      "ref_units": 0.144,
+      "vs_baseline_pct": 0.28
     },
     {
       "name": "full_recalc/independent/1000",
-      "mean_ns": 6198158,
-      "stddev_ns": 418430,
-      "ref_units": 1.2492,
-      "vs_baseline_pct": -6.74
+      "mean_ns": 6172950,
+      "stddev_ns": 70628,
+      "ref_units": 1.2356,
+      "vs_baseline_pct": -7.76
     },
     {
       "name": "full_recalc/independent/5000",
-      "mean_ns": 33774013,
-      "stddev_ns": 619758,
-      "ref_units": 6.8067,
-      "vs_baseline_pct": -1.45
+      "mean_ns": 32703603,
+      "stddev_ns": 407872,
+      "ref_units": 6.5459,
+      "vs_baseline_pct": -5.23
     },
     {
       "name": "full_recalc/row_totals/500",
-      "mean_ns": 6815747,
-      "stddev_ns": 22080,
-      "ref_units": 1.3736,
-      "vs_baseline_pct": -0.73
+      "mean_ns": 6529494,
+      "stddev_ns": 18956,
+      "ref_units": 1.3069,
+      "vs_baseline_pct": -5.55
     },
     {
       "name": "full_recalc/row_totals/2000",
-      "mean_ns": 29742858,
-      "stddev_ns": 185210,
-      "ref_units": 5.9943,
-      "vs_baseline_pct": -0.41
+      "mean_ns": 27777168,
+      "stddev_ns": 755381,
+      "ref_units": 5.5598,
+      "vs_baseline_pct": -7.63
     },
     {
       "name": "full_recalc/block_subtotals/2000",
-      "mean_ns": 5807109,
-      "stddev_ns": 85666,
-      "ref_units": 1.1703,
-      "vs_baseline_pct": -9.52
+      "mean_ns": 5524764,
+      "stddev_ns": 177339,
+      "ref_units": 1.1058,
+      "vs_baseline_pct": -14.5
     },
     {
       "name": "full_recalc/block_subtotals/10000",
-      "mean_ns": 35812134,
-      "stddev_ns": 425113,
-      "ref_units": 7.2174,
-      "vs_baseline_pct": -10.57
+      "mean_ns": 33005984,
+      "stddev_ns": 194002,
+      "ref_units": 6.6064,
+      "vs_baseline_pct": -18.14
     },
     {
       "name": "full_recalc/tall_sparse/20000",
-      "mean_ns": 197935236,
-      "stddev_ns": 2835546,
-      "ref_units": 39.8911,
-      "vs_baseline_pct": -0.27
+      "mean_ns": 182455818,
+      "stddev_ns": 3062442,
+      "ref_units": 36.52,
+      "vs_baseline_pct": -8.7
     },
     {
       "name": "depgraph_build/tall_sparse/20000",
-      "mean_ns": 48799733,
-      "stddev_ns": 968750,
-      "ref_units": 9.8349,
-      "vs_baseline_pct": -1.64
+      "mean_ns": 46205728,
+      "stddev_ns": 666663,
+      "ref_units": 9.2484,
+      "vs_baseline_pct": -7.51
     },
     {
       "name": "depgraph_build/row_totals/2000",
-      "mean_ns": 4313746,
-      "stddev_ns": 27989,
-      "ref_units": 0.8694,
-      "vs_baseline_pct": -8.6
+      "mean_ns": 4267081,
+      "stddev_ns": 24748,
+      "ref_units": 0.8541,
+      "vs_baseline_pct": -10.21
     },
     {
       "name": "incremental_recalc/independent_edit_root/100",
-      "mean_ns": 500200,
-      "stddev_ns": 2206,
-      "ref_units": 0.1008,
-      "vs_baseline_pct": 2.44
+      "mean_ns": 495755,
+      "stddev_ns": 4019,
+      "ref_units": 0.0992,
+      "vs_baseline_pct": 0.81
     },
     {
       "name": "incremental_recalc/independent_edit_root/1000",
-      "mean_ns": 3743086,
-      "stddev_ns": 91260,
-      "ref_units": 0.7544,
-      "vs_baseline_pct": -4.02
+      "mean_ns": 3691332,
+      "stddev_ns": 21250,
+      "ref_units": 0.7388,
+      "vs_baseline_pct": -6.01
     },
     {
       "name": "incremental_recalc/block_subtotals_edit_root/10000",
-      "mean_ns": 5605739,
-      "stddev_ns": 46332,
-      "ref_units": 1.1298,
-      "vs_baseline_pct": -6.59
+      "mean_ns": 5438755,
+      "stddev_ns": 21561,
+      "ref_units": 1.0886,
+      "vs_baseline_pct": -10.0
     },
     {
       "name": "from_json/500rows",
-      "mean_ns": 1660996,
-      "stddev_ns": 17636,
-      "ref_units": 0.3348,
-      "vs_baseline_pct": 18.18
+      "mean_ns": 1532347,
+      "stddev_ns": 33891,
+      "ref_units": 0.3067,
+      "vs_baseline_pct": 8.26
     },
     {
       "name": "to_json/500rows",
-      "mean_ns": 1005424,
-      "stddev_ns": 23643,
-      "ref_units": 0.2026,
-      "vs_baseline_pct": -8.57
+      "mean_ns": 940034,
+      "stddev_ns": 16180,
+      "ref_units": 0.1882,
+      "vs_baseline_pct": -15.07
     }
   ]
 }
