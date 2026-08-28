@@ -48,6 +48,7 @@ use truecalc_core::eval::EvalHook;
 use truecalc_core::{Engine, EngineFlavor, ErrorKind, Ref, Resolver, Value as CoreValue};
 
 use crate::address::Address;
+use crate::authored_index::AuthoredCellIndex;
 use crate::casefold::simple_fold;
 use crate::cell::Cell;
 use crate::depgraph::{CellRef, DependencyGraph, Precedent, RangeRef};
@@ -870,7 +871,30 @@ impl Workbook {
     /// merely *holding* that error that is not actually a former/blocked spill
     /// anchor is harmless to re-evaluate (it recomputes to the same value).
     fn seed_spill_sensitive(&self, graph: &DependencyGraph, dirty: &mut BTreeSet<CellRef>) {
+        self.seed_spill_sensitive_built_index(graph, dirty);
+    }
+
+    /// [`seed_spill_sensitive`](Self::seed_spill_sensitive), plus whether it
+    /// built the authored-cell index.
+    ///
+    /// Instrumentation, not a feature: the index is built lazily now, on the
+    /// first range precedent actually examined, rather than once unconditionally
+    /// per seeding pass — a workbook with no range precedents anywhere must not
+    /// pay for a full sheet sweep it never needed (issue #927 follow-up).
+    /// Hidden from the docs because callers want
+    /// [`seed_spill_sensitive`](Self::seed_spill_sensitive).
+    #[doc(hidden)]
+    pub fn seed_spill_sensitive_built_index(
+        &self,
+        graph: &DependencyGraph,
+        dirty: &mut BTreeSet<CellRef>,
+    ) -> bool {
         let rects = self.anchor_rectangles();
+        // Built lazily, on the first range precedent examined: this decision
+        // is asked `O(range precedents)` times, and eagerly building it before
+        // knowing any range precedent exists made it an unconditional full
+        // sheet sweep on top of `anchor_rectangles` (issue #927 follow-up).
+        let mut authored: Option<AuthoredCellIndex> = None;
         for cell in graph.formula_cells() {
             // (1)/(2): the cell itself is (or held) a spill.
             let is_spill_cell = match self.cell_at(cell).map(Cell::value) {
@@ -886,22 +910,28 @@ impl Workbook {
                 if let Some(precedents) = graph.precedents_of(cell) {
                     seed = precedents
                         .iter()
-                        .any(|p| self.precedent_is_spill_sensitive(p, &rects));
+                        .any(|p| self.precedent_is_spill_sensitive(p, &rects, &mut authored));
                 }
             }
             if seed {
                 dirty.insert(cell.clone());
             }
         }
+        authored.is_some()
     }
 
     /// Whether a single precedent reads a cell that is, or could become, a
     /// spilled cell (issue #591): a non-authored single-cell target (empty or
     /// spilled today), or a range overlapping a current spill rectangle.
+    ///
+    /// `authored` builds the index on first use and reuses it after —
+    /// `AuthoredCellIndex::build` only runs if a [`Precedent::Range`] is
+    /// actually examined.
     fn precedent_is_spill_sensitive(
         &self,
         precedent: &Precedent,
         rects: &BTreeMap<CellRef, SpillRect>,
+        authored: &mut Option<AuthoredCellIndex>,
     ) -> bool {
         match precedent {
             // A single-cell precedent that is not authored is empty or spilled
@@ -916,7 +946,9 @@ impl Workbook {
                 rects
                     .iter()
                     .any(|(anchor, rect)| anchor.sheet == r.sheet && rect_overlaps_range(rect, r))
-                    || self.range_has_unauthored_cell(r)
+                    || authored
+                        .get_or_insert_with(|| AuthoredCellIndex::build(self))
+                        .range_has_unauthored_cell(r)
             }
             // A name resolves to a cell or range; treat it conservatively as
             // spill-sensitive so a name pointing at a spilled cell still seeds
@@ -924,36 +956,6 @@ impl Workbook {
             Precedent::Name(_) => true,
             Precedent::Unresolved(_) => false,
         }
-    }
-
-    /// Whether the range `r` contains at least one cell that is **not** an
-    /// authored cell (empty or spilled). Computed by comparing the range's area
-    /// to the number of authored cells inside it — so the cost is bounded by the
-    /// sheet's populated-cell count, never the range area (issue #591).
-    fn range_has_unauthored_cell(&self, r: &RangeRef) -> bool {
-        let folder = CaseMapperBorrowed::new();
-        let Some(sheet) = self
-            .sheets()
-            .iter()
-            .find(|s| simple_fold(&folder, s.name()) == r.sheet)
-        else {
-            // The range targets a missing sheet; nothing authored, so it is
-            // (vacuously) all-unauthored — seed conservatively.
-            return true;
-        };
-        let rows = (r.end.row - r.start.row + 1) as u64;
-        let cols = (r.end.column - r.start.column + 1) as u64;
-        let area = rows.saturating_mul(cols);
-        let authored_inside = sheet
-            .iter()
-            .filter(|(addr, _)| {
-                addr.row >= r.start.row
-                    && addr.row <= r.end.row
-                    && addr.column >= r.start.column
-                    && addr.column <= r.end.column
-            })
-            .count() as u64;
-        authored_inside < area
     }
 
     /// Every spill rectangle currently on the stored grid (anchor → rectangle),

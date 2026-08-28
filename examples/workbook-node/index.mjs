@@ -135,4 +135,110 @@ must(dC1.type === 'date' && dC1.value === 46173, `A1-7 stays a date, got ${JSON.
 must(dD1.type === 'number' && dD1.value === 46181.5, `A1-A2 is a plain number, got ${JSON.stringify(dD1)}`);
 console.log('setDate date-typed arithmetic:', { A1: dA1, B1: dB1, C1: dC1, D1: dD1 });
 
+// ── Example 7: the wasm32-only size caps (issue #911 regression guard) ───────
+
+// Nothing in this repo compiles crates/workbook/tests/ for wasm32 (a
+// dev-dependency in that tree doesn't build for the target), so a
+// #[cfg(target_arch = "wasm32")] test for cap *behaviour* never runs in
+// CI — CI's wasm32 stage only runs `wasm-pack build` (build only). This
+// example does run against the built wasm package in CI (see
+// .github/workflows/ci.yml, "Run workbook-node example"), so it is the only
+// thing that exercises `exceeds_cell_cap` / `exceeds_serialized_cap` against
+// a real wasm32 build. Both caps, both directions, including the exact `>`
+// boundary (a `>=` regression would only show up landing exactly on the cap).
+
+function must7(cond, msg) { if (!cond) throw new Error(`Example 7 failed: ${msg}`); }
+function mustThrow7(fn, msg) {
+  try {
+    fn();
+  } catch {
+    return;
+  }
+  throw new Error(`Example 7 failed: expected to throw — ${msg}`);
+}
+
+// -- cell-count cap (MAX_CELLS_PER_WORKBOOK = 1,000,000) --
+
+const MAX_CELLS_PER_WORKBOOK = 1_000_000;
+const capWb = new JsWorkbook('sheets');
+capWb.addSheet('Cap');
+
+const cellCapStart = Date.now();
+for (let row = 1; row <= MAX_CELLS_PER_WORKBOOK; row++) {
+  capWb.set('Cap', `A${row}`, '1'); // the millionth call is exactly at the cap and must succeed
+}
+console.log(
+  `cell cap: ${MAX_CELLS_PER_WORKBOOK.toLocaleString()} set calls (up to and including the cap) took ${Date.now() - cellCapStart}ms`
+);
+
+mustThrow7(
+  () => capWb.set('Cap', `A${MAX_CELLS_PER_WORKBOOK + 1}`, '1'),
+  'the (cap + 1)th cell must be rejected'
+);
+
+// -- serialized-byte cap (MAX_SERIALIZED_BYTES = 100 MiB) --
+
+// Build a document landing at *exactly* MAX_SERIALIZED_BYTES so both sides of
+// the `>` boundary are exercised, not just "comfortably under" and
+// "comfortably over". The per-cell JSON overhead is calibrated from two small
+// measurements rather than hardcoded, so this doesn't silently drift if the
+// canonical JSON encoding changes shape.
+const MAX_SERIALIZED_BYTES = 100 * 1024 * 1024;
+const MAX_TEXT_LEN = 50_000;
+const FULL_TEXT = 'x'.repeat(MAX_TEXT_LEN);
+const addrLen = (row) => 1 + String(row).length; // "A" + row digits
+
+const bytesWb = new JsWorkbook('sheets');
+bytesWb.addSheet('Bytes');
+const baseBytes = Buffer.byteLength(bytesWb.toJSON(), 'utf8');
+bytesWb.set('Bytes', 'A1', FULL_TEXT);
+const oneCellBytes = Buffer.byteLength(bytesWb.toJSON(), 'utf8');
+// Fixed per-cell wrapper overhead (braces/keys/quotes), excluding the address
+// string itself and the inter-element comma -- both accounted for below.
+const perCellOverhead = oneCellBytes - baseBytes - MAX_TEXT_LEN - addrLen(1);
+
+function plannedBytes(fullCellCount, tailRow, tailLen) {
+  let total = baseBytes;
+  for (let row = 1; row <= fullCellCount; row++) {
+    total += perCellOverhead + addrLen(row) + MAX_TEXT_LEN;
+  }
+  total += perCellOverhead + addrLen(tailRow) + tailLen;
+  total += fullCellCount; // one comma per element after the first
+  return total;
+}
+
+let fullCellCount = 1; // A1 is already set above
+while (plannedBytes(fullCellCount, fullCellCount + 1, 1) < MAX_SERIALIZED_BYTES - MAX_TEXT_LEN) {
+  fullCellCount++;
+}
+const tailRow = fullCellCount + 1;
+const tailLen = 1 + (MAX_SERIALIZED_BYTES - plannedBytes(fullCellCount, tailRow, 1));
+
+for (let row = 2; row <= fullCellCount; row++) {
+  bytesWb.set('Bytes', `A${row}`, FULL_TEXT);
+}
+bytesWb.set('Bytes', `A${tailRow}`, 'y'.repeat(tailLen));
+
+const byteCapStart = Date.now();
+const atCapJson = bytesWb.toJSON(); // exactly at the cap: must not throw
+console.log(
+  `serialized-byte cap: building and serializing exactly ${MAX_SERIALIZED_BYTES.toLocaleString()} bytes took ${Date.now() - byteCapStart}ms`
+);
+must7(
+  Buffer.byteLength(atCapJson, 'utf8') === MAX_SERIALIZED_BYTES,
+  `calibration missed the cap exactly: got ${Buffer.byteLength(atCapJson, 'utf8')} bytes`
+);
+
+JsWorkbook.fromJSON(atCapJson); // round trip at the exact cap: must not throw
+
+// One byte over, from the workbook side (to_json) -- must throw.
+bytesWb.set('Bytes', `A${tailRow}`, 'y'.repeat(tailLen + 1));
+mustThrow7(() => bytesWb.toJSON(), 'canonical JSON one byte over the cap must be rejected');
+
+// One byte over, from the input side (from_json). String surgery on the
+// at-cap document keeps it syntactically valid JSON one byte larger, so this
+// tests the cap itself rather than JSON parsing.
+const overCapJson = atCapJson.replace('y'.repeat(tailLen), 'y'.repeat(tailLen + 1));
+mustThrow7(() => JsWorkbook.fromJSON(overCapJson), 'input one byte over the cap must be rejected');
+
 console.log('All assertions passed.');
