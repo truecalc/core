@@ -57,7 +57,6 @@ hand-writing the expected value.
 - Reference the issue you're closing in the PR description (`closes #123`).
 - CI runs `cargo clippy --workspace -- -D warnings` and the full test suite;
   a PR isn't mergeable until CI is green.
-- By submitting a PR you agree to the [CLA](CLA.md).
 
 ## Code style
 
