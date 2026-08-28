@@ -33,19 +33,18 @@
 //! and no dependency edge from the anchor to the reader — the unauthored-cell
 //! branch is the only thing that can put the reader in the dirty set.
 //!
-//! That guard stops at the seeded reader itself, deliberately. Spill seeding
-//! inserts straight into the dirty set *after* the frontier has already
-//! drained, so nothing downstream of a spill-seeded cell joins the closure —
-//! the same shape as the volatile-seeding defect, at a second site, and
-//! present independently of anything here. Asserting a second hop would fail
-//! for that reason rather than for this one, so it is left to whoever fixes
-//! it.
-
-use std::collections::BTreeSet;
+//! That guard stops at the seeded reader itself, deliberately: it is about this
+//! decision, not about what happens downstream of a cell the decision seeded.
+//! Spill seeding used to insert straight into the dirty set *after* the frontier
+//! had drained, so nothing downstream of a spill-seeded cell joined the closure
+//! — the same shape as the volatile-seeding defect, at a second site, and
+//! present independently of anything here (issue #930). That is fixed, and the
+//! hops past the seeded reader are guarded in
+//! `recalc_spill_seed_frontier_tests.rs`.
 
 use truecalc_workbook::{
-    Address, AuthoredCellIndex, Cell, CellInput, DependencyGraph, EngineFlavor, Precedent,
-    RangeRef, RecalcContext, Value, Workbook, Worksheet,
+    Address, AuthoredCellIndex, Cell, CellInput, DependencyGraph, DirtyFrontier, EngineFlavor,
+    Precedent, RangeRef, RecalcContext, Value, Workbook, Worksheet,
 };
 
 fn addr(a1: &str) -> Address {
@@ -663,8 +662,8 @@ fn no_range_precedent_means_the_index_is_never_built() {
     }
     set_formula(&mut wb, "S", "B1", "=A1+1"); // a cell precedent, not a range
     let graph = DependencyGraph::build(&wb);
-    let mut dirty = BTreeSet::new();
-    let built = wb.seed_spill_sensitive_built_index(&graph, &mut dirty);
+    let mut frontier = DirtyFrontier::new();
+    let built = wb.seed_spill_sensitive_built_index(&graph, &mut frontier);
     assert!(
         !built,
         "no range precedent exists anywhere in the workbook; the index must \
@@ -682,8 +681,8 @@ fn one_range_precedent_still_builds_the_index() {
     set_num(&mut wb, "S", "A2", 1.0);
     set_formula(&mut wb, "S", "B1", "=SUM(A1:A2)");
     let graph = DependencyGraph::build(&wb);
-    let mut dirty = BTreeSet::new();
-    let built = wb.seed_spill_sensitive_built_index(&graph, &mut dirty);
+    let mut frontier = DirtyFrontier::new();
+    let built = wb.seed_spill_sensitive_built_index(&graph, &mut frontier);
     assert!(built, "B1 reads a range precedent; the index must be built");
 }
 
