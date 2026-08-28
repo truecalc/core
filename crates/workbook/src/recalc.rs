@@ -477,20 +477,12 @@ impl Workbook {
         let rng_seed = ctx.rng_seed();
 
         // Cells on a cycle short-circuit to the circular error; the rest are
-        // evaluated in topological order. `topological_order` returns the full
-        // order when acyclic, else the cycle set; we always have the cycle set
-        // available via `cycle_cells` for the tainted-downstream case.
-        let cycle = graph.cycle_cells();
-        let order = match graph.topological_order() {
-            Ok(order) => order,
-            Err(_) => {
-                // The graph has a cycle. Build a best-effort order over the
-                // acyclic remainder by stripping cycle nodes, so cells that do
-                // not touch the cycle still evaluate; cycle-tainted cells fall
-                // out as the error below.
-                graph.acyclic_order_excluding(&cycle)
-            }
-        };
+        // evaluated in topological order. Both come from one pass over the
+        // graph's formula-cell edges: when the graph is cyclic the order is a
+        // best-effort one over the acyclic remainder, so cells that do not
+        // touch the cycle still evaluate and cycle-tainted cells fall out as
+        // the error below.
+        let (order, cycle) = graph.evaluation_order();
 
         // Evaluate in order, resolving array spills as we go (plan item 3.5,
         // schema spec §5). `new_values` holds each formula's result — a spilling
