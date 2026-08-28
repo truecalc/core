@@ -409,7 +409,7 @@ fn out_of_bounds_coordinates_do_not_overflow() {
         rect("S", 1, 1, 10_000_000, 18_278),
     ] {
         assert!(index.range_has_unauthored_cell(&r), "{r:?}");
-        assert_eq!(scan_oracle(&wb, &r), true, "{r:?}");
+        assert!(scan_oracle(&wb, &r), "{r:?}");
     }
 }
 
