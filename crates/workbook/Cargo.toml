@@ -2,7 +2,10 @@
 name = "truecalc-workbook"
 version.workspace = true
 edition.workspace = true
-license.workspace = true
+# Not `license.workspace = true`. The workspace default is MIT and stays MIT;
+# this crate — the document model, dependency graph and recalculation — is
+# source-available under the Elastic License 2.0. See ./LICENSE.
+license = "Elastic-2.0"
 description = "Workbook layer for the truecalc spreadsheet engine — engine-locked workbook, worksheet, and cell value types"
 repository.workspace = true
 readme = "README.md"
