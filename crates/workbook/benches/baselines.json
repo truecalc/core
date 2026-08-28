@@ -1,13 +1,71 @@
 {
-  "recorded_at": "2026-06-10",
-  "note": "Baseline recorded on GitHub Actions ubuntu-latest runner; 25% regression threshold.",
+  "recorded_at": "2026-08-28",
+  "recorded_on": "Apple M1 Max (10 core), macOS 14.4, rustc 1.94.1, release profile; best of 5 full bench runs",
+  "note": "ref_units = min(benchmark time) / min(reference time), each the best of 5 full bench runs, not necessarily the same run - best-of-5 minima can (and do) come from different runs. This is a deliberate choice, not an oversight: best-of-5 biases the floor in the safe direction, and the resulting bias in ref_units is small and one-directional (recorded baselines read slightly inflated, so future runs read slightly more negative). The gate compares ratios, not nanoseconds, so a baseline recorded on one machine still means something on another. best_ns_recorded and reference_best_ns_recorded are informational only - nothing is checked against them. The bands are two-sided on purpose: see .github/scripts/check_perf_regression.py.",
+  "reference": "calibration/hash_alloc",
+  "reference_best_ns_recorded": 3270207,
+  "regression_pct": 150,
+  "improvement_pct": 40,
   "benchmarks": {
-    "full_recalc/chain/100":             { "mean_ns": 31227328, "threshold_pct": 25 },
-    "full_recalc/chain/1000":            { "mean_ns": 312503557, "threshold_pct": 25 },
-    "full_recalc/chain/5000":            { "mean_ns": 1581294298, "threshold_pct": 25 },
-    "incremental_recalc/edit_root/100":  { "mean_ns": 848977, "threshold_pct": 25 },
-    "incremental_recalc/edit_root/1000": { "mean_ns": 4508692, "threshold_pct": 25 },
-    "from_json/500rows":                 { "mean_ns": 1417152, "threshold_pct": 25 },
-    "to_json/500rows":                   { "mean_ns": 997294, "threshold_pct": 25 }
+    "full_recalc/independent/100": {
+      "ref_units": 0.1436,
+      "best_ns_recorded": 469632
+    },
+    "full_recalc/independent/1000": {
+      "ref_units": 1.3395,
+      "best_ns_recorded": 4380494
+    },
+    "full_recalc/independent/5000": {
+      "ref_units": 6.9069,
+      "best_ns_recorded": 22587145
+    },
+    "full_recalc/row_totals/500": {
+      "ref_units": 1.3837,
+      "best_ns_recorded": 4524877
+    },
+    "full_recalc/row_totals/2000": {
+      "ref_units": 6.0191,
+      "best_ns_recorded": 19683565
+    },
+    "full_recalc/block_subtotals/2000": {
+      "ref_units": 1.2934,
+      "best_ns_recorded": 4229585
+    },
+    "full_recalc/block_subtotals/10000": {
+      "ref_units": 8.0703,
+      "best_ns_recorded": 26391430
+    },
+    "full_recalc/tall_sparse/20000": {
+      "ref_units": 39.9981,
+      "best_ns_recorded": 130802021
+    },
+    "depgraph_build/tall_sparse/20000": {
+      "ref_units": 9.9993,
+      "best_ns_recorded": 32699704
+    },
+    "depgraph_build/row_totals/2000": {
+      "ref_units": 0.9512,
+      "best_ns_recorded": 3110508
+    },
+    "incremental_recalc/independent_edit_root/100": {
+      "ref_units": 0.0984,
+      "best_ns_recorded": 321871
+    },
+    "incremental_recalc/independent_edit_root/1000": {
+      "ref_units": 0.786,
+      "best_ns_recorded": 2570220
+    },
+    "incremental_recalc/block_subtotals_edit_root/10000": {
+      "ref_units": 1.2095,
+      "best_ns_recorded": 3823493
+    },
+    "from_json/500rows": {
+      "ref_units": 0.2833,
+      "best_ns_recorded": 926457
+    },
+    "to_json/500rows": {
+      "ref_units": 0.2216,
+      "best_ns_recorded": 724738
+    }
   }
 }
