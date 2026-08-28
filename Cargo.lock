@@ -2272,17 +2272,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "truecalc-mcp"
-version = "8.2.0"
-dependencies = [
- "jsonschema",
- "serde",
- "serde_json",
- "truecalc-core",
- "truecalc-workbook",
-]
-
-[[package]]
 name = "truecalc-python"
 version = "8.2.0"
 dependencies = [
