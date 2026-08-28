@@ -682,6 +682,8 @@ fn one_range_precedent_still_builds_the_index() {
     set_formula(&mut wb, "S", "B1", "=SUM(A1:A2)");
     let graph = DependencyGraph::build(&wb);
     let mut frontier = DirtyFrontier::new();
+    // The range holds no spill today, so the index is what decides whether it
+    // holds a non-authored cell (issue #925).
     let built = wb.seed_spill_sensitive_built_index(&graph, &mut frontier);
     assert!(built, "B1 reads a range precedent; the index must be built");
 }

@@ -51,7 +51,7 @@ use crate::address::Address;
 use crate::authored_index::AuthoredCellIndex;
 use crate::casefold::simple_fold;
 use crate::cell::Cell;
-use crate::depgraph::{CellRef, DependencyGraph, Precedent, RangeRef};
+use crate::depgraph::{CellRef, DependencyGraph, NameTarget, Precedent, RangeRef};
 use crate::grid_spills::GridSpillIndex;
 use crate::named_ref;
 use crate::spill::{spill_rect, SpillRect, BLOCKED_SPILL_ERROR};
@@ -298,6 +298,24 @@ impl Workbook {
         ctx: &RecalcContext,
         edited: &[(String, Address)],
     ) -> Vec<Change> {
+        self.recalc_incremental_measured(ctx, edited).0
+    }
+
+    /// [`recalc_incremental`](Self::recalc_incremental), plus **how many cells
+    /// the dirty closure ended up holding**.
+    ///
+    /// Instrumentation, not a feature: "how narrow is the dirty set?" is the
+    /// exact-count metric behind incremental recalc, and wall-clock is too
+    /// machine-dependent to pin in a test. The count comes out of the same
+    /// frontier the recompute consumed, so it cannot drift from what actually
+    /// ran. Hidden from the docs because callers want
+    /// [`recalc_incremental`](Self::recalc_incremental).
+    #[doc(hidden)]
+    pub fn recalc_incremental_measured(
+        &mut self,
+        ctx: &RecalcContext,
+        edited: &[(String, Address)],
+    ) -> (Vec<Change>, usize) {
         let graph = DependencyGraph::build(self);
         let folder = CaseMapperBorrowed::new();
 
@@ -308,18 +326,20 @@ impl Workbook {
         let mut frontier = DirtyFrontier::new();
 
         // (a) The edited cells and their dependents.
-        for (sheet, addr) in edited {
-            let folded = simple_fold(&folder, sheet);
-            let seed = CellRef {
-                sheet: folded,
+        let edited_refs: Vec<CellRef> = edited
+            .iter()
+            .map(|(sheet, addr)| CellRef {
+                sheet: simple_fold(&folder, sheet),
                 addr: *addr,
-            };
+            })
+            .collect();
+        for seed in &edited_refs {
             // The edited cell itself recomputes only if it is a formula; its
             // dependents always do.
-            if graph.is_formula(&seed) {
+            if graph.is_formula(seed) {
                 frontier.insert(seed.clone());
             }
-            for dep in graph.direct_dependents_of(&seed) {
+            for dep in graph.direct_dependents_of(seed) {
                 frontier.insert(dep);
             }
         }
@@ -379,7 +399,27 @@ impl Workbook {
         // either.
         let pre = self.snapshot_formula_values(&graph);
         let max_widen = graph.formula_cells().count().saturating_add(2).max(1);
-        for _ in 0..max_widen {
+        for pass in 0..max_widen {
+            if pass > 0 {
+                // Rewind to the pre-recalc grid before re-running with the
+                // widened set. Each attempt is then **one** `recompute` from
+                // the same starting grid over a larger closure — structurally
+                // what a full recalc is — so the result is a function of the
+                // final closure and not of how many attempts it took to find
+                // it.
+                //
+                // Without the rewind, attempt two continues from attempt one's
+                // output, which is one extra evaluation of every dirty cell. A
+                // cell that reads inside its own spill footprint has no fixed
+                // point to settle into — its footprint flips each time it is
+                // evaluated — so that extra evaluation lands it on the opposite
+                // phase from the full recalc, and `incremental ≡ full` fails on
+                // a workbook nothing else about the edit distinguishes. It also
+                // made the seeding's *breadth* load-bearing for byte-identity:
+                // a wide dirty set hid the second attempt by having already
+                // dirtied whatever the widening would add.
+                self.apply_changes(pre.clone());
+            }
             let before = self.anchor_rectangles();
             self.recompute(&graph, ctx, frontier.cells().clone());
             let after = self.anchor_rectangles();
@@ -396,7 +436,8 @@ impl Workbook {
                 break;
             }
         }
-        self.diff_against_snapshot(pre)
+        let closure = frontier.len();
+        (self.diff_against_snapshot(pre), closure)
     }
 
     /// Explains one cell's value against the **currently stored grid** (issue
@@ -916,9 +957,17 @@ impl Workbook {
     ///     empty or spilled today and may flip either way, e.g. `D1 = =B1+1`
     ///     whose `B1` was spilled by a now-shrunk anchor (the vacated-reader
     ///     case), or a reader of a cell a spill is about to grow onto.
-    ///  4. **Every reader of a range that overlaps a current spill rectangle** —
-    ///     a range aggregation whose window includes spilled cells, so a change
-    ///     to that spill (grow/shrink/block) re-aggregates.
+    ///  4. **Every reader of a range that overlaps a current spill rectangle, or
+    ///     that holds any non-authored cell** — a range aggregation whose window
+    ///     includes spilled cells re-aggregates when that spill changes
+    ///     (grow/shrink/block); a non-authored cell in the window catches the
+    ///     case no other mechanism can see, a spill a *previous* recalc (not
+    ///     necessarily this edit) retired, since neither the dependency graph
+    ///     nor the widen loop has a way to reconstruct a footprint that is
+    ///     already gone by the time either runs (issue #949).
+    ///  5. **Every reader of a *name* whose current target is one of those** —
+    ///     the name's target is put through rule 3 or rule 4, exactly as if the
+    ///     formula had referenced it directly.
     ///
     /// The blocked-spill error string equals [`BLOCKED_SPILL_ERROR`]; a cell
     /// merely *holding* that error that is not actually a former/blocked spill
@@ -958,12 +1007,12 @@ impl Workbook {
                 _ => false,
             };
             let mut seed = is_spill_cell;
-            // (3)/(4): the cell reads a spill-sensitive precedent.
+            // (3)/(4)/(5): the cell reads a spill-sensitive precedent.
             if !seed {
                 if let Some(precedents) = graph.precedents_of(cell) {
-                    seed = precedents
-                        .iter()
-                        .any(|p| self.precedent_is_spill_sensitive(p, &rects, &mut authored));
+                    seed = precedents.iter().any(|p| {
+                        self.precedent_is_spill_sensitive(p, graph, &rects, &mut authored)
+                    });
                 }
             }
             if seed {
@@ -974,41 +1023,74 @@ impl Workbook {
     }
 
     /// Whether a single precedent reads a cell that is, or could become, a
-    /// spilled cell (issue #591): a non-authored single-cell target (empty or
-    /// spilled today), or a range overlapping a current spill rectangle.
+    /// spilled cell (issue #591).
     ///
     /// `authored` builds the index on first use and reuses it after —
-    /// `AuthoredCellIndex::build` only runs if a [`Precedent::Range`] is
-    /// actually examined.
+    /// `AuthoredCellIndex::build` only runs if a range is actually examined.
     fn precedent_is_spill_sensitive(
         &self,
         precedent: &Precedent,
+        graph: &DependencyGraph,
         rects: &BTreeMap<CellRef, SpillRect>,
         authored: &mut Option<AuthoredCellIndex>,
     ) -> bool {
         match precedent {
-            // A single-cell precedent that is not authored is empty or spilled
-            // today, and may flip either way (grow/shrink/block/unblock).
-            Precedent::Cell(c) => self.cell_at(c).is_none(),
-            // A range precedent is spill-sensitive if it overlaps a current
-            // spill rectangle (a spill could grow/shrink/block within it) *or*
-            // if it contains any non-authored cell — which catches a cell a
-            // spill *used to* cover but no longer does (the lost pre-edit
-            // footprint of a shrink/collapse), since that cell is now empty.
-            Precedent::Range(r) => {
-                rects
-                    .iter()
-                    .any(|(anchor, rect)| anchor.sheet == r.sheet && rect_overlaps_range(rect, r))
-                    || authored
-                        .get_or_insert_with(|| AuthoredCellIndex::build(self))
-                        .range_has_unauthored_cell(r)
-            }
-            // A name resolves to a cell or range; treat it conservatively as
-            // spill-sensitive so a name pointing at a spilled cell still seeds
-            // its reader. Names are rare and this only widens the dirty set.
-            Precedent::Name(_) => true,
+            Precedent::Cell(c) => self.cell_is_spill_sensitive(c),
+            Precedent::Range(r) => self.range_is_spill_sensitive(r, rects, authored),
+            // A name is an indirection, not a separate kind of reference: what
+            // its reader actually reads is the name's current target, so put
+            // that target through the same rule the reader would have got by
+            // referencing it directly (issue #925).
+            //
+            // Treating every name as spill-sensitive instead made *any* formula
+            // reading *any* defined name dirty on every incremental recalc,
+            // whatever the name pointed at — which is most of a real model, and
+            // it also masked dropped name edges from the value-asserting suites
+            // (the reader was seeded whether or not the edge was walked).
+            //
+            // A name with no current target resolves to an error rather than to
+            // cells; it has nothing that can spill, so it seeds nothing.
+            Precedent::Name(name) => match graph.name_target_of(name) {
+                Some(NameTarget::Cell(c)) => self.cell_is_spill_sensitive(&c),
+                Some(NameTarget::Range(r)) => self.range_is_spill_sensitive(&r, rects, authored),
+                None => false,
+            },
             Precedent::Unresolved(_) => false,
         }
+    }
+
+    /// Rule 3: a single-cell target that is not authored is empty or spilled
+    /// today, and may flip either way (grow/shrink/block/unblock).
+    fn cell_is_spill_sensitive(&self, c: &CellRef) -> bool {
+        self.cell_at(c).is_none()
+    }
+
+    /// Rule 4: a range precedent is spill-sensitive if it overlaps a current
+    /// spill rectangle (a spill could grow/shrink/block within it) *or* if it
+    /// contains any non-authored cell — which catches a cell a spill *used to*
+    /// cover but no longer does (the lost pre-edit footprint of a
+    /// shrink/collapse), since that cell is now empty.
+    ///
+    /// The narrower alternative — reasoning from the edit's own cells about
+    /// which footprint could have vacated into `r` — is unsound: a spill
+    /// footprint a *previous* recalc retired (not this edit) can leave a
+    /// non-authored cell in `r` with no edited cell anywhere near it, and a
+    /// completely correct `edited` list gives no way to find that cell from the
+    /// post-edit grid alone (issue #949). Recovering the narrower
+    /// rule needs the previous recalc's placed rectangles carried forward on
+    /// the workbook, which this rule does not have.
+    fn range_is_spill_sensitive(
+        &self,
+        r: &RangeRef,
+        rects: &BTreeMap<CellRef, SpillRect>,
+        authored: &mut Option<AuthoredCellIndex>,
+    ) -> bool {
+        rects
+            .iter()
+            .any(|(anchor, rect)| anchor.sheet == r.sheet && rect_overlaps_range(rect, r))
+            || authored
+                .get_or_insert_with(|| AuthoredCellIndex::build(self))
+                .range_has_unauthored_cell(r)
     }
 
     /// Every spill rectangle currently on the stored grid (anchor → rectangle),
