@@ -86,4 +86,20 @@ one in a long-running process.
 
 ## License
 
-MIT
+[Elastic License 2.0](https://github.com/truecalc/core/blob/main/crates/wasm-workbook/LICENSE) (`Elastic-2.0`) — source-available, not MIT.
+You may use, copy, modify and redistribute it; you may not offer it to third
+parties as a hosted or managed service that provides access to a substantial
+set of its functionality.
+
+This package compiles the ELv2 `truecalc-workbook` crate together with the MIT
+`truecalc-core` crate; `NOTICE` in this package reproduces core's MIT copyright
+and permission notice, as MIT requires.
+
+`@truecalc/core` — stateless formula evaluation, no workbook — remains MIT.
+
+Every version of `@truecalc/workbook` published before 9.0.0 — every 8.x release
+and everything before it — was released under MIT and stays MIT permanently.
+`9.0.0` is the first version under the new terms; nothing already published
+is relicensed or withdrawn.
+
+Full detail: [LICENSING.md](https://github.com/truecalc/core/blob/main/LICENSING.md).

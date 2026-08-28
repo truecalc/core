@@ -10,6 +10,12 @@
 
 WebAssembly-powered spreadsheet formula engine for JavaScript/TypeScript.
 
+> **Licensing:** `truecalc-core` / `@truecalc/core` is MIT. `truecalc-workbook` /
+> `@truecalc/workbook` is source-available under the Elastic License 2.0 from
+> 9.0.0 onward — **every 8.x release and everything before it remains MIT
+> permanently.**
+> See [LICENSING.md](LICENSING.md).
+
 [DeepWiki](https://deepwiki.com/truecalc/core)
 
 A comprehensive library of spreadsheet functions (see the live count above). Runs in Node.js, Bun, Deno, and the browser — no server needed. Ground-truth conformance against real Google Sheets. The same engine is also available as a [Rust crate](https://crates.io/crates/truecalc-core).
@@ -128,8 +134,28 @@ Registry. Versions already published are left in place; there
 will be no new ones.
 
 This does not change the engine. `truecalc-core` and `truecalc-workbook`
-remain public, MIT-licensed, and published to crates.io, npm, and JSR —
-one engine, no second calculation path.
+remain public and published to crates.io, npm, and JSR — one engine, no
+second calculation path. On licensing, see below: `truecalc-core` is MIT,
+`truecalc-workbook` is Elastic License 2.0.
+
+## Licensing
+
+| Package | License |
+|---|---|
+| `truecalc-core` · `@truecalc/core` · `truecalc` (PyPI) | MIT |
+| `truecalc-workbook` · `@truecalc/workbook` | [Elastic License 2.0](crates/workbook/LICENSE) |
+
+`truecalc-core` — the parser, the evaluator, and the conformance fixtures it is
+checked against — is MIT and stays MIT. `truecalc-workbook` — the document
+model, dependency graph, and recalculation — is source-available: you may use,
+copy, modify and redistribute it, but not offer it to third parties as a hosted
+or managed service.
+
+**Nothing already published changes.** Every version published before 9.0.0 was
+released under MIT and remains MIT permanently. `9.0.0` is the first version
+under the new terms.
+
+Full detail, and why the line falls where it does: **[LICENSING.md](LICENSING.md)**.
 
 ## Documentation
 

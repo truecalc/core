@@ -3,7 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/truecalc-workbook)](https://crates.io/crates/truecalc-workbook)
 [![crates.io downloads](https://img.shields.io/crates/d/truecalc-workbook)](https://crates.io/crates/truecalc-workbook)
 [![docs.rs](https://img.shields.io/docsrs/truecalc-workbook)](https://docs.rs/truecalc-workbook)
-[![license](https://img.shields.io/crates/l/truecalc-workbook)](../../LICENSE)
+[![license](https://img.shields.io/badge/license-Elastic--2.0-blue)](https://github.com/truecalc/core/blob/main/crates/workbook/LICENSE)
 
 Workbook layer for the [truecalc](https://github.com/truecalc/core) spreadsheet engine: engine-locked workbook, worksheet, and cell value types with a canonical JSON serialization contract.
 
@@ -113,4 +113,19 @@ results.
 
 ## License
 
-MIT, same as the rest of this workspace.
+[Elastic License 2.0](https://github.com/truecalc/core/blob/main/crates/workbook/LICENSE) (`Elastic-2.0`) — source-available, not MIT.
+You may use, copy, modify and redistribute it; you may not offer it to third
+parties as a hosted or managed service that provides access to a substantial
+set of its functionality.
+
+This crate and `truecalc-wasm-workbook` (published to npm and JSR as
+`@truecalc/workbook`) are the only parts of the workspace that are not MIT.
+[`truecalc-core`](https://crates.io/crates/truecalc-core), the formula parser
+and evaluator this crate depends on, remains MIT.
+
+Every version of `truecalc-workbook` published before 9.0.0 — every 8.x release
+and everything before it — was released under MIT and stays MIT permanently.
+`9.0.0` is the first version under the new terms; nothing already published
+is relicensed or withdrawn.
+
+Full detail: [LICENSING.md](https://github.com/truecalc/core/blob/main/LICENSING.md).
