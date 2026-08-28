@@ -40,6 +40,7 @@
 
 use std::cell::{RefCell, RefMut};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::sync::Arc;
 
 use chrono::{NaiveDate, TimeZone, Timelike, Utc};
 use chrono_tz::Tz;
@@ -52,6 +53,7 @@ use crate::authored_index::AuthoredCellIndex;
 use crate::casefold::simple_fold;
 use crate::cell::Cell;
 use crate::depgraph::{CellRef, DependencyGraph, NameTarget, Precedent, RangeRef};
+use crate::graph_cache::CachedGraph;
 use crate::grid_spills::GridSpillIndex;
 use crate::named_ref;
 use crate::spill::{spill_rect, SpillRect, BLOCKED_SPILL_ERROR};
@@ -274,11 +276,41 @@ impl Workbook {
     ///
     /// Changes are returned sorted by (sheet tab index, row, column).
     pub fn recalc(&mut self, ctx: &RecalcContext) -> Vec<Change> {
-        let graph = DependencyGraph::build(self);
+        let cached = self.dependency_graph_cached();
         // Evaluate every formula cell; ordering and cycle handling are shared
         // with the incremental path.
-        let to_eval: BTreeSet<CellRef> = graph.formula_cells().cloned().collect();
-        self.recompute(&graph, ctx, to_eval)
+        let to_eval: BTreeSet<CellRef> = cached.graph.formula_cells().cloned().collect();
+        self.recompute(&cached, ctx, to_eval)
+    }
+
+    /// The dependency graph and evaluation order for the workbook **as it is
+    /// now**, from the cache when it is warm and freshly built otherwise.
+    ///
+    /// `build` plus `evaluation_order` is the largest fixed cost of a
+    /// recalculation on a large workbook, and it used to be paid in full by
+    /// every call on both the full and the incremental path — however small the
+    /// edit, and even when nothing had changed at all. The invariant that makes
+    /// reusing it sound (a warm entry equals a build against the current
+    /// workbook) is maintained by the mutation API; see the `graph_cache`
+    /// module docs for exactly which mutations invalidate and which are proven
+    /// not to.
+    fn dependency_graph_cached(&mut self) -> Arc<CachedGraph> {
+        if let Some(entry) = self.cached_graph_entry() {
+            return entry;
+        }
+        let graph = DependencyGraph::build(self);
+        // Derived from the graph, so it is cached with it rather than beside
+        // it: it cannot go stale independently, and `recompute` runs several
+        // times per incremental recalc (the spill widen loop) while ordering
+        // the same graph every time.
+        let (order, cycle) = graph.evaluation_order();
+        let entry = Arc::new(CachedGraph {
+            graph,
+            order,
+            cycle,
+        });
+        self.store_cached_graph(entry.clone());
+        entry
     }
 
     /// Recomputes only the formula cells affected by an edit and returns the
@@ -316,7 +348,8 @@ impl Workbook {
         ctx: &RecalcContext,
         edited: &[(String, Address)],
     ) -> (Vec<Change>, usize) {
-        let graph = DependencyGraph::build(self);
+        let cached = self.dependency_graph_cached();
+        let graph = &cached.graph;
         let folder = CaseMapperBorrowed::new();
 
         // One seeding phase — every source below feeds the same
@@ -375,10 +408,10 @@ impl Workbook {
         // emits no change event (`diff_against_snapshot`), so `incremental ≡
         // full` is preserved while the minimal-closure guarantee still holds for
         // ordinary (non-spill) edits, which seed nothing here.
-        self.seed_spill_sensitive(&graph, &mut frontier);
+        self.seed_spill_sensitive(graph, &mut frontier);
 
         // The single transitive closure over everything seeded above.
-        frontier.close_over_dependents(&graph);
+        frontier.close_over_dependents(graph);
 
         // A cell that reads a *spilled* cell has no dependency-graph edge to its
         // spilling anchor (a spilled cell is not a formula node, P3.2), so the
@@ -397,7 +430,7 @@ impl Workbook {
         // The widened readers go through the same frontier and are closed over
         // too, so this stage cannot dirty a cell without dirtying what reads it
         // either.
-        let pre = self.snapshot_formula_values(&graph);
+        let pre = self.snapshot_formula_values(graph);
         let max_widen = graph.formula_cells().count().saturating_add(2).max(1);
         for pass in 0..max_widen {
             if pass > 0 {
@@ -421,7 +454,7 @@ impl Workbook {
                 self.apply_changes(pre.clone());
             }
             let before = self.anchor_rectangles();
-            self.recompute(&graph, ctx, frontier.cells().clone());
+            self.recompute(&cached, ctx, frontier.cells().clone());
             let after = self.anchor_rectangles();
 
             let was = frontier.len();
@@ -431,7 +464,7 @@ impl Workbook {
                     frontier.insert(dep);
                 }
             }
-            frontier.close_over_dependents(&graph);
+            frontier.close_over_dependents(graph);
             if frontier.len() == was {
                 break;
             }
@@ -502,7 +535,22 @@ impl Workbook {
         // before evaluating anything. Building the graph is an on-demand,
         // single-cell, interactive call (a user clicking a cell), so
         // correctness beats avoiding the graph walk here.
-        let graph = DependencyGraph::build(self);
+        // Reads the cache when it is warm — a warm entry equals a build
+        // against the current workbook — but cannot populate it from `&self`,
+        // so a cold explain still builds. `cycle_cells` is recomputed either
+        // way: the cached `cycle` is the evaluation pass's set, which is the
+        // same set, but reusing it here would couple `trace_cell` to
+        // `evaluation_order`'s contract for no measurable gain on a
+        // single-cell call.
+        let cached = self.cached_graph_entry();
+        let owned;
+        let graph: &DependencyGraph = match &cached {
+            Some(entry) => &entry.graph,
+            None => {
+                owned = DependencyGraph::build(self);
+                &owned
+            }
+        };
         if graph.cycle_cells().contains(&cell_ref) {
             return Value::Error(CIRCULAR_ERROR.to_owned());
         }
@@ -569,7 +617,7 @@ impl Workbook {
     /// writes results back, and returns the changes in pinned order.
     fn recompute(
         &mut self,
-        graph: &DependencyGraph,
+        cached: &CachedGraph,
         ctx: &RecalcContext,
         to_eval: BTreeSet<CellRef>,
     ) -> Vec<Change> {
@@ -583,7 +631,11 @@ impl Workbook {
         // best-effort one over the acyclic remainder, so cells that do not
         // touch the cycle still evaluate and cycle-tainted cells fall out as
         // the error below.
-        let (order, cycle) = graph.evaluation_order();
+        // Taken from the cached entry rather than derived per call: ordering
+        // the formula-cell edges is the other half of the fixed per-recalc cost
+        // the graph cache exists to remove, and the incremental path runs this
+        // function once per widen pass.
+        let (order, cycle) = (&cached.order, &cached.cycle);
 
         // Evaluate in order, resolving array spills as we go (plan item 3.5,
         // schema spec §5). `new_values` holds each formula's result — a spilling
@@ -638,7 +690,7 @@ impl Workbook {
         for _ in 0..max_passes {
             let mut next_values: BTreeMap<CellRef, Value> = BTreeMap::new();
             let mut next_spills: BTreeMap<CellRef, SpillRect> = BTreeMap::new();
-            for cell in &order {
+            for cell in order {
                 if cycle.contains(cell) {
                     continue; // handled in the cycle pass below
                 }
@@ -663,7 +715,7 @@ impl Workbook {
                     &next_spills,
                     &new_values,
                     &spills,
-                    &cycle,
+                    cycle,
                     &grid_spills,
                 );
                 // Resolve array results into a placed spill or a blocked-spill
@@ -888,7 +940,14 @@ impl Workbook {
                 .and_then(|c| c.formula())
                 .map(str::to_owned);
             if let Some(formula) = formula {
-                self.sheets_mut()[idx].set(cell.addr, Cell::with_formula(formula, new.clone()));
+                // Structure-preserving by construction: an existing formula
+                // cell keeps its formula text and only its stored value moves,
+                // so no node and no edge changes — see the `graph_cache`
+                // module docs. The one way a stored value *can* reach the graph
+                // is a declared table's header text, handled once after the
+                // loop rather than per cell.
+                self.sheets_mut_untracked()[idx]
+                    .set(cell.addr, Cell::with_formula(formula, new.clone()));
             }
             changes.push((
                 idx,
@@ -899,6 +958,15 @@ impl Workbook {
                     new,
                 },
             ));
+        }
+        // A structured reference resolves its column by matching the stored
+        // text of a declared table's header row, so in a workbook that declares
+        // tables a recomputed value *is* a graph input. Rather than test each
+        // written cell against every table's header rectangle, drop the cache
+        // whenever a table exists and anything changed: tables are rare, the
+        // check is O(1), and being wrong here is a stale graph.
+        if !changes.is_empty() && !self.tables().is_empty() {
+            self.invalidate_graph_cache();
         }
         // Pin order: sheet tab index, then row, then column.
         changes.sort_by(|a, b| {
