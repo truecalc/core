@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.0.0](https://github.com/truecalc/core/compare/truecalc-workbook-v8.2.2...truecalc-workbook-v9.0.0) - 2026-08-28
+
+### Fixed
+
+- *(docs)* absolute licence links in the READMEs that ship inside packages
+- *(bench)* record the four baselines this change actually moved
+
+### Other
+
+- *(licensing)* say "before 9.0.0" rather than naming 8.2.2
+- release 9.0.0 and move the licensing split into LICENSING.md
+- *(workbook)* relicense truecalc-workbook under Elastic License 2.0
+- *(workbook)* resolve sheets through a per-recalc index, not a folding scan
+
 ## [8.2.2](https://github.com/truecalc/core/compare/truecalc-workbook-v8.2.1...truecalc-workbook-v8.2.2) - 2026-08-28
 
 ### Fixed
