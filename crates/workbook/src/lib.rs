@@ -87,6 +87,7 @@ pub use cell::Cell;
 pub use depgraph::{CellRef, DependencyGraph, NameTarget, Precedent, RangeRef};
 pub use engine::EngineFlavor;
 pub use error::WorkbookError;
+pub use graph_cache::CachedGraph;
 pub use mutate::{CellInput, Resolved};
 pub use named_range::NamedRange;
 pub use recalc::{Change, DirtyFrontier, RecalcContext, CIRCULAR_ERROR};

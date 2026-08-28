@@ -325,11 +325,13 @@ impl JsWorkbook {
     /// the answer, not the answer. `truncated` is always present; branch on
     /// it, not on `truncatedBy`.
     ///
-    /// The graph is rebuilt from the workbook's current formulas on every
-    /// call, so the result is never stale: it reflects every `set` / `clear` /
-    /// `defineName` since the last `recalc`, and is meaningful before any
-    /// `recalc` at all. Building the graph costs `O(formula cells)` per call —
-    /// an upper bound expected to improve, not a fixed contract.
+    /// Reuses the workbook's cached dependency graph when it is warm (see
+    /// `truecalc_workbook`'s `graph_cache` module docs) and builds fresh
+    /// otherwise, so the result is never stale either way: it reflects every
+    /// `set` / `clear` / `defineName` since the last `recalc`, and is
+    /// meaningful before any `recalc` at all. A cold build costs
+    /// `O(formula cells)` per call — an upper bound expected to improve, not
+    /// a fixed contract.
     ///
     /// Throws on an unknown sheet or a malformed A1 address.
     #[wasm_bindgen(js_name = precedentsOf)]

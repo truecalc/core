@@ -52,8 +52,8 @@
       "best_ns_recorded": 321871
     },
     "incremental_recalc/independent_edit_root/1000": {
-      "ref_units": 0.786,
-      "best_ns_recorded": 2570220
+      "ref_units": 0.387,
+      "best_ns_recorded": 1317322
     },
     "incremental_recalc/block_subtotals_edit_root/10000": {
       "ref_units": 1.2095,
@@ -66,6 +66,14 @@
     "to_json/500rows": {
       "ref_units": 0.2216,
       "best_ns_recorded": 724738
+    },
+    "incremental_recalc_cold/independent_edit_root/100": {
+      "ref_units": 0.0939,
+      "best_ns_recorded": 319766
+    },
+    "incremental_recalc_cold/independent_edit_root/1000": {
+      "ref_units": 0.7631,
+      "best_ns_recorded": 2597358
     }
   }
 }

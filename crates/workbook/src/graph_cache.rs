@@ -71,14 +71,27 @@ use crate::depgraph::{CellRef, DependencyGraph};
 /// it. Immutable once constructed: invalidation replaces the whole entry, it
 /// never edits one in place, which is what makes sharing it across a
 /// [`Workbook`](crate::Workbook) clone sound.
+///
+/// `pub`, not `pub(crate)`: [`Workbook::cached_graph_entry`](crate::Workbook::cached_graph_entry)
+/// hands this out to any crate that only holds `&Workbook` and wants to reuse
+/// a warm graph without rebuilding one (the wasm `precedentsOf`/`dependentsOf`
+/// binding). Its fields stay `pub(crate)` — external callers reach the graph
+/// through [`graph`](Self::graph), not by construction or field access.
 #[derive(Debug)]
-pub(crate) struct CachedGraph {
+pub struct CachedGraph {
     pub(crate) graph: DependencyGraph,
     /// [`DependencyGraph::evaluation_order`](crate::DependencyGraph::evaluation_order)'s
     /// order, for this exact graph.
     pub(crate) order: Vec<CellRef>,
     /// The cycle set from that same pass.
     pub(crate) cycle: BTreeSet<CellRef>,
+}
+
+impl CachedGraph {
+    /// The dependency graph this entry caches.
+    pub fn graph(&self) -> &DependencyGraph {
+        &self.graph
+    }
 }
 
 /// The workbook's dependency-graph cache slot.

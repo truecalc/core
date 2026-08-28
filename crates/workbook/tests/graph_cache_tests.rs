@@ -595,9 +595,15 @@ fn formula(rng: &mut Rng, own_sheet: &str) -> String {
 }
 
 /// A cell that is safe to author a formula or a random literal into: never
-/// inside the table rectangle.
-fn free_cell(rng: &mut Rng) -> (&'static str, Address) {
-    let sheet = rng.pick_str(&BASE_SHEETS);
+/// inside the table rectangle, and always on a sheet that currently exists -
+/// `T` is renamed to `T2` and back by `apply_edit`'s rename arm, so `"T"`
+/// alone is not always a live sheet name the way it is in `BASE_SHEETS`.
+fn free_cell(rng: &mut Rng, wb: &Workbook) -> (&'static str, Address) {
+    let sheet = if wb.sheet("T").is_some() {
+        rng.pick_str(&BASE_SHEETS)
+    } else {
+        "S"
+    };
     let row = if sheet == "S" {
         4 + rng.below(3) as u32
     } else {
@@ -679,14 +685,31 @@ fn build_workbook(rng: &mut Rng) -> Workbook {
             }
         }
     }
+    // A deterministic sentinel for `apply_edit`'s add-sheet arm (case 8):
+    // every random reference to `X!<cell>` this generator can otherwise
+    // produce propagates an uncaught `#REF!` while `X` doesn't exist, and
+    // `#REF!` is also `spill::BLOCKED_SPILL_ERROR` - so `seed_spill_sensitive`
+    // (recalc.rs) conservatively reseeds every such cell on *every*
+    // incremental recalc regardless of the dependency-graph edge, which masks
+    // a missing `insert_sheet` invalidation no matter how the edited set is
+    // built. `IFERROR` catches the error into a plain number instead, so this
+    // cell is never in that reseed net, and a missing invalidation is only
+    // caught here (`S!D6`, the last cell of `S`'s randomly-filled range,
+    // overwritten deterministically so every seed starts with it).
+    wb.set(
+        "S",
+        at(ROWS, COLS),
+        CellInput::Formula("=IFERROR(X!A1,42)".to_owned()),
+    )
+    .unwrap();
     wb
 }
 
 /// One random edit, returning the cells to report as `edited`.
 fn apply_edit(rng: &mut Rng, wb: &mut Workbook) -> Vec<(String, Address)> {
-    match rng.below(12) {
+    match rng.below(13) {
         0 | 1 | 2 => {
-            let (sheet, a) = free_cell(rng);
+            let (sheet, a) = free_cell(rng, wb);
             wb.set(
                 sheet,
                 a,
@@ -696,14 +719,14 @@ fn apply_edit(rng: &mut Rng, wb: &mut Workbook) -> Vec<(String, Address)> {
             vec![(sheet.to_owned(), a)]
         }
         3 | 4 => {
-            let (sheet, a) = free_cell(rng);
+            let (sheet, a) = free_cell(rng, wb);
             let f = formula(rng, sheet);
             wb.set(sheet, a, CellInput::Formula(f.clone()))
                 .unwrap_or_else(|e| panic!("generated formula {f} rejected: {e:?}"));
             vec![(sheet.to_owned(), a)]
         }
         5 => {
-            let (sheet, a) = free_cell(rng);
+            let (sheet, a) = free_cell(rng, wb);
             wb.clear(sheet, a);
             vec![(sheet.to_owned(), a)]
         }
@@ -744,7 +767,16 @@ fn apply_edit(rng: &mut Rng, wb: &mut Workbook) -> Vec<(String, Address)> {
         }
         7 => {
             let old_ref = wb.name("NAMEA").map(|n| n.r#ref.clone()).expect("defined");
-            let new_ref = NAME_REFS[rng.below(NAME_REFS.len())];
+            // `redefine_name` validates that the ref's sheet exists (schema
+            // spec §7), unlike a dangling ref left behind by *removing* a
+            // sheet - so a `T!...` candidate is only offered while `T` is
+            // currently live (the rename arm can have it as `T2` instead).
+            let candidates: Vec<&str> = NAME_REFS
+                .iter()
+                .copied()
+                .filter(|r| wb.sheet("T").is_some() || !r.starts_with("T!"))
+                .collect();
+            let new_ref = candidates[rng.below(candidates.len())];
             wb.redefine_name("NAMEA", new_ref).unwrap();
             // A retarget's caller contract is to report the name's old *and*
             // new target cells (same as `recalc_differential_tests`).
@@ -753,19 +785,36 @@ fn apply_edit(rng: &mut Rng, wb: &mut Workbook) -> Vec<(String, Address)> {
             edited
         }
         8 => {
-            if wb.sheet("X").is_some() {
-                wb.remove_sheet("X");
-            } else {
+            // No trailing write after `add_sheet`: any further `wb.set` -
+            // formula or literal, table declared or not - invalidates the
+            // cache on its own in this fixture, which would mask a missing
+            // invalidation in `insert_sheet` instead of exercising it.
+            //
+            // Report every cell `ref_text` can address on `X` (its whole
+            // `ROWS` x `COLS` surface), not just one: an existing formula
+            // elsewhere may reference any of them, and only its *exact*
+            // address gets its dependents seeded by `recalc_incremental`'s
+            // per-edited-cell frontier - reporting one arbitrary cell would
+            // catch a missing invalidation only on the seeds where some
+            // formula happens to reference that one cell.
+            let adding = wb.sheet("X").is_none();
+            if adding {
                 wb.add_sheet(Worksheet::new("X")).unwrap();
-                wb.set("X", at(1, 1), CellInput::Literal(Value::Number(7.0)))
-                    .unwrap();
+            } else {
+                wb.remove_sheet("X");
             }
-            vec![("X".to_owned(), at(1, 1))]
+            let mut edited = Vec::new();
+            for row in 1..=ROWS {
+                for col in 1..=COLS {
+                    edited.push(("X".to_owned(), at(row, col)));
+                }
+            }
+            edited
         }
         9 => {
             // Author a formula the way half the suite does: straight through
             // the sheet, bypassing `Workbook::set`.
-            let (sheet, a) = free_cell(rng);
+            let (sheet, a) = free_cell(rng, wb);
             let f = formula(rng, sheet);
             wb.sheet_mut(sheet)
                 .unwrap()
@@ -776,8 +825,35 @@ fn apply_edit(rng: &mut Rng, wb: &mut Workbook) -> Vec<(String, Address)> {
             wb.redefine_table("TBL", TABLE_REF).unwrap();
             vec![("S".to_owned(), at(1, 1))]
         }
+        11 => {
+            // Rename `T` back and forth. `formula`'s case 2 always emits
+            // `SUM(T!A1:C3)` regardless of `own_sheet`, so `T` reliably has
+            // dependents on every sheet - a missing invalidation here (unlike
+            // the `add_sheet` arm above) is not masked by anything else in
+            // this function.
+            //
+            // Report every cell on the *old* name's `ROWS` x `COLS` surface,
+            // not the new one: `T!A1:C3`'s formula text never changes on a
+            // rename, so it stays keyed to `from` both before and after -
+            // reporting under `to` would query a key nothing in this
+            // generator ever references (nothing here ever writes a `T2!...`
+            // formula).
+            let (from, to) = if wb.sheet("T").is_some() {
+                ("T", "T2")
+            } else {
+                ("T2", "T")
+            };
+            wb.rename_sheet(from, to).unwrap();
+            let mut edited = Vec::new();
+            for row in 1..=ROWS {
+                for col in 1..=COLS {
+                    edited.push((from.to_owned(), at(row, col)));
+                }
+            }
+            edited
+        }
         _ => {
-            let (sheet, a) = free_cell(rng);
+            let (sheet, a) = free_cell(rng, wb);
             wb.set(
                 sheet,
                 a,

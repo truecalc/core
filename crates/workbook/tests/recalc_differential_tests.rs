@@ -49,6 +49,19 @@
 //!
 //! A failure prints the shape, the seed, the edit index, and both grids. Re-run
 //! that one seed with `TRUECALC_DIFF_SEED_BASE=<seed> TRUECALC_DIFF_SEEDS=1`.
+//!
+//! ## What this harness cannot see
+//!
+//! It cannot catch a stale dependency-graph cache. Each seed's `full` arm is
+//! `live.clone()` (`run_seed`), and a clone inherits `live`'s graph cache
+//! `Arc` (the `graph_cache` module docs) — so both arms recalculate against
+//! the exact same cache entry, including a wrong one. A missing invalidation
+//! here would make `full` and `live` agree with each other while both
+//! disagree with a truly independent rebuild. `graph_cache_tests.rs`'s own
+//! differential (`warm_and_fresh_recalculations_agree`) compares against a
+//! workbook that never shared a cache, which is what actually exercises the
+//! cache's invalidation contract; do not read a green run here as coverage
+//! for it.
 
 use std::collections::BTreeSet;
 
