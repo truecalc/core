@@ -78,15 +78,67 @@ baselines. A representative sample, single-sheet and many-sheet side by side —
 how recalc cost scales across sheets in one workbook is exactly what these
 benchmarks are meant to answer:
 
-| shape | full recalc | one edit |
-|---|---|---|
-| 1,000 independent cells, one sheet | 4.38 ms | 1.13 ms |
-| 10,000 cells in subtotal blocks, one sheet | 26.39 ms | 3.82 ms |
-| 20,000-row sparse column, one sheet | 130.80 ms | — |
-| 200 sheets × 50 cells | 45.61 ms | 10.75 ms |
-| 200 sheets × 50 cells, cross-sheet refs | 44.44 ms | — |
+| shape | sheets | total cells | formulas | clone + full recalc | clone + edit + incremental recalc | formulas recalculated (edit) |
+|---|---|---|---|---|---|---|
+| 1,000 rows, independent single-cell formulas | 1 | 2,000 | 1,000 | 4.38 ms | 1.13 ms | 1 |
+| 10,000-row column, overlapping 100-row subtotals every 20 rows | 1 | 10,496 | 496 | 26.39 ms | 3.82 ms | 1 |
+| 20,000-row sparse column, 1 formula/row | 1 | 40,000 | 20,000 | 130.80 ms | — | — |
+| 200 sheets × 50 rows, same per-cell shape as row 1 | 200 | 20,000 | 10,000 | 45.61 ms | 10.75 ms | 1\* |
+| 200 sheets × 50 rows, cross-sheet refs to sheet 1 | 200 | 20,000 | 10,000 | 44.44 ms | — | — |
 
-("—" = no incremental-edit benchmark exists for that shape.)
+"—" = no benchmark exists for that cell of the table. \* not stated directly
+in the benchmark's comment; derived below.
+
+**Every timed closure clones the whole workbook first.** Both
+`bench_full_recalc` and `bench_incremental_recalc` in
+[`benches/workbook_perf.rs`](benches/workbook_perf.rs) do `let mut wb =
+template.clone(); wb.recalc(...)` *inside* `b.iter(...)` — so every number in
+this table includes a full clone of the fixture, not just the calculation
+that follows it. That clone is cheap relative to a full recalc (which touches
+every cell anyway), but for the "edit" column it dominates: at n=100 and
+n=1000 in the `independent` fixture, editing `A1` dirties **exactly one**
+formula both times (per the benchmark's own comment), yet the recorded times
+are 0.193 ms and 1.13 ms — a single formula recalculating cannot cost 6x more
+because the surrounding sheet is bigger. Nearly all of that difference is the
+clone of a workbook with 2n more cells in it. Treat the "clone + edit +
+incremental recalc" column as a same-machine, same-method comparison point,
+not as "the cost of an edit" — it is dominated by model size, not by
+recalculation work, and is *not* a fair way to reason about how a real edit's
+latency scales with workbook size.
+
+The `formulas` and `formulas recalculated (edit)` columns come from the
+fixture builders and benchmark comments in `workbook_perf.rs`, not from
+running anything:
+
+- `1,000 rows, independent`: `build_independent(1000)` writes a literal
+  (col A) and a formula (col B) per row → 1,000 literals + 1,000 formulas =
+  2,000 cells, 1,000 formulas. The benchmark's own comment states editing
+  `A1` "dirties exactly one formula (B1)".
+- `10,000-row subtotals`: `build_block_subtotals(10000)` writes 10,000
+  literals (col A) plus a 100-row-window `SUM` in col C every 20 rows,
+  starting at row 1, while `row + 99 <= 10000` → rows 1, 21, 41, ...,
+  9901, i.e. `(9901-1)/20 + 1 = 496` formulas; total cells = 10,000 + 496 =
+  10,496. The comment says editing `A1` "dirties every subtotal whose
+  100-row window covers row 1" — only the window starting at row 1 (`A1:A100`)
+  covers row 1, since the next window starts at row 21, so that's 1 formula.
+- `20,000-row sparse`: `build_tall_sparse(20000)` writes one literal + one
+  formula per row → 40,000 cells, 20,000 formulas. No
+  `incremental_recalc`/edit benchmark exists for this fixture, hence "—".
+- `200 sheets × 50 rows`: `build_multi_sheet(200, 50, ...)` writes the same
+  per-row shape as `build_independent` (literal + formula, formula
+  depending only on the literal in its own row) on each of 200 sheets → 200
+  × 50 = 10,000 literals + 10,000 formulas = 20,000 cells. The
+  `multi_sheet_edit_root` benchmark's comment doesn't restate the dirtied-count
+  the way `independent_edit_root`'s does, but it is the same construction with
+  no cross-sheet references, so the same reasoning applies: `B1` on the edited
+  sheet depends only on that sheet's `A1`, and no other sheet's formula
+  references it, so editing `A1` dirties exactly `B1` — 1 formula. Marked
+  with \* above because this is derived by inspection, not quoted from a
+  comment.
+- `200 sheets × 50 rows, cross-sheet refs`: `build_multi_sheet_cross(200, 50,
+  ...)` — same cell counts as the row above (20,000 cells, 10,000 formulas),
+  but no `incremental_recalc` benchmark exists for this cross-sheet variant
+  (only `full_recalc` and `depgraph_build` cover it), hence "—".
 
 **Method:** recorded on "Apple M1 Max (10 core), macOS 14.4, rustc 1.94.1,
 release profile; best of 5 full bench runs" (verbatim from `recorded_on` in
