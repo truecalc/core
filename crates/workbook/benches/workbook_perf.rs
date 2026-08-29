@@ -19,6 +19,13 @@
 //!   because sheet-name length was itself a performance parameter: naming tabs
 //!   the way people actually name them cost 3.6x the wall clock. The two must
 //!   now measure the same.
+//! * **The chain fixture** (`chain`) — one linear dependency chain, `n` deep.
+//!   Every fixture above it is exactly one level deep (a formula reads a
+//!   literal, and nothing reads that formula), so propagation through a
+//!   dependency chain — the entire point of a recalculation engine — was
+//!   measured nowhere at all until this fixture existed. Its two incremental
+//!   groups bracket what propagation costs: a root edit dirties the whole
+//!   chain, a leaf edit dirties one cell.
 //!
 //! `calibration/hash_alloc` is deliberately *not* a workbook benchmark. It is a
 //! fixed allocate-and-hash workload used as a machine-speed probe: the
@@ -101,6 +108,47 @@ fn build_block_subtotals(n: u32) -> Workbook {
     while row + 99 <= n {
         set_formula(&mut wb, row, 3, format!("=SUM(A{row}:A{})", row + 99));
         row += 20;
+    }
+    wb
+}
+
+/// A single linear dependency **chain** of depth `n`, plus one tail literal.
+///
+/// `A1` is a literal, `A2 = =A1+1`, `A3 = =A2+1`, … through `A{n+1}` — `n`
+/// formulas, each reading the one above it. Every other fixture in this file
+/// is exactly one level deep: a formula reads a literal, and nothing reads
+/// that formula. `multi_sheet_cross` looks like a counter-example and is not —
+/// its formulas read a *literal* on the first tab, so it is depth 1 with high
+/// fan-out. Propagation through a chain is the entire point of a
+/// recalculation engine and had no fixture here at all, which is why
+/// `incremental_recalc/independent_edit_root` can only claim to guard
+/// dirty-set minimality, "not chain propagation" — its own words.
+///
+/// The last link is `A{n+1} = =A{n}+B{n+1}`, with `B{n+1}` a literal read by
+/// nothing else. That single extra literal is what makes a *cheap* edit
+/// expressible on this fixture: in an otherwise pure chain the only
+/// non-formula cell is `A1`, and editing it dirties everything. Writing a
+/// literal over a chain cell instead would destroy a formula node, which
+/// invalidates the dependency-graph cache — so `chain_edit_leaf` would be
+/// timing a cold graph rebuild while `chain_edit_root` timed a warm walk, and
+/// the two would not bracket anything. Editing `B{n+1}` dirties exactly one
+/// formula over the same warm graph the root edit uses.
+///
+/// The exact dirty-set sizes both edits produce (`n` and `1`) are asserted in
+/// `crates/workbook/tests/recalc_work_tests.rs`, so a regression that widens
+/// either one fails as a count there rather than only as a slower number here.
+fn build_chain(n: u32) -> Workbook {
+    let mut wb = new_workbook();
+    set_number(&mut wb, 1, 1, 1.0);
+    let last = n + 1;
+    set_number(&mut wb, last, 2, 1.0);
+    for row in 2..=last {
+        let prev = row - 1;
+        if row == last {
+            set_formula(&mut wb, row, 1, format!("=A{prev}+B{last}"));
+        } else {
+            set_formula(&mut wb, row, 1, format!("=A{prev}+1"));
+        }
     }
     wb
 }
@@ -198,6 +246,24 @@ fn bench_full_recalc(c: &mut Criterion) {
     let mut group = c.benchmark_group("full_recalc/independent");
     for n in [100u32, 1000, 5000] {
         let template = build_independent(n);
+        group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, _| {
+            b.iter(|| {
+                let mut wb = template.clone();
+                wb.recalc(&ctx)
+            });
+        });
+    }
+    group.finish();
+
+    // The same formula counts as `independent/1000` and `independent/5000`,
+    // arranged as one chain instead of N unrelated pairs. The pair brackets
+    // what depth costs: identical work per formula, opposite graph shape, so a
+    // divergence between the two families is a topology cost and not an
+    // evaluation one.
+    let mut group = c.benchmark_group("full_recalc/chain");
+    group.sample_size(20);
+    for n in [1000u32, 5000] {
+        let template = build_chain(n);
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, _| {
             b.iter(|| {
                 let mut wb = template.clone();
@@ -403,6 +469,59 @@ fn bench_incremental_recalc(c: &mut Criterion) {
         });
     });
     group.finish();
+
+    // Chain propagation, bracketed. Both groups edit a *literal* on the same
+    // pre-recalculated chain, so both run over a warm graph (see the note
+    // above) and differ only in how far the dirt travels:
+    //
+    // * `chain_edit_root` edits `A1`, which every formula in the chain is
+    //   downstream of — the dirty set is the whole chain, the worst case.
+    // * `chain_edit_leaf` edits `B{n+1}`, read only by the last link — the
+    //   dirty set is one cell however deep the chain is, the best case.
+    //
+    // Neither number is asserted here; `tests/recalc_work_tests.rs` pins them
+    // (`n` and `1`) as exact counts.
+    //
+    // Read the two together, not the ratio between them. That ratio is roughly
+    // flat (3.7x at n=1000, 3.9x at n=5000 when recorded), because both cases
+    // pay the same per-formula-cell fixed cost every incremental recalc owes —
+    // `snapshot_formula_values`, the volatile sweep over `formula_cells()`, and
+    // `seed_spill_sensitive`, each `O(formula cells)` by construction. At
+    // n=5000 the leaf case's time is almost entirely that floor rather than its
+    // one-cell recompute, which is precisely what makes it worth recording: no
+    // other incremental benchmark holds the dirty set fixed while the workbook
+    // grows, so nothing else here can see that floor at all.
+    //
+    // The regression signal is the *gap*: a leaf closure that silently widened
+    // to the whole chain would jump the leaf case onto the root case's number
+    // (a ~4x move at n=5000), which no plausible noise explains.
+    for (label, edit_col) in [
+        ("incremental_recalc/chain_edit_root", 1u32),
+        ("incremental_recalc/chain_edit_leaf", 2u32),
+    ] {
+        let mut group = c.benchmark_group(label);
+        group.sample_size(20);
+        for n in [1000u32, 5000] {
+            let mut template = build_chain(n);
+            template.recalc(&ctx);
+            // Column A row 1 is the chain's root literal; column B row n+1 is
+            // the tail literal the last link alone reads.
+            let edited = if edit_col == 1 {
+                Address::new(1, 1).unwrap()
+            } else {
+                Address::new(n + 1, 2).unwrap()
+            };
+            group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, _| {
+                b.iter(|| {
+                    let mut wb = template.clone();
+                    wb.set("Sheet1", edited, CellInput::Literal(Value::Number(99.0)))
+                        .unwrap();
+                    wb.recalc_incremental(&ctx, &[("Sheet1".to_string(), edited)])
+                });
+            });
+        }
+        group.finish();
+    }
 }
 
 fn bench_from_json(c: &mut Criterion) {
