@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.0.1](https://github.com/truecalc/core/compare/truecalc-core-v9.0.0...truecalc-core-v9.0.1) - 2026-08-29
+
+### Fixed
+
+- *(license)* ship MIT license text in published truecalc-core, truecalc-wasm, and truecalc-python packages
+
 ## [8.2.1](https://github.com/truecalc/core/compare/truecalc-core-v8.2.0...truecalc-core-v8.2.1) - 2026-08-28
 
 ### Other
