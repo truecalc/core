@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.0.1](https://github.com/truecalc/core/compare/truecalc-workbook-v9.0.0...truecalc-workbook-v9.0.1) - 2026-08-29
+
+### Other
+
+- *(workbook)* fix misleading "one edit" label in performance table
+- *(workbook)* publish human-readable performance numbers
+- *(truecalc-workbook)* release v9.0.0
+
 ## [9.0.0](https://github.com/truecalc/core/compare/truecalc-workbook-v8.2.2...truecalc-workbook-v9.0.0) - 2026-08-28
 
 ### Fixed
