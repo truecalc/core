@@ -157,6 +157,9 @@ under the new terms.
 
 Full detail, and why the line falls where it does: **[LICENSING.md](LICENSING.md)**.
 
+Recalc performance benchmarks for `truecalc-workbook` (gated in CI against
+committed baselines) are in [its README](crates/workbook/README.md#performance).
+
 ## Documentation
 
 [docs.truecalc.app](https://docs.truecalc.app)

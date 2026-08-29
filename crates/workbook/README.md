@@ -70,6 +70,63 @@ assert_eq!(wb.get("Budget", a3).unwrap().value(), &Value::Number(1500.0));
 
 Both return an ordered list of [`Change`] values describing every cell that changed.
 
+## Performance
+
+The dependency graph, incremental recalc, and full recalc are benchmarked with
+[Criterion](https://docs.rs/criterion) and gated in CI against committed
+baselines. A representative sample, single-sheet and many-sheet side by side —
+how recalc cost scales across sheets in one workbook is exactly what these
+benchmarks are meant to answer:
+
+| shape | full recalc | one edit |
+|---|---|---|
+| 1,000 independent cells, one sheet | 4.38 ms | 1.13 ms |
+| 10,000 cells in subtotal blocks, one sheet | 26.39 ms | 3.82 ms |
+| 20,000-row sparse column, one sheet | 130.80 ms | — |
+| 200 sheets × 50 cells | 45.61 ms | 10.75 ms |
+| 200 sheets × 50 cells, cross-sheet refs | 44.44 ms | — |
+
+("—" = no incremental-edit benchmark exists for that shape.)
+
+**Method:** recorded on "Apple M1 Max (10 core), macOS 14.4, rustc 1.94.1,
+release profile; best of 5 full bench runs" (verbatim from `recorded_on` in
+`baselines.json`, below). These are best-of-5 minima on one machine on one
+day — not a guarantee of what any other machine, workload, or day will show.
+
+**What CI actually gates on:** not the milliseconds above. Each benchmark is
+normalized as `ref_units = min(benchmark time) / min(reference time)` against
+a `calibration/hash_alloc` reference — a fixed allocate-and-hash workload with
+no dependency on truecalc code — measured in the same run. Dividing by that
+reference is what lets a baseline recorded on one machine still mean something
+on another; `best_ns_recorded` (what the table above is derived from) is
+informational only, and nothing is checked against it directly. The
+millisecond figures above are illustrative; the `ref_units` ratios in
+`baselines.json` are the actual contract, checked both for regressions and for
+unexpected improvements against two-sided bands by
+[`.github/scripts/check_perf_regression.py`](../../.github/scripts/check_perf_regression.py).
+
+**Source of truth:** [`benches/baselines.json`](benches/baselines.json) is the
+authoritative, always-current record of every gated benchmark — it is
+regenerated and re-gated in CI on every change, so it can drift from this
+table over time. Most entries were recorded 2026-08-28; five `multi_sheet`
+entries and four `incremental_recalc`/`incremental_recalc_cold` entries were
+re-recorded 2026-08-29 on the same machine after a dependency-graph fix
+changed their measured cost (see the JSON's `note` field for the full
+explanation).
+
+**Run locally** (from the repo root):
+
+```sh
+cargo bench -p truecalc-workbook --bench workbook_perf -- --output-format bencher
+```
+
+To reproduce the CI regression gate against the committed baselines:
+
+```sh
+cargo bench -p truecalc-workbook --bench workbook_perf -- --output-format bencher \
+  | python3 .github/scripts/check_perf_regression.py
+```
+
 ## JSON serialization
 
 [`Workbook::to_json`] / [`Workbook::from_json`] implement the canonical RFC 8785 / JCS
