@@ -5,9 +5,9 @@ the workbook — is source-available under the Elastic License 2.0.
 
 | Package | Published as | Source | License |
 |---|---|---|---|
-| `truecalc-core` | [crates.io](https://crates.io/crates/truecalc-core) | `crates/core` | MIT |
-| `truecalc-wasm` | npm / JSR: `@truecalc/core` | `crates/wasm` | MIT |
-| `truecalc-python` | PyPI: `truecalc` | `crates/python` | MIT |
+| `truecalc-core` | [crates.io](https://crates.io/crates/truecalc-core) | `crates/core` | [MIT](crates/core/LICENSE) |
+| `truecalc-wasm` | npm / JSR: `@truecalc/core` | `crates/wasm` | [MIT](crates/wasm/LICENSE) |
+| `truecalc-python` | PyPI: `truecalc` | `crates/python` | [MIT](crates/python/LICENSE) |
 | `truecalc-workbook` | [crates.io](https://crates.io/crates/truecalc-workbook) | `crates/workbook` | [Elastic License 2.0](crates/workbook/LICENSE) |
 | `truecalc-wasm-workbook` | npm / JSR: `@truecalc/workbook` | `crates/wasm-workbook` | [Elastic License 2.0](crates/wasm-workbook/LICENSE) |
 
