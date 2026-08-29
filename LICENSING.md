@@ -11,8 +11,12 @@ the workbook — is source-available under the Elastic License 2.0.
 | `truecalc-workbook` | [crates.io](https://crates.io/crates/truecalc-workbook) | `crates/workbook` | [Elastic License 2.0](crates/workbook/LICENSE) |
 | `truecalc-wasm-workbook` | npm / JSR: `@truecalc/workbook` | `crates/wasm-workbook` | [Elastic License 2.0](crates/wasm-workbook/LICENSE) |
 
-The root [`LICENSE`](LICENSE) is the MIT text and covers the MIT packages above.
-The ELv2 text lives with the packages it covers.
+The root [`LICENSE`](LICENSE) states the split and carries the MIT text,
+scoped to the MIT packages above. The ELv2 text lives with the packages it
+covers, and is not reproduced there. Because the root file no longer matches
+MIT verbatim, GitHub's licence auto-detection reports this repository as
+"Other" rather than "MIT" — deliberately: MIT alone was not an accurate
+summary once `truecalc-workbook` and `truecalc-wasm-workbook` moved to ELv2.
 
 ## Nothing already published changes
 

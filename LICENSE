@@ -1,3 +1,19 @@
+This repository contains code under more than one licence.
+
+- `truecalc-core`, `truecalc-wasm`, `truecalc-python`, `xtask`, and the
+  `workbook-budget` example are MIT — the text below applies to them.
+- `truecalc-workbook` and `truecalc-wasm-workbook` are Elastic License 2.0.
+  That text is not reproduced here; it lives, unmodified, at
+  `crates/workbook/LICENSE` and `crates/wasm-workbook/LICENSE`.
+
+See [LICENSING.md](LICENSING.md) for which package is under which licence
+and why.
+
+## MIT License
+
+The following applies to `truecalc-core`, `truecalc-wasm`, `truecalc-python`,
+`xtask`, and the `workbook-budget` example.
+
 MIT License
 
 Copyright (c) 2026 tryganit
