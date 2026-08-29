@@ -1,7 +1,7 @@
 {
   "recorded_at": "2026-08-28",
   "recorded_on": "Apple M1 Max (10 core), macOS 14.4, rustc 1.94.1, release profile; best of 5 full bench runs",
-  "note": "ref_units = min(benchmark time) / min(reference time), each the best of 5 full bench runs, not necessarily the same run - best-of-5 minima can (and do) come from different runs. This is a deliberate choice, not an oversight: best-of-5 biases the floor in the safe direction, and the resulting bias in ref_units is small and one-directional (recorded baselines read slightly inflated, so future runs read slightly more negative). The gate compares ratios, not nanoseconds, so a baseline recorded on one machine still means something on another. best_ns_recorded and reference_best_ns_recorded are informational only - nothing is checked against them. The bands are two-sided on purpose: see .github/scripts/check_perf_regression.py. The five multi_sheet entries were recorded 2026-08-29 on the same machine, best of 3 runs. The four incremental_recalc(_cold)/independent_edit_root entries were re-recorded the same day, also best of 3, because this change moves them: Sheet1 was being folded ~16 times per formula cell even in a single-sheet workbook before this change (16.50 folds per extra formula cell, vs 0 after), so the single-sheet incremental family got legitimately faster (paired runs on one machine: base 216,815/212,730/215,348 ns vs head 196,590/196,909/195,420 ns on independent_edit_root/100, about -8%; independent_edit_root/1000 and the _cold variants moved similarly). The previously recorded independent_edit_root/100 baseline (best_ns_recorded 321,871) was already stale relative to both the base and head commits on this machine (both read ~200,000-300,000 ns) - this change added the last several points on top of that pre-existing drift, it did not cause the whole gap. Every other entry is unchanged from the 2026-08-28 recording and remains within run-to-run noise of the base commit.",
+  "note": "ref_units = min(benchmark time) / min(reference time), each the best of 5 full bench runs, not necessarily the same run - best-of-5 minima can (and do) come from different runs. This is a deliberate choice, not an oversight: best-of-5 biases the floor in the safe direction, and the resulting bias in ref_units is small and one-directional (recorded baselines read slightly inflated, so future runs read slightly more negative). The gate compares ratios, not nanoseconds, so a baseline recorded on one machine still means something on another. best_ns_recorded and reference_best_ns_recorded are informational only - nothing is checked against them. The bands are two-sided on purpose: see .github/scripts/check_perf_regression.py. The five multi_sheet entries were recorded 2026-08-29 on the same machine, best of 3 runs. The four incremental_recalc(_cold)/independent_edit_root entries were re-recorded the same day, also best of 3, because this change moves them: Sheet1 was being folded ~16 times per formula cell even in a single-sheet workbook before this change (16.50 folds per extra formula cell, vs 0 after), so the single-sheet incremental family got legitimately faster (paired runs on one machine: base 216,815/212,730/215,348 ns vs head 196,590/196,909/195,420 ns on independent_edit_root/100, about -8%; independent_edit_root/1000 and the _cold variants moved similarly). The previously recorded independent_edit_root/100 baseline (best_ns_recorded 321,871) was already stale relative to both the base and head commits on this machine (both read ~200,000-300,000 ns) - this change added the last several points on top of that pre-existing drift, it did not cause the whole gap. Every other entry is unchanged from the 2026-08-28 recording and remains within run-to-run noise of the base commit. The six chain entries (full_recalc/chain and incremental_recalc/chain_edit_root|chain_edit_leaf, each at 1000 and 5000) were added 2026-08-29 and recorded on the machine named above, best of 5 full bench runs - the count this file's recorded_on documents, not the best-of-3 the two exceptions above used. All five runs measured one unmodified binary, and their reference minimum was 3,196,028 ns - not the reference_best_ns_recorded field above, which belongs to the 2026-08-28 set - so verify these six as best_ns_recorded / 3196028, the same way the 2026-08-29 entries above divide by their own run set's minimum. They are new benchmarks, so no existing entry moved when they were added; every other number here is unchanged from its earlier recording.",
   "reference": "calibration/hash_alloc",
   "reference_best_ns_recorded": 3270207,
   "regression_pct": 150,
@@ -18,6 +18,14 @@
     "full_recalc/independent/5000": {
       "ref_units": 6.9069,
       "best_ns_recorded": 22587145
+    },
+    "full_recalc/chain/1000": {
+      "ref_units": 1.196,
+      "best_ns_recorded": 3822395
+    },
+    "full_recalc/chain/5000": {
+      "ref_units": 6.5853,
+      "best_ns_recorded": 21046666
     },
     "full_recalc/row_totals/500": {
       "ref_units": 1.3837,
@@ -74,6 +82,22 @@
     "incremental_recalc/block_subtotals_edit_root/10000": {
       "ref_units": 1.2095,
       "best_ns_recorded": 3823493
+    },
+    "incremental_recalc/chain_edit_root/1000": {
+      "ref_units": 1.1638,
+      "best_ns_recorded": 3719666
+    },
+    "incremental_recalc/chain_edit_root/5000": {
+      "ref_units": 6.3891,
+      "best_ns_recorded": 20419766
+    },
+    "incremental_recalc/chain_edit_leaf/1000": {
+      "ref_units": 0.3183,
+      "best_ns_recorded": 1017376
+    },
+    "incremental_recalc/chain_edit_leaf/5000": {
+      "ref_units": 1.6274,
+      "best_ns_recorded": 5201330
     },
     "incremental_recalc/multi_sheet_edit_root/200x50": {
       "ref_units": 3.2604,
