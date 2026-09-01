@@ -18,7 +18,7 @@ use super::translate::collect_shiftable_refs;
 /// `icu_casemap`, and the two diverge only for characters with multi-char
 /// uppercase expansions (e.g. German `ß` → `SS`), which is not expected to
 /// matter for realistic sheet names.
-fn same_sheet(a: &str, b: &str) -> bool {
+pub(super) fn same_sheet(a: &str, b: &str) -> bool {
     a.to_uppercase() == b.to_uppercase()
 }
 
