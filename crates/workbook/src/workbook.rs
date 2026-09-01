@@ -1,9 +1,12 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use icu_casemap::CaseMapperBorrowed;
+
+use truecalc_core::Engine;
 
 use crate::canonical;
 use crate::casefold::simple_fold;
@@ -12,6 +15,7 @@ use crate::error::WorkbookError;
 use crate::graph_cache::{CachedGraph, GraphCache};
 use crate::limits;
 use crate::named_range::NamedRange;
+use crate::named_ref;
 use crate::strict_json;
 use crate::table::Table;
 use crate::validate;
@@ -195,9 +199,22 @@ impl Workbook {
     /// Removes and returns the sheet named `name` (case-insensitive),
     /// shifting later tabs left, or `None` if no sheet matches.
     ///
-    /// A workbook-scoped named range may now dangle to the removed sheet; the
-    /// dangling-ref invariant is re-checked at [`to_json`](Self::to_json) /
-    /// [`from_json`](Self::from_json) (schema spec §7).
+    /// A workbook-scoped named range or table may now dangle to the removed
+    /// sheet. The dangling-ref invariant is re-checked at
+    /// [`to_json`](Self::to_json) and [`from_json`](Self::from_json) (schema
+    /// spec §7) — including, since issue #969, at `to_json`, which the earlier
+    /// wording claimed but the code did not do. A workbook left holding a
+    /// dangling `ref` therefore fails to **save**, rather than saving cleanly
+    /// and failing at some later load.
+    ///
+    /// Removal deliberately does not tidy up for you. It returns
+    /// `Option<Worksheet>` and so has no channel to report what it discarded,
+    /// and dropping a name or table the caller still wants is a silent loss
+    /// they cannot detect; refusing the save names the offending range
+    /// instead. Drop the refs you no longer want with
+    /// [`remove_name`](Self::remove_name) / [`remove_table`](Self::remove_table),
+    /// or repoint them with [`redefine_name`](Self::redefine_name) /
+    /// [`redefine_table`](Self::redefine_table).
     pub fn remove_sheet(&mut self, name: &str) -> Option<Worksheet> {
         let i = self.sheet_index(name)?;
         // Removes every formula node on that sheet, and turns every reference
@@ -206,11 +223,43 @@ impl Workbook {
         Some(self.sheets.remove(i))
     }
 
-    /// Renames the sheet currently named `from` (case-insensitive) to `to`.
+    /// Renames the sheet currently named `from` (case-insensitive) to `to`,
+    /// repointing everything in the document that named the old sheet.
+    ///
+    /// A rename is **holistic**: the workbook owns the dangling-ref invariant
+    /// across it (issue #969). Three things move together —
+    ///
+    /// - the sheet's own name;
+    /// - every [`NamedRange`] and [`Table`] `ref` whose sheet token resolves
+    ///   to this sheet (case-insensitively, §2). The A1 part is untouched and
+    ///   the new sheet token is re-emitted in canonical quoting, so a `ref`
+    ///   that was canonical stays canonical (§7);
+    /// - every formula that qualifies a cell/range reference with the old
+    ///   name, rewritten via [`Engine::rename_sheet_refs`]: unqualified refs,
+    ///   refs to other sheets, string literals, function names and defined
+    ///   names are left alone. A formula that does not parse has no references
+    ///   to rewrite and is left verbatim — formula text carries no document
+    ///   invariant, and `from_json` does not validate it either.
+    ///
+    /// One asymmetry is worth knowing. Sheet *identity* in this crate is
+    /// Unicode **simple case folding**, and the `ref` rewrite above uses it.
+    /// `Engine::rename_sheet_refs` matches a formula's sheet qualifier with
+    /// `str::to_uppercase()` instead (`truecalc-core` does not depend on
+    /// `icu_casemap`). The two agree on every name whose characters case-map
+    /// one-to-one, and disagree only where they do not — `ß` vs `SS`, or the
+    /// Kelvin sign `K` (U+212A) vs ASCII `K`. A workbook holding two sheets
+    /// that differ only in such a character can therefore see a formula
+    /// qualifier rewritten that pointed at the *other* sheet, or left alone
+    /// when it should have moved. Named-range and table refs are exact either
+    /// way, so this cannot produce an unloadable document — only a wrong
+    /// formula, and only for names built from those characters.
     ///
     /// A pure case change of the *same* sheet is allowed (it does not collide
-    /// with itself). Errors if `from` does not exist, if `to` is empty/too
-    /// long (§3), or if `to` collides with a *different* sheet (§2).
+    /// with itself) and repoints refs and formulas to the new casing. Errors
+    /// if `from` does not exist, if `to` is empty/too long (§3), or if `to`
+    /// collides with a *different* sheet (§2). Every error is decided before
+    /// anything is written, so a rejected rename leaves the document exactly
+    /// as it was.
     pub fn rename_sheet(&mut self, from: &str, to: &str) -> Result<(), WorkbookError> {
         let idx = self.sheet_index(from).ok_or_else(|| {
             WorkbookError::SheetManagement(format!("cannot rename: no sheet named {from:?}"))
@@ -227,6 +276,54 @@ impl Workbook {
         // Re-keys every node on the sheet and re-resolves every qualified
         // reference to the old and the new name.
         self.graph_cache.invalidate();
+
+        let old = self.sheets[idx].name().to_owned();
+        let folder = CaseMapperBorrowed::new();
+        let old_folded = simple_fold(&folder, &old);
+        let new_token = named_ref::quote_sheet_if_needed(to);
+        for r in self
+            .names
+            .iter_mut()
+            .map(|n| &mut n.r#ref)
+            .chain(self.tables.iter_mut().map(|t| &mut t.r#ref))
+        {
+            // A `ref` that will not even split is one `from_json` rejects
+            // outright; there is no sheet token to repoint, so leave it for
+            // `to_json` to report rather than guessing at a rewrite.
+            if let Ok((sheet, a1)) = named_ref::split_sheet_ref(r) {
+                if simple_fold(&folder, &sheet) == old_folded {
+                    *r = format!("{new_token}!{a1}");
+                }
+            }
+        }
+
+        // The one rewriter, not a second one: `truecalc-core` already ships
+        // this transform and the wasm surface exposes it, so a private copy
+        // here would be a second implementation to drift.
+        let engine = match self.engine {
+            EngineFlavor::Sheets => Engine::sheets(),
+            EngineFlavor::Excel => Engine::excel(),
+        };
+        for sheet in &mut self.sheets {
+            for cell in sheet.cells_mut().values_mut() {
+                let Some(formula) = cell.formula() else {
+                    continue;
+                };
+                // A sheet qualifier is spelled `Sheet!A1`, so a formula with no
+                // `!` cannot hold one and needs no parse. A byte scan instead of
+                // a parse is what keeps the common case — most cells do not
+                // reference another sheet — off the rename's cost.
+                if !formula.contains('!') {
+                    continue;
+                }
+                if let Ok(rewritten) = engine.rename_sheet_refs(formula, &old, to) {
+                    if rewritten != formula {
+                        cell.set_formula(rewritten);
+                    }
+                }
+            }
+        }
+
         self.sheets[idx].set_name(to);
         Ok(())
     }
@@ -396,10 +493,18 @@ impl Workbook {
     /// newline, object keys sorted by UTF-16 code units, ECMAScript number
     /// formatting, `names` sorted by `name`.
     ///
-    /// Errors if a value is non-finite (forbidden, schema spec §8.4) or if the
-    /// canonical bytes exceed the 100 MiB cap — enforced on `wasm32` only, see
-    /// the [`limits`](crate::limits) module docs (scope ADR Decision 5).
+    /// Errors if a named range or table `ref` dangles to a sheet the workbook
+    /// does not have — the §7 invariant [`remove_sheet`](Self::remove_sheet)
+    /// and [`rename_sheet`](Self::rename_sheet) are the ways to break, checked
+    /// here so a document that cannot be loaded cannot be written — if a value
+    /// is non-finite (forbidden, schema spec §8.4), or if the canonical bytes
+    /// exceed the 100 MiB cap — enforced on `wasm32` only, see the
+    /// [`limits`](crate::limits) module docs (scope ADR Decision 5).
     pub fn to_json(&self) -> Result<String, WorkbookError> {
+        // Saving must not produce a document that can never be opened: the §7
+        // dangling-ref rule is the one document invariant a structural change
+        // can leave broken, so it is re-checked here and not only on load.
+        self.check_no_dangling_refs()?;
         // Serialize through the typed serde layer (which already emits the §6
         // value encodings and rejects NaN/Inf), then canonicalize the tree.
         let mut tree =
@@ -415,6 +520,69 @@ impl Workbook {
             )));
         }
         Ok(canonical)
+    }
+
+    /// The §7 dangling-sheet-ref invariant, checked against the in-memory
+    /// document: every [`NamedRange`] and [`Table`] `ref` must name a sheet
+    /// this workbook still has (case-insensitively, §2).
+    ///
+    /// Deliberately the same rule, applied with the same helper and reported
+    /// with the same wording as [`from_json`](Self::from_json), so the two
+    /// cannot drift — a save that succeeds is a load that will succeed for
+    /// this rule. Deliberately *only* that rule: it costs `O(names + tables)`,
+    /// both capped at 10 000, and never touches a cell. The remaining
+    /// load-time rules (§2/§3 sheet names, §3 cell keys, §5 spill rectangles,
+    /// §7 name shape and uniqueness, table overlap and header-row column
+    /// names) stay load-only, because a mutation-API caller cannot break them:
+    /// [`add_sheet`](Self::add_sheet), [`define_name`](Self::define_name) and
+    /// their siblings check each one at the point of change. Reaching past the
+    /// API — [`names_mut`](Self::names_mut), [`tables_mut`](Self::tables_mut),
+    /// [`sheets_mut`](Self::sheets_mut) — can still build a document that
+    /// saves and will not load; those hand out a raw `&mut` and promise
+    /// nothing.
+    ///
+    /// A formula naming a missing sheet is **not** a violation. `from_json`
+    /// does not check formula text at all: such a reference is legal and
+    /// resolves to an error at recalculation, so `to_json` accepts it too.
+    fn check_no_dangling_refs(&self) -> Result<(), WorkbookError> {
+        if self.names.is_empty() && self.tables.is_empty() {
+            return Ok(());
+        }
+        let folder = CaseMapperBorrowed::new();
+        // A set, where `from_json`'s equivalent is a `Vec`: same membership
+        // test, but this one runs on the save path against up to 20 000 refs,
+        // and the linear scan made the sheet count (capped at 256) a factor in
+        // it — ~10 ms at both caps, versus ~3 ms here.
+        let folded_sheets: HashSet<String> = self
+            .sheets
+            .iter()
+            .map(|s| simple_fold(&folder, s.name()))
+            .collect();
+        let exists = |sheet: &str| folded_sheets.contains(&simple_fold(&folder, sheet));
+
+        for nr in &self.names {
+            let (sheet, _) =
+                named_ref::split_sheet_ref(&nr.r#ref).map_err(WorkbookError::Validation)?;
+            if !exists(&sheet) {
+                return Err(WorkbookError::Validation(format!(
+                    "named range {:?} refers to sheet {sheet:?}, which does not exist \
+                     (schema spec §7)",
+                    nr.name
+                )));
+            }
+        }
+        for t in &self.tables {
+            let (sheet, _) = named_ref::split_sheet_ref(&t.r#ref)
+                .map_err(|e| WorkbookError::Validation(format!("table {:?}: {e}", t.name)))?;
+            if !exists(&sheet) {
+                return Err(WorkbookError::Validation(format!(
+                    "table {:?} refers to sheet {sheet:?}, which does not exist \
+                     (structured-references spec §4)",
+                    t.name
+                )));
+            }
+        }
+        Ok(())
     }
 }
 

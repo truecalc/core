@@ -55,6 +55,17 @@ impl Cell {
     pub fn formula(&self) -> Option<&str> {
         self.formula.as_deref()
     }
+
+    /// Replaces the authored formula text, leaving `value` alone.
+    ///
+    /// Crate-internal, and deliberately not a public setter: the one caller is
+    /// [`Workbook::rename_sheet`](crate::Workbook::rename_sheet)'s reference
+    /// rewrite, which substitutes a new sheet qualifier into text the engine
+    /// re-rendered from the same parse. A public setter would let a caller
+    /// swap formula text without invalidating the dependency-graph cache.
+    pub(crate) fn set_formula(&mut self, formula: String) {
+        self.formula = Some(formula);
+    }
 }
 
 /// Shadow struct for deserialization: rejects unknown fields (including the

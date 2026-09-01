@@ -127,7 +127,12 @@ pub fn parse_canonical_ref(r: &str) -> Result<ParsedRef, String> {
 }
 
 /// Splits `Sheet!A1` / `'Quoted ''Name'!A1:B2` into (unquoted sheet, a1 part).
-fn split_sheet_ref(r: &str) -> Result<(String, String), String> {
+///
+/// Unlike [`parse_canonical_ref`] this only splits: it does not check the A1
+/// part or canonical form. That is what a sheet rename needs — it repoints the
+/// sheet token of a `ref` it is not otherwise judging, and pairing this with
+/// [`quote_sheet_if_needed`] keeps an already-canonical `ref` canonical.
+pub fn split_sheet_ref(r: &str) -> Result<(String, String), String> {
     let bytes = r.as_bytes();
     if bytes.first() == Some(&b'\'') {
         // Quoted sheet: scan for the closing quote, treating `''` as an escaped
