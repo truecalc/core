@@ -18,6 +18,7 @@ use crate::named_range::NamedRange;
 use crate::named_ref;
 use crate::strict_json;
 use crate::table::Table;
+use crate::table_ref;
 use crate::validate;
 use crate::worksheet::Worksheet;
 
@@ -241,25 +242,52 @@ impl Workbook {
     ///   to rewrite and is left verbatim — formula text carries no document
     ///   invariant, and `from_json` does not validate it either.
     ///
-    /// One asymmetry is worth knowing. Sheet *identity* in this crate is
-    /// Unicode **simple case folding**, and the `ref` rewrite above uses it.
-    /// `Engine::rename_sheet_refs` matches a formula's sheet qualifier with
-    /// `str::to_uppercase()` instead (`truecalc-core` does not depend on
-    /// `icu_casemap`). The two agree on every name whose characters case-map
-    /// one-to-one, and disagree only where they do not — `ß` vs `SS`, or the
-    /// Kelvin sign `K` (U+212A) vs ASCII `K`. A workbook holding two sheets
-    /// that differ only in such a character can therefore see a formula
-    /// qualifier rewritten that pointed at the *other* sheet, or left alone
-    /// when it should have moved. Named-range and table refs are exact either
-    /// way, so this cannot produce an unloadable document — only a wrong
-    /// formula, and only for names built from those characters.
+    /// # Errors
+    ///
+    /// Beyond the name rules — `from` does not exist, `to` is empty or too
+    /// long (§3), `to` collides with a *different* sheet (§2) — a rename is
+    /// refused when the rewrite itself would produce a document
+    /// [`from_json`](Self::from_json) rejects. That is the whole point of the
+    /// operation, so it errors rather than writing one:
+    ///
+    /// - a rewritten formula longer than the formula cap (Decision 5). A sheet
+    ///   name may be 100 scalar values, so a rename can multiply a formula's
+    ///   length; the check mirrors the one the rest of the mutation API
+    ///   applies at the point of change;
+    /// - a repointed [`Table`] landing on a range another table already
+    ///   occupies (structured-references spec §4). Reachable because a table
+    ///   may legitimately be left dangling by [`remove_sheet`](Self::remove_sheet),
+    ///   and a later rename can move a live table onto it.
+    ///
+    /// Every error is decided before anything is written, so a rejected rename
+    /// leaves the document exactly as it was.
     ///
     /// A pure case change of the *same* sheet is allowed (it does not collide
-    /// with itself) and repoints refs and formulas to the new casing. Errors
-    /// if `from` does not exist, if `to` is empty/too long (§3), or if `to`
-    /// collides with a *different* sheet (§2). Every error is decided before
-    /// anything is written, so a rejected rename leaves the document exactly
-    /// as it was.
+    /// with itself) and repoints refs and formulas to the new casing.
+    ///
+    /// # The one case-folding asymmetry
+    ///
+    /// Sheet *identity* in this crate is Unicode **simple case folding**, and
+    /// the `ref` rewrite above uses it. [`Engine::rename_sheet_refs`] matches a
+    /// formula's sheet qualifier with `str::to_uppercase()` instead
+    /// (`truecalc-core` does not depend on `icu_casemap`). The two agree on
+    /// every name whose characters case-map one-to-one, and disagree where they
+    /// do not: `simple_fold("ß") == "ß"`, so `Maß` and `MASS` are *different*
+    /// sheets under §2 and both may exist, while `to_uppercase` collapses them.
+    ///
+    /// The consequence is sharper than "a formula is left unrewritten".
+    /// Renaming `MASS` re-points a formula's `Maß!A1` qualifier at the new
+    /// name, so **a formula can be silently moved onto a different, still
+    /// existing sheet and quietly compute different numbers**, while a
+    /// `NamedRange` spelled `'Maß'!A1` is correctly left alone — refs and
+    /// formulas end up disagreeing about the same rename. `ﬁ` (U+FB01) versus
+    /// `fi` is the same shape. It cannot break the §7 dangling-ref rule — refs
+    /// use simple folding and are exact — and an over-long rewrite it causes is
+    /// refused by the formula-cap check above rather than written, so it does
+    /// not produce an unloadable document. It is simply wrong, and the fix
+    /// belongs in the matcher rather than here —
+    /// see the test `divergent_case_folding_repoints_a_formula_at_another_sheet`,
+    /// which pins the current behaviour so it is not rediscovered as a mystery.
     pub fn rename_sheet(&mut self, from: &str, to: &str) -> Result<(), WorkbookError> {
         let idx = self.sheet_index(from).ok_or_else(|| {
             WorkbookError::SheetManagement(format!("cannot rename: no sheet named {from:?}"))
@@ -273,57 +301,97 @@ impl Workbook {
                 )));
             }
         }
-        // Re-keys every node on the sheet and re-resolves every qualified
-        // reference to the old and the new name.
-        self.graph_cache.invalidate();
 
         let old = self.sheets[idx].name().to_owned();
         let folder = CaseMapperBorrowed::new();
         let old_folded = simple_fold(&folder, &old);
         let new_token = named_ref::quote_sheet_if_needed(to);
-        for r in self
-            .names
-            .iter_mut()
-            .map(|n| &mut n.r#ref)
-            .chain(self.tables.iter_mut().map(|t| &mut t.r#ref))
-        {
-            // A `ref` that will not even split is one `from_json` rejects
-            // outright; there is no sheet token to repoint, so leave it for
-            // `to_json` to report rather than guessing at a rewrite.
-            if let Ok((sheet, a1)) = named_ref::split_sheet_ref(r) {
-                if simple_fold(&folder, &sheet) == old_folded {
-                    *r = format!("{new_token}!{a1}");
-                }
-            }
-        }
+
+        // ── Phase 1: compute every rewrite and validate it. Nothing is written
+        // until all of it is known good, so a refused rename is a no-op.
+        //
+        // A `ref` that will not even split is one `from_json` rejects outright;
+        // there is no sheet token to repoint, so leave it for `to_json` to
+        // report rather than guessing at a rewrite.
+        let repoint = |r: &str| -> Option<String> {
+            let (sheet, a1) = named_ref::split_sheet_ref(r).ok()?;
+            (simple_fold(&folder, &sheet) == old_folded).then(|| format!("{new_token}!{a1}"))
+        };
+        let name_refs: Vec<Option<String>> = self.names.iter().map(|n| repoint(&n.r#ref)).collect();
+        let table_refs: Vec<Option<String>> =
+            self.tables.iter().map(|t| repoint(&t.r#ref)).collect();
+        check_rename_table_overlap(&self.tables, &table_refs, to, &folder)?;
 
         // The one rewriter, not a second one: `truecalc-core` already ships
         // this transform and the wasm surface exposes it, so a private copy
         // here would be a second implementation to drift.
-        let engine = match self.engine {
-            EngineFlavor::Sheets => Engine::sheets(),
-            EngineFlavor::Excel => Engine::excel(),
-        };
-        for sheet in &mut self.sheets {
-            for cell in sheet.cells_mut().values_mut() {
+        // Built lazily: constructing one populates a function registry, and a
+        // workbook with no cross-sheet formula never needs it.
+        let flavor = self.engine;
+        let mut engine: Option<Engine> = None;
+        // Buffered, not applied in place, so the formula-length check below can
+        // refuse the whole rename. Bounded by the text of the formulas that
+        // actually reference the renamed sheet, not by the workbook.
+        let mut formula_rewrites: Vec<(usize, String, String)> = Vec::new();
+        for (sheet_idx, sheet) in self.sheets.iter().enumerate() {
+            for (key, cell) in sheet.cells() {
                 let Some(formula) = cell.formula() else {
                     continue;
                 };
-                // A sheet qualifier is spelled `Sheet!A1`, so a formula with no
-                // `!` cannot hold one and needs no parse. A byte scan instead of
-                // a parse is what keeps the common case — most cells do not
-                // reference another sheet — off the rename's cost.
+                // A sheet qualifier is spelled `Sheet!A1` — both grammar rules
+                // that produce one (`parser::mod.rs`, the bare and the quoted
+                // sheet-ref productions) require a literal `!` — so a formula
+                // without one cannot hold a qualifier and needs no parse. A
+                // byte scan instead of a parse is what keeps the common case,
+                // where most cells do not reference another sheet, off the
+                // rename's cost.
                 if !formula.contains('!') {
                     continue;
                 }
-                if let Ok(rewritten) = engine.rename_sheet_refs(formula, &old, to) {
-                    if rewritten != formula {
-                        cell.set_formula(rewritten);
-                    }
+                let engine = engine.get_or_insert_with(|| match flavor {
+                    EngineFlavor::Sheets => Engine::sheets(),
+                    EngineFlavor::Excel => Engine::excel(),
+                });
+                let Ok(rewritten) = engine.rename_sheet_refs(formula, &old, to) else {
+                    continue;
+                };
+                if rewritten == formula {
+                    continue;
                 }
+                if rewritten.len() > limits::MAX_FORMULA_LEN {
+                    return Err(WorkbookError::SheetManagement(format!(
+                        "cannot rename sheet {old:?} to {to:?}: it would grow the formula in \
+                         cell {key:?} of sheet {:?} to {} bytes, exceeding the limit of {} \
+                         (scope ADR Decision 5)",
+                        sheet.name(),
+                        rewritten.len(),
+                        limits::MAX_FORMULA_LEN
+                    )));
+                }
+                formula_rewrites.push((sheet_idx, key.clone(), rewritten));
             }
         }
 
+        // ── Phase 2: commit.
+        //
+        // Re-keys every node on the sheet and re-resolves every qualified
+        // reference to the old and the new name.
+        self.graph_cache.invalidate();
+        for (nr, new) in self.names.iter_mut().zip(name_refs) {
+            if let Some(new) = new {
+                nr.r#ref = new;
+            }
+        }
+        for (t, new) in self.tables.iter_mut().zip(table_refs) {
+            if let Some(new) = new {
+                t.r#ref = new;
+            }
+        }
+        for (sheet_idx, key, rewritten) in formula_rewrites {
+            if let Some(cell) = self.sheets[sheet_idx].cells_mut().get_mut(&key) {
+                cell.set_formula(rewritten);
+            }
+        }
         self.sheets[idx].set_name(to);
         Ok(())
     }
@@ -530,20 +598,38 @@ impl Workbook {
     /// with the same wording as [`from_json`](Self::from_json), so the two
     /// cannot drift — a save that succeeds is a load that will succeed for
     /// this rule. Deliberately *only* that rule: it costs `O(names + tables)`,
-    /// both capped at 10 000, and never touches a cell. The remaining
-    /// load-time rules (§2/§3 sheet names, §3 cell keys, §5 spill rectangles,
-    /// §7 name shape and uniqueness, table overlap and header-row column
-    /// names) stay load-only, because a mutation-API caller cannot break them:
-    /// [`add_sheet`](Self::add_sheet), [`define_name`](Self::define_name) and
-    /// their siblings check each one at the point of change. Reaching past the
-    /// API — [`names_mut`](Self::names_mut), [`tables_mut`](Self::tables_mut),
-    /// [`sheets_mut`](Self::sheets_mut) — can still build a document that
-    /// saves and will not load; those hand out a raw `&mut` and promise
-    /// nothing.
+    /// both capped at 10 000, and never touches a cell.
+    ///
+    /// The rest of the load-time rules stay load-only, in three groups, and
+    /// the difference between them matters:
+    ///
+    /// - **Unreachable through the mutation API.** §2/§3 sheet names and the
+    ///   sheet cap, §3 cell-key syntax and bounds, §5 spill rectangles, §7
+    ///   named-range name shape and uniqueness, table-name uniqueness and the
+    ///   count caps, text/array/cell limits, and — since the checks
+    ///   [`rename_sheet`](Self::rename_sheet) now runs — formula length and
+    ///   table-range overlap. [`add_sheet`](Self::add_sheet),
+    ///   [`define_name`](Self::define_name), [`define_table`](Self::define_table)
+    ///   and their siblings each check their own at the point of change.
+    /// - **Reachable and deliberate.** [`define_table`](Self::define_table)
+    ///   does not validate a table's header-row column names — a table may be
+    ///   declared before its headers are written — but `from_json` does. That
+    ///   asymmetry is a documented design decision on `define_table`, not an
+    ///   oversight, and is left alone here.
+    /// - **Reachable only past the API.** [`names_mut`](Self::names_mut),
+    ///   [`tables_mut`](Self::tables_mut) and [`sheets_mut`](Self::sheets_mut)
+    ///   hand out a raw `&mut` and promise nothing: a non-canonical `ref`
+    ///   (§7), a cell key that is not valid A1 (§3), a duplicate name — all
+    ///   still save and will not load.
     ///
     /// A formula naming a missing sheet is **not** a violation. `from_json`
     /// does not check formula text at all: such a reference is legal and
     /// resolves to an error at recalculation, so `to_json` accepts it too.
+    ///
+    /// Message equality with `from_json` holds when the dangling ref is the
+    /// document's *first* violation. `from_json` checks table name validity
+    /// and uniqueness before it checks a table's sheet, so a document that
+    /// breaks both reports whichever rule its side reaches first.
     fn check_no_dangling_refs(&self) -> Result<(), WorkbookError> {
         if self.names.is_empty() && self.tables.is_empty() {
             return Ok(());
@@ -584,6 +670,59 @@ impl Workbook {
         }
         Ok(())
     }
+}
+
+/// Refuses a rename that would drop a repointed table onto a range another
+/// table already occupies (structured-references spec §4) — the rule
+/// [`Workbook::define_table`] enforces at the point of change and
+/// [`Workbook::from_json`] enforces on load, which a rename could otherwise
+/// slip past.
+///
+/// `repointed[i]` is the new `ref` for `tables[i]`, or `None` if that table
+/// does not target the renamed sheet. Only the target sheet's occupancy
+/// changes, so only tables that end up there are compared — bucketing by sheet
+/// keeps this off the `O(tables²)` shape `from_json` pays once at load.
+///
+/// A `ref` that will not parse as a canonical range yields no bounds and is
+/// skipped rather than panicked on, matching
+/// [`Workbook::define_table`]'s own handling of a `tables_mut()`-injected ref.
+///
+/// [`Workbook::define_table`]: crate::Workbook::define_table
+/// [`Workbook::from_json`]: crate::Workbook::from_json
+fn check_rename_table_overlap(
+    tables: &[Table],
+    repointed: &[Option<String>],
+    to: &str,
+    folder: &CaseMapperBorrowed<'static>,
+) -> Result<(), WorkbookError> {
+    if repointed.iter().all(Option::is_none) {
+        return Ok(());
+    }
+    let target = simple_fold(folder, to);
+    let landing: Vec<(&str, table_ref::ParsedRangeBounds)> = tables
+        .iter()
+        .zip(repointed)
+        .filter_map(|(t, new)| {
+            let r = new.as_deref().unwrap_or(t.r#ref.as_str());
+            let parsed = named_ref::parse_canonical_ref(r).ok()?;
+            let mut bounds = table_ref::parsed_range_bounds(r, &parsed)?;
+            bounds.sheet = simple_fold(folder, &parsed.sheet);
+            (bounds.sheet == target).then_some((t.name.as_str(), bounds))
+        })
+        .collect();
+
+    for i in 0..landing.len() {
+        for j in (i + 1)..landing.len() {
+            if table_ref::ranges_overlap(&landing[i].1, &landing[j].1) {
+                return Err(WorkbookError::SheetManagement(format!(
+                    "cannot rename sheet to {to:?}: it would place table {:?} over table {:?}, \
+                     whose ranges overlap (structured-references spec §4)",
+                    landing[j].0, landing[i].0
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Validates a sheet name for the mutation API: non-empty and ≤ 100 Unicode

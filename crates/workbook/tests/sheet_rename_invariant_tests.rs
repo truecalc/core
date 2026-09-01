@@ -240,12 +240,163 @@ fn a_failed_rename_leaves_the_document_untouched() {
 
 /// An unparseable formula has no references to rewrite; a rename must leave it
 /// verbatim rather than failing (formula text is not validated on load).
+///
+/// The text must contain a `!`, or the `contains('!')` fast path skips it
+/// before the parser is ever reached and the swallowed-parse-error branch goes
+/// untested.
 #[test]
 fn an_unparseable_formula_is_left_verbatim_by_a_rename() {
     let mut wb = wb_with(&["Data", "Report"]);
-    set_formula(&mut wb, "Report", "A1", "=SUM(((");
+    set_formula(&mut wb, "Report", "A1", "=SUM(Data!A1"); // unbalanced paren
+    set_formula(&mut wb, "Report", "A2", "=SUM((("); // and one with no `!` at all
 
     wb.rename_sheet("Data", "Facts").unwrap();
 
-    assert_eq!(formula_at(&wb, "Report", "A1"), "=SUM(((");
+    assert_eq!(formula_at(&wb, "Report", "A1"), "=SUM(Data!A1");
+    assert_eq!(formula_at(&wb, "Report", "A2"), "=SUM(((");
+}
+
+/// A sheet name carrying an apostrophe is the one nontrivial quoting path:
+/// `split_sheet_ref` must un-double `''` on the way in and
+/// `quote_sheet_if_needed` must re-double it on the way out, in both
+/// directions.
+#[test]
+fn a_sheet_name_with_an_apostrophe_round_trips_in_both_directions() {
+    let mut wb = wb_with(&["Plain", "Report"]);
+    wb.define_name("Totals", "Plain!A1:A3").unwrap();
+    set_formula(&mut wb, "Report", "A1", "=Plain!A1");
+
+    wb.rename_sheet("Plain", "Bob's Data").unwrap();
+    assert_eq!(name_ref(&wb, "Totals"), "'Bob''s Data'!A1:A3");
+    assert_eq!(formula_at(&wb, "Report", "A1"), "='Bob''s Data'!A1");
+    let json = wb.to_json().unwrap();
+    Workbook::from_json(json.as_bytes()).expect("an apostrophe ref must reload");
+
+    wb.rename_sheet("Bob's Data", "Plain").unwrap();
+    assert_eq!(name_ref(&wb, "Totals"), "Plain!A1:A3");
+    assert_eq!(formula_at(&wb, "Report", "A1"), "=Plain!A1");
+}
+
+/// A rewrite that would push a formula past the formula cap is refused, not
+/// written: `from_json` enforces that cap (Decision 5), so writing it would be
+/// the same "saves but never loads" failure this whole issue is about. A sheet
+/// name may be 100 scalar values, so a rename can multiply a formula's length.
+#[test]
+fn a_rename_that_would_overflow_the_formula_cap_is_refused() {
+    let mut wb = wb_with(&["D", "R"]);
+    // A flat argument list, not a `+` chain: the parser recurses on operators,
+    // so a 32 KiB chain overflows its stack long before the cap matters.
+    let args = vec!["D!A1"; 5000].join(",");
+    let formula = format!("=SUM({args})");
+    assert!(formula.len() < 32 * 1024, "must start under the cap");
+    set_formula(&mut wb, "R", "A1", &formula);
+    let long_name = "L".repeat(100);
+
+    let err = wb
+        .rename_sheet("D", &long_name)
+        .expect_err("a rename that would breach the formula cap must be refused");
+    assert!(
+        err.to_string().contains("exceeding the limit"),
+        "unexpected error: {err}"
+    );
+
+    assert_eq!(
+        formula_at(&wb, "R", "A1"),
+        formula,
+        "refused rename is a no-op"
+    );
+    assert_eq!(
+        wb.sheet("D").map(Worksheet::name),
+        Some("D"),
+        "the tab is not renamed either"
+    );
+    wb.to_json().expect("the untouched document still saves");
+}
+
+/// A rename may not drop a repointed table onto a range another table already
+/// holds. Reachable because `remove_sheet` legitimately leaves a table
+/// dangling, and a later rename can move a live table onto that name.
+#[test]
+fn a_rename_that_would_overlap_two_tables_is_refused() {
+    let mut wb = wb_with(&["Ghost", "Real"]);
+    wb.tables_mut().push(Table {
+        name: "Alpha".into(),
+        r#ref: "Ghost!A1:B4".into(),
+    });
+    wb.tables_mut().push(Table {
+        name: "Bravo".into(),
+        r#ref: "Real!A1:B4".into(),
+    });
+    wb.remove_sheet("Ghost").unwrap(); // Alpha now dangles at "Ghost"
+
+    let err = wb
+        .rename_sheet("Real", "Ghost")
+        .expect_err("the rename would stack Bravo on top of Alpha");
+    assert!(
+        err.to_string().contains("overlap"),
+        "unexpected error: {err}"
+    );
+    assert_eq!(
+        table_ref(&wb, "Bravo"),
+        "Real!A1:B4",
+        "refused rename is a no-op"
+    );
+}
+
+/// A rename that moves a table onto a sheet with room for it is still allowed —
+/// the overlap check must not refuse every rename that touches a table.
+#[test]
+fn a_rename_that_moves_a_table_without_overlap_is_allowed() {
+    let mut wb = wb_with(&["Ghost", "Real"]);
+    wb.tables_mut().push(Table {
+        name: "Alpha".into(),
+        r#ref: "Ghost!A1:B4".into(),
+    });
+    wb.tables_mut().push(Table {
+        name: "Bravo".into(),
+        r#ref: "Real!D1:E4".into(), // a different range
+    });
+    wb.remove_sheet("Ghost").unwrap();
+
+    wb.rename_sheet("Real", "Ghost").unwrap();
+    assert_eq!(table_ref(&wb, "Bravo"), "Ghost!D1:E4");
+}
+
+/// Pins the known-wrong consequence of the case-folding divergence between
+/// `Engine::rename_sheet_refs` (`to_uppercase`) and this crate's sheet identity
+/// (Unicode simple case folding), so it is not rediscovered as a mystery.
+///
+/// `simple_fold("ß") == "ß"`, so `Maß` and `MASS` are distinct sheets under §2
+/// and both may exist; `to_uppercase` collapses them. Renaming `MASS` therefore
+/// also repoints a formula that referenced `Maß` — a silently wrong result, not
+/// an unloadable document. The named range is left correct, so refs and
+/// formulas disagree about the same rename. The fix belongs in the matcher.
+#[test]
+fn divergent_case_folding_repoints_a_formula_at_another_sheet() {
+    let mut wb = wb_with(&["Maß", "MASS", "Report"]);
+    wb.define_name("Totals", "'Maß'!A1").unwrap();
+    set_formula(&mut wb, "Report", "A1", "='Maß'!A1");
+    set_formula(&mut wb, "Report", "A2", "=MASS!A1");
+
+    wb.rename_sheet("MASS", "X").unwrap();
+
+    assert_eq!(
+        formula_at(&wb, "Report", "A2"),
+        "=X!A1",
+        "the formula that really did point at MASS moves, as it should"
+    );
+    assert_eq!(
+        formula_at(&wb, "Report", "A1"),
+        "=X!A1",
+        "KNOWN WRONG: this pointed at the still-existing sheet Maß and should \
+         have been left alone"
+    );
+    assert_eq!(
+        name_ref(&wb, "Totals"),
+        "'Maß'!A1",
+        "the named range uses simple folding and is correctly left alone"
+    );
+
+    let json = wb.to_json().expect("still saves");
+    Workbook::from_json(json.as_bytes()).expect("and still loads: refs stayed exact");
 }

@@ -111,14 +111,18 @@ fn rename_sheet_rekeys_cross_sheet_edges() {
         .direct_dependents_of(&cref("sheet2", "A1"))
         .contains(&cref("sheet1", "A1")));
 
-    // Rename Sheet2 → Data. The formula text still says "Sheet2!A1", which now
-    // dangles — the rebuild rule for rename surfaces this (Sheets would rewrite
-    // the formula on rename, which is structural-edit territory deferred to a
-    // post-v1 issue; here the graph just reflects the new state honestly).
+    // Rename Sheet2 → Data. Since truecalc/core#969 the rename rewrites the
+    // qualified formula text too, so `=Sheet2!A1` becomes `=Data!A1` and the
+    // edge *moves* rather than dangling: the graph tracks the reference to the
+    // sheet it still points at.
     wb.rename_sheet("Sheet2", "Data").unwrap();
     let after = DependencyGraph::build(&wb);
-    // The old folded-name edge is gone.
+    // The old folded-name edge is gone, and the same edge exists under the new
+    // name.
     assert!(after.direct_dependents_of(&cref("sheet2", "A1")).is_empty());
+    assert!(after
+        .direct_dependents_of(&cref("data", "A1"))
+        .contains(&cref("sheet1", "A1")));
     assert_ne!(before, after);
 }
 
