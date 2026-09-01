@@ -63,7 +63,7 @@ fn set_on_unknown_sheet_errors() {
     let err = wb
         .set("Nope", a1("A1"), CellInput::Literal(Value::Number(1.0)))
         .unwrap_err();
-    assert!(matches!(err, WorkbookError::Mutation(_)));
+    assert!(matches!(err, WorkbookError::UnknownSheet(_)));
 }
 
 #[test]
@@ -98,7 +98,7 @@ fn set_invalid_formula_is_rejected() {
     let err = wb
         .set("S", a1("A1"), CellInput::Formula("=1 +".into()))
         .unwrap_err();
-    assert!(matches!(err, WorkbookError::Mutation(_)));
+    assert!(matches!(err, WorkbookError::InvalidFormula(_)));
     assert!(wb.get("S", a1("A1")).is_none());
 }
 
@@ -143,7 +143,7 @@ fn set_enforces_text_length_cap() {
     let err = wb
         .set("S", a1("A1"), CellInput::Literal(Value::Text(too_long)))
         .unwrap_err();
-    assert!(matches!(err, WorkbookError::Mutation(_)));
+    assert!(matches!(err, WorkbookError::ResourceLimit(_)));
     // At exactly the cap, it succeeds.
     let at_cap = "x".repeat(truecalc_workbook::limits::MAX_TEXT_LEN);
     assert!(wb
@@ -160,7 +160,7 @@ fn set_enforces_array_element_cap() {
     let err = wb
         .set("S", a1("A1"), CellInput::Literal(Value::Array(vec![row])))
         .unwrap_err();
-    assert!(matches!(err, WorkbookError::Mutation(_)));
+    assert!(matches!(err, WorkbookError::ResourceLimit(_)));
 }
 
 #[test]
@@ -171,7 +171,7 @@ fn set_enforces_formula_length_cap() {
         "1+".repeat(truecalc_workbook::limits::MAX_FORMULA_LEN)
     );
     let err = wb.set("S", a1("A1"), CellInput::Formula(huge)).unwrap_err();
-    assert!(matches!(err, WorkbookError::Mutation(_)));
+    assert!(matches!(err, WorkbookError::ResourceLimit(_)));
 }
 
 #[test]
@@ -222,7 +222,7 @@ fn define_duplicate_name_is_rejected_case_insensitively() {
     let mut wb = wb_with_sheet("Sheet2");
     wb.define_name("TaxRate", "Sheet2!B5").unwrap();
     let err = wb.define_name("TAXRATE", "Sheet2!C1").unwrap_err();
-    assert!(matches!(err, WorkbookError::Mutation(_)));
+    assert!(matches!(err, WorkbookError::DuplicateName(_)));
     assert_eq!(wb.names().len(), 1);
 }
 
@@ -238,12 +238,12 @@ fn define_name_rejects_collision_with_existing_table() {
     wb.define_table("Recipe", "Sheet1!A1:B2").unwrap();
     assert!(matches!(
         wb.define_name("Recipe", "Sheet1!C1").unwrap_err(),
-        WorkbookError::Mutation(_)
+        WorkbookError::DuplicateName(_)
     ));
     // Case-insensitively too.
     assert!(matches!(
         wb.define_name("RECIPE", "Sheet1!C1").unwrap_err(),
-        WorkbookError::Mutation(_)
+        WorkbookError::DuplicateName(_)
     ));
     assert!(wb.name("Recipe").is_none());
 }
@@ -254,12 +254,12 @@ fn define_name_rejects_invalid_name() {
     // A1-address-shaped name is invalid (schema spec §7).
     assert!(matches!(
         wb.define_name("A1", "S!B1").unwrap_err(),
-        WorkbookError::Mutation(_)
+        WorkbookError::InvalidReference(_)
     ));
     // Boolean literal is invalid.
     assert!(matches!(
         wb.define_name("TRUE", "S!B1").unwrap_err(),
-        WorkbookError::Mutation(_)
+        WorkbookError::InvalidReference(_)
     ));
 }
 
@@ -269,12 +269,12 @@ fn define_name_rejects_non_canonical_ref() {
     // Degenerate range must collapse to single-cell form.
     assert!(matches!(
         wb.define_name("R", "S!A1:A1").unwrap_err(),
-        WorkbookError::Mutation(_)
+        WorkbookError::InvalidReference(_)
     ));
     // Endpoints must be top-left first.
     assert!(matches!(
         wb.define_name("R2", "S!B2:A1").unwrap_err(),
-        WorkbookError::Mutation(_)
+        WorkbookError::InvalidReference(_)
     ));
 }
 
@@ -282,7 +282,7 @@ fn define_name_rejects_non_canonical_ref() {
 fn define_name_rejects_dangling_ref() {
     let mut wb = wb_with_sheet("S");
     let err = wb.define_name("R", "Ghost!A1").unwrap_err();
-    assert!(matches!(err, WorkbookError::Mutation(_)));
+    assert!(matches!(err, WorkbookError::DanglingSheetRef(_)));
 }
 
 #[test]
@@ -301,7 +301,7 @@ fn redefine_name_changes_ref_only() {
 fn redefine_unknown_name_errors() {
     let mut wb = wb_with_sheet("S");
     let err = wb.redefine_name("Missing", "S!A1").unwrap_err();
-    assert!(matches!(err, WorkbookError::Mutation(_)));
+    assert!(matches!(err, WorkbookError::NotFound(_)));
 }
 
 #[test]
@@ -309,7 +309,7 @@ fn redefine_to_dangling_ref_is_rejected() {
     let mut wb = wb_with_sheet("S");
     wb.define_name("R", "S!A1").unwrap();
     let err = wb.redefine_name("R", "Ghost!A1").unwrap_err();
-    assert!(matches!(err, WorkbookError::Mutation(_)));
+    assert!(matches!(err, WorkbookError::DanglingSheetRef(_)));
     // The original ref is unchanged after the rejected redefine.
     assert_eq!(wb.name("R").unwrap().r#ref, "S!A1");
 }
@@ -434,7 +434,7 @@ fn define_table_rejects_beyond_the_table_cap() {
     }
     assert!(matches!(
         wb.define_table("OneMore", "Sheet1!B1:B2").unwrap_err(),
-        WorkbookError::Mutation(_)
+        WorkbookError::ResourceLimit(_)
     ));
 }
 
