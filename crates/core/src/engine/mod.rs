@@ -5,6 +5,9 @@ use crate::eval::{evaluate_expr, Context, EvalCtx, EvalHook, Resolver};
 use crate::parser::{parse_formula, Expr};
 use crate::types::{ErrorKind, ParseError, Value};
 
+mod grid_edit;
+
+pub use grid_edit::GridEdit;
 mod rename;
 mod translate;
 
@@ -112,6 +115,59 @@ impl Engine {
     /// untouched. No-op if `formula` has no `old`-qualified refs.
     pub fn rename_sheet_refs(&self, formula: &str, old: &str, new: &str) -> Result<String, ParseError> {
         rename::rename_sheet_refs_text(formula, old, new)
+    }
+
+    /// Rewrite the cell/range references in `formula` for a row/column insert
+    /// or delete — the structural-edit reference-rewrite transform.
+    ///
+    /// Unlike [`Engine::translate_formula`], which applies a uniform offset,
+    /// a [`GridEdit`] moves references *conditionally*: those before the edit
+    /// index stay put, those at or after it shift by `count`, a range
+    /// straddling the edit grows (insert) or shrinks (delete), and a
+    /// reference whose every row/column was deleted becomes `#REF!` — the
+    /// whole reference, sheet qualifier included, since `Sheet1!#REF!` does
+    /// not re-parse.
+    ///
+    /// `$` anchors do **not** exempt an axis here: `$` governs how a
+    /// reference is *copied*, not which cell it points at, so `$A$5` tracks
+    /// its cell through an insert exactly as `A5` does. The anchors are
+    /// preserved in the output.
+    ///
+    /// `formula_sheet` is the sheet the formula lives on — what a bare `A1`
+    /// resolves to; `edited_sheet` is the sheet the rows/columns were
+    /// inserted into or deleted from. Only references resolving to
+    /// `edited_sheet` are touched, so a formula's references to other sheets
+    /// never move. Matching is case-insensitive, as in
+    /// [`Engine::rename_sheet_refs`]. String literals, function names,
+    /// defined names and `LET`/`LAMBDA` bindings are left untouched.
+    ///
+    /// Returns `Err` if `formula` does not parse, if the edit's `at` is `0`
+    /// (rows and columns are 1-based), or for `EngineFlavor::Excel`, whose
+    /// grid bounds are not established yet — the same guard
+    /// [`Engine::translate_formula`] carries.
+    ///
+    /// ```
+    /// use truecalc_core::{Engine, GridEdit};
+    ///
+    /// let engine = Engine::sheets();
+    /// let edit = GridEdit::DeleteRows { at: 2, count: 2 };
+    /// let out = engine.shift_refs_for_grid_edit("=SUM(A1:A5)+A3", "Sheet1", "Sheet1", edit).unwrap();
+    /// assert_eq!(out, "=SUM(A1:A3)+#REF!");
+    /// ```
+    pub fn shift_refs_for_grid_edit(
+        &self,
+        formula: &str,
+        formula_sheet: &str,
+        edited_sheet: &str,
+        edit: GridEdit,
+    ) -> Result<String, ParseError> {
+        if self.flavor == EngineFlavor::Excel {
+            return Err(ParseError {
+                message: "shift_refs_for_grid_edit: Excel flavor not yet supported".into(),
+                position: 0,
+            });
+        }
+        grid_edit::shift_refs_text(formula, formula_sheet, edited_sheet, edit)
     }
 
     /// Evaluate a formula string with named variables.
