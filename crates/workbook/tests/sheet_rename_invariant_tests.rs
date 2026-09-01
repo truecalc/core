@@ -362,6 +362,25 @@ fn a_rename_that_moves_a_table_without_overlap_is_allowed() {
     assert_eq!(table_ref(&wb, "Bravo"), "Ghost!D1:E4");
 }
 
+/// A pure case change moves no table between sheets, so it must not start
+/// refusing a document whose tables already overlapped — that state is only
+/// reachable past the API, and `from_json` already rejects it on its own.
+#[test]
+fn a_pure_case_change_does_not_refuse_pre_existing_table_overlap() {
+    let mut wb = wb_with(&["data"]);
+    for name in ["Alpha", "Bravo"] {
+        wb.tables_mut().push(Table {
+            name: name.into(),
+            r#ref: "data!A1:B4".into(),
+        });
+    }
+
+    wb.rename_sheet("data", "DATA")
+        .expect("a pure case change must not be refused by the overlap check");
+
+    assert_eq!(table_ref(&wb, "Alpha"), "DATA!A1:B4");
+}
+
 /// Pins the known-wrong consequence of the case-folding divergence between
 /// `Engine::rename_sheet_refs` (`to_uppercase`) and this crate's sheet identity
 /// (Unicode simple case folding), so it is not rediscovered as a mystery.

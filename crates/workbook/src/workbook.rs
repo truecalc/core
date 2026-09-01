@@ -320,7 +320,14 @@ impl Workbook {
         let name_refs: Vec<Option<String>> = self.names.iter().map(|n| repoint(&n.r#ref)).collect();
         let table_refs: Vec<Option<String>> =
             self.tables.iter().map(|t| repoint(&t.r#ref)).collect();
-        check_rename_table_overlap(&self.tables, &table_refs, to, &folder)?;
+        // A pure case change moves no table between sheets: the target bucket
+        // holds exactly the tables it held before, at exactly the same ranges.
+        // Skipping keeps the rename from newly refusing a document whose
+        // tables already overlapped (which only `tables_mut` can build, and
+        // which `from_json` already rejects on its own).
+        if simple_fold(&folder, to) != old_folded {
+            check_rename_table_overlap(&self.tables, &table_refs, to, &folder)?;
+        }
 
         // The one rewriter, not a second one: `truecalc-core` already ships
         // this transform and the wasm surface exposes it, so a private copy
