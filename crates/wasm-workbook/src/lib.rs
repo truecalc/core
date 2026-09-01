@@ -237,6 +237,13 @@ impl JsWorkbook {
             .map_err(|e| JsError::new(&e.to_string()))
     }
 
+    /// Removes a workbook-scoped named range, if one exists. A `name` that
+    /// does not exist is a silent no-op, matching [`clear`](Self::clear).
+    #[wasm_bindgen(js_name = removeName)]
+    pub fn remove_name(&mut self, name: &str) {
+        self.inner.remove_name(name);
+    }
+
     /// Defines a workbook-scoped table (issue #868): `ref_str`'s first row
     /// becomes the table's header row, so formulas can use `Table[Column]`
     /// (whole-column) and `Table[@Column]` / unqualified `[@Column]`
