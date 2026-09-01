@@ -344,10 +344,20 @@ fn a_rename_that_would_overlap_two_tables_is_refused() {
 }
 
 /// A rename that moves a table onto a sheet with room for it is still allowed —
-/// the overlap check must not refuse every rename that touches a table.
+/// the checks must not refuse every rename that touches a table. It must also
+/// **round trip**: a test that stops at `rename_sheet(...).unwrap()` would bless
+/// exactly the "saves but never loads" residual this issue exists to remove.
 #[test]
 fn a_rename_that_moves_a_table_without_overlap_is_allowed() {
     let mut wb = wb_with(&["Ghost", "Real"]);
+    // Headers for both tables' landing ranges: Alpha comes to rest over A1:B4
+    // and Bravo travels with the sheet at D1:E4.
+    for (a1, header) in [("A1", "Item"), ("B1", "Qty"), ("D1", "Cost"), ("E1", "Tax")] {
+        wb.sheet_mut("Real").unwrap().set(
+            Address::from_a1(a1).unwrap(),
+            Cell::literal(Value::Text(header.to_owned())).unwrap(),
+        );
+    }
     wb.tables_mut().push(Table {
         name: "Alpha".into(),
         r#ref: "Ghost!A1:B4".into(),
@@ -360,6 +370,57 @@ fn a_rename_that_moves_a_table_without_overlap_is_allowed() {
 
     wb.rename_sheet("Real", "Ghost").unwrap();
     assert_eq!(table_ref(&wb, "Bravo"), "Ghost!D1:E4");
+
+    let json = wb.to_json().unwrap();
+    Workbook::from_json(json.as_bytes())
+        .expect("a rename this crate accepts must produce a document it can reload");
+}
+
+/// The third way a rename could write an unloadable document: a table left
+/// dangling by `remove_sheet` comes alive on the renamed sheet, over cells
+/// nobody chose for it, and `from_json` validates those column names.
+///
+/// A table that moves *with* the sheet keeps reading the cells it always read,
+/// so `define_table`'s deliberate "declare the shape now, write the headers
+/// later" allowance is untouched — only adoption is refused.
+#[test]
+fn a_rename_that_would_land_a_dangling_table_on_a_bad_header_row_is_refused() {
+    let mut wb = wb_with(&["Ghost", "Real"]);
+    wb.tables_mut().push(Table {
+        name: "Alpha".into(),
+        r#ref: "Ghost!A1:B4".into(),
+    });
+    wb.remove_sheet("Ghost").unwrap();
+    // "Real" has no header text at A1:B1 for Alpha to come to rest on.
+
+    let err = wb
+        .rename_sheet("Real", "Ghost")
+        .expect_err("Alpha would adopt an empty header row");
+    assert!(
+        err.to_string().contains("header row"),
+        "unexpected error: {err}"
+    );
+    assert_eq!(
+        wb.sheet("Real").map(Worksheet::name),
+        Some("Real"),
+        "refused rename is a no-op"
+    );
+}
+
+/// `define_table`'s declare-first workflow must survive a rename: a table whose
+/// headers have not been written yet travels with its own sheet and is not
+/// judged on the way.
+#[test]
+fn a_rename_does_not_judge_the_header_row_of_a_table_that_travels_with_it() {
+    let mut wb = wb_with(&["Data"]);
+    wb.tables_mut().push(Table {
+        name: "Later".into(),
+        r#ref: "Data!A1:B4".into(), // headers deliberately not written yet
+    });
+
+    wb.rename_sheet("Data", "Facts")
+        .expect("a table declared ahead of its headers still renames");
+    assert_eq!(table_ref(&wb, "Later"), "Facts!A1:B4");
 }
 
 /// A pure case change moves no table between sheets, so it must not start

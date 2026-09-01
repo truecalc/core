@@ -8,6 +8,7 @@ use icu_casemap::CaseMapperBorrowed;
 
 use truecalc_core::Engine;
 
+use crate::address::Address;
 use crate::canonical;
 use crate::casefold::simple_fold;
 use crate::engine::EngineFlavor;
@@ -20,6 +21,7 @@ use crate::strict_json;
 use crate::table::Table;
 use crate::table_ref;
 use crate::validate;
+use crate::value::Value;
 use crate::worksheet::Worksheet;
 
 /// The schema version this library writes (schema spec §10). A string, not
@@ -257,7 +259,14 @@ impl Workbook {
     /// - a repointed [`Table`] landing on a range another table already
     ///   occupies (structured-references spec §4). Reachable because a table
     ///   may legitimately be left dangling by [`remove_sheet`](Self::remove_sheet),
-    ///   and a later rename can move a live table onto it.
+    ///   and a later rename can move a live table onto it;
+    /// - a table that was dangling at `to` **coming alive** on this sheet over
+    ///   a header row that is not a valid table header (§4). A table that moves
+    ///   *with* the sheet keeps reading the cells it always read, so
+    ///   [`define_table`](Self::define_table)'s deliberate "declare the shape
+    ///   now, write the headers later" allowance is untouched; a table that
+    ///   adopts a sheet nobody chose for it is a different thing, and
+    ///   `from_json` checks those column names.
     ///
     /// Every error is decided before anything is written, so a rejected rename
     /// leaves the document exactly as it was.
@@ -326,7 +335,13 @@ impl Workbook {
         // tables already overlapped (which only `tables_mut` can build, and
         // which `from_json` already rejects on its own).
         if simple_fold(&folder, to) != old_folded {
-            check_rename_table_overlap(&self.tables, &table_refs, to, &folder)?;
+            check_rename_table_invariants(
+                &self.tables,
+                &table_refs,
+                &self.sheets[idx],
+                to,
+                &folder,
+            )?;
         }
 
         // The one rewriter, not a second one: `truecalc-core` already ships
@@ -613,9 +628,7 @@ impl Workbook {
     /// - **Unreachable through the mutation API.** §2/§3 sheet names and the
     ///   sheet cap, §3 cell-key syntax and bounds, §5 spill rectangles, §7
     ///   named-range name shape and uniqueness, table-name uniqueness and the
-    ///   count caps, text/array/cell limits, and — since the checks
-    ///   [`rename_sheet`](Self::rename_sheet) now runs — formula length and
-    ///   table-range overlap. [`add_sheet`](Self::add_sheet),
+    ///   count caps, and text/array/cell limits. [`add_sheet`](Self::add_sheet),
     ///   [`define_name`](Self::define_name), [`define_table`](Self::define_table)
     ///   and their siblings each check their own at the point of change.
     /// - **Reachable and deliberate.** [`define_table`](Self::define_table)
@@ -623,11 +636,17 @@ impl Workbook {
     ///   declared before its headers are written — but `from_json` does. That
     ///   asymmetry is a documented design decision on `define_table`, not an
     ///   oversight, and is left alone here.
-    /// - **Reachable only past the API.** [`names_mut`](Self::names_mut),
-    ///   [`tables_mut`](Self::tables_mut) and [`sheets_mut`](Self::sheets_mut)
-    ///   hand out a raw `&mut` and promise nothing: a non-canonical `ref`
-    ///   (§7), a cell key that is not valid A1 (§3), a duplicate name — all
-    ///   still save and will not load.
+    /// - **Reachable below the workbook API.** The formula-length cap
+    ///   (Decision 5) is checked by [`set`](Self::set) and by
+    ///   [`rename_sheet`](Self::rename_sheet), but
+    ///   [`Worksheet::set`](crate::Worksheet::set) with a
+    ///   [`Cell::with_formula`](crate::Cell::with_formula) over the cap goes
+    ///   straight into the grid; and [`names_mut`](Self::names_mut),
+    ///   [`tables_mut`](Self::tables_mut), [`sheets_mut`](Self::sheets_mut) and
+    ///   [`Worksheet::cells_mut`](crate::Worksheet::cells_mut) hand out a raw
+    ///   `&mut` and promise nothing. A non-canonical `ref` (§7), a cell key
+    ///   that is not valid A1 (§3), an over-long formula, a duplicate name —
+    ///   all still save and will not load.
     ///
     /// A formula naming a missing sheet is **not** a violation. `from_json`
     /// does not check formula text at all: such a reference is legal and
@@ -679,11 +698,12 @@ impl Workbook {
     }
 }
 
-/// Refuses a rename that would drop a repointed table onto a range another
-/// table already occupies (structured-references spec §4) — the rule
-/// [`Workbook::define_table`] enforces at the point of change and
-/// [`Workbook::from_json`] enforces on load, which a rename could otherwise
-/// slip past.
+/// Refuses a rename that would leave the renamed sheet holding a table layout
+/// [`Workbook::from_json`] rejects: two tables whose ranges overlap, or a
+/// table that comes alive over a header row that is not a valid table header
+/// (structured-references spec §4). A rename is the one operation that can
+/// change which cells a table covers without going through
+/// [`Workbook::define_table`], so it has to check what that would have.
 ///
 /// `repointed[i]` is the new `ref` for `tables[i]`, or `None` if that table
 /// does not target the renamed sheet. Only the target sheet's occupancy
@@ -696,38 +716,78 @@ impl Workbook {
 ///
 /// [`Workbook::define_table`]: crate::Workbook::define_table
 /// [`Workbook::from_json`]: crate::Workbook::from_json
-fn check_rename_table_overlap(
+fn check_rename_table_invariants(
     tables: &[Table],
     repointed: &[Option<String>],
+    sheet: &Worksheet,
     to: &str,
     folder: &CaseMapperBorrowed<'static>,
 ) -> Result<(), WorkbookError> {
-    if repointed.iter().all(Option::is_none) {
-        return Ok(());
-    }
     let target = simple_fold(folder, to);
-    let landing: Vec<(&str, table_ref::ParsedRangeBounds)> = tables
+    // Every table that ends up on the renamed sheet: the ones that moved with
+    // it, and the ones that were already spelled `to` and were therefore
+    // *dangling* (no sheet could have had that name, or the rename would have
+    // collided) and are about to come alive on it.
+    let landing: Vec<(&str, table_ref::ParsedRangeBounds, bool)> = tables
         .iter()
         .zip(repointed)
         .filter_map(|(t, new)| {
+            let moved = new.is_some();
             let r = new.as_deref().unwrap_or(t.r#ref.as_str());
             let parsed = named_ref::parse_canonical_ref(r).ok()?;
             let mut bounds = table_ref::parsed_range_bounds(r, &parsed)?;
             bounds.sheet = simple_fold(folder, &parsed.sheet);
-            (bounds.sheet == target).then_some((t.name.as_str(), bounds))
+            (bounds.sheet == target).then_some((t.name.as_str(), bounds, moved))
         })
         .collect();
 
     for i in 0..landing.len() {
         for j in (i + 1)..landing.len() {
             if table_ref::ranges_overlap(&landing[i].1, &landing[j].1) {
+                // Name the table that moved first — it is the one the rename
+                // put there, and blaming the stationary one reads backwards.
+                let (mover, resident) = if landing[i].2 {
+                    (landing[i].0, landing[j].0)
+                } else {
+                    (landing[j].0, landing[i].0)
+                };
                 return Err(WorkbookError::SheetManagement(format!(
-                    "cannot rename sheet to {to:?}: it would place table {:?} over table {:?}, \
-                     whose ranges overlap (structured-references spec §4)",
-                    landing[j].0, landing[i].0
+                    "cannot rename sheet to {to:?}: it would place table {mover:?} over table \
+                     {resident:?}, whose ranges overlap (structured-references spec §4)"
                 )));
             }
         }
+    }
+
+    // A table that *moved* keeps reading the very cells it always read — the
+    // sheet was renamed, not replaced — so its header row cannot have changed
+    // and `define_table`'s deliberate "declare the shape now, write the headers
+    // later" allowance still covers it. A table that comes alive here is a
+    // different matter: it adopts a sheet's existing content, chosen by nobody,
+    // and `from_json` validates those column names (structured-references
+    // spec §4). Refuse rather than write a document that will not load.
+    for (name, bounds, moved) in &landing {
+        if *moved {
+            continue;
+        }
+        let headers: Vec<String> = (bounds.col_start..=bounds.col_end)
+            .map(|col| {
+                let text = Address::new(bounds.row_start, col)
+                    .and_then(|addr| sheet.get(addr))
+                    .map(crate::cell::Cell::value);
+                match text {
+                    Some(Value::Text(t)) => t.clone(),
+                    _ => String::new(),
+                }
+            })
+            .collect();
+        table_ref::header_row_columns(headers.iter().map(String::as_str)).map_err(|e| {
+            WorkbookError::SheetManagement(format!(
+                "cannot rename sheet to {to:?}: it would bring the dangling table {name:?} to \
+                 rest on this sheet, whose header row is not a valid table header — {e} \
+                 (structured-references spec §4)"
+            ))
+        })?;
     }
     Ok(())
 }
