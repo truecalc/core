@@ -130,14 +130,14 @@ impl Workbook {
         };
 
         let idx = self.sheet_index(sheet).ok_or_else(|| {
-            WorkbookError::Mutation(format!("cannot set cell: no sheet named {sheet:?}"))
+            WorkbookError::UnknownSheet(format!("cannot set cell: no sheet named {sheet:?}"))
         })?;
 
         // Eager workbook cell-count cap: only a *new* cell grows the count.
         // `+ 1` is the cell this call is about to add.
         let introduces_new_cell = !self.sheets()[idx].contains(addr);
         if introduces_new_cell && limits::exceeds_cell_cap(self.total_cells() + 1) {
-            return Err(WorkbookError::Mutation(format!(
+            return Err(WorkbookError::ResourceLimit(format!(
                 "cannot set cell: workbook already holds {} populated cells, the limit \
                  (scope ADR Decision 5)",
                 limits::MAX_CELLS_PER_WORKBOOK
@@ -275,21 +275,21 @@ impl Workbook {
     pub fn define_name(&mut self, name: &str, r: &str) -> Result<&NamedRange, WorkbookError> {
         self.validate_name_definition(name, r)?;
         if self.names().len() >= limits::MAX_NAMED_RANGES {
-            return Err(WorkbookError::Mutation(format!(
+            return Err(WorkbookError::ResourceLimit(format!(
                 "cannot define named range: workbook already has {} named ranges, the limit \
                  (scope ADR Decision 5)",
                 limits::MAX_NAMED_RANGES
             )));
         }
         if let Some(existing) = self.name_index(name) {
-            return Err(WorkbookError::Mutation(format!(
+            return Err(WorkbookError::DuplicateName(format!(
                 "cannot define named range {name:?}: it collides with the existing name {:?} \
                  under simple case folding (schema spec §7)",
                 self.names()[existing].name
             )));
         }
         if let Some(existing) = self.table_index(name) {
-            return Err(WorkbookError::Mutation(format!(
+            return Err(WorkbookError::DuplicateName(format!(
                 "cannot define named range {name:?}: it collides with the existing table {:?} \
                  under simple case folding (structured-references spec §4)",
                 self.tables()[existing].name
@@ -316,7 +316,7 @@ impl Workbook {
     pub fn redefine_name(&mut self, name: &str, r: &str) -> Result<&NamedRange, WorkbookError> {
         self.validate_name_definition(name, r)?;
         let idx = self.name_index(name).ok_or_else(|| {
-            WorkbookError::Mutation(format!(
+            WorkbookError::NotFound(format!(
                 "cannot redefine named range: no name {name:?} exists"
             ))
         })?;
@@ -369,28 +369,28 @@ impl Workbook {
     pub fn define_table(&mut self, name: &str, r: &str) -> Result<&Table, WorkbookError> {
         let bounds = self.validate_table_definition(name, r)?;
         if self.tables().len() >= limits::MAX_TABLES {
-            return Err(WorkbookError::Mutation(format!(
+            return Err(WorkbookError::ResourceLimit(format!(
                 "cannot define table: workbook already has {} tables, the limit \
                  (scope ADR Decision 5)",
                 limits::MAX_TABLES
             )));
         }
         if let Some(existing) = self.table_index(name) {
-            return Err(WorkbookError::Mutation(format!(
+            return Err(WorkbookError::DuplicateName(format!(
                 "cannot define table {name:?}: it collides with the existing table {:?} \
                  under simple case folding (structured-references spec §4)",
                 self.tables()[existing].name
             )));
         }
         if let Some(existing) = self.name_index(name) {
-            return Err(WorkbookError::Mutation(format!(
+            return Err(WorkbookError::DuplicateName(format!(
                 "cannot define table {name:?}: it collides with the existing named range {:?} \
                  under simple case folding (structured-references spec §4)",
                 self.names()[existing].name
             )));
         }
         if let Some(other) = self.overlapping_table(&bounds, None) {
-            return Err(WorkbookError::Mutation(format!(
+            return Err(WorkbookError::RangeOverlap(format!(
                 "cannot define table {name:?}: its range overlaps the existing table {other:?} \
                  (structured-references spec §4)"
             )));
@@ -416,10 +416,10 @@ impl Workbook {
     pub fn redefine_table(&mut self, name: &str, r: &str) -> Result<&Table, WorkbookError> {
         let bounds = self.validate_table_definition(name, r)?;
         let idx = self.table_index(name).ok_or_else(|| {
-            WorkbookError::Mutation(format!("cannot redefine table: no table {name:?} exists"))
+            WorkbookError::NotFound(format!("cannot redefine table: no table {name:?} exists"))
         })?;
         if let Some(other) = self.overlapping_table(&bounds, Some(idx)) {
-            return Err(WorkbookError::Mutation(format!(
+            return Err(WorkbookError::RangeOverlap(format!(
                 "cannot redefine table {name:?}: its range overlaps the existing table {other:?} \
                  (structured-references spec §4)"
             )));
@@ -467,22 +467,22 @@ impl Workbook {
         r: &str,
     ) -> Result<ParsedRangeBounds, WorkbookError> {
         if !named_ref::is_valid_name(name) {
-            return Err(WorkbookError::Mutation(format!(
+            return Err(WorkbookError::InvalidReference(format!(
                 "table name {name:?} is invalid: it must match ^[A-Za-z_][A-Za-z0-9_]*$ and \
                  must not be an A1 address, an R1C1-style reference, or a boolean \
                  (structured-references spec §4)"
             )));
         }
-        let parsed = named_ref::parse_canonical_ref(r).map_err(WorkbookError::Mutation)?;
+        let parsed = named_ref::parse_canonical_ref(r).map_err(WorkbookError::InvalidReference)?;
         if self.sheet(&parsed.sheet).is_none() {
-            return Err(WorkbookError::Mutation(format!(
+            return Err(WorkbookError::DanglingSheetRef(format!(
                 "table {name:?} refers to sheet {:?}, which does not exist \
                  (structured-references spec §4)",
                 parsed.sheet
             )));
         }
         let mut bounds = table_ref::parsed_range_bounds(r, &parsed).ok_or_else(|| {
-            WorkbookError::Mutation(format!(
+            WorkbookError::InvalidReference(format!(
                 "table {name:?} has a malformed ref: a table ref must be a range \
                  (structured-references spec §4)"
             ))
@@ -592,14 +592,14 @@ impl Workbook {
     /// a define or a redefine and are handled by each caller.
     fn validate_name_definition(&self, name: &str, r: &str) -> Result<(), WorkbookError> {
         if !named_ref::is_valid_name(name) {
-            return Err(WorkbookError::Mutation(format!(
+            return Err(WorkbookError::InvalidReference(format!(
                 "named-range name {name:?} is invalid: it must match ^[A-Za-z_][A-Za-z0-9_]*$ and \
                  must not be an A1 address, an R1C1-style reference, or a boolean (schema spec §7)"
             )));
         }
-        let parsed = named_ref::parse_canonical_ref(r).map_err(WorkbookError::Mutation)?;
+        let parsed = named_ref::parse_canonical_ref(r).map_err(WorkbookError::InvalidReference)?;
         if self.sheet(&parsed.sheet).is_none() {
-            return Err(WorkbookError::Mutation(format!(
+            return Err(WorkbookError::DanglingSheetRef(format!(
                 "named range {name:?} refers to sheet {:?}, which does not exist (schema spec §7)",
                 parsed.sheet
             )));
@@ -620,7 +620,9 @@ impl Workbook {
     fn validate_formula(&self, formula: &str) -> Result<(), WorkbookError> {
         truecalc_core::parse_formula(formula)
             .map(|_| ())
-            .map_err(|e| WorkbookError::Mutation(format!("formula {formula:?} is invalid: {e}")))
+            .map_err(|e| {
+                WorkbookError::InvalidFormula(format!("formula {formula:?} is invalid: {e}"))
+            })
     }
 }
 
@@ -631,7 +633,7 @@ fn check_value_limits(value: &Value) -> Result<(), WorkbookError> {
         Value::Text(s) => {
             let len = s.chars().count();
             if len > limits::MAX_TEXT_LEN {
-                return Err(WorkbookError::Mutation(format!(
+                return Err(WorkbookError::ResourceLimit(format!(
                     "text value has {len} scalar values, exceeding the limit of {} \
                      (scope ADR Decision 5)",
                     limits::MAX_TEXT_LEN
@@ -641,7 +643,7 @@ fn check_value_limits(value: &Value) -> Result<(), WorkbookError> {
         Value::Array(rows) => {
             let elems: usize = rows.iter().map(|r| r.len()).sum();
             if elems > limits::MAX_ARRAY_ELEMENTS {
-                return Err(WorkbookError::Mutation(format!(
+                return Err(WorkbookError::ResourceLimit(format!(
                     "array value has {elems} elements, exceeding the limit of {} \
                      (scope ADR Decision 5)",
                     limits::MAX_ARRAY_ELEMENTS
@@ -657,7 +659,7 @@ fn check_value_limits(value: &Value) -> Result<(), WorkbookError> {
 /// serialize-boundary check for the mutation path.
 fn check_formula_limit(formula: &str) -> Result<(), WorkbookError> {
     if formula.len() > limits::MAX_FORMULA_LEN {
-        return Err(WorkbookError::Mutation(format!(
+        return Err(WorkbookError::ResourceLimit(format!(
             "formula is {} bytes, exceeding the limit of {} bytes (scope ADR Decision 5)",
             formula.len(),
             limits::MAX_FORMULA_LEN

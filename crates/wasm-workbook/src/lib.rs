@@ -161,6 +161,59 @@ impl JsWorkbook {
             .map_err(|e| JsError::new(&e.to_string()))
     }
 
+    /// Inserts a new sheet named `name` at 0-based tab position `index`,
+    /// shifting later tabs right. `index` equal to the current sheet count
+    /// appends, the same as [`addSheet`](Self::add_sheet).
+    ///
+    /// Errors on a duplicate name (case-insensitive), an empty/too-long name,
+    /// the per-workbook sheet cap, or `index` beyond the valid range.
+    #[wasm_bindgen(js_name = insertSheet)]
+    pub fn insert_sheet(&mut self, index: u32, name: &str) -> Result<(), JsError> {
+        self.inner
+            .insert_sheet(index as usize, Worksheet::new(name.to_string()))
+            .map_err(|e| JsError::new(&e.to_string()))
+    }
+
+    /// Removes the sheet named `name`, if one exists. An unknown `name` is a
+    /// silent no-op, matching [`removeName`](Self::remove_name).
+    ///
+    /// A workbook-scoped named range or table may now dangle to the removed
+    /// sheet — removal does not re-check that invariant. It is re-verified
+    /// only at the next [`toJSON`](Self::to_json) call, so a dangling
+    /// reference surfaces there, not here.
+    #[wasm_bindgen(js_name = removeSheet)]
+    pub fn remove_sheet(&mut self, name: &str) {
+        self.inner.remove_sheet(name);
+    }
+
+    /// Renames the sheet currently named `from` to `to`, repointing every
+    /// named-range/table `ref` and every formula reference that qualified a
+    /// cell with the old name.
+    ///
+    /// Errors if `from` does not exist, `to` is invalid or collides with
+    /// another sheet, or the rewrite itself would violate an invariant (a
+    /// rewritten formula exceeding the formula-length cap, or a repointed
+    /// table landing on another table's range). A rejected rename leaves the
+    /// workbook untouched.
+    #[wasm_bindgen(js_name = renameSheet)]
+    pub fn rename_sheet(&mut self, from: &str, to: &str) -> Result<(), JsError> {
+        self.inner
+            .rename_sheet(from, to)
+            .map_err(|e| JsError::new(&e.to_string()))
+    }
+
+    /// Moves the sheet at 0-based tab position `from` to position `to`,
+    /// shifting the sheets in between.
+    ///
+    /// Errors if either position is out of range (the valid range is named
+    /// in the error message).
+    #[wasm_bindgen(js_name = moveSheet)]
+    pub fn move_sheet(&mut self, from: u32, to: u32) -> Result<(), JsError> {
+        self.inner
+            .move_sheet(from as usize, to as usize)
+            .map_err(|e| JsError::new(&e.to_string()))
+    }
+
     /// Sets the cell at `a1` on `sheet` to the given `input`.
     ///
     /// If `input` starts with `=` it is treated as a formula; otherwise the
@@ -216,6 +269,41 @@ impl JsWorkbook {
     pub fn clear(&mut self, sheet: &str, a1: &str) {
         if let Some(addr) = Address::from_a1(a1) {
             self.inner.clear(sheet, addr);
+        }
+    }
+
+    /// The total number of populated cells across every sheet — the
+    /// quantity the per-workbook cell cap bounds.
+    #[wasm_bindgen(js_name = totalCells)]
+    pub fn total_cells(&self) -> u32 {
+        self.inner.total_cells() as u32
+    }
+
+    /// Returns the **authored** cell at `a1` on `sheet` as a JS value, or
+    /// `null` if no cell is authored there.
+    ///
+    /// This is the authored cell only — a literal or a formula physically
+    /// present at that address. A *spilled* (non-anchor) cell returns `null`
+    /// here even though [`resolved`](Self::resolved) would return its
+    /// reconstructed value at that address; use `resolved` to read the
+    /// effective value at any address, authored or spilled.
+    ///
+    /// Returns a tagged JSON object: `{"formula": "=A1+1"|null, "value": <a
+    /// tagged value object, the same shape resolved()/get() share>}`.
+    pub fn get(&self, sheet: &str, a1: &str) -> Result<JsValue, JsError> {
+        let addr = Address::from_a1(a1)
+            .ok_or_else(|| JsError::new(&format!("invalid A1 address: {a1:?}")))?;
+
+        match self.inner.get(sheet, addr) {
+            None => Ok(JsValue::NULL),
+            Some(cell) => {
+                let json = serde_json::json!({
+                    "formula": cell.formula(),
+                    "value": value_to_json(cell.value()),
+                });
+                let s = serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))?;
+                Ok(JsValue::from_str(&s))
+            }
         }
     }
 
@@ -291,6 +379,58 @@ impl JsWorkbook {
         serde_json::to_string(&json_changes).map_err(|e| JsError::new(&e.to_string()))
     }
 
+    /// Recomputes only the formula cells affected by an edit and returns the
+    /// ordered changes — the incremental counterpart of [`recalc`](Self::recalc).
+    ///
+    /// `context_json` is the same context object `recalc` takes. `edited_json`
+    /// is a JSON array of the cells a mutation touched:
+    /// `[{"sheet":"Sheet1","addr":"A1"}, ...]`. An empty array is valid input,
+    /// not an error — always-dirty volatile cells (`NOW`, `TODAY`, ...) still
+    /// recompute.
+    ///
+    /// Returns the identical `Change[]` JSON array shape [`recalc`](Self::recalc)
+    /// returns: `[{"sheet":...,"addr":...,"old":{...},"new":{...}}, ...]`.
+    #[wasm_bindgen(js_name = recalcIncremental)]
+    pub fn recalc_incremental(
+        &mut self,
+        context_json: &str,
+        edited_json: &str,
+    ) -> Result<String, JsError> {
+        #[derive(serde::Deserialize)]
+        struct CtxInput {
+            timestamp_ms: i64,
+            timezone: String,
+            rng_seed: u64,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct EditedInput {
+            sheet: String,
+            addr: String,
+        }
+
+        let input: CtxInput = serde_json::from_str(context_json)
+            .map_err(|e| JsError::new(&format!("invalid context JSON: {e}")))?;
+
+        let ctx = RecalcContext::new(input.timestamp_ms, &input.timezone, input.rng_seed)
+            .ok_or_else(|| JsError::new("unknown timezone"))?;
+
+        let edited_input: Vec<EditedInput> = serde_json::from_str(edited_json)
+            .map_err(|e| JsError::new(&format!("invalid edited JSON: {e}")))?;
+        let edited: Vec<(String, Address)> = edited_input
+            .into_iter()
+            .map(|e| {
+                let addr = Address::from_a1(&e.addr)
+                    .ok_or_else(|| JsError::new(&format!("invalid A1 address: {:?}", e.addr)))?;
+                Ok((e.sheet, addr))
+            })
+            .collect::<Result<_, JsError>>()?;
+
+        let changes = self.inner.recalc_incremental(&ctx, &edited);
+        let json_changes: Vec<serde_json::Value> = changes.iter().map(change_to_json).collect();
+        serde_json::to_string(&json_changes).map_err(|e| JsError::new(&e.to_string()))
+    }
+
     /// Returns the resolved value at `a1` on `sheet` as a JS value.
     ///
     /// Returns `null` if the cell has no value; otherwise returns a tagged
@@ -298,14 +438,27 @@ impl JsWorkbook {
     /// `{"type":"bool","value":true}`, `{"type":"date","value":46180}`,
     /// `{"type":"error","error":"#REF!"}`, `{"type":"empty"}`,
     /// or `{"type":"array","value":[[...],...]}`.
+    ///
+    /// This is the **effective** value — it resolves through array spills.
+    /// When the queried address is a *spilled* (non-anchor) cell, the object
+    /// additionally carries `"anchor":"B2"`, the A1 address of the spilling
+    /// formula on the same sheet; the key is absent for an authored cell.
+    /// Use [`get`](Self::get) to read only what is physically authored at
+    /// `a1`.
     pub fn resolved(&self, sheet: &str, a1: &str) -> Result<JsValue, JsError> {
         let addr = Address::from_a1(a1)
             .ok_or_else(|| JsError::new(&format!("invalid A1 address: {a1:?}")))?;
 
         match self.inner.resolved(sheet, addr) {
             None => Ok(JsValue::NULL),
-            Some(Resolved { value, .. }) => {
-                let json = value_to_json(&value);
+            Some(Resolved { value, anchor }) => {
+                let mut json = value_to_json(&value);
+                if let (Some(anchor), serde_json::Value::Object(map)) = (anchor, &mut json) {
+                    map.insert(
+                        "anchor".to_string(),
+                        serde_json::Value::String(anchor.to_a1()),
+                    );
+                }
                 let s = serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))?;
                 Ok(JsValue::from_str(&s))
             }

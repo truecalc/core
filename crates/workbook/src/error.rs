@@ -27,16 +27,57 @@ pub enum WorkbookError {
     /// position, or an unknown sheet name. Carries a human-readable
     /// description.
     SheetManagement(String),
-    /// A workbook-level mutation
-    /// ([`set`](crate::Workbook::set), [`define_name`](crate::Workbook::define_name),
-    /// [`redefine_name`](crate::Workbook::redefine_name)) violated an invariant —
-    /// an empty-literal write (use clear), an unknown sheet, a syntactically
-    /// invalid formula for the locked engine, an invalid or non-canonical
-    /// named-range name/`ref`, a `ref` to a missing sheet (schema spec §7), a
-    /// duplicate name under simple case folding, or a per-mutation resource cap
-    /// (cells / text / array / formula / named-range count, scope ADR
-    /// Decision 5). Carries a human-readable description.
-    Mutation(String),
+    /// [`Workbook::set`](crate::Workbook::set) directly named a sheet, by
+    /// name, that does not exist. Distinct from [`DanglingSheetRef`] — this
+    /// is the direct-operation-target case (a caller-supplied sheet name
+    /// argument), not an indirect reference embedded inside a
+    /// named-range/table `ref` string. Carries a human-readable description.
+    ///
+    /// [`DanglingSheetRef`]: WorkbookError::DanglingSheetRef
+    UnknownSheet(String),
+    /// A named-range or table `ref` string parses fine but names a sheet the
+    /// workbook does not have (schema spec §7's dangling-ref rule, checked
+    /// eagerly at definition time rather than only at save). Distinct from
+    /// [`UnknownSheet`] — the caller here supplied a `ref` *string* to
+    /// validate, not a bare sheet-name argument. Carries a human-readable
+    /// description.
+    ///
+    /// [`UnknownSheet`]: WorkbookError::UnknownSheet
+    DanglingSheetRef(String),
+    /// A formula string failed to parse against the workbook's locked engine
+    /// ([`Workbook::set`](crate::Workbook::set)'s syntax-only validation).
+    /// Carries a human-readable description.
+    InvalidFormula(String),
+    /// A named-range/table *name* or *ref* is syntactically invalid or
+    /// non-canonical, independent of sheet existence: an invalid name shape
+    /// (must match `^[A-Za-z_][A-Za-z0-9_]*$` and not be an A1/R1C1/boolean
+    /// literal), a `ref` that fails to parse as a canonical reference, or a
+    /// `ref` that parses but is not a range where a range is required
+    /// (tables only). Carries a human-readable description.
+    InvalidReference(String),
+    /// A new named range or table's name collides, case-insensitively, with
+    /// an existing named range or table (cross-kind collisions included,
+    /// since names and tables share one case-insensitive namespace per
+    /// structured-references spec §4). Carries a human-readable description.
+    DuplicateName(String),
+    /// A table's range overlaps another table's range
+    /// (structured-references spec §4 — table ranges must be disjoint).
+    /// Distinct from [`DuplicateName`] — the name is fine, the geometry
+    /// conflicts. Carries a human-readable description.
+    ///
+    /// [`DuplicateName`]: WorkbookError::DuplicateName
+    RangeOverlap(String),
+    /// A redefine targeted a name/table that does not currently exist (the
+    /// update-only counterpart of [`DuplicateName`]'s create-time collision
+    /// check). Carries a human-readable description.
+    ///
+    /// [`DuplicateName`]: WorkbookError::DuplicateName
+    NotFound(String),
+    /// A per-mutation resource cap from scope ADR Decision 5 was exceeded:
+    /// workbook cell count, named-range count, table count, a text value's
+    /// scalar-value length, an array value's element count, or a formula's
+    /// byte length. Carries a human-readable description.
+    ResourceLimit(String),
 }
 
 impl fmt::Display for WorkbookError {
@@ -49,7 +90,14 @@ impl fmt::Display for WorkbookError {
             ),
             WorkbookError::Validation(msg) => write!(f, "{msg}"),
             WorkbookError::SheetManagement(msg) => write!(f, "{msg}"),
-            WorkbookError::Mutation(msg) => write!(f, "{msg}"),
+            WorkbookError::UnknownSheet(msg) => write!(f, "{msg}"),
+            WorkbookError::DanglingSheetRef(msg) => write!(f, "{msg}"),
+            WorkbookError::InvalidFormula(msg) => write!(f, "{msg}"),
+            WorkbookError::InvalidReference(msg) => write!(f, "{msg}"),
+            WorkbookError::DuplicateName(msg) => write!(f, "{msg}"),
+            WorkbookError::RangeOverlap(msg) => write!(f, "{msg}"),
+            WorkbookError::NotFound(msg) => write!(f, "{msg}"),
+            WorkbookError::ResourceLimit(msg) => write!(f, "{msg}"),
         }
     }
 }
