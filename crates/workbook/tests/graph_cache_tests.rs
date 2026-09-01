@@ -832,12 +832,13 @@ fn apply_edit(rng: &mut Rng, wb: &mut Workbook) -> Vec<(String, Address)> {
             // the `add_sheet` arm above) is not masked by anything else in
             // this function.
             //
-            // Report every cell on the *old* name's `ROWS` x `COLS` surface,
-            // not the new one: `T!A1:C3`'s formula text never changes on a
-            // rename, so it stays keyed to `from` both before and after -
-            // reporting under `to` would query a key nothing in this
-            // generator ever references (nothing here ever writes a `T2!...`
-            // formula).
+            // Report every cell on the `ROWS` x `COLS` surface under *both*
+            // names. Since truecalc/core#969 a rename rewrites qualified
+            // formula text, so `SUM(T!A1:C3)` becomes `SUM(T2!A1:C3)` and the
+            // dependents are keyed to `from` before the rename and to `to`
+            // after it. A dirty frontier may over-report (incremental just
+            // does more work) but never under-report, so naming both is the
+            // safe seed across the rewrite.
             let (from, to) = if wb.sheet("T").is_some() {
                 ("T", "T2")
             } else {
@@ -848,6 +849,7 @@ fn apply_edit(rng: &mut Rng, wb: &mut Workbook) -> Vec<(String, Address)> {
             for row in 1..=ROWS {
                 for col in 1..=COLS {
                     edited.push((from.to_owned(), at(row, col)));
+                    edited.push((to.to_owned(), at(row, col)));
                 }
             }
             edited
