@@ -30,29 +30,44 @@ fn insert_multiple_rows_shifts_by_the_count() {
 
 #[test]
 fn insert_row_inside_a_range_expands_it() {
-    assert_eq!(t("=SUM(A1:A5)", InsertRows { at: 3, count: 1 }), "=SUM(A1:A6)");
+    assert_eq!(
+        t("=SUM(A1:A5)", InsertRows { at: 3, count: 1 }),
+        "=SUM(A1:A6)"
+    );
 }
 
 #[test]
 fn insert_row_at_a_ranges_first_row_moves_the_whole_range() {
     // Both endpoints are >= the insertion index, so both shift: the range
     // moves down rather than growing.
-    assert_eq!(t("=SUM(A2:A5)", InsertRows { at: 2, count: 1 }), "=SUM(A3:A6)");
+    assert_eq!(
+        t("=SUM(A2:A5)", InsertRows { at: 2, count: 1 }),
+        "=SUM(A3:A6)"
+    );
 }
 
 #[test]
 fn insert_row_at_a_ranges_last_row_expands_it() {
-    assert_eq!(t("=SUM(A1:A3)", InsertRows { at: 3, count: 1 }), "=SUM(A1:A4)");
+    assert_eq!(
+        t("=SUM(A1:A3)", InsertRows { at: 3, count: 1 }),
+        "=SUM(A1:A4)"
+    );
 }
 
 #[test]
 fn insert_row_just_past_a_ranges_last_row_leaves_it_alone() {
-    assert_eq!(t("=SUM(A1:A3)", InsertRows { at: 4, count: 1 }), "=SUM(A1:A3)");
+    assert_eq!(
+        t("=SUM(A1:A3)", InsertRows { at: 4, count: 1 }),
+        "=SUM(A1:A3)"
+    );
 }
 
 #[test]
 fn insert_row_does_not_touch_the_column_axis() {
-    assert_eq!(t("=SUM(B2:D4)", InsertRows { at: 1, count: 1 }), "=SUM(B3:D5)");
+    assert_eq!(
+        t("=SUM(B2:D4)", InsertRows { at: 1, count: 1 }),
+        "=SUM(B3:D5)"
+    );
 }
 
 // ---------------------------------------------------------------- row delete
@@ -74,38 +89,59 @@ fn delete_the_row_a_cell_points_at_makes_it_a_ref_error() {
 
 #[test]
 fn delete_rows_wholly_containing_a_range_makes_it_a_ref_error() {
-    assert_eq!(t("=SUM(A2:A4)", DeleteRows { at: 1, count: 5 }), "=SUM(#REF!)");
+    assert_eq!(
+        t("=SUM(A2:A4)", DeleteRows { at: 1, count: 5 }),
+        "=SUM(#REF!)"
+    );
 }
 
 #[test]
 fn delete_rows_exactly_covering_a_range_makes_it_a_ref_error() {
-    assert_eq!(t("=SUM(A2:A4)", DeleteRows { at: 2, count: 3 }), "=SUM(#REF!)");
+    assert_eq!(
+        t("=SUM(A2:A4)", DeleteRows { at: 2, count: 3 }),
+        "=SUM(#REF!)"
+    );
 }
 
 #[test]
 fn delete_a_row_inside_a_range_shrinks_it() {
-    assert_eq!(t("=SUM(A1:A5)", DeleteRows { at: 3, count: 1 }), "=SUM(A1:A4)");
+    assert_eq!(
+        t("=SUM(A1:A5)", DeleteRows { at: 3, count: 1 }),
+        "=SUM(A1:A4)"
+    );
 }
 
 #[test]
 fn delete_rows_overlapping_a_ranges_start_clamps_the_start() {
     // rows 1..3 go; A2:A5 loses rows 2 and 3, and old rows 4,5 become 1,2.
-    assert_eq!(t("=SUM(A2:A5)", DeleteRows { at: 1, count: 3 }), "=SUM(A1:A2)");
+    assert_eq!(
+        t("=SUM(A2:A5)", DeleteRows { at: 1, count: 3 }),
+        "=SUM(A1:A2)"
+    );
 }
 
 #[test]
 fn delete_rows_overlapping_a_ranges_end_clamps_the_end() {
-    assert_eq!(t("=SUM(A1:A5)", DeleteRows { at: 3, count: 9 }), "=SUM(A1:A2)");
+    assert_eq!(
+        t("=SUM(A1:A5)", DeleteRows { at: 3, count: 9 }),
+        "=SUM(A1:A2)"
+    );
 }
 
 #[test]
 fn delete_rows_entirely_below_a_range_leaves_it_alone() {
-    assert_eq!(t("=SUM(A1:A3)", DeleteRows { at: 4, count: 2 }), "=SUM(A1:A3)");
+    assert_eq!(
+        t("=SUM(A1:A3)", DeleteRows { at: 4, count: 2 }),
+        "=SUM(A1:A3)"
+    );
 }
 
 #[test]
 fn delete_rows_entirely_above_a_range_shifts_it_up() {
-    assert_eq!(t("=SUM(A5:A7)", DeleteRows { at: 1, count: 2 }), "=SUM(A3:A5)");
+    assert_eq!(
+        t("=SUM(A5:A7)", DeleteRows { at: 1, count: 2 }),
+        "=SUM(A3:A5)"
+    );
 }
 
 // ------------------------------------------------------------ column insert/delete
@@ -127,12 +163,18 @@ fn delete_the_column_a_cell_points_at_makes_it_a_ref_error() {
 
 #[test]
 fn delete_a_column_inside_a_range_shrinks_it() {
-    assert_eq!(t("=SUM(A1:E1)", DeleteColumns { at: 3, count: 1 }), "=SUM(A1:D1)");
+    assert_eq!(
+        t("=SUM(A1:E1)", DeleteColumns { at: 3, count: 1 }),
+        "=SUM(A1:D1)"
+    );
 }
 
 #[test]
 fn delete_column_does_not_touch_the_row_axis() {
-    assert_eq!(t("=SUM(B2:D4)", DeleteColumns { at: 1, count: 1 }), "=SUM(A2:C4)");
+    assert_eq!(
+        t("=SUM(B2:D4)", DeleteColumns { at: 1, count: 1 }),
+        "=SUM(A2:C4)"
+    );
 }
 
 // -------------------------------------------------------------------- $ anchors
@@ -156,14 +198,20 @@ fn absolute_column_anchor_shifts_on_column_insert() {
 
 #[test]
 fn absolute_range_endpoints_are_preserved_when_shrinking() {
-    assert_eq!(t("=SUM($A$1:$A$5)", DeleteRows { at: 3, count: 1 }), "=SUM($A$1:$A$4)");
+    assert_eq!(
+        t("=SUM($A$1:$A$5)", DeleteRows { at: 3, count: 1 }),
+        "=SUM($A$1:$A$4)"
+    );
 }
 
 // ------------------------------------------------------------------- sheets
 
 #[test]
 fn qualified_reference_to_the_edited_sheet_shifts() {
-    assert_eq!(t("=Sheet1!A5", InsertRows { at: 1, count: 1 }), "=Sheet1!A6");
+    assert_eq!(
+        t("=Sheet1!A5", InsertRows { at: 1, count: 1 }),
+        "=Sheet1!A6"
+    );
 }
 
 #[test]
@@ -173,7 +221,10 @@ fn qualified_reference_to_another_sheet_does_not_move() {
 
 #[test]
 fn qualified_reference_to_another_sheet_is_never_deleted() {
-    assert_eq!(t("=SUM(Other!A2:A4)", DeleteRows { at: 1, count: 9 }), "=SUM(Other!A2:A4)");
+    assert_eq!(
+        t("=SUM(Other!A2:A4)", DeleteRows { at: 1, count: 9 }),
+        "=SUM(Other!A2:A4)"
+    );
 }
 
 #[test]
@@ -186,24 +237,37 @@ fn bare_reference_in_a_formula_on_another_sheet_does_not_move() {
 
 #[test]
 fn cross_sheet_formula_still_shifts_its_qualified_refs_to_the_edited_sheet() {
-    let out =
-        shift_refs_text("=Sheet1!A5+A5", "Sheet2", "Sheet1", InsertRows { at: 1, count: 1 })
-            .unwrap();
+    let out = shift_refs_text(
+        "=Sheet1!A5+A5",
+        "Sheet2",
+        "Sheet1",
+        InsertRows { at: 1, count: 1 },
+    )
+    .unwrap();
     assert_eq!(out, "=Sheet1!A6+A5");
 }
 
 #[test]
 fn sheet_matching_is_case_insensitive() {
-    let out = shift_refs_text("=SHEET1!A5", "Sheet2", "sheet1", InsertRows { at: 1, count: 1 })
-        .unwrap();
+    let out = shift_refs_text(
+        "=SHEET1!A5",
+        "Sheet2",
+        "sheet1",
+        InsertRows { at: 1, count: 1 },
+    )
+    .unwrap();
     assert_eq!(out, "=SHEET1!A6");
 }
 
 #[test]
 fn quoted_sheet_name_is_requoted_on_output() {
-    let out =
-        shift_refs_text("='Q2 Data'!A5", "Other", "Q2 Data", InsertRows { at: 1, count: 1 })
-            .unwrap();
+    let out = shift_refs_text(
+        "='Q2 Data'!A5",
+        "Other",
+        "Q2 Data",
+        InsertRows { at: 1, count: 1 },
+    )
+    .unwrap();
     assert_eq!(out, "='Q2 Data'!A6");
 }
 
@@ -218,17 +282,26 @@ fn deleting_a_qualified_reference_drops_the_sheet_qualifier_with_it() {
 
 #[test]
 fn string_literals_are_left_untouched() {
-    assert_eq!(t("=CONCAT(\"A5\",A5)", InsertRows { at: 1, count: 1 }), "=CONCAT(\"A5\",A6)");
+    assert_eq!(
+        t("=CONCAT(\"A5\",A5)", InsertRows { at: 1, count: 1 }),
+        "=CONCAT(\"A5\",A6)"
+    );
 }
 
 #[test]
 fn function_names_and_defined_names_are_left_untouched() {
-    assert_eq!(t("=SUM(A5,TAX_RATE)", InsertRows { at: 1, count: 1 }), "=SUM(A6,TAX_RATE)");
+    assert_eq!(
+        t("=SUM(A5,TAX_RATE)", InsertRows { at: 1, count: 1 }),
+        "=SUM(A6,TAX_RATE)"
+    );
 }
 
 #[test]
 fn let_bound_names_that_look_like_addresses_are_left_untouched() {
-    assert_eq!(t("=LET(A5, 5, A5*2)", InsertRows { at: 1, count: 1 }), "=LET(A5, 5, A5*2)");
+    assert_eq!(
+        t("=LET(A5, 5, A5*2)", InsertRows { at: 1, count: 1 }),
+        "=LET(A5, 5, A5*2)"
+    );
 }
 
 // ----------------------------------------------------------------- mechanics
@@ -241,8 +314,14 @@ fn multiple_references_splice_correctly_when_lengths_change() {
 
 #[test]
 fn zero_count_is_a_no_op() {
-    assert_eq!(t("=SUM(A1:A5)", InsertRows { at: 3, count: 0 }), "=SUM(A1:A5)");
-    assert_eq!(t("=SUM(A1:A5)", DeleteRows { at: 3, count: 0 }), "=SUM(A1:A5)");
+    assert_eq!(
+        t("=SUM(A1:A5)", InsertRows { at: 3, count: 0 }),
+        "=SUM(A1:A5)"
+    );
+    assert_eq!(
+        t("=SUM(A1:A5)", DeleteRows { at: 3, count: 0 }),
+        "=SUM(A1:A5)"
+    );
 }
 
 #[test]

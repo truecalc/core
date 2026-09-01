@@ -69,7 +69,10 @@ impl GridEdit {
     }
 
     fn is_insert(self) -> bool {
-        matches!(self, GridEdit::InsertRows { .. } | GridEdit::InsertColumns { .. })
+        matches!(
+            self,
+            GridEdit::InsertRows { .. } | GridEdit::InsertColumns { .. }
+        )
     }
 
     fn at(self) -> u32 {
@@ -155,7 +158,12 @@ fn map_addr(addr: CellAddr, edit: GridEdit, role: Role) -> Option<CellAddr> {
         Axis::Row => (addr.col, map_coord(addr.row, edit, role)?),
         Axis::Column => (map_coord(addr.col, edit, role)?, addr.row),
     };
-    Some(CellAddr { col, row, col_abs: addr.col_abs, row_abs: addr.row_abs })
+    Some(CellAddr {
+        col,
+        row,
+        col_abs: addr.col_abs,
+        row_abs: addr.row_abs,
+    })
 }
 
 /// Render `r` after `edit`. A reference that no longer exists — a cell in a
@@ -164,10 +172,15 @@ fn map_addr(addr: CellAddr, edit: GridEdit, role: Role) -> Option<CellAddr> {
 /// is not re-parseable, so it would not survive a round trip.
 fn edited_ref_text(r: &Ref, edit: GridEdit) -> String {
     let rewritten = match r {
-        Ref::Cell { sheet, addr } => map_addr(*addr, edit, Role::Cell)
-            .map(|addr| Ref::Cell { sheet: sheet.clone(), addr }),
+        Ref::Cell { sheet, addr } => map_addr(*addr, edit, Role::Cell).map(|addr| Ref::Cell {
+            sheet: sheet.clone(),
+            addr,
+        }),
         Ref::Range { sheet, start, end } => {
-            match (map_addr(*start, edit, Role::RangeStart), map_addr(*end, edit, Role::RangeEnd)) {
+            match (
+                map_addr(*start, edit, Role::RangeStart),
+                map_addr(*end, edit, Role::RangeEnd),
+            ) {
                 (Some(start), Some(end)) => {
                     // The whole span was deleted: the clamped start now sits
                     // past the clamped end.
@@ -175,7 +188,11 @@ fn edited_ref_text(r: &Ref, edit: GridEdit) -> String {
                         Axis::Row => (start.row, end.row),
                         Axis::Column => (start.col, end.col),
                     };
-                    (lo <= hi).then_some(Ref::Range { sheet: sheet.clone(), start, end })
+                    (lo <= hi).then_some(Ref::Range {
+                        sheet: sheet.clone(),
+                        start,
+                        end,
+                    })
                 }
                 _ => None,
             }
