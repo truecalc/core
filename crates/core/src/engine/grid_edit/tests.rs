@@ -396,3 +396,172 @@ fn backwards_column_range_shrinks_correctly() {
         "=SUM(C1:A1)"
     );
 }
+
+// ------------------------------------------------- column axis, in full
+
+#[test]
+fn delete_columns_wholly_containing_a_range_makes_it_a_ref_error() {
+    assert_eq!(
+        t("=SUM(B1:D1)", DeleteColumns { at: 1, count: 9 }),
+        "=SUM(#REF!)"
+    );
+}
+
+#[test]
+fn delete_columns_overlapping_a_ranges_start_clamps_the_start() {
+    assert_eq!(
+        t("=SUM(B1:E1)", DeleteColumns { at: 1, count: 3 }),
+        "=SUM(A1:B1)"
+    );
+}
+
+#[test]
+fn delete_columns_overlapping_a_ranges_end_clamps_the_end() {
+    assert_eq!(
+        t("=SUM(A1:E1)", DeleteColumns { at: 3, count: 9 }),
+        "=SUM(A1:B1)"
+    );
+}
+
+#[test]
+fn absolute_column_anchor_is_preserved_across_a_column_delete() {
+    assert_eq!(
+        t("=SUM($C$1:$E$1)", DeleteColumns { at: 4, count: 1 }),
+        "=SUM($C$1:$D$1)"
+    );
+}
+
+#[test]
+fn insert_that_pushes_a_column_off_the_grid_makes_it_a_ref_error() {
+    // ZZZ is the last column of the Sheets grid.
+    assert_eq!(t("=ZZZ1", InsertColumns { at: 1, count: 1 }), "=#REF!");
+}
+
+// -------------------------------------------------------- more coverage
+
+#[test]
+fn a_surviving_range_keeps_its_sheet_qualifier_through_a_shrink() {
+    assert_eq!(
+        t("=SUM(Sheet1!A1:A5)", DeleteRows { at: 3, count: 1 }),
+        "=SUM(Sheet1!A1:A4)"
+    );
+}
+
+#[test]
+fn lambda_params_and_shadowed_body_uses_are_left_untouched() {
+    assert_eq!(
+        t("=LAMBDA(A5, A5*2)(3)", InsertRows { at: 1, count: 1 }),
+        "=LAMBDA(A5, A5*2)(3)"
+    );
+}
+
+#[test]
+fn lambda_call_arguments_are_real_references_and_shift() {
+    assert_eq!(
+        t("=LAMBDA(X, X*2)(A5)", InsertRows { at: 1, count: 1 }),
+        "=LAMBDA(X, X*2)(A6)"
+    );
+}
+
+#[test]
+fn a_two_dimensional_range_wholly_removed_by_a_row_delete_is_a_ref_error() {
+    assert_eq!(
+        t("=SUM(B2:D8)", DeleteRows { at: 1, count: 100 }),
+        "=SUM(#REF!)"
+    );
+}
+
+#[test]
+fn a_two_dimensional_range_shifts_only_on_the_edited_axis() {
+    assert_eq!(
+        t("=SUM(B2:D8)", DeleteRows { at: 1, count: 1 }),
+        "=SUM(B1:D7)"
+    );
+}
+
+#[test]
+fn a_range_with_only_one_endpoint_pushed_off_the_grid_is_a_ref_error() {
+    // Deliberately whole-reference, not per-corner: `#REF!:A9999999` does not
+    // re-parse, so a half-`#REF!` range would not survive a round trip.
+    assert_eq!(
+        t("=SUM(A9999999:A10000000)", InsertRows { at: 1, count: 1 }),
+        "=SUM(#REF!)"
+    );
+}
+
+#[test]
+fn an_index_beyond_the_axis_maximum_is_a_no_op() {
+    assert_eq!(
+        t(
+            "=SUM(A1:A5)",
+            InsertRows {
+                at: 20_000_000,
+                count: 1
+            }
+        ),
+        "=SUM(A1:A5)"
+    );
+    assert_eq!(
+        t(
+            "=SUM(A1:A5)",
+            DeleteRows {
+                at: 20_000_000,
+                count: 1
+            }
+        ),
+        "=SUM(A1:A5)"
+    );
+}
+
+#[test]
+fn huge_counts_do_not_overflow() {
+    assert_eq!(
+        t(
+            "=A5",
+            InsertRows {
+                at: 1,
+                count: u32::MAX
+            }
+        ),
+        "=#REF!"
+    );
+    assert_eq!(
+        t(
+            "=A5",
+            DeleteRows {
+                at: 1,
+                count: u32::MAX
+            }
+        ),
+        "=#REF!"
+    );
+    assert_eq!(
+        t(
+            "=A5",
+            DeleteRows {
+                at: 6,
+                count: u32::MAX
+            }
+        ),
+        "=A5"
+    );
+}
+
+// ------------------------------------------------------------ engine surface
+
+#[test]
+fn excel_flavor_is_rejected() {
+    let err = crate::Engine::excel()
+        .shift_refs_for_grid_edit("=A1", "Sheet1", "Sheet1", InsertRows { at: 1, count: 1 })
+        .unwrap_err();
+    assert!(err.message.contains("Excel flavor not yet supported"));
+}
+
+#[test]
+fn engine_surface_matches_the_module_level_transform() {
+    let edit = DeleteRows { at: 2, count: 2 };
+    let out = crate::Engine::sheets()
+        .shift_refs_for_grid_edit("=SUM(A1:A5)+A3", "Sheet1", "Sheet1", edit)
+        .unwrap();
+    assert_eq!(out, t("=SUM(A1:A5)+A3", edit));
+}

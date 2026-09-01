@@ -24,6 +24,36 @@
 //! out of sharing `collect_shiftable_refs`. Mechanically this mirrors both
 //! existing transforms: parse, collect the reference spans, splice
 //! replacement text back into the original string right-to-left.
+//!
+//! # Semantics not yet verified against the conformance fixtures
+//!
+//! No conformance fixture in this repo covers a structural edit — the fixture
+//! pipeline evaluates formulas, it does not perform grid mutations — so the
+//! rules below are the ones this module *asserts* rather than ones the repo
+//! establishes. They follow the precedent the fill/paste transform set for its
+//! own `#REF!` rule (treated as well-established, product-agnostic spreadsheet
+//! convention rather than something needing live-Sheets verification), but
+//! they should be pinned by the pipeline before anything depends on the exact
+//! boundary behaviour:
+//!
+//! 1. `$` anchors do not exempt an axis from a structural shift (they do
+//!    exempt one from a fill/paste translation).
+//! 2. An insert at exactly a range's first row moves the whole range rather
+//!    than expanding it; an insert at exactly its last row expands it; an
+//!    insert one past its last row leaves it alone.
+//! 3. A cell inside the deleted band becomes `#REF!`.
+//! 4. A partially deleted range shrinks rather than erroring — its start
+//!    clamps forward onto the cut, its end clamps back off it.
+//! 5. A range whose whole span was deleted becomes `#REF!`.
+//! 6. A backwards-written range (`A5:A1`) clamps by coordinate order, not by
+//!    written order, and keeps its written orientation.
+//! 7. A reference pushed past the grid bound by an insert becomes `#REF!`, and
+//!    a range with even one endpoint pushed off becomes `#REF!` entirely.
+//!    Sheets itself refuses such an insert rather than damaging formulas; this
+//!    is the engine's convention (matching the fill/paste transform's grid
+//!    rule), not observed product behaviour.
+//! 8. `count: 0` and an `at` beyond the axis maximum are silent no-ops;
+//!    `at: 0` is an error.
 
 use crate::eval::functions::lookup::indirect::{MAX_COL, MAX_ROW};
 use crate::parser::{CellAddr, Ref};
@@ -41,7 +71,6 @@ use super::translate::collect_shiftable_refs;
 ///
 /// `count: 0` is a no-op; `at: 0` is rejected (rows and columns are 1-based).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum GridEdit {
     /// Insert `count` rows above the current row `at`.
     InsertRows { at: u32, count: u32 },
@@ -54,7 +83,7 @@ pub enum GridEdit {
 }
 
 /// Which axis of a [`CellAddr`] an edit moves.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy)]
 enum Axis {
     Row,
     Column,
@@ -106,7 +135,7 @@ impl GridEdit {
 /// deletes it: a lone cell simply ceases to exist, while a range endpoint
 /// collapses onto the cut — the start forward, the end back — so that a
 /// partially deleted range shrinks instead of erroring.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy)]
 enum Role {
     /// A single cell's coordinate.
     Cell,
@@ -128,9 +157,10 @@ fn map_coord(v: u32, edit: GridEdit, role: Role) -> Option<u32> {
         let shifted = v as u64 + count as u64;
         (shifted <= edit.axis_max() as u64).then_some(shifted as u32)
     } else {
-        // `at + count - 1` is the last deleted index; `at >= 1` is enforced by
-        // the caller and `count == 0` degenerates to the identity map.
-        let last = at as u64 + count as u64 - 1;
+        // The last deleted index. Saturating so `map_coord` is safe on its
+        // own terms rather than relying on the `at >= 1` check in
+        // `shift_refs_text`; `count == 0` degenerates to the identity map.
+        let last = (at as u64 + count as u64).saturating_sub(1);
         if (v as u64) < at as u64 {
             Some(v)
         } else if v as u64 > last {
@@ -161,6 +191,12 @@ fn edited_coord(addr: CellAddr, edit: GridEdit) -> u32 {
 
 /// Apply `edit` to `addr`, leaving the untouched axis (and both `$` anchors)
 /// as they are. `None` if the address no longer exists.
+///
+/// For [`Role::RangeEnd`] this can return a *sentinel* address with a `0`
+/// coordinate — the "clamped back past the top of the grid" case, which
+/// [`CellAddr::parse`] would reject. It is only ever compared against the
+/// other endpoint, never rendered: the comparison in [`edited_ref_text`]
+/// always finds the range wholly removed when it appears.
 fn map_addr(addr: CellAddr, edit: GridEdit, role: Role) -> Option<CellAddr> {
     let (col, row) = match edit.axis() {
         Axis::Row => (addr.col, map_coord(addr.row, edit, role)?),

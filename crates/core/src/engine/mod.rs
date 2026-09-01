@@ -151,8 +151,21 @@ impl Engine {
     ///
     /// let engine = Engine::sheets();
     /// let edit = GridEdit::DeleteRows { at: 2, count: 2 };
+    ///
+    /// // A formula on Sheet1, and rows deleted from Sheet1: the range shrinks
+    /// // and the cell inside the deleted band is gone.
     /// let out = engine.shift_refs_for_grid_edit("=SUM(A1:A5)+A3", "Sheet1", "Sheet1", edit).unwrap();
     /// assert_eq!(out, "=SUM(A1:A3)+#REF!");
+    ///
+    /// // The same formula living on Sheet2 instead: its bare refs mean
+    /// // Sheet2, which the Sheet1 edit does not touch, so nothing moves. Note
+    /// // the argument order — `formula_sheet` first, then `edited_sheet`.
+    /// let out = engine.shift_refs_for_grid_edit("=SUM(A1:A5)+A3", "Sheet2", "Sheet1", edit).unwrap();
+    /// assert_eq!(out, "=SUM(A1:A5)+A3");
+    ///
+    /// // ...but its explicitly Sheet1-qualified refs still move.
+    /// let out = engine.shift_refs_for_grid_edit("=SUM(Sheet1!A1:A5)", "Sheet2", "Sheet1", edit).unwrap();
+    /// assert_eq!(out, "=SUM(Sheet1!A1:A3)");
     /// ```
     pub fn shift_refs_for_grid_edit(
         &self,
