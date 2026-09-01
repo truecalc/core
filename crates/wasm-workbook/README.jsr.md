@@ -56,7 +56,7 @@ integration, so Deno instantiates the WebAssembly as part of the module graph �
 | `clear(sheet, a1)` | Clear a cell |
 | `recalc(contextJson)` | Recalculate in dependency order; returns changes as a JSON string. The context must supply `timestamp_ms`, `timezone` and `rng_seed` — all three, or it throws |
 | `resolved(sheet, a1)` | The computed value of a cell, as a JSON string |
-| `defineName(name, ref)` / `redefineName(name, ref)` | Named ranges |
+| `defineName(name, ref)` / `redefineName(name, ref)` / `removeName(name)` | Named ranges |
 | `precedentsOf(sheet, a1, maxDepth?, maxNodes?)` | What a cell reads — cells, ranges, names and unresolved refs |
 | `dependentsOf(sheet, a1, maxDepth?, maxNodes?)` | What reads a cell, i.e. what breaks if you change it |
 | `toJSON()` / `JsWorkbook.fromJSON(s)` | Serialise and restore |
