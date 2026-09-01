@@ -347,3 +347,52 @@ fn output_of_a_deleting_edit_re_parses() {
     assert_eq!(out, "=SUM(#REF!)+1");
     assert!(crate::parser::parse_formula(&out).is_ok());
 }
+
+// ------------------------------------------------------ backwards-written ranges
+
+#[test]
+fn backwards_range_untouched_by_the_edit_is_left_alone() {
+    // `A5:A1` is a legal way to write rows 1..5; an edit below it must not
+    // mistake the written order for a deleted span.
+    assert_eq!(
+        t("=SUM(A5:A1)", InsertRows { at: 10, count: 1 }),
+        "=SUM(A5:A1)"
+    );
+    assert_eq!(
+        t("=SUM(A5:A1)", DeleteRows { at: 10, count: 1 }),
+        "=SUM(A5:A1)"
+    );
+}
+
+#[test]
+fn backwards_range_shrinks_from_the_written_end() {
+    // rows 4 and 5 go; the range covered rows 1..5, so rows 1..3 survive.
+    assert_eq!(
+        t("=SUM(A5:A1)", DeleteRows { at: 4, count: 2 }),
+        "=SUM(A3:A1)"
+    );
+}
+
+#[test]
+fn backwards_range_wholly_deleted_is_a_ref_error() {
+    assert_eq!(
+        t("=SUM(A5:A1)", DeleteRows { at: 1, count: 9 }),
+        "=SUM(#REF!)"
+    );
+}
+
+#[test]
+fn backwards_range_shifts_whole_on_insert_above_it() {
+    assert_eq!(
+        t("=SUM(A5:A1)", InsertRows { at: 1, count: 2 }),
+        "=SUM(A7:A3)"
+    );
+}
+
+#[test]
+fn backwards_column_range_shrinks_correctly() {
+    assert_eq!(
+        t("=SUM(E1:A1)", DeleteColumns { at: 4, count: 2 }),
+        "=SUM(C1:A1)"
+    );
+}

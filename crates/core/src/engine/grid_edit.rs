@@ -151,6 +151,14 @@ fn map_coord(v: u32, edit: GridEdit, role: Role) -> Option<u32> {
     }
 }
 
+/// The coordinate of `addr` on the axis `edit` moves.
+fn edited_coord(addr: CellAddr, edit: GridEdit) -> u32 {
+    match edit.axis() {
+        Axis::Row => addr.row,
+        Axis::Column => addr.col,
+    }
+}
+
 /// Apply `edit` to `addr`, leaving the untouched axis (and both `$` anchors)
 /// as they are. `None` if the address no longer exists.
 fn map_addr(addr: CellAddr, edit: GridEdit, role: Role) -> Option<CellAddr> {
@@ -177,21 +185,28 @@ fn edited_ref_text(r: &Ref, edit: GridEdit) -> String {
             addr,
         }),
         Ref::Range { sheet, start, end } => {
+            // A range may be written backwards (`A5:A1`), so the clamping
+            // roles follow which endpoint is actually lower on the edited
+            // axis, not which one is written first.
+            let inverted = edited_coord(*start, edit) > edited_coord(*end, edit);
+            let (start_role, end_role) = if inverted {
+                (Role::RangeEnd, Role::RangeStart)
+            } else {
+                (Role::RangeStart, Role::RangeEnd)
+            };
             match (
-                map_addr(*start, edit, Role::RangeStart),
-                map_addr(*end, edit, Role::RangeEnd),
+                map_addr(*start, edit, start_role),
+                map_addr(*end, edit, end_role),
             ) {
-                (Some(start), Some(end)) => {
-                    // The whole span was deleted: the clamped start now sits
-                    // past the clamped end.
-                    let (lo, hi) = match edit.axis() {
-                        Axis::Row => (start.row, end.row),
-                        Axis::Column => (start.col, end.col),
-                    };
-                    (lo <= hi).then_some(Ref::Range {
+                (Some(new_start), Some(new_end)) => {
+                    // Every row/column the range covered was deleted: the two
+                    // clamped endpoints have crossed over each other.
+                    let (a, b) = (edited_coord(new_start, edit), edited_coord(new_end, edit));
+                    let survives = if inverted { a >= b } else { a <= b };
+                    survives.then_some(Ref::Range {
                         sheet: sheet.clone(),
-                        start,
-                        end,
+                        start: new_start,
+                        end: new_end,
                     })
                 }
                 _ => None,
