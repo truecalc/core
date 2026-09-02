@@ -175,6 +175,14 @@ impl Workbook {
         if prev_value_is_array || new_value_is_array {
             self.invalidate_anchor_cache();
         }
+        // Authored-cell-index cache (see the `authored_cell_index_cache`
+        // module docs): the index is a function of which addresses are
+        // authored, not of any cell's value or formula-ness, so only a write
+        // that actually adds a new entry can make it stale — an overwrite of
+        // an already-authored cell changes no entry.
+        if introduces_new_cell {
+            self.invalidate_authored_index_cache();
+        }
         // Auto-expansion retargets a table `ref`, which is a graph input; it
         // invalidates through `tables_mut` on the path that actually expands,
         // and is a no-op (so correctly non-invalidating) on the path that does
@@ -275,6 +283,12 @@ impl Workbook {
             .is_some_and(|c| matches!(c.value(), Value::Array(_)))
         {
             self.invalidate_anchor_cache();
+        }
+        // Authored-cell-index cache: clearing an authored cell removes its
+        // entry from the index (see the `set` invalidation above and the
+        // `authored_cell_index_cache` module docs).
+        if prev.is_some() {
+            self.invalidate_authored_index_cache();
         }
         prev
     }

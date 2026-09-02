@@ -237,6 +237,29 @@ fn independent_recalculates_one_formula_per_row_and_dirties_one_per_edit() {
     assert_eq!(incremental_work(&wb, "Sheet1", a1(), 99.0), (1, 1));
 }
 
+/// Design A (issue #991): the pre-image map `recalc_incremental_measured`
+/// accumulates should hold exactly the cells the call actually touched, not
+/// every formula cell in the workbook — the whole point of replacing the old
+/// up-front `snapshot_formula_values`. Wall clock cannot prove this; an exact
+/// count can, the same rationale `full_recalc_work`/`incremental_work` above
+/// give for theirs.
+#[test]
+fn a_one_cell_edit_into_a_thousand_formula_workbook_records_one_pre_image() {
+    let ctx = make_ctx();
+    let mut wb = build_independent(1000);
+    wb.recalc(&ctx);
+    wb.set("Sheet1", a1(), CellInput::Literal(Value::Number(99.0)))
+        .unwrap();
+    let changes = wb.recalc_incremental(&ctx, &[("Sheet1".to_string(), a1())]);
+    assert_eq!(changes.len(), 1, "A1 is read by B1 and by nothing else");
+    assert_eq!(
+        wb.pre_image_count(),
+        1,
+        "a one-cell edit into a 1,000-formula workbook must record exactly \
+         one pre-image, not one per formula cell"
+    );
+}
+
 #[test]
 fn row_totals_recalculates_one_total_per_row_and_dirties_one_per_edit() {
     let wb = build_row_totals(20);

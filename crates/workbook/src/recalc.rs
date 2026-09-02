@@ -486,16 +486,26 @@ impl Workbook {
         // (`incremental ≡ full`, P3.3) even across spills (§5).
         //
         // To return change events with correct *pre-operation* `old` values
-        // despite the multiple internal recomputes, snapshot every formula
-        // cell's value first, then recompute over the (growing) dirty set until
-        // no anchor's spill footprint changes, and finally diff the resulting
-        // grid against the snapshot. The loop is bounded by the formula-cell
-        // count (each pass strictly grows the dirty set or stops).
+        // despite the multiple internal recomputes, accumulate the pre-image
+        // of every cell this loop actually writes, lazily, from `recompute`'s
+        // own returned change list — rather than snapshotting every formula
+        // cell up front. `apply_changes` (called at the end of `recompute`) is
+        // the only code path that writes to the grid, and every write it
+        // makes is recorded in the `Change` it returns, carrying the
+        // pre-write value as `old` (read from the grid immediately before
+        // that write). So folding each pass's returned changes into `pre`
+        // first-wins (`entry(..).or_insert(old)`) records exactly the
+        // pre-recalc value of every cell this call ever touches, the first
+        // time it changes — cheaper than an upfront O(formula cells)
+        // snapshot, and provably equivalent to it: see the widen-loop rewind
+        // group in `recalc_differential_tests.rs`. The loop is bounded by the
+        // formula-cell count (each pass strictly grows the dirty set or
+        // stops).
         //
         // The widened readers go through the same frontier and are closed over
         // too, so this stage cannot dirty a cell without dirtying what reads it
         // either.
-        let pre = self.snapshot_formula_values(&sheets, graph);
+        let mut pre: BTreeMap<CellRef, Value> = BTreeMap::new();
         let max_widen = graph.formula_cells().count().saturating_add(2).max(1);
         for pass in 0..max_widen {
             if pass > 0 {
@@ -516,10 +526,24 @@ impl Workbook {
                 // made the seeding's *breadth* load-bearing for byte-identity:
                 // a wide dirty set hid the second attempt by having already
                 // dirtied whatever the widening would add.
+                //
+                // `pre` only grows with cells `recompute` has actually
+                // written by this point (fact 0.1/0.2 above), so rewinding to
+                // it restores every one of those writes; its own returned
+                // change list is discarded rather than folded in, since a
+                // rewind's `old` is a *post-pass* value, not the true
+                // pre-recalc one `pre` already holds correctly.
                 self.apply_changes(&sheets, pre.clone());
             }
             let before = self.anchor_rectangles_cached();
-            self.recompute(&cached, ctx, frontier.cells().clone());
+            let changes = self.recompute(&cached, ctx, frontier.cells().clone());
+            for change in changes {
+                let cell = CellRef {
+                    sheet: simple_fold(&folder, &change.sheet),
+                    addr: change.addr,
+                };
+                pre.entry(cell).or_insert(change.old);
+            }
             let after = self.anchor_rectangles_cached();
 
             let was = frontier.len();
@@ -548,6 +572,7 @@ impl Workbook {
             }
         }
         let closure = frontier.len();
+        self.record_pre_image_count(pre.len());
         (self.diff_against_snapshot(&sheets, pre), closure)
     }
 
@@ -1115,26 +1140,6 @@ impl Workbook {
             .any(|name| contains_call(&upper, name))
     }
 
-    /// Every formula cell's current stored value, keyed by [`CellRef`]. The
-    /// pre-operation snapshot an incremental recalc diffs its final grid against
-    /// to emit change events with correct `old` values despite internal
-    /// re-recomputes (spill widening).
-    fn snapshot_formula_values(
-        &self,
-        sheets: &SheetIndex,
-        graph: &DependencyGraph,
-    ) -> BTreeMap<CellRef, Value> {
-        let mut snap = BTreeMap::new();
-        for cell in graph.formula_cells() {
-            let value = self
-                .cell_at(sheets, cell)
-                .map(|c| c.value().clone())
-                .unwrap_or(Value::Empty);
-            snap.insert(cell.clone(), value);
-        }
-        snap
-    }
-
     /// Adds every spill-occupancy-sensitive formula cell to `frontier` (issue
     /// #591), so an incremental recalc reproduces a full recalc across any spill
     /// footprint or blocked-status change even though the dependency graph
@@ -1169,13 +1174,34 @@ impl Workbook {
     /// The blocked-spill error string equals [`BLOCKED_SPILL_ERROR`]; a cell
     /// merely *holding* that error that is not actually a former/blocked spill
     /// anchor is harmless to re-evaluate (it recomputes to the same value).
+    ///
+    /// Uses the workbook's cached authored-cell index (issue #991 fallback)
+    /// rather than building one fresh on every call — see the
+    /// `authored_cell_index_cache` module docs. The index is still built
+    /// lazily, only if a range precedent is actually examined (issue #927
+    /// follow-up), but once built it is persisted on the workbook so a later
+    /// call with a warm, still-valid cache skips the `O(authored cells)`
+    /// build entirely rather than repeating it. `&mut self` only to store a
+    /// freshly built index; nothing here mutates the grid.
     fn seed_spill_sensitive(
-        &self,
+        &mut self,
         sheets: &SheetIndex,
         graph: &DependencyGraph,
         frontier: &mut DirtyFrontier,
     ) {
-        self.seed_spill_sensitive_indexed(sheets, graph, frontier);
+        let mut authored = self.cached_authored_index_entry();
+        let was_warm = authored.is_some();
+        self.seed_spill_sensitive_body(sheets, graph, frontier, &mut authored);
+        // Only store when this call actually built a fresh index: if the
+        // cache started warm, `authored` is the same `Arc` already stored,
+        // and re-storing it would bump `authored_index_builds()` for a call
+        // that built nothing (the exact-count instrumentation this cache
+        // exists to support).
+        if !was_warm {
+            if let Some(index) = authored {
+                self.store_cached_authored_index(index);
+            }
+        }
     }
 
     /// [`seed_spill_sensitive`](Self::seed_spill_sensitive), plus whether it
@@ -1187,6 +1213,16 @@ impl Workbook {
     /// pay for a full sheet sweep it never needed (issue #927 follow-up).
     /// Hidden from the docs because callers want
     /// [`seed_spill_sensitive`](Self::seed_spill_sensitive).
+    ///
+    /// Deliberately **uncached**, unlike the real recalc path above: this
+    /// always builds a fresh local index rather than consulting or
+    /// populating the workbook's persistent authored-index cache, so its
+    /// return value keeps meaning exactly what its name says — "did *this*
+    /// call need to build the index" — regardless of whether some other
+    /// call already warmed the workbook's cache. Routing this through that
+    /// cache would make the answer depend on cache warmth instead, silently
+    /// changing what the existing tests in `authored_cell_index_tests.rs`
+    /// assert.
     #[doc(hidden)]
     pub fn seed_spill_sensitive_built_index(
         &self,
@@ -1197,22 +1233,39 @@ impl Workbook {
     }
 
     /// [`seed_spill_sensitive_built_index`](Self::seed_spill_sensitive_built_index)
-    /// against a sheet index the caller already built for this recalc — the
-    /// real body of both. Split out so the recalc path folds the sheet list
-    /// once for the whole pass rather than once per formula cell examined here
-    /// (issue #952).
+    /// against a sheet index the caller already built for this recalc.
+    /// Always builds its own local index (see that function's doc comment for
+    /// why) via [`seed_spill_sensitive_body`](Self::seed_spill_sensitive_body),
+    /// the shared loop this and the cached hot path both drive. Split out so
+    /// the recalc path folds the sheet list once for the whole pass rather
+    /// than once per formula cell examined here (issue #952).
     fn seed_spill_sensitive_indexed(
         &self,
         sheets: &SheetIndex,
         graph: &DependencyGraph,
         frontier: &mut DirtyFrontier,
     ) -> bool {
+        let mut authored: Option<Arc<AuthoredCellIndex>> = None;
+        self.seed_spill_sensitive_body(sheets, graph, frontier, &mut authored);
+        authored.is_some()
+    }
+
+    /// The real body of spill-sensitive seeding (issue #591): walks every
+    /// formula cell and inserts it into `frontier` per the five rules
+    /// documented on [`seed_spill_sensitive`](Self::seed_spill_sensitive).
+    /// Shared by the cached hot path and the uncached, test-instrumented
+    /// path — `authored` is the caller's index slot, seeded from the
+    /// persistent cache or from a fresh `None` depending on which caller this
+    /// is; this body neither knows nor cares which, so the two callers cannot
+    /// drift apart in the actual seeding logic.
+    fn seed_spill_sensitive_body(
+        &self,
+        sheets: &SheetIndex,
+        graph: &DependencyGraph,
+        frontier: &mut DirtyFrontier,
+        authored: &mut Option<Arc<AuthoredCellIndex>>,
+    ) {
         let rects = self.anchor_rectangles_ref();
-        // Built lazily, on the first range precedent examined: this decision
-        // is asked `O(range precedents)` times, and eagerly building it before
-        // knowing any range precedent exists made it an unconditional full
-        // sheet sweep on top of `anchor_rectangles` (issue #927 follow-up).
-        let mut authored: Option<AuthoredCellIndex> = None;
         for cell in graph.formula_cells() {
             // (1)/(2): the cell itself is (or held) a spill.
             let is_spill_cell = match self.cell_at(sheets, cell).map(Cell::value) {
@@ -1227,7 +1280,7 @@ impl Workbook {
             if !seed {
                 if let Some(precedents) = graph.precedents_of(cell) {
                     seed = precedents.iter().any(|p| {
-                        self.precedent_is_spill_sensitive(sheets, p, graph, &rects, &mut authored)
+                        self.precedent_is_spill_sensitive(sheets, p, graph, &rects, authored)
                     });
                 }
             }
@@ -1235,7 +1288,6 @@ impl Workbook {
                 frontier.insert(cell.clone());
             }
         }
-        authored.is_some()
     }
 
     /// Whether a single precedent reads a cell that is, or could become, a
@@ -1249,7 +1301,7 @@ impl Workbook {
         precedent: &Precedent,
         graph: &DependencyGraph,
         rects: &BTreeMap<CellRef, SpillRect>,
-        authored: &mut Option<AuthoredCellIndex>,
+        authored: &mut Option<Arc<AuthoredCellIndex>>,
     ) -> bool {
         match precedent {
             Precedent::Cell(c) => self.cell_is_spill_sensitive(sheets, c),
@@ -1300,13 +1352,13 @@ impl Workbook {
         &self,
         r: &RangeRef,
         rects: &BTreeMap<CellRef, SpillRect>,
-        authored: &mut Option<AuthoredCellIndex>,
+        authored: &mut Option<Arc<AuthoredCellIndex>>,
     ) -> bool {
         rects
             .iter()
             .any(|(anchor, rect)| anchor.sheet == r.sheet && rect_overlaps_range(rect, r))
             || authored
-                .get_or_insert_with(|| AuthoredCellIndex::build(self))
+                .get_or_insert_with(|| Arc::new(AuthoredCellIndex::build(self)))
                 .range_has_unauthored_cell(r)
     }
 

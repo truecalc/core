@@ -9,6 +9,8 @@ use icu_casemap::CaseMapperBorrowed;
 use truecalc_core::Engine;
 
 use crate::address::Address;
+use crate::authored_cell_index_cache::AuthoredCellIndexCache;
+use crate::authored_index::AuthoredCellIndex;
 use crate::canonical;
 use crate::casefold::simple_fold;
 use crate::depgraph::CellRef;
@@ -18,6 +20,7 @@ use crate::graph_cache::{CachedGraph, GraphCache};
 use crate::limits;
 use crate::named_range::NamedRange;
 use crate::named_ref;
+use crate::pre_image_stats::PreImageStats;
 use crate::spill::SpillRect;
 use crate::spill_anchor_cache::SpillAnchorCache;
 use crate::strict_json;
@@ -38,11 +41,15 @@ pub const SCHEMA_VERSION: &str = "2";
 /// declaration order (`engine`, `names`, `sheets`, `tables`, `version`)
 /// matches canonical (JCS) key order.
 ///
-/// `graph_cache` and `spill_anchor_cache` are not part of the document: they
-/// are derived state the workbook memoizes across recalculations (see the
-/// `graph_cache` and `spill_anchor_cache` module docs). Both are skipped by
-/// serde, ignored by `PartialEq`, and contribute nothing to `Hash`, so the
-/// value object is exactly what it was before either cache existed.
+/// `graph_cache`, `spill_anchor_cache` and `authored_cell_index_cache` are not
+/// part of the document: they are derived state the workbook memoizes across
+/// recalculations (see the `graph_cache`, `spill_anchor_cache` and
+/// `authored_cell_index_cache` module docs). `pre_image_stats` is likewise
+/// not document content — it is instrumentation for the last incremental
+/// recalc's own bookkeeping (see the `pre_image_stats` module docs). All four
+/// are skipped by serde, ignored by `PartialEq`, and contribute nothing to
+/// `Hash`, so the value object is exactly what it was before any of them
+/// existed.
 #[derive(Debug, Clone, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Workbook {
@@ -57,6 +64,10 @@ pub struct Workbook {
     graph_cache: GraphCache,
     #[serde(skip)]
     spill_anchor_cache: SpillAnchorCache,
+    #[serde(skip)]
+    authored_cell_index_cache: AuthoredCellIndexCache,
+    #[serde(skip)]
+    pre_image_stats: PreImageStats,
 }
 
 impl Workbook {
@@ -74,6 +85,8 @@ impl Workbook {
             version: SCHEMA_VERSION.to_owned(),
             graph_cache: GraphCache::default(),
             spill_anchor_cache: SpillAnchorCache::default(),
+            authored_cell_index_cache: AuthoredCellIndexCache::default(),
+            pre_image_stats: PreImageStats::default(),
         }
     }
 
@@ -99,10 +112,13 @@ impl Workbook {
     /// only sound assumption is that it changed the graph. Invalidates the
     /// spill-anchor cache for the same reason: an unobserved write can add or
     /// remove an array-valued cell just as easily as it can add or remove a
-    /// formula.
+    /// formula. Invalidates the authored-cell-index cache for the same reason
+    /// again: an unobserved write can add or remove an authored cell just as
+    /// easily.
     pub fn sheets_mut(&mut self) -> &mut Vec<Worksheet> {
         self.graph_cache.invalidate();
         self.spill_anchor_cache.invalidate();
+        self.authored_cell_index_cache.invalidate();
         &mut self.sheets
     }
 
@@ -142,11 +158,13 @@ impl Workbook {
 
     /// Mutable access to the worksheet named `name` (case-insensitive).
     ///
-    /// Invalidates the dependency-graph cache and the spill-anchor cache on
-    /// the borrow (see [`sheets_mut`](Self::sheets_mut)).
+    /// Invalidates the dependency-graph cache, the spill-anchor cache and the
+    /// authored-cell-index cache on the borrow (see
+    /// [`sheets_mut`](Self::sheets_mut)).
     pub fn sheet_mut(&mut self, name: &str) -> Option<&mut Worksheet> {
         self.graph_cache.invalidate();
         self.spill_anchor_cache.invalidate();
+        self.authored_cell_index_cache.invalidate();
         match self.sheet_index(name) {
             Some(i) => Some(&mut self.sheets[i]),
             None => None,
@@ -208,8 +226,11 @@ impl Workbook {
         self.graph_cache.invalidate();
         // The inserted sheet is an already-built `Worksheet` the caller
         // assembled independently — it may already hold array-valued cells,
-        // so the spill-anchor cache cannot assume it is unaffected.
+        // so the spill-anchor cache cannot assume it is unaffected. Same
+        // reasoning for the authored-cell-index cache: the inserted sheet may
+        // already hold authored cells the index has never seen.
         self.spill_anchor_cache.invalidate();
+        self.authored_cell_index_cache.invalidate();
         self.sheets.insert(index, sheet);
         Ok(())
     }
@@ -239,8 +260,11 @@ impl Workbook {
         // to it into `Unresolved`.
         self.graph_cache.invalidate();
         // The removed sheet may have held spill anchors; the cached map would
-        // then contain rectangles for a sheet that no longer exists.
+        // then contain rectangles for a sheet that no longer exists. Same
+        // reasoning for the authored-cell-index cache: the removed sheet's
+        // authored cells must drop out of the index too.
         self.spill_anchor_cache.invalidate();
+        self.authored_cell_index_cache.invalidate();
         Some(self.sheets.remove(i))
     }
 
@@ -419,8 +443,10 @@ impl Workbook {
         self.graph_cache.invalidate();
         // The spill-anchor cache keys every rectangle by folded sheet name
         // (see `spill_anchor_cache` module docs), so a rename invalidates the
-        // key space even though it changes no cell value.
+        // key space even though it changes no cell value. The authored-cell
+        // index is keyed by folded sheet name too, for the same reason.
         self.spill_anchor_cache.invalidate();
+        self.authored_cell_index_cache.invalidate();
         for (nr, new) in self.names.iter_mut().zip(name_refs) {
             if let Some(new) = new {
                 nr.r#ref = new;
@@ -497,26 +523,28 @@ impl Workbook {
     /// Releases every cached derived-state entry the workbook holds — today
     /// the dependency graph (reclaiming the ~545 B/cell (wasm32) / ~856 B/cell
     /// (native) it retains for every formula cell — see the `limits` module
-    /// docs for the multi-workbook arithmetic this exists for) and the
-    /// spill-anchor-rectangle map.
+    /// docs for the multi-workbook arithmetic this exists for), the
+    /// spill-anchor-rectangle map, and the authored-cell index.
     ///
     /// The workbook itself is unchanged: the next `recalc` / `recalc_incremental`
     /// / `explain` call simply rebuilds whatever it needs, exactly as it would
     /// after a mutation the owning cache's module invalidates on (`graph_builds`
-    /// / `anchor_builds` ticks up by one).
+    /// / `anchor_builds` / `authored_index_builds` ticks up by one).
     ///
     /// Named for what it releases, not for the mechanism, and kept apart from
     /// [`invalidate_graph_cache`](Self::invalidate_graph_cache) /
-    /// [`invalidate_anchor_cache`](Self::invalidate_anchor_cache) (both
-    /// `pub(crate)`) on purpose: those are this crate's word for "a mutation
-    /// made the entry stale, it must rebuild before next use" — an internal
-    /// correctness call the workbook makes about itself. This is a different
-    /// call: a still-*valid* cache the *host* chooses to give back for its
-    /// memory. The name says what a caller gets (memory back), not how, so it
-    /// keeps meaning "every derived cache" as more join it.
+    /// [`invalidate_anchor_cache`](Self::invalidate_anchor_cache) /
+    /// [`invalidate_authored_index_cache`](Self::invalidate_authored_index_cache)
+    /// (all `pub(crate)`) on purpose: those are this crate's word for "a
+    /// mutation made the entry stale, it must rebuild before next use" — an
+    /// internal correctness call the workbook makes about itself. This is a
+    /// different call: a still-*valid* cache the *host* chooses to give back
+    /// for its memory. The name says what a caller gets (memory back), not
+    /// how, so it keeps meaning "every derived cache" as more join it.
     pub fn drop_derived_state(&mut self) {
         self.invalidate_graph_cache();
         self.invalidate_anchor_cache();
+        self.invalidate_authored_index_cache();
     }
 
     /// Mutable access to the worksheets that does **not** invalidate the
@@ -624,6 +652,60 @@ impl Workbook {
     #[doc(hidden)]
     pub fn grid_spill_index_build_calls(&self) -> u64 {
         self.spill_anchor_cache.grid_spill_index_build_calls()
+    }
+
+    /// The cached authored-cell index, if the cache is warm.
+    ///
+    /// Warm means "equal to a build against the workbook as it is now" — see
+    /// the `authored_cell_index_cache` module docs for the invalidation
+    /// contract that maintains it. `pub(crate)`: nothing outside this crate
+    /// currently needs it.
+    pub(crate) fn cached_authored_index_entry(&self) -> Option<Arc<AuthoredCellIndex>> {
+        self.authored_cell_index_cache.get()
+    }
+
+    /// Records a freshly built authored-cell index as the cache entry.
+    pub(crate) fn store_cached_authored_index(&mut self, entry: Arc<AuthoredCellIndex>) {
+        self.authored_cell_index_cache.store(entry);
+    }
+
+    /// Drops the authored-cell-index cache entry. Always sound; the cost of a
+    /// spurious call is one rebuild.
+    pub(crate) fn invalidate_authored_index_cache(&mut self) {
+        self.authored_cell_index_cache.invalidate();
+    }
+
+    /// How many authored-cell indexes this workbook has built.
+    /// Instrumentation, same rationale as [`graph_builds`](Self::graph_builds):
+    /// "builds per recalc" is the exact-count metric behind this cache, and
+    /// wall clock is too machine-dependent to assert on in a test.
+    #[doc(hidden)]
+    pub fn authored_index_builds(&self) -> u64 {
+        self.authored_cell_index_cache.builds()
+    }
+
+    /// Whether the authored-cell-index cache currently holds an entry.
+    /// Instrumentation, same rationale as [`graph_builds`](Self::graph_builds).
+    #[doc(hidden)]
+    pub fn authored_index_cache_is_warm(&self) -> bool {
+        self.authored_cell_index_cache.is_warm()
+    }
+
+    /// Records `count` as the last incremental recalc's pre-image-map size
+    /// (issue #991, Design A). See the `pre_image_stats` module docs.
+    pub(crate) fn record_pre_image_count(&mut self, count: usize) {
+        self.pre_image_stats.record(count);
+    }
+
+    /// How many cells the last incremental recalc recorded a pre-image for.
+    /// Instrumentation, not a feature: this is the exact-count metric behind
+    /// Design A's lazy pre-image accumulation (issue #991) — wall clock
+    /// cannot prove that an edit into a large workbook recorded one pre-image
+    /// rather than one per formula cell, but this count can. `0` before the
+    /// first incremental call.
+    #[doc(hidden)]
+    pub fn pre_image_count(&self) -> u64 {
+        self.pre_image_stats.count()
     }
 
     /// Parses a workbook from JSON bytes, enforcing every document-level rule
