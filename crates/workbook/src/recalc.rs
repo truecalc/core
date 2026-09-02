@@ -730,16 +730,27 @@ impl Workbook {
         // recomputed spills (the #591 staleness rule and the incremental-seed
         // fallback, respectively).
         //
-        // Read-only (`anchor_rectangles_ref`), not the mutating
-        // `anchor_rectangles_cached`: `recompute` is shared with the full-recalc
-        // path (`Workbook::recalc`), which must never populate this cache — see
-        // the `spill_anchor_cache` module docs and
-        // `spill_anchor_cache_tests.rs`'s
+        // Read-only (`cached_anchor_entry`), not the mutating
+        // `anchor_rectangles_cached`, and not `anchor_rectangles_ref` either:
+        // `recompute` is shared with the full-recalc path (`Workbook::recalc`),
+        // which must never populate this cache — see the `spill_anchor_cache`
+        // module docs and `spill_anchor_cache_tests.rs`'s
         // `a_full_recalc_that_changes_a_spill_leaves_no_stale_entry_for_the_next_incremental_call`.
-        // The incremental path always pre-warms the cache before calling here,
-        // so this is an O(1) `Arc` clone on that path; only a cold full recalc
-        // pays a fresh (uncached) scan here.
-        let no_spills = self.anchor_rectangles_ref().is_empty();
+        // Checking `cached_anchor_entry` directly (rather than probing through
+        // `anchor_rectangles_ref`, whose cache-miss fallback runs a fresh,
+        // uncached `anchor_rectangles()` scan of its own) means this short-
+        // circuit costs a cache-miss scan to even ask the question on a cold
+        // full recalc — the common case for `Workbook::recalc`, which never
+        // warms this cache — turning the two scans below into three instead of
+        // skipping either. Gating on "the cache is *already* warm and empty"
+        // gets the identical win whenever the cache happens to be warm (the
+        // incremental hot path, which always pre-warms it before calling here:
+        // an O(1) `Arc` clone plus an `is_empty()`), while a cold cache simply
+        // falls through to running both real scans unconditionally — exactly
+        // the pre-#985 cost, no wasted probe.
+        let no_spills = self
+            .cached_anchor_entry()
+            .is_some_and(|anchors| anchors.is_empty());
         let (mut new_values, mut spills) = if no_spills {
             (BTreeMap::new(), BTreeMap::new())
         } else {

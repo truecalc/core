@@ -19,6 +19,14 @@
 //! grid have zero spills *right now*" must not miss a spill *this exact
 //! edit* is about to create, since that spill does not exist yet at the
 //! moment the gate is checked.
+//!
+//! The fourth case guards a regression review found in the first cut of this
+//! fix: the short-circuit gate must read the #984 anchor cache passively
+//! (`cached_anchor_entry`) rather than through `anchor_rectangles_ref`, whose
+//! cache-miss fallback runs a fresh, uncached full-grid scan of its own —
+//! which would turn a cold-cache full [`Workbook::recalc`] (the common case;
+//! `recalc` never warms this cache) with a pre-existing spill into three
+//! full-grid scans instead of the intended two.
 
 use truecalc_workbook::{
     Address, CellInput, EngineFlavor, RecalcContext, Value, Workbook, Worksheet,
@@ -203,5 +211,67 @@ fn an_edit_that_creates_a_brand_new_spill_is_not_missed() {
     assert_eq!(
         wb.resolved("S", addr("D1")).unwrap().value,
         fresh.resolved("S", addr("D1")).unwrap().value
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Case 4: a cold-cache full recalc (`Workbook::recalc`, which never warms the
+// #984 anchor cache) on a workbook that already has a spill must still run
+// both scans — the short-circuit gate itself must not pay for, or be tricked
+// by, a cold cache.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_cold_cache_full_recalc_with_existing_spills_still_scans_and_resolves() {
+    let mut wb = Workbook::new(EngineFlavor::Sheets);
+    wb.add_sheet(Worksheet::new("S")).unwrap();
+    wb.set("S", addr("A1"), CellInput::Literal(Value::Number(3.0)))
+        .unwrap();
+    wb.set(
+        "S",
+        addr("B1"),
+        CellInput::Formula("=SEQUENCE(1, A1)".into()),
+    )
+    .unwrap();
+
+    // A full recalc places the spill without ever touching the anchor cache
+    // — the documented invariant `recompute` relies on to stay sound when
+    // shared between the full and incremental paths.
+    wb.recalc(&ctx());
+    assert!(
+        !wb.anchor_cache_is_warm(),
+        "Workbook::recalc must never populate the #984 anchor cache"
+    );
+    assert_eq!(
+        wb.resolved("S", addr("D1")).unwrap().anchor,
+        Some(addr("B1"))
+    );
+
+    let seed_before = wb.seed_spills_from_grid_calls();
+    let build_before = wb.grid_spill_index_build_calls();
+
+    // A second full recalc, still with a stone-cold anchor cache, on a
+    // workbook whose only spill is pre-existing (unchanged by this pass).
+    wb.recalc(&ctx());
+
+    assert!(
+        wb.seed_spills_from_grid_calls() > seed_before,
+        "a cold-cache full recalc with an existing spill must still run seed_spills_from_grid"
+    );
+    assert!(
+        wb.grid_spill_index_build_calls() > build_before,
+        "a cold-cache full recalc with an existing spill must still run GridSpillIndex::build"
+    );
+    assert!(
+        !wb.anchor_cache_is_warm(),
+        "the short-circuit gate must read the anchor cache passively, never warm it"
+    );
+    assert_eq!(
+        wb.resolved("S", addr("C1")).unwrap().anchor,
+        Some(addr("B1"))
+    );
+    assert_eq!(
+        wb.resolved("S", addr("D1")).unwrap().anchor,
+        Some(addr("B1"))
     );
 }
