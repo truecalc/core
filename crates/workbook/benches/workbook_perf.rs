@@ -26,6 +26,13 @@
 //!   measured nowhere at all until this fixture existed. Its two incremental
 //!   groups bracket what propagation costs: a root edit dirties the whole
 //!   chain, a leaf edit dirties one cell.
+//! * **The spill-chain fixture** (`spill_chain`) — the same chain shape, but
+//!   an array anchor every 5 rows spills onto readers with no
+//!   dependency-graph edge back to it (issue #946). Every fixture above it
+//!   contains zero spills, so the widened dirty-set closure issue #942 added
+//!   for spill-heavy workbooks — measured at a real, correct 20-30% cost on
+//!   shapes like this one — passed this gate invisibly until this fixture
+//!   existed.
 //!
 //! `calibration/hash_alloc` is deliberately *not* a workbook benchmark. It is a
 //! fixed allocate-and-hash workload used as a machine-speed probe: the
@@ -162,6 +169,76 @@ fn build_chain(n: u32) -> Workbook {
             set_formula(&mut wb, row, 1, format!("=A{prev}+B{last}"));
         } else {
             set_formula(&mut wb, row, 1, format!("=A{prev}+1"));
+        }
+    }
+    wb
+}
+
+/// A spill-dense counterpart to [`build_chain`] (issue #946): the same
+/// depth-`n` value chain down column A, but every `anchor_every`-th link
+/// routes through a real array spill instead of a plain `+1`, so a reader
+/// downstream of that link has **no dependency-graph edge** back to the
+/// chain — exactly the class of edge issue #942's widened frontier closure
+/// exists to carry. No fixture in this file contained a spill at all before
+/// this one, so the 20-30% cost that closure adds on a spill-dense shape
+/// passed the regression gate invisibly; the issue's own reproduction is
+/// `n = 2_000`, `anchor_every = 5`.
+///
+/// For `row` in `2..=n+1`, tracking `carry` (a cell reference string seeded
+/// to `"A1"`, the chain's literal root):
+///
+/// - **Non-anchor row** (`row % anchor_every != 0`): `A{row} = "={carry}+1"`
+///   — an ordinary chain link, exactly [`build_chain`]'s. `carry` becomes
+///   `"A{row}"`.
+/// - **Anchor row** (`row % anchor_every == 0`):
+///   - `A{row} = "={{carry}+1,{carry}+2,{carry}+3}"`, an inline array
+///     literal spilling onto `A{row}:C{row}` (3 cells). `A{row}` itself
+///     keeps a normal graph edge back to `carry` — its formula references
+///     `carry` directly.
+///   - `D{row} = "=SUM(B{row}:C{row})"` reads **only the two spilled
+///     cells**, never `A{row}`. `B{row}`/`C{row}` are not formula nodes, so
+///     `direct_dependents_of(A{row})` does not include `D{row}` — the only
+///     path to it is `seed_spill_sensitive`'s range rule (rule 4: the range
+///     overlaps a currently-stored spill rectangle, or holds a non-authored
+///     cell) plus the frontier's own closure over `D{row}`'s dependents.
+///     This is the same shape as `recalc_spill_seed_frontier_tests.rs`'s
+///     reproduction (`A1={10,20,30}`, `E1=SUM(B1:C1)`), at chain scale.
+///   - `carry` becomes `"D{row}"`, so the chain continues from the reader,
+///     not the anchor — every downstream cell is at least one hop past a
+///     spill.
+///
+/// `A1 = 1.0` (the literal root, [`build_chain`]'s same role for `A1`).
+///
+/// At `n = 2_000`, `anchor_every = 5`: 2,000 `A`-column formulas plus 400
+/// `D`-column readers (2,400 formula cells total), 400 real spills, and 4
+/// ordinary chain hops between consecutive anchors — long enough for a
+/// widened cell's *dependents*, not just the cell itself, to be exercised.
+///
+/// This fixture's spills are fixed-size 1x3 rectangles that never change
+/// shape from one recalc to the next (`carry`'s *value* changes, its
+/// formula's *arity* never does), so `changed_rectangle_cells` — which
+/// diffs `SpillRect` geometry, not cell values — never fires here. This
+/// bench exercises `seed_spill_sensitive`'s range rule plus
+/// `close_over_dependents`'s walk, not the widen loop's rectangle-diff
+/// rescue; that path already has its own regression test in
+/// `recalc_spill_seed_frontier_tests.rs`.
+fn build_spill_chain(n: u32, anchor_every: u32) -> Workbook {
+    let mut wb = new_workbook();
+    set_number(&mut wb, 1, 1, 1.0);
+    let mut carry = "A1".to_string();
+    for row in 2..=n + 1 {
+        if row % anchor_every == 0 {
+            set_formula(
+                &mut wb,
+                row,
+                1,
+                format!("={{{carry}+1,{carry}+2,{carry}+3}}"),
+            );
+            set_formula(&mut wb, row, 4, format!("=SUM(B{row}:C{row})"));
+            carry = format!("D{row}");
+        } else {
+            set_formula(&mut wb, row, 1, format!("={carry}+1"));
+            carry = format!("A{row}");
         }
     }
     wb
@@ -538,6 +615,69 @@ fn bench_incremental_recalc(c: &mut Criterion) {
         }
         group.finish();
     }
+
+    // Issue #946: no `incremental_recalc` fixture above contains a single
+    // spill — the only path issue #942's widened dirty-set closure walks —
+    // so the 20-30% cost that closure adds on a spill-dense shape passed
+    // this gate invisibly. `build_spill_chain`'s `D{row}` readers have no
+    // dependency-graph edge to their spilling anchor, so they are dirtied
+    // only through `seed_spill_sensitive`'s range rule plus
+    // `close_over_dependents`'s walk — exactly the mechanism #942 fixed.
+    // The two groups below bracket the same two edits the issue's own
+    // measurement used, over the issue's own reproduction shape (an anchor
+    // every 5 rows, 2,000-row chain).
+    let mut spill_template = build_spill_chain(2_000, 5);
+    spill_template.recalc(&ctx);
+
+    // `seed_spill_sensitive`'s range rule (rule 4, `range_has_unauthored_cell`)
+    // is unconditional whenever a range holds a non-authored cell — true of
+    // every `D{row} = SUM(B{row}:C{row})` reader here regardless of which
+    // cell was edited, since `B{row}`/`C{row}` are spilled, never authored.
+    // So every incremental recalc on this fixture re-flags all 400 readers;
+    // this group additionally dirties the *entire* chain by editing the
+    // root, the worst case for ordinary propagation on top of that floor.
+    let mut group = c.benchmark_group("incremental_recalc/spill_chain_edit_root");
+    group.sample_size(20);
+    let n = 2_000u32;
+    group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, _| {
+        b.iter(|| {
+            let mut wb = spill_template.clone();
+            let a1 = Address::new(1, 1).unwrap();
+            wb.set("Sheet1", a1, CellInput::Literal(Value::Number(99.0)))
+                .unwrap();
+            wb.recalc_incremental(&ctx, &[("Sheet1".to_string(), a1)])
+        });
+    });
+    group.finish();
+
+    // Overwrites the anchor at the chain's midpoint (row 1000, an anchor row
+    // since 1000 is a multiple of 5) with a plain literal, collapsing its
+    // spill — the `overwrite_anchor_with_literal` scenario from
+    // `recalc_spill_seed_frontier_tests.rs`, at chain scale. The edited cell
+    // itself has no downstream graph edge (nothing references `A1000` by
+    // address; the chain continues from `D1000`), so unlike the root edit
+    // above, ordinary propagation from the edited cell alone dirties
+    // nothing — everything downstream is reached only via
+    // `seed_spill_sensitive`'s range rule (now unconditionally true for
+    // `D1000` for the same reason as every other reader, since `B1000`/`C1000`
+    // are vacated) and the frontier's closure from there. This also replaces
+    // a formula cell with a literal, which invalidates the dependency-graph
+    // cache (`crates/workbook/src/mutate.rs`'s `set`), so this group pays a
+    // graph rebuild the root edit above does not — a genuinely different,
+    // heavier-in-a-different-way path, not just a smaller version of the
+    // same one.
+    let mut group = c.benchmark_group("incremental_recalc/spill_chain_edit_spill_anchor");
+    group.sample_size(20);
+    group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, _| {
+        b.iter(|| {
+            let mut wb = spill_template.clone();
+            let anchor = Address::new(1000, 1).unwrap();
+            wb.set("Sheet1", anchor, CellInput::Literal(Value::Number(99.0)))
+                .unwrap();
+            wb.recalc_incremental(&ctx, &[("Sheet1".to_string(), anchor)])
+        });
+    });
+    group.finish();
 
     // Issue #984: a single-cell literal edit on a large all-literal,
     // zero-formula, zero-spill workbook. Before the fix,

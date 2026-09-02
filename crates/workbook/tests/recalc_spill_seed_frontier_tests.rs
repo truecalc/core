@@ -289,3 +289,96 @@ fn a_five_hop_chain_downstream_of_a_spill_seeded_cell_is_fully_refreshed() {
     }
     assert_eq!(wb, full, "incremental recalc did not reproduce full recalc");
 }
+
+// ---------------------------------------------------------------------------
+// Shape 5: a cascading two-anchor spill (issue #946).
+// ---------------------------------------------------------------------------
+
+/// `A1=SEQUENCE(1,F1)` spills onto `B1`; `C1=SEQUENCE(1,B1)` — a **second**
+/// spill anchor whose own column count is driven by reading `A1`'s spilled
+/// output — spills onto `D1`; `E1=D1+1000` reads the second spill; `G1=E1+1`
+/// is one further hop out. Shrinking `F1` from 2 to 1 collapses `A1`'s spill
+/// to a bare scalar, which in turn collapses `C1`'s (`SEQUENCE(1,1)` is a
+/// 1x1 array — 1x1 is not spill-eligible per `core_array_to_workbook`, so
+/// `C1` becomes `#NUM!`, `SEQUENCE`'s own error for a non-positive column
+/// count once `B1` no longer exists). This is new coverage: every other test
+/// in this file dirties its reader from **one** spill; here the reader's own
+/// precedent is itself a second, cascading spill whose existence depends on
+/// reading the first.
+///
+/// ## What this test does *not* prove
+///
+/// The plan for this issue proposed asserting this shape can only pass with
+/// the widen loop's own `close_over_dependents` call (`recalc.rs`, inside the
+/// `for pass in 0..max_widen` loop) in place — i.e. that commenting out just
+/// that call would make `G1` go stale. Verified empirically (temporarily
+/// commenting out that exact call and running this test, then the full
+/// suite): **it does not discriminate that call.** `E1`'s precedent `D1` is,
+/// like every non-anchor spilled cell, never authored — so
+/// `seed_spill_sensitive`'s rule 3 marks `E1` spill-sensitive *unconditionally*,
+/// before the widen loop ever runs, and the seeding-phase closure
+/// (`recalc.rs`, immediately after `seed_spill_sensitive`) already walks
+/// `E1`'s ordinary graph edge to `G1` — the widen loop's own closure call
+/// never gets a chance to matter. This holds for every shape this file's
+/// author could construct: any cell a spill can ever grow onto or vacate is,
+/// by `place_spill`'s own occupancy rule, never authored, and
+/// `seed_spill_sensitive`'s rules 3/4 mark *every* reader of *any*
+/// non-authored cell spill-sensitive regardless of spill history — so nothing
+/// the widen loop's insert can find is ever new. This is a structural
+/// consequence of the current (deliberately conservative,
+/// "over-seeding is safe") `seed_spill_sensitive` design, not a gap in this
+/// test; see the `close_over_dependents` call site in `recalc.rs` for the
+/// same finding recorded where the call actually lives.
+///
+/// Kept as a real regression test anyway — it is new, legitimate
+/// `incremental ≡ full` coverage for a cascading-spill shape no existing test
+/// exercises — just not evidence that the widen loop's closure call is
+/// reachable.
+#[test]
+fn a_cascading_two_anchor_spill_is_fully_refreshed() {
+    let mut wb = wb_with(&["S"]);
+    wb.set("S", a1("F1"), CellInput::Literal(Value::Number(2.0)))
+        .unwrap();
+    wb.set("S", a1("A1"), CellInput::Formula("=SEQUENCE(1,F1)".into()))
+        .unwrap();
+    wb.set("S", a1("C1"), CellInput::Formula("=SEQUENCE(1,B1)".into()))
+        .unwrap();
+    wb.set("S", a1("E1"), CellInput::Formula("=D1+1000".into()))
+        .unwrap();
+    wb.set("S", a1("G1"), CellInput::Formula("=E1+1".into()))
+        .unwrap();
+    wb.recalc(&ctx());
+    assert_eq!(val(&wb, "S", "E1"), Value::Number(1002.0));
+    assert_eq!(val(&wb, "S", "G1"), Value::Number(1003.0));
+
+    wb.set("S", a1("F1"), CellInput::Literal(Value::Number(1.0)))
+        .unwrap();
+    let mut full = wb.clone();
+    full.recalc(&ctx());
+
+    let touched = wb
+        .recalc_incremental(&ctx(), &[("S".to_string(), a1("F1"))])
+        .iter()
+        .map(|c| c.addr.to_a1())
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        val(&wb, "S", "C1"),
+        Value::Error("#NUM!".to_string()),
+        "C1's own spill (SEQUENCE(1,B1)) must collapse once A1's spill (and \
+         so B1) is gone"
+    );
+    assert_eq!(
+        val(&wb, "S", "E1"),
+        Value::Number(1000.0),
+        "E1 reads C1's now-vacated spill; a stale 1002 means the cascading \
+         spill collapse was not propagated"
+    );
+    assert_eq!(
+        val(&wb, "S", "G1"),
+        Value::Number(1001.0),
+        "G1 is one hop past E1; a stale 1003 means propagation stopped at E1"
+    );
+    assert!(touched.contains(&"G1".to_string()), "{touched:?}");
+    assert_eq!(wb, full, "incremental recalc did not reproduce full recalc");
+}

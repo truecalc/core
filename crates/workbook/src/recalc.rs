@@ -217,6 +217,14 @@ pub struct Change {
 /// only way into the dirty set and it always queues the cell, and
 /// [`close_over_dependents`](Self::close_over_dependents) drains that queue. A
 /// stage that dirties a cell without dirtying its dependents is not expressible.
+///
+/// Stays a public (if `#[doc(hidden)]`) re-export rather than `pub(crate)`
+/// (issue #946): `crates/workbook/tests/authored_cell_index_tests.rs`
+/// constructs one directly via [`new`](Self::new) to drive
+/// [`Workbook::seed_spill_sensitive_built_index`], and that test file — an
+/// integration test, so it compiles against the crate's public API only,
+/// regardless of living in the same package — has no other way to reach that
+/// `#[doc(hidden)] pub fn` from outside the crate boundary.
 #[doc(hidden)]
 #[derive(Debug, Default)]
 pub struct DirtyFrontier {
@@ -230,14 +238,17 @@ impl DirtyFrontier {
         Self::default()
     }
 
-    /// Marks `cell` dirty and queues it for the dependents walk. Returns
-    /// whether it was newly dirty.
-    fn insert(&mut self, cell: CellRef) -> bool {
+    /// Marks `cell` dirty and queues it for the dependents walk.
+    ///
+    /// Every call site in this file discards "was this newly dirty" (issue
+    /// #946): over-seeding is safe by construction (a re-evaluated cell whose
+    /// value is unchanged emits no change event, per the module-level comment
+    /// on the spill-occupancy seeding stage above), so no caller has a
+    /// correctness reason to branch on it, and a caller that does want to
+    /// know can check `self.dirty` before calling.
+    fn insert(&mut self, cell: CellRef) {
         if self.dirty.insert(cell.clone()) {
             self.queue.push_back(cell);
-            true
-        } else {
-            false
         }
     }
 
@@ -518,6 +529,19 @@ impl Workbook {
                     frontier.insert(dep);
                 }
             }
+            // Defensive (issue #946): every cell `changed_rectangle_cells`
+            // can insert above is, by construction, a reader of a *spilled*
+            // (never-authored) cell — and `seed_spill_sensitive`'s rules 3/4
+            // already mark *every* such reader spill-sensitive up front,
+            // whatever seeded it, so this closure has not been observed to
+            // add anything the seeding-phase closure above did not already
+            // reach: temporarily deleting just this line left the full local
+            // test suite green (issue #946 additionally reports a
+            // 24,000-workbook differential corpus staying green under the
+            // same change). Kept anyway as a structural invariant — the
+            // insert two lines up must not silently violate `incremental ≡
+            // full` the day `seed_spill_sensitive`'s rules are ever narrowed
+            // to be less conservative.
             frontier.close_over_dependents(graph);
             if frontier.len() == was {
                 break;

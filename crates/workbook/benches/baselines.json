@@ -1,7 +1,7 @@
 {
   "recorded_at": "2026-09-03",
   "recorded_on": "Apple M1 Max (10 core), macOS 14.4, rustc 1.94.1, release profile; best of 5 full bench runs",
-  "note": "Single-run re-record after rebasing #983 (volatile-cell cache) onto main post-#984 (spill-anchor cache) merge \u2014 every entry comes from ONE cargo bench run of the fully-combined code (rustc 1.98.0 (88d9e12ae 2026-08-18), release profile), not a hand-merge of two separate recordings. Includes both PRs new groups: incremental_recalc/row_totals_volatile_seed/{100,10000,100000} (#983) and incremental_recalc/all_literal_edit/120000cells (#984). best_ns_recorded and reference_best_ns_recorded are informational only - nothing is checked against them. The bands are two-sided on purpose: see .github/scripts/check_perf_regression.py.",
+  "note": "Single-run re-record after rebasing #983 (volatile-cell cache) onto main post-#984 (spill-anchor cache) merge \u2014 every entry comes from ONE cargo bench run of the fully-combined code (rustc 1.98.0 (88d9e12ae 2026-08-18), release profile), not a hand-merge of two separate recordings. Includes both PRs new groups: incremental_recalc/row_totals_volatile_seed/{100,10000,100000} (#983) and incremental_recalc/all_literal_edit/120000cells (#984). best_ns_recorded and reference_best_ns_recorded are informational only - nothing is checked against them. The bands are two-sided on purpose: see .github/scripts/check_perf_regression.py. incremental_recalc/spill_chain_edit_{root,spill_anchor}/2000 (#946, added later) were recorded separately, not as part of the bulk re-record above: calibration/hash_alloc and both new benchmarks measured together in one later cargo bench run on the same machine (Apple Silicon, 10 core, macOS, release profile), the most reproducible of five runs (root edit ranged 21.0-29.1ms and spill-anchor edit 25.6-54.8ms across runs; two outlier runs with 2-4x wider variance were discarded as noise, not recorded).",
   "reference": "calibration/hash_alloc",
   "reference_best_ns_recorded": 3164388,
   "regression_pct": 150,
@@ -110,6 +110,14 @@
     "incremental_recalc/chain_edit_leaf/5000": {
       "ref_units": 1.3121,
       "best_ns_recorded": 4152095
+    },
+    "incremental_recalc/spill_chain_edit_root/2000": {
+      "ref_units": 6.6162,
+      "best_ns_recorded": 21363106
+    },
+    "incremental_recalc/spill_chain_edit_spill_anchor/2000": {
+      "ref_units": 7.9289,
+      "best_ns_recorded": 25601692
     },
     "incremental_recalc/all_literal_edit/120000cells": {
       "ref_units": 3.8168,
