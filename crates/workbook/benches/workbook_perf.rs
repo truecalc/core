@@ -587,8 +587,16 @@ fn bench_incremental_recalc(c: &mut Criterion) {
     // unrelated literal write. Before the fix this scaled linearly with
     // formula count (367ms at n=100,000, dirty closure verified at 1)
     // because the volatile-seeding loop re-derived every formula cell's
-    // volatility from scratch on every call; after the fix the cached set
-    // makes this O(1) in formula count.
+    // volatility from scratch on every call.
+    //
+    // The fix makes *that term* O(1) in formula count, but the numbers this
+    // group records are not themselves flat: `snapshot_formula_values` and
+    // `seed_spill_sensitive` are two other O(formula cells) passes this same
+    // call still pays on every incremental recalc (see `chain_edit_leaf`'s
+    // comment above, which documents the same floor), and issue #983 does not
+    // touch either. Don't read a still-scaling number here as the fix having
+    // failed — the isolated volatile-rescan term it actually targets is gone;
+    // what remains is the other two terms, tracked separately.
     let mut group = c.benchmark_group("incremental_recalc/row_totals_volatile_seed");
     group.sample_size(10);
     group.measurement_time(Duration::from_secs(5));
