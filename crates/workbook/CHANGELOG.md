@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.1.1](https://github.com/truecalc/core/compare/truecalc-workbook-v9.1.0...truecalc-workbook-v9.1.1) - 2026-09-02
+
+### Other
+
+- *(bench)* rebase onto #984, record one fresh combined baseline
+- *(workbook)* record the missing baseline and fix a misleading bench comment (issue #983 review)
+- *(workbook)* cache volatile-cell set on the dependency graph (issue #983)
+- *(workbook)* address review findings on spill-anchor cache ([#984](https://github.com/truecalc/core/pull/984))
+- *(workbook)* cache spill-anchor rectangles (issue #984)
+
 ## [9.1.0](https://github.com/truecalc/core/compare/truecalc-workbook-v9.0.1...truecalc-workbook-v9.1.0) - 2026-09-02
 
 ### Added
