@@ -600,6 +600,32 @@ impl Workbook {
         self.spill_anchor_cache.is_warm()
     }
 
+    /// Records that `Workbook::seed_spills_from_grid` actually ran (issue #985).
+    pub(crate) fn record_seed_spills_from_grid_call(&mut self) {
+        self.spill_anchor_cache.record_seed_spills_from_grid_call();
+    }
+
+    /// Records that `GridSpillIndex::build` actually ran (issue #985).
+    pub(crate) fn record_grid_spill_index_build_call(&mut self) {
+        self.spill_anchor_cache.record_grid_spill_index_build_call();
+    }
+
+    /// How many times `seed_spills_from_grid` has actually run: instrumentation
+    /// proving issue #985's short-circuit skips it on a workbook with no
+    /// current spills. Same rationale as [`graph_builds`](Self::graph_builds).
+    #[doc(hidden)]
+    pub fn seed_spills_from_grid_calls(&self) -> u64 {
+        self.spill_anchor_cache.seed_spills_from_grid_calls()
+    }
+
+    /// How many times `GridSpillIndex::build` has actually run: instrumentation
+    /// proving issue #985's short-circuit skips it on a workbook with no
+    /// current spills. Same rationale as [`graph_builds`](Self::graph_builds).
+    #[doc(hidden)]
+    pub fn grid_spill_index_build_calls(&self) -> u64 {
+        self.spill_anchor_cache.grid_spill_index_build_calls()
+    }
+
     /// Parses a workbook from JSON bytes, enforcing every document-level rule
     /// of the schema (schema spec §1–§10) and the resource limits of the scope
     /// ADR (Decision 5).

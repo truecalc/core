@@ -550,6 +550,12 @@ fn bench_incremental_recalc(c: &mut Criterion) {
     // measures exactly the cost the issue is about: work paid for a document
     // that has nothing for recalc to do beyond writing the one edited cell
     // back.
+    //
+    // Issue #985: with #984's cache warm-and-empty, this group also proves
+    // that `recompute`'s two other unconditional full-grid spill scans —
+    // `seed_spills_from_grid` and `GridSpillIndex::build` — are now skipped
+    // rather than re-scanning the same 120,000-cell grid a second and third
+    // time per edit.
     let mut group = c.benchmark_group("incremental_recalc/all_literal_edit");
     group.sample_size(20);
     let mut template = build_all_literal(15_000, 8); // 120,000 cells

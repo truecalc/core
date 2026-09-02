@@ -42,7 +42,7 @@ use crate::workbook::Workbook;
 ///
 /// Built by [`GridSpillIndex::build`] once per recalc and shared by every
 /// resolver of that recalc.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct GridSpillIndex {
     /// Folded sheet name → that sheet's anchors, in `Worksheet::iter` order
     /// (canonical A1 key order) — the order the replaced scan visited them in,

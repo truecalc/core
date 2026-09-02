@@ -72,6 +72,14 @@ pub(crate) struct SpillAnchorCache {
     /// assert on. Kept per workbook rather than in a global counter so tests
     /// running in parallel cannot perturb each other's reading.
     builds: u64,
+    /// How many times `Workbook::seed_spills_from_grid` actually ran (issue
+    /// #985). Instrumentation for the same reason `builds` is: "did
+    /// `recompute` skip its full-grid spill scan?" is an exact-count question,
+    /// and wall clock cannot answer it in a test.
+    seed_spills_from_grid_calls: u64,
+    /// How many times `GridSpillIndex::build` actually ran (issue #985). Same
+    /// rationale as `seed_spills_from_grid_calls`.
+    grid_spill_index_build_calls: u64,
 }
 
 impl SpillAnchorCache {
@@ -100,6 +108,26 @@ impl SpillAnchorCache {
     /// Whether an entry is currently held.
     pub(crate) fn is_warm(&self) -> bool {
         self.entry.is_some()
+    }
+
+    /// Records that `Workbook::seed_spills_from_grid` actually ran.
+    pub(crate) fn record_seed_spills_from_grid_call(&mut self) {
+        self.seed_spills_from_grid_calls += 1;
+    }
+
+    /// How many times `Workbook::seed_spills_from_grid` actually ran.
+    pub(crate) fn seed_spills_from_grid_calls(&self) -> u64 {
+        self.seed_spills_from_grid_calls
+    }
+
+    /// Records that `GridSpillIndex::build` actually ran.
+    pub(crate) fn record_grid_spill_index_build_call(&mut self) {
+        self.grid_spill_index_build_calls += 1;
+    }
+
+    /// How many times `GridSpillIndex::build` actually ran.
+    pub(crate) fn grid_spill_index_build_calls(&self) -> u64 {
+        self.grid_spill_index_build_calls
     }
 }
 
