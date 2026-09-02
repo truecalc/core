@@ -743,6 +743,31 @@ fn bench_incremental_recalc(c: &mut Criterion) {
     // touch either. Don't read a still-scaling number here as the fix having
     // failed — the isolated volatile-rescan term it actually targets is gone;
     // what remains is the other two terms, tracked separately.
+    // Issue #991 prerequisite: an isolated clone-only control at the same
+    // three scales as `row_totals_volatile_seed` immediately below, built the
+    // identical way (same fixture, pre-recalculated so its caches are warm)
+    // but doing nothing except clone it. `row_totals_volatile_seed`'s own
+    // timed closure clones this same template on every iteration, alongside
+    // the actual `set` + `recalc_incremental` under test — at 900,000 cells
+    // (n=100,000) that clone is a real, possibly dominant, share of the
+    // reported number, and neither of issue #991's two fixes (the lazy
+    // pre-image fold, or the AuthoredCellIndex cache) touches clone cost at
+    // all. Judge each fix on (row_totals_volatile_seed − this group), not on
+    // the raw number, or a correct fix can still read as a failure. Added
+    // *before* either fix so the before/after comparison in the PR is
+    // apples-to-apples.
+    let mut group = c.benchmark_group("incremental_recalc/row_totals_volatile_seed_clone_only");
+    group.sample_size(10);
+    group.measurement_time(Duration::from_secs(5));
+    for n in [100u32, 10_000, 100_000] {
+        let mut template = build_row_totals(n);
+        template.recalc(&ctx);
+        group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, _| {
+            b.iter(|| black_box(template.clone()));
+        });
+    }
+    group.finish();
+
     let mut group = c.benchmark_group("incremental_recalc/row_totals_volatile_seed");
     group.sample_size(10);
     group.measurement_time(Duration::from_secs(5));
