@@ -85,6 +85,11 @@ pub struct CachedGraph {
     pub(crate) order: Vec<CellRef>,
     /// The cycle set from that same pass.
     pub(crate) cycle: BTreeSet<CellRef>,
+    /// Every formula cell whose formula text names a volatile function
+    /// (`Workbook::is_volatile`), for this exact graph — computed once at
+    /// build time so `recalc_incremental`'s seeding step never re-derives it
+    /// per call (issue #983).
+    pub(crate) volatile: BTreeSet<CellRef>,
 }
 
 impl CachedGraph {

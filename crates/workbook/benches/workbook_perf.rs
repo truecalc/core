@@ -499,12 +499,14 @@ fn bench_incremental_recalc(c: &mut Criterion) {
     // Read the two together, not the ratio between them. That ratio is roughly
     // flat (3.7x at n=1000, 3.9x at n=5000 when recorded), because both cases
     // pay the same per-formula-cell fixed cost every incremental recalc owes —
-    // `snapshot_formula_values`, the volatile sweep over `formula_cells()`, and
-    // `seed_spill_sensitive`, each `O(formula cells)` by construction. At
-    // n=5000 the leaf case's time is almost entirely that floor rather than its
-    // one-cell recompute, which is precisely what makes it worth recording: no
-    // other incremental benchmark holds the dirty set fixed while the workbook
-    // grows, so nothing else here can see that floor at all.
+    // `snapshot_formula_values` and `seed_spill_sensitive`, each
+    // `O(formula cells)` by construction (the volatile sweep over
+    // `formula_cells()` was a third such term until issue #983 made it a
+    // cached lookup instead). At n=5000 the leaf case's time is almost
+    // entirely that remaining floor rather than its one-cell recompute, which
+    // is precisely what makes it worth recording: no other incremental
+    // benchmark holds the dirty set fixed while the workbook grows, so
+    // nothing else here can see that floor at all.
     //
     // The regression signal is the *gap*: a leaf closure that silently widened
     // to the whole chain would jump the leaf case onto the root case's number
@@ -578,6 +580,31 @@ fn bench_incremental_recalc(c: &mut Criterion) {
             wb.recalc_incremental(&ctx, &[("Sheet1".to_string(), a1)])
         });
     });
+    group.finish();
+
+    // Reproduces the exact shape issue #983 measured: a formula-heavy
+    // document with zero actually-volatile functions, timing a single
+    // unrelated literal write. Before the fix this scaled linearly with
+    // formula count (367ms at n=100,000, dirty closure verified at 1)
+    // because the volatile-seeding loop re-derived every formula cell's
+    // volatility from scratch on every call; after the fix the cached set
+    // makes this O(1) in formula count.
+    let mut group = c.benchmark_group("incremental_recalc/row_totals_volatile_seed");
+    group.sample_size(10);
+    group.measurement_time(Duration::from_secs(5));
+    for n in [100u32, 10_000, 100_000] {
+        let mut template = build_row_totals(n);
+        template.recalc(&ctx);
+        group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, _| {
+            b.iter(|| {
+                let mut wb = template.clone();
+                let a1 = Address::new(1, 1).unwrap();
+                wb.set("Sheet1", a1, CellInput::Literal(Value::Number(99.0)))
+                    .unwrap();
+                wb.recalc_incremental(&ctx, &[("Sheet1".to_string(), a1)])
+            });
+        });
+    }
     group.finish();
 }
 

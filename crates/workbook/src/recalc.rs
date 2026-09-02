@@ -305,10 +305,23 @@ impl Workbook {
         // times per incremental recalc (the spill widen loop) while ordering
         // the same graph every time.
         let (order, cycle) = graph.evaluation_order();
+        // Likewise derived from the graph and cached alongside it: a formula
+        // cell's volatility cannot change without the formula text changing,
+        // which already invalidates this cache — so this is the one place
+        // `is_volatile` needs to run, once per formula cell per graph build,
+        // instead of once per formula cell per incremental recalc (issue
+        // #983).
+        let sheets = SheetIndex::build(self);
+        let volatile: BTreeSet<CellRef> = graph
+            .formula_cells()
+            .filter(|cell| self.is_volatile(&sheets, cell))
+            .cloned()
+            .collect();
         let entry = Arc::new(CachedGraph {
             graph,
             order,
             cycle,
+            volatile,
         });
         self.store_cached_graph(entry.clone());
         entry
@@ -412,11 +425,11 @@ impl Workbook {
             }
         }
 
-        // (b) Volatile cells are always dirty (scope ADR Decision 3).
-        for cell in graph.formula_cells() {
-            if self.is_volatile(&sheets, cell) {
-                frontier.insert(cell.clone());
-            }
+        // (b) Volatile cells are always dirty (scope ADR Decision 3). The set
+        // is cached on the graph at build time (issue #983) — no
+        // re-derivation here.
+        for cell in &cached.volatile {
+            frontier.insert(cell.clone());
         }
 
         // Spill-occupancy seeding (issue #591). A cell's spill footprint or
