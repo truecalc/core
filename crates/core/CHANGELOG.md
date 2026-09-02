@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.1.0](https://github.com/truecalc/core/compare/truecalc-core-v9.0.1...truecalc-core-v9.1.0) - 2026-09-02
+
+### Added
+
+- *(core)* add AxisMove row/column move reference-rewrite primitive
+- *(core)* rewrite formula references across a row/column insert or delete
+
+### Fixed
+
+- *(core)* preserve backward orientation symmetrically in AxisMove corner-swap
+- *(core)* address review of the grid-edit reference rewrite
+- *(core)* handle backwards-written ranges in the grid-edit rewrite
+
+### Other
+
+- *(core)* rustfmt the new grid_edit module and its tests
+
 ## [9.0.1](https://github.com/truecalc/core/compare/truecalc-core-v9.0.0...truecalc-core-v9.0.1) - 2026-08-29
 
 ### Fixed
