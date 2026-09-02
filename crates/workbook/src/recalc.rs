@@ -716,7 +716,47 @@ impl Workbook {
         // that anchor's array is already on the grid, so its spill rectangle is
         // available as a fallback even though it is never re-placed this recalc.
         // A full recalc re-places every anchor, overriding the seed.
-        let (mut new_values, mut spills) = self.seed_spills_from_grid();
+        //
+        // Issue #985: `seed_spills_from_grid` below and `GridSpillIndex::build`
+        // further down are both full-grid scans for the identical `Value::Array`
+        // predicate `anchor_rectangles` already answers (the #984 cache), taken
+        // an instant apart from it — nothing mutates the grid between this check
+        // and either scan; the only mutation, `apply_changes`, runs after both,
+        // at the end of this function. So when that map is empty, both scans are
+        // provably empty too, and can be skipped outright. This cannot hide a
+        // spill *this* pass is about to create: a newly spilling cell is placed
+        // by `place_spill` inside the evaluation loop below, a mechanism neither
+        // scan is involved in — they only backstop *pre-existing*, not-being-
+        // recomputed spills (the #591 staleness rule and the incremental-seed
+        // fallback, respectively).
+        //
+        // Read-only (`cached_anchor_entry`), not the mutating
+        // `anchor_rectangles_cached`, and not `anchor_rectangles_ref` either:
+        // `recompute` is shared with the full-recalc path (`Workbook::recalc`),
+        // which must never populate this cache — see the `spill_anchor_cache`
+        // module docs and `spill_anchor_cache_tests.rs`'s
+        // `a_full_recalc_that_changes_a_spill_leaves_no_stale_entry_for_the_next_incremental_call`.
+        // Checking `cached_anchor_entry` directly (rather than probing through
+        // `anchor_rectangles_ref`, whose cache-miss fallback runs a fresh,
+        // uncached `anchor_rectangles()` scan of its own) means this short-
+        // circuit costs a cache-miss scan to even ask the question on a cold
+        // full recalc — the common case for `Workbook::recalc`, which never
+        // warms this cache — turning the two scans below into three instead of
+        // skipping either. Gating on "the cache is *already* warm and empty"
+        // gets the identical win whenever the cache happens to be warm (the
+        // incremental hot path, which always pre-warms it before calling here:
+        // an O(1) `Arc` clone plus an `is_empty()`), while a cold cache simply
+        // falls through to running both real scans unconditionally — exactly
+        // the pre-#985 cost, no wasted probe.
+        let no_spills = self
+            .cached_anchor_entry()
+            .is_some_and(|anchors| anchors.is_empty());
+        let (mut new_values, mut spills) = if no_spills {
+            (BTreeMap::new(), BTreeMap::new())
+        } else {
+            self.record_seed_spills_from_grid_call();
+            self.seed_spills_from_grid()
+        };
 
         // Build the engine — and therefore the function registry — **once** for
         // the whole recalc, not once per formula cell per pass (issue #886).
@@ -738,7 +778,12 @@ impl Workbook {
         // not change until `apply_changes` runs after the last pass, and
         // `to_eval` is fixed on entry. Without it, every read of an *empty*
         // cell fell through to a scan of every authored cell on the sheet.
-        let grid_spills = GridSpillIndex::build(self, &to_eval);
+        let grid_spills = if no_spills {
+            GridSpillIndex::default()
+        } else {
+            self.record_grid_spill_index_build_call();
+            GridSpillIndex::build(self, &to_eval)
+        };
 
         let max_passes = order.len().saturating_add(2).max(1);
         for _ in 0..max_passes {
