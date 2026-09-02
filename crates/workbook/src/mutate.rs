@@ -156,10 +156,24 @@ impl Workbook {
         // `T[column]` resolves to. It is true only in a workbook with no
         // tables, which is the condition tested here.
         let writes_formula = cell.formula().is_some();
+        // Spill-anchor cache (see the `spill_anchor_cache` module docs): a
+        // narrower, separate condition from the graph cache's above — a
+        // literal write can create or destroy an array-valued cell directly
+        // (an array literal is a supported `CellInput`), and recalc's own
+        // value write-back deliberately does *not* invalidate the graph cache
+        // for exactly this kind of write, so the two caches cannot share a
+        // schedule. Captured before `cell` moves into `set` below.
+        let new_value_is_array = matches!(cell.value(), Value::Array(_));
         let prev = self.sheets_mut_untracked()[idx].set(addr, cell);
         let replaced_formula = prev.as_ref().and_then(Cell::formula).is_some();
         if writes_formula || replaced_formula || !self.tables().is_empty() {
             self.invalidate_graph_cache();
+        }
+        let prev_value_is_array = prev
+            .as_ref()
+            .is_some_and(|c| matches!(c.value(), Value::Array(_)));
+        if prev_value_is_array || new_value_is_array {
+            self.invalidate_anchor_cache();
         }
         // Auto-expansion retargets a table `ref`, which is a graph input; it
         // invalidates through `tables_mut` on the path that actually expands,
@@ -251,6 +265,16 @@ impl Workbook {
         let removed_formula = prev.as_ref().and_then(Cell::formula).is_some();
         if removed_formula || !self.tables().is_empty() {
             self.invalidate_graph_cache();
+        }
+        // Spill-anchor cache: clearing an array-valued cell removes its
+        // rectangle (see the `set` invalidation above and the
+        // `spill_anchor_cache` module docs for why this must not ride the
+        // graph cache's schedule).
+        if prev
+            .as_ref()
+            .is_some_and(|c| matches!(c.value(), Value::Array(_)))
+        {
+            self.invalidate_anchor_cache();
         }
         prev
     }

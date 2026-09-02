@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 
 use serde::de::Error as _;
@@ -11,12 +11,15 @@ use truecalc_core::Engine;
 use crate::address::Address;
 use crate::canonical;
 use crate::casefold::simple_fold;
+use crate::depgraph::CellRef;
 use crate::engine::EngineFlavor;
 use crate::error::WorkbookError;
 use crate::graph_cache::{CachedGraph, GraphCache};
 use crate::limits;
 use crate::named_range::NamedRange;
 use crate::named_ref;
+use crate::spill::SpillRect;
+use crate::spill_anchor_cache::SpillAnchorCache;
 use crate::strict_json;
 use crate::table::Table;
 use crate::table_ref;
@@ -35,11 +38,11 @@ pub const SCHEMA_VERSION: &str = "2";
 /// declaration order (`engine`, `names`, `sheets`, `tables`, `version`)
 /// matches canonical (JCS) key order.
 ///
-/// `graph_cache` is not part of the document: it is derived state the workbook
-/// memoizes across recalculations (see the `graph_cache` module docs). It is
-/// skipped by serde, ignored by `PartialEq`, and contributes nothing to
-/// `Hash`, so the value object is exactly what it was before the cache
-/// existed.
+/// `graph_cache` and `spill_anchor_cache` are not part of the document: they
+/// are derived state the workbook memoizes across recalculations (see the
+/// `graph_cache` and `spill_anchor_cache` module docs). Both are skipped by
+/// serde, ignored by `PartialEq`, and contribute nothing to `Hash`, so the
+/// value object is exactly what it was before either cache existed.
 #[derive(Debug, Clone, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Workbook {
@@ -52,6 +55,8 @@ pub struct Workbook {
     version: String,
     #[serde(skip)]
     graph_cache: GraphCache,
+    #[serde(skip)]
+    spill_anchor_cache: SpillAnchorCache,
 }
 
 impl Workbook {
@@ -68,6 +73,7 @@ impl Workbook {
             tables: Vec::new(),
             version: SCHEMA_VERSION.to_owned(),
             graph_cache: GraphCache::default(),
+            spill_anchor_cache: SpillAnchorCache::default(),
         }
     }
 
@@ -90,9 +96,13 @@ impl Workbook {
     ///
     /// Invalidates the dependency-graph cache on the borrow: what the caller
     /// does with a `&mut Vec<Worksheet>` is unobservable from here, so the
-    /// only sound assumption is that it changed the graph.
+    /// only sound assumption is that it changed the graph. Invalidates the
+    /// spill-anchor cache for the same reason: an unobserved write can add or
+    /// remove an array-valued cell just as easily as it can add or remove a
+    /// formula.
     pub fn sheets_mut(&mut self) -> &mut Vec<Worksheet> {
         self.graph_cache.invalidate();
+        self.spill_anchor_cache.invalidate();
         &mut self.sheets
     }
 
@@ -132,10 +142,11 @@ impl Workbook {
 
     /// Mutable access to the worksheet named `name` (case-insensitive).
     ///
-    /// Invalidates the dependency-graph cache on the borrow (see
-    /// [`sheets_mut`](Self::sheets_mut)).
+    /// Invalidates the dependency-graph cache and the spill-anchor cache on
+    /// the borrow (see [`sheets_mut`](Self::sheets_mut)).
     pub fn sheet_mut(&mut self, name: &str) -> Option<&mut Worksheet> {
         self.graph_cache.invalidate();
+        self.spill_anchor_cache.invalidate();
         match self.sheet_index(name) {
             Some(i) => Some(&mut self.sheets[i]),
             None => None,
@@ -195,6 +206,10 @@ impl Workbook {
         // inputs: a formula that referenced this name resolved to `Unresolved`
         // before and resolves for real now.
         self.graph_cache.invalidate();
+        // The inserted sheet is an already-built `Worksheet` the caller
+        // assembled independently — it may already hold array-valued cells,
+        // so the spill-anchor cache cannot assume it is unaffected.
+        self.spill_anchor_cache.invalidate();
         self.sheets.insert(index, sheet);
         Ok(())
     }
@@ -223,6 +238,9 @@ impl Workbook {
         // Removes every formula node on that sheet, and turns every reference
         // to it into `Unresolved`.
         self.graph_cache.invalidate();
+        // The removed sheet may have held spill anchors; the cached map would
+        // then contain rectangles for a sheet that no longer exists.
+        self.spill_anchor_cache.invalidate();
         Some(self.sheets.remove(i))
     }
 
@@ -399,6 +417,10 @@ impl Workbook {
         // Re-keys every node on the sheet and re-resolves every qualified
         // reference to the old and the new name.
         self.graph_cache.invalidate();
+        // The spill-anchor cache keys every rectangle by folded sheet name
+        // (see `spill_anchor_cache` module docs), so a rename invalidates the
+        // key space even though it changes no cell value.
+        self.spill_anchor_cache.invalidate();
         for (nr, new) in self.names.iter_mut().zip(name_refs) {
             if let Some(new) = new {
                 nr.r#ref = new;
@@ -472,27 +494,29 @@ impl Workbook {
         self.graph_cache.invalidate();
     }
 
-    /// Releases the cached dependency graph, if one is held, reclaiming the
-    /// ~545 B/cell (wasm32) / ~856 B/cell (native) it retains for every
-    /// formula cell — see the `limits` module docs for the multi-workbook
-    /// arithmetic this exists for.
+    /// Releases every cached derived-state entry the workbook holds — today
+    /// the dependency graph (reclaiming the ~545 B/cell (wasm32) / ~856 B/cell
+    /// (native) it retains for every formula cell — see the `limits` module
+    /// docs for the multi-workbook arithmetic this exists for) and the
+    /// spill-anchor-rectangle map.
     ///
     /// The workbook itself is unchanged: the next `recalc` / `recalc_incremental`
-    /// / `explain` call simply rebuilds the graph, exactly as it would after a
-    /// mutation the `graph_cache` module invalidates on (`graph_builds` ticks
-    /// up by one).
+    /// / `explain` call simply rebuilds whatever it needs, exactly as it would
+    /// after a mutation the owning cache's module invalidates on (`graph_builds`
+    /// / `anchor_builds` ticks up by one).
     ///
     /// Named for what it releases, not for the mechanism, and kept apart from
-    /// [`invalidate_graph_cache`](Self::invalidate_graph_cache) (`pub(crate)`)
-    /// on purpose: that one is this crate's word for "a mutation made the
-    /// entry stale, it must rebuild before next use" — an internal
+    /// [`invalidate_graph_cache`](Self::invalidate_graph_cache) /
+    /// [`invalidate_anchor_cache`](Self::invalidate_anchor_cache) (both
+    /// `pub(crate)`) on purpose: those are this crate's word for "a mutation
+    /// made the entry stale, it must rebuild before next use" — an internal
     /// correctness call the workbook makes about itself. This is a different
     /// call: a still-*valid* cache the *host* chooses to give back for its
-    /// memory. The dependency-graph cache is currently the only derived state
-    /// a workbook holds, but the name says what a caller gets (memory back),
-    /// not how, so a second cache could join it later without renaming this.
+    /// memory. The name says what a caller gets (memory back), not how, so it
+    /// keeps meaning "every derived cache" as more join it.
     pub fn drop_derived_state(&mut self) {
         self.invalidate_graph_cache();
+        self.invalidate_anchor_cache();
     }
 
     /// Mutable access to the worksheets that does **not** invalidate the
@@ -535,6 +559,45 @@ impl Workbook {
     #[doc(hidden)]
     pub fn graph_cache_is_warm(&self) -> bool {
         self.graph_cache.is_warm()
+    }
+
+    /// The cached spill-anchor-rectangle map, if the cache is warm.
+    ///
+    /// Warm means "equal to a build against the workbook as it is now" — see
+    /// the `spill_anchor_cache` module docs for the invalidation contract
+    /// that maintains it (a genuinely separate schedule from the dependency
+    /// graph's — see that module's docs for why). `pub(crate)`: unlike the
+    /// graph cache, nothing outside this crate currently needs a warm anchor
+    /// map without recalculating first.
+    pub(crate) fn cached_anchor_entry(&self) -> Option<Arc<BTreeMap<CellRef, SpillRect>>> {
+        self.spill_anchor_cache.get()
+    }
+
+    /// Records a freshly built anchor-rectangle map as the cache entry.
+    pub(crate) fn store_cached_anchors(&mut self, entry: Arc<BTreeMap<CellRef, SpillRect>>) {
+        self.spill_anchor_cache.store(entry);
+    }
+
+    /// Drops the spill-anchor cache entry. Always sound; the cost of a
+    /// spurious call is one rebuild.
+    pub(crate) fn invalidate_anchor_cache(&mut self) {
+        self.spill_anchor_cache.invalidate();
+    }
+
+    /// How many spill-anchor-rectangle maps this workbook has built.
+    /// Instrumentation, same rationale as [`graph_builds`](Self::graph_builds):
+    /// "builds per recalc" is the exact-count metric behind this cache, and
+    /// wall clock is too machine-dependent to assert on in a test.
+    #[doc(hidden)]
+    pub fn anchor_builds(&self) -> u64 {
+        self.spill_anchor_cache.builds()
+    }
+
+    /// Whether the spill-anchor cache currently holds an entry.
+    /// Instrumentation, same rationale as [`graph_builds`](Self::graph_builds).
+    #[doc(hidden)]
+    pub fn anchor_cache_is_warm(&self) -> bool {
+        self.spill_anchor_cache.is_warm()
     }
 
     /// Parses a workbook from JSON bytes, enforcing every document-level rule
