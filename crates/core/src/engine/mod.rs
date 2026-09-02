@@ -207,11 +207,14 @@ impl Engine {
     /// Mapping a range's two endpoints independently can flip their
     /// relative order even when they were written ascending — moving rows
     /// 5:7 to before row 2 sends row 3's content to row 6 and row 6's
-    /// content to row 3, so `A4:A6` maps to `A3:A7`, not `A7:A3`. This
-    /// normalization only ever corrects an inversion the move itself
-    /// introduced; a range that was already written backwards (`A7:A5`)
-    /// keeps its written orientation, exactly as
-    /// [`Engine::shift_refs_for_grid_edit`] does for insert/delete.
+    /// content to row 3, so `A4:A6` maps to `A3:A7`, not `A7:A3`. The same
+    /// correction runs in the mirror direction too: a range deliberately
+    /// written backwards (`A6:A4`) that this same move would otherwise
+    /// "uncross" into ascending order is swapped back so it stays
+    /// backwards, the way [`Engine::shift_refs_for_grid_edit`] preserves a
+    /// backwards-written range through insert/delete. A backwards range
+    /// unaffected by the move (`A7:A5`, nowhere near the band) simply keeps
+    /// its written orientation, since nothing about it changed.
     ///
     /// `$` anchors do **not** exempt an axis here either: `$` governs how a
     /// reference is *copied*, not which cell it points at, so `$A$6` moves
@@ -241,6 +244,12 @@ impl Engine {
     /// let mv = AxisMove { axis: Axis::Row, start: 5, end: 7, at: 2 };
     /// let out = engine.shift_refs_for_move("=SUM(A4:A6)", "Sheet1", "Sheet1", mv).unwrap();
     /// assert_eq!(out, "=SUM(A3:A7)");
+    ///
+    /// // The same move applied to a range deliberately written backwards
+    /// // (A6:A4) would otherwise "uncross" it into ascending order — it is
+    /// // swapped back so it stays backwards, mirroring the ascending case.
+    /// let out = engine.shift_refs_for_move("=SUM(A6:A4)", "Sheet1", "Sheet1", mv).unwrap();
+    /// assert_eq!(out, "=SUM(A7:A3)");
     ///
     /// // `$` governs how a reference copies, not what it points at, so it
     /// // does not exempt an axis from a move either.

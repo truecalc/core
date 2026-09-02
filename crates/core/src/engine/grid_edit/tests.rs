@@ -754,6 +754,32 @@ fn a_range_already_written_backwards_is_not_confused_with_a_move_induced_swap() 
     );
 }
 
+#[test]
+fn a_range_already_written_backwards_stays_backwards_when_the_move_would_uncross_it() {
+    // The mirror of `move_induced_corner_swap_normalizes_an_ascending_range`:
+    // A6:A4 covers the same physical rows as A4:A6 (whose corners the same
+    // move inverts to A3:A7 from an ascending start), just written
+    // descending. Independently mapping A6:A4's corners the same way move
+    // maps A4:A6's produces new_start=3 (from row 6, inside the band) and
+    // new_end=7 (from row 4, in the backward gap-fill zone) — ascending, not
+    // descending — so without the mirror correction this would silently
+    // collapse to the same "A3:A7" text as the ascending case, losing the
+    // fact that the range was deliberately written backwards. It must
+    // instead render descending: A7:A3.
+    assert_eq!(
+        mv(
+            "=SUM(A6:A4)",
+            AxisMove {
+                axis: Axis::Row,
+                start: 5,
+                end: 7,
+                at: 2
+            }
+        ),
+        "=SUM(A7:A3)"
+    );
+}
+
 // -------------------------------------------------------------- $ anchors
 
 #[test]
@@ -804,6 +830,42 @@ fn moving_a_band_to_a_destination_inside_itself_is_a_no_op() {
         ),
         "=SUM(A1:A10)"
     );
+}
+
+#[test]
+fn moving_a_band_to_a_destination_inside_itself_is_a_no_op_even_for_a_reference_in_the_band() {
+    // `SUM(A1:A10)` in the sibling test above is unaffected by the move
+    // either way, so it cannot tell a correct no-op apart from a bug in the
+    // no-op guard. This test uses references that DO fall inside the band
+    // (`start..=end`) and its own would-be gap-fill zone, to confirm the
+    // short-circuit really does leave every one of them untouched.
+    //
+    // `at` landing inside `start..=end` (here `at: 6`, strictly between
+    // `start` and `end`) has no well-defined destination: extending
+    // move_coord's band/gap-fill formulas past their documented domain (both
+    // assume `at` is already outside `start..=end`) does not recover some
+    // other "real" move being discarded — it computes a self-referential
+    // cyclic permutation of the band with the coordinates just past it
+    // (e.g. here 5->6, 6->7, 7->8, 8->5), which is not a rectangle any
+    // spreadsheet UI can express as a drag target ("move this band to a row
+    // that is itself part of the band"). Treating the whole closed interval
+    // as a no-op is therefore not a narrower, buggy special case of
+    // `at == start` — it is the correct, documented behavior for every `at`
+    // in that range.
+    for formula in ["=A5", "=A6", "=A7", "=A8", "=A5+A6+A7+A8"] {
+        assert_eq!(
+            mv(
+                formula,
+                AxisMove {
+                    axis: Axis::Row,
+                    start: 5,
+                    end: 7,
+                    at: 6
+                }
+            ),
+            formula
+        );
+    }
 }
 
 #[test]

@@ -101,20 +101,26 @@
 //! [`moved_ref_text`] tells this apart from a range that was *already*
 //! written backwards (e.g. `A7:A5`, left untouched by some unrelated move)
 //! by recording whether the original range was ascending **before** either
-//! corner is mapped:
+//! corner is mapped, then comparing that to whether the *mapped* corners
+//! come out ascending. A mismatch between the two means the move flipped
+//! the written order — always an artifact of independent per-corner
+//! mapping, never the user's intent — so it is corrected back, in whichever
+//! direction the mismatch runs:
 //!
-//! - originally ascending, mapped corners come out descending: an artifact
-//!   of independent per-corner mapping, not something the user wrote — swap
-//!   the two already-mapped corners back into ascending order.
-//! - originally descending: render the mapped corners exactly as computed,
-//!   unconditionally, no swap — the same "never reorder, just map each
-//!   corner through the same function" contract [`edited_ref_text`] already
-//!   keeps for insert/delete.
+//! - originally ascending, mapped corners come out descending: swap the two
+//!   already-mapped corners back into ascending order.
+//! - originally descending, mapped corners come out ascending (or equal):
+//!   the mirror case — independent mapping "uncrossed" a range the user
+//!   deliberately wrote backwards — swap back into descending order so it
+//!   *stays* backwards, mirroring how [`edited_ref_text`] preserves a
+//!   backwards-written range through insert/delete.
+//! - either orientation, mapped corners keep the same relative order as the
+//!   originals: render them exactly as computed, no swap.
 //!
 //! The `ascending` flag has to come from the *original* addresses: once both
-//! corners are mapped, numeric order alone cannot distinguish an expected
-//! inversion (already backwards; order doesn't matter) from an artifact one
-//! (originally ascending, disturbed by the move).
+//! corners are mapped, numeric order alone cannot distinguish an order flip
+//! the move caused (needs correcting) from a range whose order was simply
+//! never going to change (leave it alone).
 //!
 //! ## `$` anchors and out-of-bounds
 //!
@@ -389,6 +395,15 @@ pub(crate) fn shift_refs_text(
 /// landing inside the band itself (`start..=end`) is a no-op — see the
 /// module doc. `start == 0` or `at == 0` is rejected (rows/columns are
 /// 1-based); `start > end` is rejected as a malformed band.
+///
+/// A well-formed `AxisMove` also has `end` itself within the sheet's grid
+/// bounds — that precondition is on the caller, the same way it is on
+/// `start <= end`. [`shift_refs_for_move`] validates the *destination*
+/// footprint (`at ..= at + width - 1`) against the axis maximum, since an
+/// out-of-bounds destination is the one thing a move can newly request that
+/// insert/delete cannot, but it does not separately re-validate `end`
+/// against that maximum: an `end` already past the grid could only reach
+/// this function from a caller that mis-described the sheet's own state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AxisMove {
     pub axis: Axis,
@@ -483,25 +498,30 @@ fn moved_ref_text(r: &Ref, mv: AxisMove) -> String {
             // Record orientation from the ORIGINAL addresses, before either
             // corner is mapped: move_coord is not monotonic, so mapping the
             // two corners independently can flip their numeric order even
-            // when they were written ascending. Once both are mapped there
-            // is no way to tell "was ascending, now inverted by the move"
-            // (an artifact to correct) apart from "was already descending"
-            // (render as computed, no correction needed).
+            // when they were written ascending — or "unflip" a range that
+            // was deliberately written descending. Once both are mapped
+            // there is no way to tell an order flip the move caused (needs
+            // correcting) apart from one that was simply never going to
+            // change (leave it), so the comparison has to be made against
+            // this original flag, not against the mapped coordinates alone.
             let ascending = axis_coord(*start, mv.axis) <= axis_coord(*end, mv.axis);
             let new_start = move_addr(*start, mv);
             let new_end = move_addr(*end, mv);
-            let (start, end) =
-                if ascending && axis_coord(new_start, mv.axis) > axis_coord(new_end, mv.axis) {
-                    // Independent mapping inverted an originally-ascending
-                    // range: swap the two already-mapped corners back into
-                    // order. This never touches a range that was already
-                    // written backwards (`ascending` is false for those), so a
-                    // backwards range stays backwards regardless of which way
-                    // its mapped corners happen to compare.
-                    (new_end, new_start)
-                } else {
-                    (new_start, new_end)
-                };
+            let mapped_ascending = axis_coord(new_start, mv.axis) <= axis_coord(new_end, mv.axis);
+            let (start, end) = if ascending == mapped_ascending {
+                // The mapped corners kept the same relative order the
+                // originals had (both ascending or both descending): render
+                // exactly as computed, no swap.
+                (new_start, new_end)
+            } else {
+                // The move flipped the order: an originally-ascending range
+                // came out descending (swap back to ascending), or an
+                // originally-descending range came out ascending — the
+                // mapping "uncrossed" a range the user deliberately wrote
+                // backwards, so swap back to keep it descending. Either way
+                // this is the mapping's artifact, never the user's intent.
+                (new_end, new_start)
+            };
             Ref::Range {
                 sheet: sheet.clone(),
                 start,
