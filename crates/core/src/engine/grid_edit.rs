@@ -54,6 +54,81 @@
 //!    rule), not observed product behaviour.
 //! 8. `count: 0` and an `at` beyond the axis maximum are silent no-ops;
 //!    `at: 0` is an error.
+//!
+//! # `shift_refs_for_move`: the MOVE sibling
+//!
+//! [`AxisMove`] and [`shift_refs_for_move`] cover a third structural edit —
+//! relocating a contiguous band of rows/columns elsewhere on the *same*
+//! sheet, without inserting or deleting anything. This needs a genuinely
+//! different algorithm from insert/delete's [`map_coord`], not another
+//! variant of it: nothing is ever created or destroyed by a move, so every
+//! coordinate on the moved axis maps to exactly one output coordinate (see
+//! [`move_coord`]) — there is no `#REF!` case here, and no [`Role`] to pick
+//! a clamp direction with.
+//!
+//! ## The three regions
+//!
+//! An [`AxisMove`] relocates the band `start..=end` so its first row/column
+//! lands at `at`. Every coordinate on the axis falls into exactly one of:
+//!
+//! - inside the moved band (`start..=end`) — translates by `at - start`
+//!   onto the band's new position,
+//! - between the band's old and new position (the "gap-fill" zone) — slides
+//!   by the band's width in the *opposite* direction of the move, closing
+//!   the gap the band left or making room for where it landed,
+//! - everywhere else — unchanged.
+//!
+//! `at` landing inside the band itself (`start..=end`, other than `at ==
+//! start`, which is the literal identity) has no well-defined destination —
+//! there is no way to "move a band to the middle of itself", and no real
+//! spreadsheet UI can even express such a drag target — so the whole closed
+//! interval `start..=end` is a no-op, the same way [`GridEdit`] treats its
+//! own `count: 0` as a silent no-op rather than inventing a result. `at ==
+//! end + 1` is deliberately *not* part of that no-op range: it is the
+//! smallest genuine forward move, swapping the band with the immediately
+//! following equal-width block.
+//!
+//! ## Corner swap on inversion
+//!
+//! [`move_coord`] is not monotonic — the band and its gap-fill zone move in
+//! opposite directions relative to each other — so independently mapping a
+//! range's two endpoints can flip their relative numeric order even when
+//! they were written ascending to begin with. The issue's own canonical
+//! example: moving rows 5:7 to before row 2 sends row 3's content to row 6
+//! and row 6's content to row 3, so `A4:A6` (ascending: 4 <= 6) maps its
+//! corners to A7 and A3 — inverted.
+//!
+//! [`moved_ref_text`] tells this apart from a range that was *already*
+//! written backwards (e.g. `A7:A5`, left untouched by some unrelated move)
+//! by recording whether the original range was ascending **before** either
+//! corner is mapped:
+//!
+//! - originally ascending, mapped corners come out descending: an artifact
+//!   of independent per-corner mapping, not something the user wrote — swap
+//!   the two already-mapped corners back into ascending order.
+//! - originally descending: render the mapped corners exactly as computed,
+//!   unconditionally, no swap — the same "never reorder, just map each
+//!   corner through the same function" contract [`edited_ref_text`] already
+//!   keeps for insert/delete.
+//!
+//! The `ascending` flag has to come from the *original* addresses: once both
+//! corners are mapped, numeric order alone cannot distinguish an expected
+//! inversion (already backwards; order doesn't matter) from an artifact one
+//! (originally ascending, disturbed by the move).
+//!
+//! ## `$` anchors and out-of-bounds
+//!
+//! As with insert/delete, `$` anchors do not exempt an axis from a move —
+//! `$` governs how a reference copies, not what it points at. [`move_addr`]
+//! carries them through unconditionally, never inspecting them.
+//!
+//! Unlike insert/delete, a move never grows the sheet, so an out-of-bounds
+//! *result* cannot happen from a well-formed [`AxisMove`] — but an
+//! out-of-bounds *request* can (an `at` that leaves no room for the band
+//! before the axis maximum). That is a property of the `AxisMove` itself,
+//! not of any individual reference, so [`shift_refs_for_move`] rejects it
+//! once at the entry point rather than threading an error path through
+//! [`move_coord`] per reference.
 
 use crate::eval::functions::lookup::indirect::{MAX_COL, MAX_ROW};
 use crate::parser::{CellAddr, Ref};
@@ -83,8 +158,8 @@ pub enum GridEdit {
 }
 
 /// Which axis of a [`CellAddr`] an edit moves.
-#[derive(Clone, Copy)]
-enum Axis {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Axis {
     Row,
     Column,
 }
@@ -295,6 +370,199 @@ pub(crate) fn shift_refs_text(
     let mut out = formula.to_string();
     for (span, r) in spans {
         let replacement = edited_ref_text(&r, edit);
+        let start = span.offset;
+        let end = span.offset + span.length;
+        out.replace_range(start..end, &replacement);
+    }
+    Ok(out)
+}
+
+/// A row or column relocation on a single sheet: moves the contiguous band
+/// `start..=end` (1-based, inclusive) so its first row/column lands at `at`
+/// (1-based) after the move — Sheets' own convention: "move rows 5:7 to row
+/// 2" means the band's new start is row 2, in either direction.
+///
+/// Unlike [`GridEdit`], nothing is created or destroyed: every coordinate on
+/// `axis` maps to exactly one output coordinate (see [`move_coord`]).
+///
+/// A move is backward when `at < start` and forward when `at > end`. `at`
+/// landing inside the band itself (`start..=end`) is a no-op — see the
+/// module doc. `start == 0` or `at == 0` is rejected (rows/columns are
+/// 1-based); `start > end` is rejected as a malformed band.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AxisMove {
+    pub axis: Axis,
+    pub start: u32,
+    pub end: u32,
+    pub at: u32,
+}
+
+impl AxisMove {
+    /// Upper bound of the moved axis in the Sheets grid.
+    fn axis_max(self) -> u32 {
+        match self.axis {
+            Axis::Row => MAX_ROW as u32,
+            Axis::Column => MAX_COL as u32,
+        }
+    }
+
+    /// How many rows/columns the band spans.
+    fn width(self) -> u32 {
+        self.end - self.start + 1
+    }
+}
+
+/// The coordinate of `addr` on `axis`.
+fn axis_coord(addr: CellAddr, axis: Axis) -> u32 {
+    match axis {
+        Axis::Row => addr.row,
+        Axis::Column => addr.col,
+    }
+}
+
+/// Total remap of one coordinate on `mv`'s axis: every `v` maps to exactly
+/// one output coordinate, since a move never creates or destroys a
+/// row/column — contrast [`map_coord`], which can return `None`. Callers
+/// must exclude the no-op range (`mv.at` inside `mv.start..=mv.end`) first;
+/// see the module doc for why calling this inside that range would produce
+/// a nonsensical cyclic permutation rather than a real answer.
+fn move_coord(v: u32, mv: AxisMove) -> u32 {
+    let width = mv.width();
+    if (mv.start..=mv.end).contains(&v) {
+        // Inside the moved band: translate the in-band offset onto the
+        // band's new start.
+        return v - mv.start + mv.at;
+    }
+    if mv.at < mv.start {
+        // Backward move: the band vacates start..=end and slides down to
+        // at..=(at+width-1). Rows/columns strictly between the new and old
+        // start slide forward by the band's width to close the gap.
+        if (mv.at..mv.start).contains(&v) {
+            return v + width;
+        }
+    } else {
+        // Forward move (mv.at > mv.end, guaranteed once the no-op range
+        // above is excluded): rows/columns between the old end and the
+        // band's new, wider footprint slide back by the band's width.
+        let gap_end = mv.at + width - 1;
+        if (mv.end + 1..=gap_end).contains(&v) {
+            return v - width;
+        }
+    }
+    v
+}
+
+/// Apply `mv` to `addr`, leaving the untouched axis (and both `$` anchors)
+/// exactly as they are. Total: unlike [`map_addr`], this never returns
+/// `None` — a move never drops a reference.
+fn move_addr(addr: CellAddr, mv: AxisMove) -> CellAddr {
+    let (col, row) = match mv.axis {
+        Axis::Row => (addr.col, move_coord(addr.row, mv)),
+        Axis::Column => (move_coord(addr.col, mv), addr.row),
+    };
+    CellAddr {
+        col,
+        row,
+        col_abs: addr.col_abs,
+        row_abs: addr.row_abs,
+    }
+}
+
+/// Render `r` after the move `mv`. Unlike [`edited_ref_text`], nothing is
+/// ever dropped, so there is no `#REF!` case and no [`Role`] to pick a clamp
+/// direction with — a single-cell reference and each range endpoint go
+/// through the same [`move_coord`] call. See the module doc for the
+/// corner-swap reasoning below.
+fn moved_ref_text(r: &Ref, mv: AxisMove) -> String {
+    let rewritten = match r {
+        Ref::Cell { sheet, addr } => Ref::Cell {
+            sheet: sheet.clone(),
+            addr: move_addr(*addr, mv),
+        },
+        Ref::Range { sheet, start, end } => {
+            // Record orientation from the ORIGINAL addresses, before either
+            // corner is mapped: move_coord is not monotonic, so mapping the
+            // two corners independently can flip their numeric order even
+            // when they were written ascending. Once both are mapped there
+            // is no way to tell "was ascending, now inverted by the move"
+            // (an artifact to correct) apart from "was already descending"
+            // (render as computed, no correction needed).
+            let ascending = axis_coord(*start, mv.axis) <= axis_coord(*end, mv.axis);
+            let new_start = move_addr(*start, mv);
+            let new_end = move_addr(*end, mv);
+            let (start, end) =
+                if ascending && axis_coord(new_start, mv.axis) > axis_coord(new_end, mv.axis) {
+                    // Independent mapping inverted an originally-ascending
+                    // range: swap the two already-mapped corners back into
+                    // order. This never touches a range that was already
+                    // written backwards (`ascending` is false for those), so a
+                    // backwards range stays backwards regardless of which way
+                    // its mapped corners happen to compare.
+                    (new_end, new_start)
+                } else {
+                    (new_start, new_end)
+                };
+            Ref::Range {
+                sheet: sheet.clone(),
+                start,
+                end,
+            }
+        }
+        Ref::Name(_) => unreachable!("collect_shiftable_refs never returns Ref::Name"),
+        Ref::Table { .. } => unreachable!("collect_shiftable_refs never returns Ref::Table"),
+    };
+    rewritten.to_string()
+}
+
+/// Parse `formula`, rewrite every reference that resolves to `edited_sheet`
+/// for the move `mv`, and splice the result back into the original text.
+///
+/// `formula_sheet` is the sheet the formula lives on — what a bare `A1`
+/// resolves to. Sheet matching is case-insensitive, as in
+/// [`shift_refs_text`]. No-op if no reference resolves to `edited_sheet`,
+/// and also if `mv.at` lands inside `mv.start..=mv.end` (see the module
+/// doc).
+pub(crate) fn shift_refs_for_move(
+    formula: &str,
+    formula_sheet: &str,
+    edited_sheet: &str,
+    mv: AxisMove,
+) -> Result<String, ParseError> {
+    if mv.start == 0 || mv.at == 0 {
+        return Err(ParseError {
+            message:
+                "shift_refs_for_move: rows and columns are 1-based; `start` and `at` must be >= 1"
+                    .into(),
+            position: 0,
+        });
+    }
+    if mv.start > mv.end {
+        return Err(ParseError {
+            message: "shift_refs_for_move: `start` must be <= `end`".into(),
+            position: 0,
+        });
+    }
+    let expr = crate::parser::parse_formula(formula)?;
+    if (mv.start..=mv.end).contains(&mv.at) {
+        // `at` inside the band has no well-defined destination: a no-op,
+        // not an error — see the module doc.
+        return Ok(formula.to_string());
+    }
+    let width = mv.end as u64 - mv.start as u64 + 1;
+    if mv.at as u64 + width - 1 > mv.axis_max() as u64 {
+        return Err(ParseError {
+            message: "shift_refs_for_move: destination pushes the band off the grid".into(),
+            position: 0,
+        });
+    }
+    let mut spans: Vec<_> = collect_shiftable_refs(&expr)
+        .into_iter()
+        .filter(|(_, r)| targets_edited_sheet(r, formula_sheet, edited_sheet))
+        .collect();
+    spans.sort_by_key(|s| std::cmp::Reverse(s.0.offset)); // right to left
+    let mut out = formula.to_string();
+    for (span, r) in spans {
+        let replacement = moved_ref_text(&r, mv);
         let start = span.offset;
         let end = span.offset + span.length;
         out.replace_range(start..end, &replacement);

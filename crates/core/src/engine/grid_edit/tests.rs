@@ -565,3 +565,460 @@ fn engine_surface_matches_the_module_level_transform() {
         .unwrap();
     assert_eq!(out, t("=SUM(A1:A5)+A3", edit));
 }
+
+// ============================================================= AxisMove
+
+/// Edit and formula both live on `Sheet1` — the common single-sheet case.
+fn mv(formula: &str, mv: AxisMove) -> String {
+    shift_refs_for_move(formula, "Sheet1", "Sheet1", mv).unwrap()
+}
+
+// ---------------------------------------------------------------- unaffected
+
+#[test]
+fn move_reference_unaffected_before_both_band_and_destination_is_unchanged() {
+    // Backward move of rows 5:7 to row 2; row 1 is before both the
+    // destination and the band, so it never enters the gap-fill zone.
+    assert_eq!(
+        mv(
+            "=A1",
+            AxisMove {
+                axis: Axis::Row,
+                start: 5,
+                end: 7,
+                at: 2
+            }
+        ),
+        "=A1"
+    );
+}
+
+#[test]
+fn move_does_not_touch_a_reference_on_another_sheet() {
+    assert_eq!(
+        mv(
+            "=Other!A5",
+            AxisMove {
+                axis: Axis::Row,
+                start: 5,
+                end: 7,
+                at: 2
+            }
+        ),
+        "=Other!A5"
+    );
+}
+
+#[test]
+fn bare_reference_in_a_formula_on_another_sheet_is_untouched_by_a_move() {
+    // The formula lives on Sheet2; the move is on Sheet1. A bare `A5` means
+    // Sheet2!A5, which the Sheet1 move does not touch.
+    let out = shift_refs_for_move(
+        "=A5",
+        "Sheet2",
+        "Sheet1",
+        AxisMove {
+            axis: Axis::Row,
+            start: 5,
+            end: 7,
+            at: 2,
+        },
+    )
+    .unwrap();
+    assert_eq!(out, "=A5");
+}
+
+// ----------------------------------------------------------- band and gap
+
+#[test]
+fn move_reference_inside_the_band_translates_backward() {
+    // rows 5:7 -> row 2: row 5 (band start) lands at row 2.
+    assert_eq!(
+        mv(
+            "=A5",
+            AxisMove {
+                axis: Axis::Row,
+                start: 5,
+                end: 7,
+                at: 2
+            }
+        ),
+        "=A2"
+    );
+}
+
+#[test]
+fn move_reference_inside_the_band_translates_forward() {
+    // rows 2:4 -> row 8: row 2 (band start) lands at row 8.
+    assert_eq!(
+        mv(
+            "=A2",
+            AxisMove {
+                axis: Axis::Row,
+                start: 2,
+                end: 4,
+                at: 8
+            }
+        ),
+        "=A8"
+    );
+}
+
+#[test]
+fn move_backward_shifts_the_gap_region_forward_by_the_bands_width() {
+    // rows 5:7 (width 3) -> row 2: row 3, between the new and old start,
+    // slides forward by 3 to close the gap the band left.
+    assert_eq!(
+        mv(
+            "=A3",
+            AxisMove {
+                axis: Axis::Row,
+                start: 5,
+                end: 7,
+                at: 2
+            }
+        ),
+        "=A6"
+    );
+}
+
+#[test]
+fn move_forward_shifts_the_gap_region_backward_by_the_bands_width() {
+    // rows 2:4 (width 3) -> row 8: row 5, just after the old band end,
+    // slides back by 3 to close the gap the band left behind.
+    assert_eq!(
+        mv(
+            "=A5",
+            AxisMove {
+                axis: Axis::Row,
+                start: 2,
+                end: 4,
+                at: 8
+            }
+        ),
+        "=A2"
+    );
+}
+
+// ------------------------------------------------------- canonical example
+
+#[test]
+fn canonical_example_swaps_row_three_and_row_six() {
+    // The issue's own worked example: moving rows 5:7 to before row 2 sends
+    // row 3's content to row 6 and row 6's content to row 3.
+    assert_eq!(
+        mv(
+            "=A3+A6",
+            AxisMove {
+                axis: Axis::Row,
+                start: 5,
+                end: 7,
+                at: 2
+            }
+        ),
+        "=A6+A3"
+    );
+}
+
+#[test]
+fn move_induced_corner_swap_normalizes_an_ascending_range() {
+    assert_eq!(
+        mv(
+            "=SUM(A4:A6)",
+            AxisMove {
+                axis: Axis::Row,
+                start: 5,
+                end: 7,
+                at: 2
+            }
+        ),
+        "=SUM(A3:A7)"
+    );
+}
+
+#[test]
+fn a_range_already_written_backwards_is_not_confused_with_a_move_induced_swap() {
+    // A7:A5, unaffected by a move entirely elsewhere: it must stay written
+    // backwards, not be "corrected" into ascending order.
+    assert_eq!(
+        mv(
+            "=SUM(A7:A5)",
+            AxisMove {
+                axis: Axis::Row,
+                start: 20,
+                end: 22,
+                at: 30
+            }
+        ),
+        "=SUM(A7:A5)"
+    );
+}
+
+// -------------------------------------------------------------- $ anchors
+
+#[test]
+fn absolute_anchors_are_preserved_through_a_move() {
+    assert_eq!(
+        mv(
+            "=$A$6",
+            AxisMove {
+                axis: Axis::Row,
+                start: 5,
+                end: 7,
+                at: 2
+            }
+        ),
+        "=$A$3"
+    );
+}
+
+// -------------------------------------------------------------- no-ops
+
+#[test]
+fn moving_a_band_to_its_own_start_is_a_no_op() {
+    assert_eq!(
+        mv(
+            "=SUM(A1:A10)",
+            AxisMove {
+                axis: Axis::Row,
+                start: 5,
+                end: 7,
+                at: 5
+            }
+        ),
+        "=SUM(A1:A10)"
+    );
+}
+
+#[test]
+fn moving_a_band_to_a_destination_inside_itself_is_a_no_op() {
+    assert_eq!(
+        mv(
+            "=SUM(A1:A10)",
+            AxisMove {
+                axis: Axis::Row,
+                start: 5,
+                end: 7,
+                at: 6
+            }
+        ),
+        "=SUM(A1:A10)"
+    );
+}
+
+#[test]
+fn moving_a_band_to_immediately_after_itself_is_a_real_move_not_a_no_op() {
+    // at == end + 1 is the smallest genuine forward move: the band swaps
+    // with the immediately following equal-width block.
+    assert_eq!(
+        mv(
+            "=A5+A8",
+            AxisMove {
+                axis: Axis::Row,
+                start: 5,
+                end: 7,
+                at: 8
+            }
+        ),
+        "=A8+A5"
+    );
+}
+
+// --------------------------------------------------------------- columns
+
+#[test]
+fn column_axis_move_translates_the_band() {
+    assert_eq!(
+        mv(
+            "=E1",
+            AxisMove {
+                axis: Axis::Column,
+                start: 5,
+                end: 7,
+                at: 2
+            }
+        ),
+        "=B1"
+    );
+}
+
+#[test]
+fn column_axis_move_shifts_the_gap_region() {
+    assert_eq!(
+        mv(
+            "=C1",
+            AxisMove {
+                axis: Axis::Column,
+                start: 5,
+                end: 7,
+                at: 2
+            }
+        ),
+        "=F1"
+    );
+}
+
+#[test]
+fn a_two_dimensional_range_moves_only_on_the_moved_axis() {
+    assert_eq!(
+        mv(
+            "=SUM(B2:D8)",
+            AxisMove {
+                axis: Axis::Row,
+                start: 5,
+                end: 7,
+                at: 2
+            }
+        ),
+        "=SUM(B5:D8)"
+    );
+}
+
+// ------------------------------------------------------------ validation
+
+#[test]
+fn zero_based_start_is_rejected() {
+    assert!(shift_refs_for_move(
+        "=A1",
+        "Sheet1",
+        "Sheet1",
+        AxisMove {
+            axis: Axis::Row,
+            start: 0,
+            end: 2,
+            at: 5
+        }
+    )
+    .is_err());
+}
+
+#[test]
+fn zero_based_at_is_rejected() {
+    assert!(shift_refs_for_move(
+        "=A1",
+        "Sheet1",
+        "Sheet1",
+        AxisMove {
+            axis: Axis::Row,
+            start: 1,
+            end: 2,
+            at: 0
+        }
+    )
+    .is_err());
+}
+
+#[test]
+fn start_greater_than_end_is_rejected() {
+    assert!(shift_refs_for_move(
+        "=A1",
+        "Sheet1",
+        "Sheet1",
+        AxisMove {
+            axis: Axis::Row,
+            start: 5,
+            end: 2,
+            at: 1
+        }
+    )
+    .is_err());
+}
+
+#[test]
+fn destination_pushing_the_band_off_the_grid_is_rejected() {
+    assert!(shift_refs_for_move(
+        "=A1",
+        "Sheet1",
+        "Sheet1",
+        AxisMove {
+            axis: Axis::Row,
+            start: 1,
+            end: 2,
+            at: 10_000_000,
+        }
+    )
+    .is_err());
+}
+
+#[test]
+fn at_near_u32_max_is_rejected_without_overflow() {
+    assert!(shift_refs_for_move(
+        "=A1",
+        "Sheet1",
+        "Sheet1",
+        AxisMove {
+            axis: Axis::Row,
+            start: 1,
+            end: 1,
+            at: u32::MAX
+        }
+    )
+    .is_err());
+}
+
+#[test]
+fn parse_errors_propagate_for_a_move() {
+    assert!(shift_refs_for_move(
+        "=SUM(",
+        "Sheet1",
+        "Sheet1",
+        AxisMove {
+            axis: Axis::Row,
+            start: 5,
+            end: 7,
+            at: 2
+        }
+    )
+    .is_err());
+}
+
+// -------------------------------------------------------------- mechanics
+
+#[test]
+fn output_of_a_move_re_parses() {
+    let out = mv(
+        "=SUM(A4:A6)",
+        AxisMove {
+            axis: Axis::Row,
+            start: 5,
+            end: 7,
+            at: 2,
+        },
+    );
+    assert_eq!(out, "=SUM(A3:A7)");
+    assert!(crate::parser::parse_formula(&out).is_ok());
+}
+
+// ------------------------------------------------------------ engine surface
+
+#[test]
+fn engine_excel_flavor_is_rejected_for_move() {
+    let err = crate::Engine::excel()
+        .shift_refs_for_move(
+            "=A1",
+            "Sheet1",
+            "Sheet1",
+            AxisMove {
+                axis: Axis::Row,
+                start: 5,
+                end: 7,
+                at: 2,
+            },
+        )
+        .unwrap_err();
+    assert!(err.message.contains("Excel flavor not yet supported"));
+}
+
+#[test]
+fn engine_surface_matches_the_module_level_move_transform() {
+    let axis_move = AxisMove {
+        axis: Axis::Row,
+        start: 5,
+        end: 7,
+        at: 2,
+    };
+    let out = crate::Engine::sheets()
+        .shift_refs_for_move("=SUM(A4:A6)", "Sheet1", "Sheet1", axis_move)
+        .unwrap();
+    assert_eq!(out, mv("=SUM(A4:A6)", axis_move));
+}

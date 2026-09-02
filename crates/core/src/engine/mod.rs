@@ -7,7 +7,7 @@ use crate::types::{ErrorKind, ParseError, Value};
 
 mod grid_edit;
 
-pub use grid_edit::GridEdit;
+pub use grid_edit::{Axis, AxisMove, GridEdit};
 mod rename;
 mod translate;
 
@@ -181,6 +181,91 @@ impl Engine {
             });
         }
         grid_edit::shift_refs_text(formula, formula_sheet, edited_sheet, edit)
+    }
+
+    /// Rewrite the cell/range references in `formula` for a row/column
+    /// **move** — relocating the contiguous band `mv.start..=mv.end` on
+    /// `edited_sheet` so it starts at `mv.at`, without inserting or deleting
+    /// anything.
+    ///
+    /// Unlike [`Engine::shift_refs_for_grid_edit`], which can shift a
+    /// reference away or drop it as `#REF!`, a move is a *total* remap:
+    /// nothing is created or destroyed, so every coordinate on the moved
+    /// axis maps to exactly one output coordinate. A coordinate inside the
+    /// moved band translates onto the band's new start; a coordinate
+    /// between the band's old and new position slides by the band's width
+    /// in the opposite direction, closing the gap the band left; everything
+    /// else is unchanged.
+    ///
+    /// `mv.at` landing inside `mv.start..=mv.end` has no well-defined
+    /// destination — there is no way to "move a band into the middle of
+    /// itself" — so it is a silent no-op, the same way
+    /// [`GridEdit`]'s own `count: 0` is. `mv.at == mv.end + 1` is *not* part
+    /// of that no-op range: it is the smallest genuine forward move,
+    /// swapping the band with the immediately following equal-width block.
+    ///
+    /// Mapping a range's two endpoints independently can flip their
+    /// relative order even when they were written ascending — moving rows
+    /// 5:7 to before row 2 sends row 3's content to row 6 and row 6's
+    /// content to row 3, so `A4:A6` maps to `A3:A7`, not `A7:A3`. This
+    /// normalization only ever corrects an inversion the move itself
+    /// introduced; a range that was already written backwards (`A7:A5`)
+    /// keeps its written orientation, exactly as
+    /// [`Engine::shift_refs_for_grid_edit`] does for insert/delete.
+    ///
+    /// `$` anchors do **not** exempt an axis here either: `$` governs how a
+    /// reference is *copied*, not which cell it points at, so `$A$6` moves
+    /// exactly as `A6` does. The anchors are preserved in the output.
+    ///
+    /// `formula_sheet` is the sheet the formula lives on — what a bare `A1`
+    /// resolves to; `edited_sheet` is the sheet the band moved on. Only
+    /// references resolving to `edited_sheet` are touched. Matching is
+    /// case-insensitive, as in [`Engine::rename_sheet_refs`].
+    ///
+    /// Returns `Err` if `formula` does not parse, if `mv.start` or `mv.at`
+    /// is `0` (rows and columns are 1-based), if `mv.start > mv.end`, if
+    /// `mv.at` would push the band off the grid, or for `EngineFlavor::Excel`,
+    /// whose grid bounds are not established yet — the same guard
+    /// [`Engine::shift_refs_for_grid_edit`] carries. A move never grows the
+    /// sheet, so an off-grid *result* cannot happen from a well-formed
+    /// [`AxisMove`]; only an off-grid *request* is rejected, once, here.
+    ///
+    /// ```
+    /// use truecalc_core::{Axis, AxisMove, Engine};
+    ///
+    /// let engine = Engine::sheets();
+    ///
+    /// // Moving rows 5:7 to row 2: independently-mapped endpoints invert
+    /// // (row 4's content ends up at row 7, row 6's at row 3), so the
+    /// // range is normalized back to ascending order.
+    /// let mv = AxisMove { axis: Axis::Row, start: 5, end: 7, at: 2 };
+    /// let out = engine.shift_refs_for_move("=SUM(A4:A6)", "Sheet1", "Sheet1", mv).unwrap();
+    /// assert_eq!(out, "=SUM(A3:A7)");
+    ///
+    /// // `$` governs how a reference copies, not what it points at, so it
+    /// // does not exempt an axis from a move either.
+    /// let out = engine.shift_refs_for_move("=$A$6", "Sheet1", "Sheet1", mv).unwrap();
+    /// assert_eq!(out, "=$A$3");
+    ///
+    /// // `at` inside the band itself has no well-defined destination: a no-op.
+    /// let noop = AxisMove { axis: Axis::Row, start: 5, end: 7, at: 6 };
+    /// let out = engine.shift_refs_for_move("=SUM(A1:A10)", "Sheet1", "Sheet1", noop).unwrap();
+    /// assert_eq!(out, "=SUM(A1:A10)");
+    /// ```
+    pub fn shift_refs_for_move(
+        &self,
+        formula: &str,
+        formula_sheet: &str,
+        edited_sheet: &str,
+        mv: AxisMove,
+    ) -> Result<String, ParseError> {
+        if self.flavor == EngineFlavor::Excel {
+            return Err(ParseError {
+                message: "shift_refs_for_move: Excel flavor not yet supported".into(),
+                position: 0,
+            });
+        }
+        grid_edit::shift_refs_for_move(formula, formula_sheet, edited_sheet, mv)
     }
 
     /// Evaluate a formula string with named variables.
