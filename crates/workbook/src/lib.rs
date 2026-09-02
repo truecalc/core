@@ -74,6 +74,7 @@ mod named_ref;
 mod recalc;
 mod sheet_index;
 mod spill;
+mod spill_anchor_cache;
 mod strict_json;
 mod table;
 mod table_ref;

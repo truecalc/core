@@ -314,6 +314,34 @@ impl Workbook {
         entry
     }
 
+    /// The spill-anchor-rectangle map for the workbook **as it is now**, from
+    /// the cache when it is warm and freshly built (and stored) otherwise.
+    ///
+    /// A separate cache from [`dependency_graph_cached`](Self::dependency_graph_cached),
+    /// invalidated on a genuinely separate schedule — see the
+    /// `spill_anchor_cache` module docs for why recalc's own value write-back
+    /// (which keeps the graph cache warm on purpose) must invalidate this one.
+    fn anchor_rectangles_cached(&mut self) -> Arc<BTreeMap<CellRef, SpillRect>> {
+        if let Some(entry) = self.cached_anchor_entry() {
+            return entry;
+        }
+        let entry = Arc::new(self.anchor_rectangles());
+        self.store_cached_anchors(entry.clone());
+        entry
+    }
+
+    /// [`anchor_rectangles_cached`](Self::anchor_rectangles_cached) for a
+    /// caller that only holds `&self` — returns the warm entry if the cache
+    /// happens to be warm, otherwise computes a fresh map **without storing
+    /// it** (an uncached `&self` cannot populate the cache). Never worse than
+    /// the pre-cache behavior for such a caller; the hot recalc path always
+    /// pre-warms through `anchor_rectangles_cached` first; see the call site in
+    /// [`recalc_incremental_measured`](Self::recalc_incremental_measured).
+    fn anchor_rectangles_ref(&self) -> Arc<BTreeMap<CellRef, SpillRect>> {
+        self.cached_anchor_entry()
+            .unwrap_or_else(|| Arc::new(self.anchor_rectangles()))
+    }
+
     /// Recomputes only the formula cells affected by an edit and returns the
     /// ordered changes.
     ///
@@ -415,6 +443,12 @@ impl Workbook {
         // emits no change event (`diff_against_snapshot`), so `incremental ≡
         // full` is preserved while the minimal-closure guarantee still holds for
         // ordinary (non-spill) edits, which seed nothing here.
+        // Pre-warm the anchor-rectangle cache under `&mut self`: everything
+        // downstream of here (`seed_spill_sensitive` and the widen loop below)
+        // only holds `&self` or reads through `anchor_rectangles_ref`, so this
+        // is the one place in the hot path that can populate a cold cache
+        // rather than merely check it.
+        self.anchor_rectangles_cached();
         self.seed_spill_sensitive(&sheets, graph, &mut frontier);
 
         // The single transitive closure over everything seeded above.
@@ -460,9 +494,9 @@ impl Workbook {
                 // dirtied whatever the widening would add.
                 self.apply_changes(&sheets, pre.clone());
             }
-            let before = self.anchor_rectangles();
+            let before = self.anchor_rectangles_cached();
             self.recompute(&cached, ctx, frontier.cells().clone());
-            let after = self.anchor_rectangles();
+            let after = self.anchor_rectangles_cached();
 
             let was = frontier.len();
             for (sheet, addr) in changed_rectangle_cells(&before, &after) {
@@ -948,6 +982,15 @@ impl Workbook {
                 // loop rather than per cell.
                 self.sheets_mut_untracked()[idx]
                     .set(cell.addr, Cell::with_formula(formula, new.clone()));
+                // Structure-preserving for the graph cache (above) does not
+                // mean structure-preserving for the spill-anchor cache: this
+                // write is exactly how a spill is placed, resized, or
+                // removed. See the `spill_anchor_cache` module docs for why
+                // this is a genuinely separate invalidation condition from
+                // the graph cache's.
+                if matches!(&old, Value::Array(_)) || matches!(&new, Value::Array(_)) {
+                    self.invalidate_anchor_cache();
+                }
             }
             changes.push((
                 idx,
@@ -1082,7 +1125,7 @@ impl Workbook {
         graph: &DependencyGraph,
         frontier: &mut DirtyFrontier,
     ) -> bool {
-        let rects = self.anchor_rectangles();
+        let rects = self.anchor_rectangles_ref();
         // Built lazily, on the first range precedent examined: this decision
         // is asked `O(range precedents)` times, and eagerly building it before
         // knowing any range precedent exists made it an unconditional full

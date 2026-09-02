@@ -112,6 +112,20 @@ fn build_block_subtotals(n: u32) -> Workbook {
     wb
 }
 
+/// `rows * cols` literal cells and **zero formulas, zero spills** — the case
+/// issue #984 exists for: a pure data-entry workbook that has no reason to
+/// pay for anything recalc does beyond writing the one edited cell back.
+/// Sized to ~120,000 cells to match the issue's own measured scale.
+fn build_all_literal(rows: u32, cols: u32) -> Workbook {
+    let mut wb = new_workbook();
+    for row in 1..=rows {
+        for col in 1..=cols {
+            set_number(&mut wb, row, col, (row * col) as f64);
+        }
+    }
+    wb
+}
+
 /// A single linear dependency **chain** of depth `n`, plus one tail literal.
 ///
 /// `A1` is a literal, `A2 = =A1+1`, `A3 = =A2+1`, … through `A{n+1}` — `n`
@@ -522,6 +536,49 @@ fn bench_incremental_recalc(c: &mut Criterion) {
         }
         group.finish();
     }
+
+    // Issue #984: a single-cell literal edit on a large all-literal,
+    // zero-formula, zero-spill workbook. Before the fix,
+    // `seed_spill_sensitive_indexed` called `anchor_rectangles()`
+    // unconditionally on every incremental recalc — a full scan of every
+    // authored cell on every sheet looking for spills, regardless of whether
+    // the workbook has any formulas or spills at all. `template` is
+    // pre-recalculated (so both the graph cache and, after the fix, the
+    // spill-anchor cache start warm) and holds no formulas, so this group
+    // measures exactly the cost the issue is about: work paid for a document
+    // that has nothing for recalc to do beyond writing the one edited cell
+    // back.
+    let mut group = c.benchmark_group("incremental_recalc/all_literal_edit");
+    group.sample_size(20);
+    let mut template = build_all_literal(15_000, 8); // 120,000 cells
+    template.recalc(&ctx);
+    // `recalc` (full) never touches the spill-anchor cache — only the
+    // incremental widen loop reads it — so warm it explicitly with a no-op
+    // incremental call before cloning, matching a host that has already run
+    // at least one incremental recalc. Without this, every cloned iteration
+    // below would start with a cold anchor cache and this group would measure
+    // the one-time cold-scan cost repeatedly instead of the steady-state cost
+    // the fix targets.
+    let warm_addr = Address::new(1, 1).unwrap();
+    template.recalc_incremental(&ctx, &[("Sheet1".to_string(), warm_addr)]);
+    // NOTE: like every other group in this function, `template.clone()` runs
+    // *inside* the timed closure, so this group's reported number is
+    // clone-cost + `set` + `recalc_incremental`, not `recalc_incremental`
+    // alone — cloning this 120,000-cell workbook is itself a fixed, multi-ms
+    // cost unrelated to this issue's fix. A real host that edits a live
+    // workbook in place (no per-edit clone) pays only the latter, markedly
+    // smaller share; do not read this group's absolute number as "what one
+    // edit costs" without subtracting an equivalent clone-only baseline.
+    group.bench_function("120000cells", |b| {
+        b.iter(|| {
+            let mut wb = template.clone();
+            let a1 = Address::new(1, 1).unwrap();
+            wb.set("Sheet1", a1, CellInput::Literal(Value::Number(99.0)))
+                .unwrap();
+            wb.recalc_incremental(&ctx, &[("Sheet1".to_string(), a1)])
+        });
+    });
+    group.finish();
 }
 
 fn bench_from_json(c: &mut Criterion) {
