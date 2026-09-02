@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.1.0](https://github.com/truecalc/core/compare/truecalc-workbook-v9.0.1...truecalc-workbook-v9.1.0) - 2026-09-02
+
+### Added
+
+- *(wasm-workbook)* bind remaining Workbook methods to JsWorkbook
+- *(workbook)* the workbook owns the dangling-ref invariant
+
+### Fixed
+
+- *(workbook)* refuse a rename that lands a dangling table on foreign headers
+- *(workbook)* skip the table-overlap check on a pure case change
+- *(workbook)* stop a rename creating the very defect it closes
+
+### Other
+
+- Merge pull request #967 from truecalc/feat/965-recalc-work-assertions-chain-bench
+- *(workbook)* assert recalc work, and add the missing chain fixture
+
 ## [9.0.1](https://github.com/truecalc/core/compare/truecalc-workbook-v9.0.0...truecalc-workbook-v9.0.1) - 2026-08-29
 
 ### Other
