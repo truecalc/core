@@ -72,7 +72,7 @@ pub mod parser;
 pub mod types;
 
 pub use display::display_number;
-pub use engine::{Engine, EngineFlavor, GridEdit};
+pub use engine::{Axis, AxisMove, Engine, EngineFlavor, GridEdit};
 #[allow(deprecated)]
 pub use parser::{parse, validate};
 pub use parser::parse_formula;
