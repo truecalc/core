@@ -256,6 +256,47 @@ fn a_literal_array_write_invalidates_the_anchor_cache_while_the_graph_cache_stay
 }
 
 #[test]
+fn a_workbook_loaded_from_json_with_a_pre_existing_spill_builds_the_anchor_map_correctly() {
+    // A pre-existing spill authored entirely through a prior process, not
+    // this process's own formula evaluation: recalc it once to place the
+    // spill on the grid, round-trip through JSON, and confirm a freshly
+    // constructed `Workbook` — whose cache starts cold by construction (see
+    // the `spill_anchor_cache` module docs) — builds a correct anchor map
+    // from the loaded grid on its first incremental recalc.
+    let mut wb = wb_with_variable_spill();
+    set_a1(&mut wb, 3.0);
+    wb.recalc(&ctx()); // B1 spills across B1:D1, stored on the grid.
+    let json = wb.to_json().expect("a recalculated workbook serializes");
+
+    let mut loaded = Workbook::from_json(json.as_bytes()).expect("round-trips");
+    assert_eq!(
+        loaded.anchor_builds(),
+        0,
+        "a freshly loaded workbook starts with a cold anchor cache regardless of construction path"
+    );
+    assert!(!loaded.anchor_cache_is_warm());
+
+    // An edit unrelated to B1's spill still forces the incremental path to
+    // build the anchor map from the grid as loaded — there is no formula
+    // evaluation history in this process for B1's spill to have come from.
+    loaded
+        .set("S", addr("Z1"), CellInput::Literal(Value::Number(1.0)))
+        .unwrap();
+    loaded.recalc_incremental(&ctx(), &[("S".to_owned(), addr("Z1"))]);
+
+    assert!(loaded.anchor_cache_is_warm());
+    assert_eq!(
+        loaded.resolved("S", addr("C1")).unwrap().anchor,
+        Some(addr("B1")),
+        "the pre-existing spill loaded from JSON must be reflected in the anchor cache"
+    );
+    assert_eq!(
+        loaded.resolved("S", addr("D1")).unwrap().anchor,
+        Some(addr("B1"))
+    );
+}
+
+#[test]
 fn a_full_recalc_that_changes_a_spill_leaves_no_stale_entry_for_the_next_incremental_call() {
     let mut wb = wb_with_variable_spill();
     incremental_on_a1(&mut wb); // A1 == 1: warms the anchor cache with no spills.

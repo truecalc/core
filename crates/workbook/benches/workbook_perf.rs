@@ -561,6 +561,14 @@ fn bench_incremental_recalc(c: &mut Criterion) {
     // the fix targets.
     let warm_addr = Address::new(1, 1).unwrap();
     template.recalc_incremental(&ctx, &[("Sheet1".to_string(), warm_addr)]);
+    // NOTE: like every other group in this function, `template.clone()` runs
+    // *inside* the timed closure, so this group's reported number is
+    // clone-cost + `set` + `recalc_incremental`, not `recalc_incremental`
+    // alone — cloning this 120,000-cell workbook is itself a fixed, multi-ms
+    // cost unrelated to this issue's fix. A real host that edits a live
+    // workbook in place (no per-edit clone) pays only the latter, markedly
+    // smaller share; do not read this group's absolute number as "what one
+    // edit costs" without subtracting an equivalent clone-only baseline.
     group.bench_function("120000cells", |b| {
         b.iter(|| {
             let mut wb = template.clone();
