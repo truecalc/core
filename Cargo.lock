@@ -2287,9 +2287,21 @@ dependencies = [
  "serde-wasm-bindgen",
  "serde_json",
  "truecalc-core",
+ "truecalc-wasm-value",
  "tsify-next",
  "wasm-bindgen",
  "wasm-bindgen-test",
+]
+
+[[package]]
+name = "truecalc-wasm-value"
+version = "9.1.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "truecalc-core",
+ "tsify-next",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2299,6 +2311,7 @@ dependencies = [
  "serde",
  "serde_json",
  "truecalc-core",
+ "truecalc-wasm-value",
  "truecalc-workbook",
  "tsify-next",
  "wasm-bindgen",
