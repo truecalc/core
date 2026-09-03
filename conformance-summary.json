@@ -1,7 +1,7 @@
 {
-  "generated": "2026-09-03T10:15:20Z",
-  "version": "9.1.1",
-  "git_sha": "ce75619",
+  "generated": "2026-09-03T11:45:09Z",
+  "version": "9.1.2",
+  "git_sha": "96bfe99",
   "categories": [
     {
       "name": "array",
