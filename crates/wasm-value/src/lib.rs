@@ -34,17 +34,27 @@ use truecalc_core::Value;
 #[tsify(into_wasm_abi)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum EvalResult {
-    Number { value: f64 },
-    Text { value: String },
-    Bool { value: bool },
+    Number {
+        value: f64,
+    },
+    Text {
+        value: String,
+    },
+    Bool {
+        value: bool,
+    },
     /// A spreadsheet serial date number. Distinct from `Number` so consumers can
     /// format it as a date; the epoch is implied by the engine flavor.
-    Date { value: f64 },
+    Date {
+        value: f64,
+    },
     /// A zone-aware instant, carried as its canonical, self-describing RFC-9557
     /// string, e.g. `2026-07-14T11:00:00+02:00[Europe/Berlin]`. Derived fields
     /// (offset/abbrev/is_dst) are intentionally NOT emitted — fetch them via the
     /// `TZ*` functions so consumers never persist a stale offset.
-    Zoned { value: String },
+    Zoned {
+        value: String,
+    },
     Error {
         error: String,
         /// Optional human-readable diagnostic (Google Sheets parity), e.g. the
@@ -56,12 +66,16 @@ pub enum EvalResult {
     Empty,
     /// An (unspilled) array result. Recursive: 2-D arrays are arrays of `array`
     /// rows. Cells carry their own type, including nested `date`/`error`/`empty`.
-    Array { value: Vec<EvalResult> },
+    Array {
+        value: Vec<EvalResult>,
+    },
     /// A sparkline: the parsed, validated render spec produced by `SPARKLINE`.
     /// Google Sheets models this as a value kind of its own (`TYPE()` reports
     /// the undocumented code `128`), and the spec is the value's identity, so
     /// it is carried in full rather than projected to text.
-    Sparkline { value: SparklineSpecResult },
+    Sparkline {
+        value: SparklineSpecResult,
+    },
 }
 
 /// A parsed sparkline render spec on the WASM surface. `data` points and
@@ -102,11 +116,19 @@ pub fn value_to_result(value: Value) -> EvalResult {
     match value {
         Value::Number(n) => EvalResult::Number { value: n },
         Value::Date(n) => EvalResult::Date { value: n },
-        Value::Zoned(z) => EvalResult::Zoned { value: z.to_rfc9557() },
+        Value::Zoned(z) => EvalResult::Zoned {
+            value: z.to_rfc9557(),
+        },
         Value::Text(s) => EvalResult::Text { value: s },
         Value::Bool(b) => EvalResult::Bool { value: b },
-        Value::Error(e) => EvalResult::Error { error: e.to_string(), message: None },
-        Value::ErrorMsg(e, m) => EvalResult::Error { error: e.to_string(), message: Some(m) },
+        Value::Error(e) => EvalResult::Error {
+            error: e.to_string(),
+            message: None,
+        },
+        Value::ErrorMsg(e, m) => EvalResult::Error {
+            error: e.to_string(),
+            message: Some(m),
+        },
         Value::Empty => EvalResult::Empty,
         Value::Array(items) => EvalResult::Array {
             value: items.into_iter().map(value_to_result).collect(),

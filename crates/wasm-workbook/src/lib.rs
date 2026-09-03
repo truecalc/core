@@ -120,13 +120,19 @@ fn value_to_eval_result(v: &Value) -> EvalResult {
     match v {
         Value::Number(n) => EvalResult::Number { value: *n },
         Value::Date(n) => EvalResult::Date { value: *n },
-        Value::Zoned(z) => EvalResult::Zoned { value: z.to_rfc9557() },
+        Value::Zoned(z) => EvalResult::Zoned {
+            value: z.to_rfc9557(),
+        },
         Value::Text(s) => EvalResult::Text { value: s.clone() },
         Value::Boolean(b) => EvalResult::Bool { value: *b },
-        Value::Error(code) => EvalResult::Error { error: code.clone(), message: None },
-        Value::ErrorMsg(code, msg) => {
-            EvalResult::Error { error: code.clone(), message: Some(msg.clone()) }
-        }
+        Value::Error(code) => EvalResult::Error {
+            error: code.clone(),
+            message: None,
+        },
+        Value::ErrorMsg(code, msg) => EvalResult::Error {
+            error: code.clone(),
+            message: Some(msg.clone()),
+        },
         Value::Empty => EvalResult::Empty,
         // `truecalc_workbook::Value::Array` is `Vec<Vec<Value>>` (always
         // rectangular, never nested), unlike `EvalResult::Array`'s flat,
