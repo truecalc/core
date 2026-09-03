@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.1.2](https://github.com/truecalc/core/compare/truecalc-workbook-v9.1.1...truecalc-workbook-v9.1.2) - 2026-09-03
+
+### Other
+
+- *(bench)* re-record baselines.json after rebasing onto #946
+- *(workbook)* remove two O(formula-cell-count) recalc floors (issue #991)
+- *(bench)* add a clone-only control group for row_totals_volatile_seed (issue #991 prereq)
+- *(bench)* re-record baselines.json from one fresh combined run
+- *(workbook)* add spill-dense incremental_recalc bench fixture ([#946](https://github.com/truecalc/core/pull/946))
+
 ## [9.1.1](https://github.com/truecalc/core/compare/truecalc-workbook-v9.1.0...truecalc-workbook-v9.1.1) - 2026-09-02
 
 ### Other
