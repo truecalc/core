@@ -1,147 +1,159 @@
 {
   "recorded_at": "2026-09-03",
   "recorded_on": "Apple M1 Max (10 core), macOS 14.4, rustc 1.98.0 (88d9e12ae 2026-08-18), release profile; single full bench run",
-  "note": "Single-run re-record after adding the spill_chain fixture (issue #946) on top of main post-#983/#984/#985 \u2014 every entry, including the two new incremental_recalc/spill_chain_edit_{root,spill_anchor}/2000 groups, comes from ONE cargo bench run of the fully-rebased, fully-combined code, not a hand-merge of separate recordings. Two earlier attempts at this same run were discarded: the machine had concurrent, unrelated CPU load at the time (other builds running in parallel elsewhere) and several entries \u2014 mostly full_recalc/depgraph_build groups this PR does not touch \u2014 came back 2-3x their prior baseline with proportionally wide error bars while calibration/hash_alloc stayed comparatively flat, the signature of contention rather than a real change; this recording is a subsequent run, taken once load had cleared (a small script polled `uptime` and only started the bench once the 1-minute load average dropped below 6 on this 10-core machine). incremental_recalc/all_literal_edit/120000cells drops from #984's ~12ms to ~9.4ms here because this run also includes #985's fix, landed on main during this PR's own rebase. Includes #983's and #984's earlier new groups too: incremental_recalc/row_totals_volatile_seed/{100,10000,100000} (#983) and incremental_recalc/all_literal_edit/120000cells (#984). best_ns_recorded and reference_best_ns_recorded are informational only - nothing is checked against them. The bands are two-sided on purpose: see .github/scripts/check_perf_regression.py.",
+  "note": "Single-run re-record after issue #991's two recalc-floor fixes (the lazy pre-image fold replacing the upfront formula-cell snapshot, and the AuthoredCellIndex cache) landed rebased on top of #946's spill_chain fixture \u2014 every entry, including the new incremental_recalc/row_totals_volatile_seed_clone_only/{100,10000,100000} control group this PR adds, comes from ONE cargo bench run of the fully-rebased, fully-combined code, not a hand-merge of separate recordings. row_totals_volatile_seed_clone_only isolates the per-iteration template-clone cost row_totals_volatile_seed also pays from the recalc cost issue #991 actually targets (see that group's own comment in workbook_perf.rs). Includes #946's, #983's and #984's earlier new groups too: incremental_recalc/spill_chain_edit_{root,spill_anchor}/2000 (#946), incremental_recalc/row_totals_volatile_seed/{100,10000,100000} (#983), and incremental_recalc/all_literal_edit/120000cells (#984). best_ns_recorded and reference_best_ns_recorded are informational only - nothing is checked against them. The bands are two-sided on purpose: see .github/scripts/check_perf_regression.py.",
   "reference": "calibration/hash_alloc",
-  "reference_best_ns_recorded": 3710497,
+  "reference_best_ns_recorded": 3175648,
   "regression_pct": 150,
   "improvement_pct": 40,
   "benchmarks": {
     "full_recalc/independent/100": {
-      "ref_units": 0.1263,
-      "best_ns_recorded": 468662
+      "ref_units": 0.142,
+      "best_ns_recorded": 450953
     },
     "full_recalc/independent/1000": {
-      "ref_units": 1.1947,
-      "best_ns_recorded": 4433036
+      "ref_units": 1.318,
+      "best_ns_recorded": 4185435
     },
     "full_recalc/independent/5000": {
-      "ref_units": 6.5597,
-      "best_ns_recorded": 24339729
+      "ref_units": 7.1371,
+      "best_ns_recorded": 22664826
     },
     "full_recalc/chain/1000": {
-      "ref_units": 1.1076,
-      "best_ns_recorded": 4109898
+      "ref_units": 1.2301,
+      "best_ns_recorded": 3906501
     },
     "full_recalc/chain/5000": {
-      "ref_units": 6.1634,
-      "best_ns_recorded": 22869415
+      "ref_units": 6.7235,
+      "best_ns_recorded": 21351587
     },
     "full_recalc/row_totals/500": {
-      "ref_units": 1.3579,
-      "best_ns_recorded": 5038641
+      "ref_units": 1.4768,
+      "best_ns_recorded": 4689797
     },
     "full_recalc/row_totals/2000": {
-      "ref_units": 5.7699,
-      "best_ns_recorded": 21409041
+      "ref_units": 6.3616,
+      "best_ns_recorded": 20202079
     },
     "full_recalc/block_subtotals/2000": {
-      "ref_units": 1.2245,
-      "best_ns_recorded": 4543575
+      "ref_units": 1.3809,
+      "best_ns_recorded": 4385354
     },
     "full_recalc/block_subtotals/10000": {
-      "ref_units": 7.5043,
-      "best_ns_recorded": 27844675
+      "ref_units": 8.2656,
+      "best_ns_recorded": 26248649
     },
     "full_recalc/multi_sheet/200x50": {
-      "ref_units": 12.9435,
-      "best_ns_recorded": 48026878
+      "ref_units": 13.8931,
+      "best_ns_recorded": 44119683
     },
     "full_recalc/multi_sheet_long_names/200x50": {
-      "ref_units": 12.2624,
-      "best_ns_recorded": 45499529
+      "ref_units": 13.182,
+      "best_ns_recorded": 41861486
     },
     "full_recalc/multi_sheet_cross_refs/200x50": {
-      "ref_units": 13.4963,
-      "best_ns_recorded": 50077909
+      "ref_units": 15.0181,
+      "best_ns_recorded": 47692045
     },
     "full_recalc/tall_sparse/20000": {
-      "ref_units": 36.7943,
-      "best_ns_recorded": 136525325
+      "ref_units": 41.3109,
+      "best_ns_recorded": 131188932
     },
     "depgraph_build/tall_sparse/20000": {
-      "ref_units": 9.3873,
-      "best_ns_recorded": 34831449
+      "ref_units": 9.9472,
+      "best_ns_recorded": 31588797
     },
     "depgraph_build/row_totals/2000": {
-      "ref_units": 0.9292,
-      "best_ns_recorded": 3447688
+      "ref_units": 0.9448,
+      "best_ns_recorded": 3000451
     },
     "depgraph_build/multi_sheet_cross_refs/200x50": {
-      "ref_units": 2.8934,
-      "best_ns_recorded": 10736012
+      "ref_units": 3.142,
+      "best_ns_recorded": 9977906
     },
     "incremental_recalc/independent_edit_root/100": {
-      "ref_units": 0.0488,
-      "best_ns_recorded": 181169
+      "ref_units": 0.043,
+      "best_ns_recorded": 136689
     },
     "incremental_recalc/independent_edit_root/1000": {
-      "ref_units": 0.2515,
-      "best_ns_recorded": 933199
+      "ref_units": 0.1598,
+      "best_ns_recorded": 507606
     },
     "incremental_recalc_cold/independent_edit_root/100": {
-      "ref_units": 0.0824,
-      "best_ns_recorded": 305818
+      "ref_units": 0.0817,
+      "best_ns_recorded": 259478
     },
     "incremental_recalc_cold/independent_edit_root/1000": {
-      "ref_units": 0.6533,
-      "best_ns_recorded": 2423988
+      "ref_units": 0.6062,
+      "best_ns_recorded": 1925141
     },
     "incremental_recalc/multi_sheet_edit_root/200x50": {
-      "ref_units": 2.2627,
-      "best_ns_recorded": 8395663
+      "ref_units": 1.2708,
+      "best_ns_recorded": 4035569
     },
     "incremental_recalc/block_subtotals_edit_root/10000": {
-      "ref_units": 0.6196,
-      "best_ns_recorded": 2298897
+      "ref_units": 0.6314,
+      "best_ns_recorded": 2005104
     },
     "incremental_recalc/chain_edit_root/1000": {
-      "ref_units": 1.0199,
-      "best_ns_recorded": 3784274
+      "ref_units": 1.0437,
+      "best_ns_recorded": 3314396
     },
     "incremental_recalc/chain_edit_root/5000": {
-      "ref_units": 5.3579,
-      "best_ns_recorded": 19880333
+      "ref_units": 5.7317,
+      "best_ns_recorded": 18201821
     },
     "incremental_recalc/chain_edit_leaf/1000": {
-      "ref_units": 0.2258,
-      "best_ns_recorded": 838011
+      "ref_units": 0.1414,
+      "best_ns_recorded": 448942
     },
     "incremental_recalc/chain_edit_leaf/5000": {
-      "ref_units": 1.165,
-      "best_ns_recorded": 4322737
+      "ref_units": 0.6185,
+      "best_ns_recorded": 1964096
     },
     "incremental_recalc/spill_chain_edit_root/2000": {
-      "ref_units": 5.769,
-      "best_ns_recorded": 21405875
+      "ref_units": 6.2922,
+      "best_ns_recorded": 19981817
     },
     "incremental_recalc/spill_chain_edit_spill_anchor/2000": {
-      "ref_units": 6.9123,
-      "best_ns_recorded": 25647904
+      "ref_units": 7.5271,
+      "best_ns_recorded": 23903489
     },
     "incremental_recalc/all_literal_edit/120000cells": {
-      "ref_units": 2.525,
-      "best_ns_recorded": 9368995
+      "ref_units": 2.8588,
+      "best_ns_recorded": 9078525
+    },
+    "incremental_recalc/row_totals_volatile_seed_clone_only/100": {
+      "ref_units": 0.011,
+      "best_ns_recorded": 34910
+    },
+    "incremental_recalc/row_totals_volatile_seed_clone_only/10000": {
+      "ref_units": 1.8442,
+      "best_ns_recorded": 5856604
+    },
+    "incremental_recalc/row_totals_volatile_seed_clone_only/100000": {
+      "ref_units": 24.6105,
+      "best_ns_recorded": 78154300
     },
     "incremental_recalc/row_totals_volatile_seed/100": {
-      "ref_units": 0.0671,
-      "best_ns_recorded": 248984
+      "ref_units": 0.0622,
+      "best_ns_recorded": 197369
     },
     "incremental_recalc/row_totals_volatile_seed/10000": {
-      "ref_units": 6.0695,
-      "best_ns_recorded": 22520710
+      "ref_units": 5.1829,
+      "best_ns_recorded": 16458922
     },
     "incremental_recalc/row_totals_volatile_seed/100000": {
-      "ref_units": 74.7037,
-      "best_ns_recorded": 277187937
+      "ref_units": 65.5192,
+      "best_ns_recorded": 208065861
     },
     "from_json/500rows": {
-      "ref_units": 0.2508,
-      "best_ns_recorded": 930640
+      "ref_units": 0.2801,
+      "best_ns_recorded": 889551
     },
     "to_json/500rows": {
-      "ref_units": 0.195,
-      "best_ns_recorded": 723499
+      "ref_units": 0.2147,
+      "best_ns_recorded": 681827
     }
   }
 }

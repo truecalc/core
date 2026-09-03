@@ -58,6 +58,7 @@
 //!   evaluation lives there.
 
 mod address;
+mod authored_cell_index_cache;
 mod authored_index;
 mod canonical;
 mod casefold;
@@ -71,6 +72,7 @@ pub mod limits;
 mod mutate;
 mod named_range;
 mod named_ref;
+mod pre_image_stats;
 mod recalc;
 mod sheet_index;
 mod spill;

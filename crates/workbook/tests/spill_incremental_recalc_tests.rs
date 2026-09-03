@@ -326,3 +326,180 @@ fn non_spill_edit_does_not_overdirty() {
         "B column must be untouched by a non-spill edit: {touched:?}"
     );
 }
+
+// --- issue #991: Design A / the AuthoredCellIndex-cache fallback, on real
+// spill dynamics rather than a synthetic pre-image count -------------------
+
+/// A pure-scalar edit, several cells upstream of the anchor, that flips the
+/// anchor's own formula result from a scalar to an array — creating a spill
+/// that did not exist before this call. Exercises Design A's lazy pre-image
+/// fold (the anchor's own old/new pair, plus the newly-spilled cell's
+/// reader's) and the `AuthoredCellIndex`-cache fallback (the reader's range/
+/// cell precedent is examined during the very seeding pass this edit
+/// triggers) together, on a genuinely new spill rather than a resize of an
+/// existing one.
+#[test]
+fn scalar_edit_creates_a_new_spill_several_cells_downstream() {
+    // A1 (scalar) -> B1 = A1*2 -> C1 = IF(B1>10, {1,2,3}, 9) -> F1 = D1+1,
+    // where D1 is C1's spilled cell once C1 actually spills. The edit only
+    // ever touches A1, two hops upstream of the anchor and three upstream of
+    // F1.
+    let mut wb = wb();
+    wb.set("Sheet1", a1("A1"), CellInput::Literal(num(5.0)))
+        .unwrap();
+    wb.set("Sheet1", a1("B1"), CellInput::Formula("=A1*2".into()))
+        .unwrap();
+    wb.set(
+        "Sheet1",
+        a1("C1"),
+        CellInput::Formula("=IF(B1>10,{1,2,3},9)".into()),
+    )
+    .unwrap();
+    wb.set("Sheet1", a1("F1"), CellInput::Formula("=D1+1".into()))
+        .unwrap();
+    wb.recalc(&ctx());
+    assert_eq!(wb.get("Sheet1", a1("C1")).unwrap().value(), &num(9.0));
+    assert!(
+        wb.resolved("Sheet1", a1("D1")).is_none(),
+        "no spill exists yet"
+    );
+    assert_eq!(wb.get("Sheet1", a1("F1")).unwrap().value(), &num(1.0));
+
+    // A pure scalar edit, upstream of the anchor, that flips the branch.
+    wb.set("Sheet1", a1("A1"), CellInput::Literal(num(10.0)))
+        .unwrap();
+    let changes = assert_incremental_equals_full(&mut wb, &[("Sheet1", "A1")]);
+
+    assert_eq!(wb.resolved("Sheet1", a1("D1")).unwrap().value, num(2.0));
+    assert_eq!(wb.get("Sheet1", a1("F1")).unwrap().value(), &num(3.0));
+
+    let c1 = changes
+        .iter()
+        .find(|c| c.addr == a1("C1"))
+        .expect("C1 changed");
+    assert_eq!(c1.old, num(9.0), "C1's pre-recalc value was the scalar 9");
+    assert_eq!(c1.new, wb.get("Sheet1", a1("C1")).unwrap().value().clone());
+
+    let f1 = changes
+        .iter()
+        .find(|c| c.addr == a1("F1"))
+        .expect("F1 changed");
+    assert_eq!(f1.old, num(1.0));
+    assert_eq!(f1.new, num(3.0));
+}
+
+/// The mirror of the test above: a pure-scalar edit, several cells upstream,
+/// that flips an anchor from an array back to a scalar — **removing** an
+/// existing spill rather than creating one. Exercises the same pre-image fold
+/// on a shrink-to-nothing rather than a grow-from-nothing, and confirms the
+/// vacated cell's reader is correctly re-dirtied and its `old` value is the
+/// true pre-recalc (spilled) value, not the post-vacate one.
+#[test]
+fn scalar_edit_removes_an_existing_spill_several_cells_downstream() {
+    let mut wb = wb();
+    wb.set("Sheet1", a1("A1"), CellInput::Literal(num(10.0)))
+        .unwrap();
+    wb.set("Sheet1", a1("B1"), CellInput::Formula("=A1*2".into()))
+        .unwrap();
+    wb.set(
+        "Sheet1",
+        a1("C1"),
+        CellInput::Formula("=IF(B1>10,{1,2,3},9)".into()),
+    )
+    .unwrap();
+    wb.set("Sheet1", a1("F1"), CellInput::Formula("=D1+1".into()))
+        .unwrap();
+    wb.recalc(&ctx());
+    assert_eq!(wb.resolved("Sheet1", a1("D1")).unwrap().value, num(2.0));
+    assert_eq!(wb.get("Sheet1", a1("F1")).unwrap().value(), &num(3.0));
+    // The true pre-recalc value of C1 (the spilling array), captured before
+    // the edit so the assertion below cannot be satisfied by a bug that just
+    // echoes back this call's own (possibly wrong) bookkeeping.
+    let c1_pre_recalc = wb.get("Sheet1", a1("C1")).unwrap().value().clone();
+
+    // A pure scalar edit, upstream of the anchor, that flips the branch back.
+    wb.set("Sheet1", a1("A1"), CellInput::Literal(num(5.0)))
+        .unwrap();
+    let changes = assert_incremental_equals_full(&mut wb, &[("Sheet1", "A1")]);
+
+    assert_eq!(wb.get("Sheet1", a1("C1")).unwrap().value(), &num(9.0));
+    assert!(
+        wb.resolved("Sheet1", a1("D1")).is_none(),
+        "the spill must be vacated"
+    );
+    assert_eq!(wb.get("Sheet1", a1("F1")).unwrap().value(), &num(1.0));
+
+    let c1 = changes
+        .iter()
+        .find(|c| c.addr == a1("C1"))
+        .expect("C1 changed");
+    assert_eq!(
+        c1.old, c1_pre_recalc,
+        "C1's old value must be the true pre-recalc array, not the \
+         post-vacate scalar"
+    );
+    assert_eq!(c1.new, num(9.0));
+
+    let f1 = changes
+        .iter()
+        .find(|c| c.addr == a1("F1"))
+        .expect("F1 changed");
+    assert_eq!(f1.old, num(3.0));
+    assert_eq!(f1.new, num(1.0));
+}
+
+/// A workbook that already holds a real, placed spill on its **stored** grid
+/// (loaded via `from_json`, exactly as a host restoring a saved document
+/// would) and is recalculated **incrementally on its very first recalc of any
+/// kind** — never once calling `recalc()` first. Every one of issue #991's
+/// caches (the dependency graph, the spill-anchor rectangles, and the
+/// AuthoredCellIndex fallback) must therefore cold-start correctly from
+/// scratch inside a single incremental call, against a grid that is not
+/// merely empty-of-formulas but already has spill geometry to reason about.
+#[test]
+fn from_json_workbook_with_a_pre_existing_spill_recalculates_incrementally_on_its_first_call() {
+    // Build and fully recalculate a workbook with a real spill once, purely
+    // to obtain valid canonical JSON with the spill's placed array already on
+    // the grid (schema spec §5/§6) — it is the *document*, not this process's
+    // cache state, that `from_json` below actually loads.
+    let mut seed = wb();
+    seed.set("Sheet1", a1("A1"), CellInput::Formula("={10,20,30}".into()))
+        .unwrap();
+    seed.set("Sheet1", a1("E1"), CellInput::Formula("=C1+1".into()))
+        .unwrap();
+    seed.recalc(&ctx());
+    assert_eq!(seed.get("Sheet1", a1("E1")).unwrap().value(), &num(31.0));
+    let json = seed.to_json().unwrap();
+
+    // A freshly loaded workbook: no dependency-graph cache, no spill-anchor
+    // cache, no authored-cell-index cache — all cold.
+    let mut live = Workbook::from_json(json.as_bytes()).unwrap();
+    assert!(!live.graph_cache_is_warm());
+    assert!(!live.anchor_cache_is_warm());
+    assert!(!live.authored_index_cache_is_warm());
+
+    // Never call `.recalc()` on `live` — the whole point of this test. Shrink
+    // the pre-existing spill straight from the cold start.
+    live.set("Sheet1", a1("A1"), CellInput::Formula("={1,2}".into()))
+        .unwrap();
+    let changes = assert_incremental_equals_full(&mut live, &[("Sheet1", "A1")]);
+
+    assert_eq!(live.resolved("Sheet1", a1("B1")).unwrap().value, num(2.0));
+    assert!(
+        live.resolved("Sheet1", a1("C1")).is_none(),
+        "the shrink vacates C1"
+    );
+    assert_eq!(live.get("Sheet1", a1("E1")).unwrap().value(), &num(1.0));
+
+    let e1 = changes
+        .iter()
+        .find(|c| c.addr == a1("E1"))
+        .expect("E1 changed");
+    assert_eq!(
+        e1.old,
+        num(31.0),
+        "E1's old value must be the value from the loaded document, not \
+         Value::Empty from some assumed prior recalc"
+    );
+    assert_eq!(e1.new, num(1.0));
+}

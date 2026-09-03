@@ -618,6 +618,92 @@ fn a_cell_reading_inside_its_own_spill_footprint_matches_a_full_recalc() {
     );
 }
 
+/// Design A (issue #991) replaced the old up-front `snapshot_formula_values`
+/// (every formula cell's value, cloned before any recompute ran) with a
+/// pre-image map accumulated *lazily*, folded in first-wins from each
+/// recompute pass's own returned [`Change`] list. This asserts the specific
+/// invariant that fold must get right: a `Change.old` a caller receives from
+/// `recalc_incremental` is always the value the cell held **before this call
+/// started**, never a value written by an intermediate widen pass — using the
+/// same self-referential-spill shape as
+/// `a_cell_reading_inside_its_own_spill_footprint_matches_a_full_recalc`
+/// above, the sharpest shape this suite has for stressing the widen loop's
+/// rewind.
+///
+/// **Investigation note, not a shortcut taken**: the widen loop's `pass > 0`
+/// branch — the rewind this test is really about — could not be forced to
+/// execute here, or found to execute anywhere in this suite. A 3,000-seed
+/// sweep of `Shape::ConditionalArray`, every pinned `WIDEN_REWIND` seed above,
+/// and this exact hand-crafted shape all stay at `pass == 0` against current
+/// `main`. That matches the widen loop's own doc comment and PR #948's review
+/// (see the `WIDEN_REWIND` comment above): `seed_spill_sensitive` sweeps
+/// *every* formula cell's precedents against the pre-edit authored/rect state
+/// before any recompute runs, and authored-ness cannot change during a recalc
+/// call — only `Workbook::set`/`clear`, which run strictly before
+/// `recalc_incremental` starts, add or remove an authored entry. So any cell
+/// that could ever become newly spilled-into or vacated by this call was
+/// already unauthored before the call began, and rule 3/4's blanket "not
+/// authored" check already nets its readers regardless of spill timing — the
+/// rewind's rect-diff step can never discover a genuinely new one. The
+/// rewind therefore appears currently unreachable through the public API, so
+/// this test asserts the invariant in its general form (true regardless of
+/// how many passes actually run) rather than gating on a `pass > 0` nothing
+/// in this codebase can currently produce; it stands as the same kind of
+/// passive regression guard `WIDEN_REWIND` already documents itself as.
+#[test]
+fn changes_report_true_pre_recalc_old_values_not_intermediate_widen_values() {
+    let mut live = Workbook::new(EngineFlavor::Sheets);
+    live.add_sheet(Worksheet::new("S")).unwrap();
+    live.set("S", addr(5, 2), CellInput::Formula("={8;4}".into()))
+        .unwrap(); // B5 spills B5:B6
+    live.set("S", addr(1, 3), CellInput::Formula("=C2+B5".into()))
+        .unwrap();
+    live.set("S", addr(5, 5), CellInput::Formula("=IF(D6>2,C2,3)".into()))
+        .unwrap();
+    live.set("S", addr(4, 1), CellInput::Formula("=E5+1".into()))
+        .unwrap();
+    live.recalc(&ctx());
+
+    live.set("S", addr(5, 2), CellInput::Formula("={9;5}".into()))
+        .unwrap();
+    // The true pre-recalc grid — captured right where `recalc_incremental`
+    // itself will see it, **after** `set` has already reset B5's stored value
+    // to `Empty` pending recalc (P3.4: a freshly (re)authored formula cell
+    // carries no result until the next recalc — the edit's own doing, not
+    // this call's), and independently of anything `recalc_incremental` itself
+    // bookkeeps, so the assertion below cannot be satisfied by a bug that
+    // just echoes back whatever this call's own (possibly wrong) internal
+    // state thinks the pre-recalc value was.
+    let pre_recalc = live.clone();
+
+    let mut full = pre_recalc.clone();
+    full.recalc(&ctx());
+    let changes = live.recalc_incremental(&ctx(), &[("S".to_owned(), addr(5, 2))]);
+
+    assert_eq!(
+        live.to_json().unwrap(),
+        full.to_json().unwrap(),
+        "a cell reading inside its own spill footprint must converge to the \
+         full-recalc grid"
+    );
+    assert!(
+        !changes.is_empty(),
+        "the edit must produce at least one change to be a meaningful test"
+    );
+    for change in &changes {
+        let pre_recalc_value = pre_recalc
+            .get("S", change.addr)
+            .map(|c| c.value().clone())
+            .unwrap_or(Value::Empty);
+        assert_eq!(
+            change.old, pre_recalc_value,
+            "Change.old at {:?} must be the true pre-edit value, not a value \
+             an intermediate widen pass produced",
+            change.addr
+        );
+    }
+}
+
 /// A fixed, non-random instance of the class no edit-local reasoning can
 /// recover from: a spill footprint retired by a *previous* recalc, not the
 /// edit under test.
