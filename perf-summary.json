@@ -1,238 +1,238 @@
 {
   "baseline_recorded_at": "2026-09-03",
   "reference": "calibration/hash_alloc",
-  "reference_mean_ns": 3795820,
+  "reference_mean_ns": 3818940,
   "benchmarks": [
     {
       "name": "calibration/hash_alloc",
-      "mean_ns": 3795820,
-      "stddev_ns": 11002,
+      "mean_ns": 3818940,
+      "stddev_ns": 33831,
       "ref_units": 1.0,
       "vs_baseline_pct": null
     },
     {
       "name": "full_recalc/independent/100",
-      "mean_ns": 523865,
-      "stddev_ns": 1791,
-      "ref_units": 0.138,
-      "vs_baseline_pct": -0.79
+      "mean_ns": 529128,
+      "stddev_ns": 13550,
+      "ref_units": 0.1386,
+      "vs_baseline_pct": -0.36
     },
     {
       "name": "full_recalc/independent/1000",
-      "mean_ns": 4467302,
-      "stddev_ns": 11582,
-      "ref_units": 1.1769,
-      "vs_baseline_pct": -8.62
+      "mean_ns": 4488981,
+      "stddev_ns": 88283,
+      "ref_units": 1.1755,
+      "vs_baseline_pct": -8.73
     },
     {
       "name": "full_recalc/independent/5000",
-      "mean_ns": 23600969,
-      "stddev_ns": 162456,
-      "ref_units": 6.2176,
-      "vs_baseline_pct": -12.16
+      "mean_ns": 23967066,
+      "stddev_ns": 582677,
+      "ref_units": 6.2758,
+      "vs_baseline_pct": -11.33
     },
     {
       "name": "full_recalc/chain/1000",
-      "mean_ns": 4227795,
-      "stddev_ns": 13684,
-      "ref_units": 1.1138,
-      "vs_baseline_pct": -8.96
+      "mean_ns": 4251480,
+      "stddev_ns": 8704,
+      "ref_units": 1.1133,
+      "vs_baseline_pct": -9.0
     },
     {
       "name": "full_recalc/chain/5000",
-      "mean_ns": 22212276,
-      "stddev_ns": 60380,
-      "ref_units": 5.8518,
-      "vs_baseline_pct": -13.17
+      "mean_ns": 22629275,
+      "stddev_ns": 247617,
+      "ref_units": 5.9255,
+      "vs_baseline_pct": -12.08
     },
     {
       "name": "full_recalc/row_totals/500",
-      "mean_ns": 4999872,
-      "stddev_ns": 28966,
-      "ref_units": 1.3172,
-      "vs_baseline_pct": -10.21
+      "mean_ns": 5135821,
+      "stddev_ns": 50754,
+      "ref_units": 1.3448,
+      "vs_baseline_pct": -8.32
     },
     {
       "name": "full_recalc/row_totals/2000",
-      "mean_ns": 21080753,
-      "stddev_ns": 49324,
-      "ref_units": 5.5537,
-      "vs_baseline_pct": -12.56
+      "mean_ns": 22249569,
+      "stddev_ns": 205187,
+      "ref_units": 5.8261,
+      "vs_baseline_pct": -8.27
     },
     {
       "name": "full_recalc/block_subtotals/2000",
-      "mean_ns": 4294459,
-      "stddev_ns": 13877,
-      "ref_units": 1.1314,
-      "vs_baseline_pct": -17.45
+      "mean_ns": 4438952,
+      "stddev_ns": 53378,
+      "ref_units": 1.1624,
+      "vs_baseline_pct": -15.19
     },
     {
       "name": "full_recalc/block_subtotals/10000",
-      "mean_ns": 24340340,
-      "stddev_ns": 340322,
-      "ref_units": 6.4124,
-      "vs_baseline_pct": -21.83
+      "mean_ns": 25842883,
+      "stddev_ns": 254856,
+      "ref_units": 6.767,
+      "vs_baseline_pct": -17.51
     },
     {
       "name": "full_recalc/multi_sheet/200x50",
-      "mean_ns": 46084860,
-      "stddev_ns": 294162,
-      "ref_units": 12.1409,
-      "vs_baseline_pct": -12.91
+      "mean_ns": 46796487,
+      "stddev_ns": 809444,
+      "ref_units": 12.2538,
+      "vs_baseline_pct": -12.1
     },
     {
       "name": "full_recalc/multi_sheet_long_names/200x50",
-      "mean_ns": 46670147,
-      "stddev_ns": 172220,
-      "ref_units": 12.2951,
-      "vs_baseline_pct": -7.71
+      "mean_ns": 47343682,
+      "stddev_ns": 950979,
+      "ref_units": 12.3971,
+      "vs_baseline_pct": -6.95
     },
     {
       "name": "full_recalc/multi_sheet_cross_refs/200x50",
-      "mean_ns": 56256120,
-      "stddev_ns": 724296,
-      "ref_units": 14.8205,
-      "vs_baseline_pct": -2.49
+      "mean_ns": 55879490,
+      "stddev_ns": 1313827,
+      "ref_units": 14.6322,
+      "vs_baseline_pct": -3.73
     },
     {
       "name": "full_recalc/tall_sparse/20000",
-      "mean_ns": 143724148,
-      "stddev_ns": 533671,
-      "ref_units": 37.8638,
-      "vs_baseline_pct": -7.32
+      "mean_ns": 148383584,
+      "stddev_ns": 2308594,
+      "ref_units": 38.8547,
+      "vs_baseline_pct": -4.9
     },
     {
       "name": "depgraph_build/tall_sparse/20000",
-      "mean_ns": 34003833,
-      "stddev_ns": 60657,
-      "ref_units": 8.9582,
-      "vs_baseline_pct": -9.53
+      "mean_ns": 35143321,
+      "stddev_ns": 688086,
+      "ref_units": 9.2024,
+      "vs_baseline_pct": -7.06
     },
     {
       "name": "depgraph_build/row_totals/2000",
-      "mean_ns": 3281720,
-      "stddev_ns": 10243,
-      "ref_units": 0.8646,
-      "vs_baseline_pct": -8.2
+      "mean_ns": 3267618,
+      "stddev_ns": 1863,
+      "ref_units": 0.8556,
+      "vs_baseline_pct": -9.15
     },
     {
       "name": "depgraph_build/multi_sheet_cross_refs/200x50",
-      "mean_ns": 11503188,
-      "stddev_ns": 26293,
-      "ref_units": 3.0305,
-      "vs_baseline_pct": -5.29
+      "mean_ns": 11469864,
+      "stddev_ns": 47978,
+      "ref_units": 3.0034,
+      "vs_baseline_pct": -6.13
     },
     {
       "name": "incremental_recalc/independent_edit_root/100",
-      "mean_ns": 194423,
-      "stddev_ns": 1336,
-      "ref_units": 0.0512,
-      "vs_baseline_pct": -9.54
+      "mean_ns": 189313,
+      "stddev_ns": 1675,
+      "ref_units": 0.0496,
+      "vs_baseline_pct": -12.37
     },
     {
       "name": "incremental_recalc/independent_edit_root/1000",
-      "mean_ns": 991219,
-      "stddev_ns": 12742,
-      "ref_units": 0.2611,
-      "vs_baseline_pct": -9.21
+      "mean_ns": 945541,
+      "stddev_ns": 4580,
+      "ref_units": 0.2476,
+      "vs_baseline_pct": -13.91
     },
     {
       "name": "incremental_recalc_cold/independent_edit_root/100",
-      "mean_ns": 352331,
-      "stddev_ns": 1645,
-      "ref_units": 0.0928,
-      "vs_baseline_pct": 0.98
+      "mean_ns": 345593,
+      "stddev_ns": 2794,
+      "ref_units": 0.0905,
+      "vs_baseline_pct": -1.52
     },
     {
       "name": "incremental_recalc_cold/independent_edit_root/1000",
-      "mean_ns": 2522121,
-      "stddev_ns": 6821,
-      "ref_units": 0.6644,
-      "vs_baseline_pct": -9.73
+      "mean_ns": 2454539,
+      "stddev_ns": 5604,
+      "ref_units": 0.6427,
+      "vs_baseline_pct": -12.68
     },
     {
       "name": "incremental_recalc/multi_sheet_edit_root/200x50",
-      "mean_ns": 8932004,
-      "stddev_ns": 40414,
-      "ref_units": 2.3531,
-      "vs_baseline_pct": -8.24
+      "mean_ns": 8568146,
+      "stddev_ns": 16879,
+      "ref_units": 2.2436,
+      "vs_baseline_pct": -12.51
     },
     {
       "name": "incremental_recalc/block_subtotals_edit_root/10000",
-      "mean_ns": 2780326,
-      "stddev_ns": 6626,
-      "ref_units": 0.7325,
-      "vs_baseline_pct": -3.38
+      "mean_ns": 2573363,
+      "stddev_ns": 7039,
+      "ref_units": 0.6738,
+      "vs_baseline_pct": -11.12
     },
     {
       "name": "incremental_recalc/chain_edit_root/1000",
-      "mean_ns": 3524702,
-      "stddev_ns": 31950,
-      "ref_units": 0.9286,
-      "vs_baseline_pct": -13.79
+      "mean_ns": 3525203,
+      "stddev_ns": 53658,
+      "ref_units": 0.9231,
+      "vs_baseline_pct": -14.3
     },
     {
       "name": "incremental_recalc/chain_edit_root/5000",
-      "mean_ns": 18742189,
-      "stddev_ns": 185570,
-      "ref_units": 4.9376,
-      "vs_baseline_pct": -17.24
+      "mean_ns": 18988309,
+      "stddev_ns": 176483,
+      "ref_units": 4.9721,
+      "vs_baseline_pct": -16.66
     },
     {
       "name": "incremental_recalc/chain_edit_leaf/1000",
-      "mean_ns": 873887,
-      "stddev_ns": 5355,
-      "ref_units": 0.2302,
-      "vs_baseline_pct": -13.0
+      "mean_ns": 848986,
+      "stddev_ns": 4213,
+      "ref_units": 0.2223,
+      "vs_baseline_pct": -15.99
     },
     {
       "name": "incremental_recalc/chain_edit_leaf/5000",
-      "mean_ns": 4375936,
-      "stddev_ns": 17895,
-      "ref_units": 1.1528,
-      "vs_baseline_pct": -12.14
+      "mean_ns": 4206818,
+      "stddev_ns": 13531,
+      "ref_units": 1.1016,
+      "vs_baseline_pct": -16.04
     },
     {
       "name": "incremental_recalc/all_literal_edit/120000cells",
-      "mean_ns": 21976159,
-      "stddev_ns": 130032,
-      "ref_units": 5.7896,
-      "vs_baseline_pct": 51.69
+      "mean_ns": 17720086,
+      "stddev_ns": 381485,
+      "ref_units": 4.6401,
+      "vs_baseline_pct": 21.57
     },
     {
       "name": "incremental_recalc/row_totals_volatile_seed/100",
-      "mean_ns": 300198,
-      "stddev_ns": 2299,
-      "ref_units": 0.0791,
-      "vs_baseline_pct": -0.25
+      "mean_ns": 283439,
+      "stddev_ns": 1096,
+      "ref_units": 0.0742,
+      "vs_baseline_pct": -6.43
     },
     {
       "name": "incremental_recalc/row_totals_volatile_seed/10000",
-      "mean_ns": 31662614,
-      "stddev_ns": 59447,
-      "ref_units": 8.3414,
-      "vs_baseline_pct": 10.82
+      "mean_ns": 29974558,
+      "stddev_ns": 649895,
+      "ref_units": 7.8489,
+      "vs_baseline_pct": 4.27
     },
     {
       "name": "incremental_recalc/row_totals_volatile_seed/100000",
-      "mean_ns": 532950659,
-      "stddev_ns": 3419197,
-      "ref_units": 140.4046,
-      "vs_baseline_pct": 45.86
+      "mean_ns": 450275331,
+      "stddev_ns": 2952989,
+      "ref_units": 117.9058,
+      "vs_baseline_pct": 22.49
     },
     {
       "name": "from_json/500rows",
-      "mean_ns": 1139965,
-      "stddev_ns": 11647,
-      "ref_units": 0.3003,
-      "vs_baseline_pct": 5.85
+      "mean_ns": 1153273,
+      "stddev_ns": 13978,
+      "ref_units": 0.302,
+      "vs_baseline_pct": 6.45
     },
     {
       "name": "to_json/500rows",
-      "mean_ns": 691228,
-      "stddev_ns": 8515,
-      "ref_units": 0.1821,
-      "vs_baseline_pct": -17.0
+      "mean_ns": 716566,
+      "stddev_ns": 4107,
+      "ref_units": 0.1876,
+      "vs_baseline_pct": -14.49
     }
   ]
 }
