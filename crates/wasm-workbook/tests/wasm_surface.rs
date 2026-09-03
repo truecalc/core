@@ -61,3 +61,34 @@ fn remove_name_through_binding_invalidates_dependent_formula() {
     );
     assert_eq!(after["error"], "#NAME?", "got {after}");
 }
+
+/// `resolvedTyped`/`getTyped` marshal a real `EvalResult` across the WASM ABI
+/// (via `tsify`) instead of a JSON string — this is the one thing
+/// `typed_value.rs`'s native tests cannot exercise, since they call the
+/// inherent Rust method directly rather than going through the
+/// `#[wasm_bindgen]`-generated JS-calling-convention wrapper. Representative
+/// coverage only (one scalar variant, one missing-cell case); the exhaustive
+/// per-variant shape coverage lives in `typed_value.rs`.
+#[wasm_bindgen_test]
+fn resolved_typed_and_get_typed_marshal_through_the_real_wasm_abi() {
+    let mut wb = JsWorkbook::new("sheets");
+    wb.add_sheet("Sheet1").unwrap();
+    wb.set("Sheet1", "A1", "10").unwrap();
+    wb.recalc(r#"{"timestamp_ms":0,"timezone":"UTC","rng_seed":0}"#)
+        .unwrap();
+
+    let resolved = wb.resolved_typed("Sheet1", "A1").unwrap().unwrap();
+    assert!(
+        matches!(resolved.value, truecalc_wasm_value::EvalResult::Number { value } if value == 10.0)
+    );
+    assert_eq!(resolved.anchor, None);
+
+    let got = wb.get_typed("Sheet1", "A1").unwrap().unwrap();
+    assert_eq!(got.formula, None);
+    assert!(
+        matches!(got.value, truecalc_wasm_value::EvalResult::Number { value } if value == 10.0)
+    );
+
+    assert!(wb.resolved_typed("Sheet1", "Z99").unwrap().is_none());
+    assert!(wb.get_typed("Sheet1", "Z99").unwrap().is_none());
+}

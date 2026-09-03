@@ -8,6 +8,7 @@ use depgraph::{DependentsResult, PrecedentsResult};
 
 use truecalc_core::types::SparklineValue;
 use truecalc_core::Engine;
+use truecalc_wasm_value::{sparkline_value_to_result, EvalResult};
 use truecalc_workbook::{
     Address, CellInput, Change, EngineFlavor, RecalcContext, Resolved, Value, Workbook, Worksheet,
 };
@@ -98,6 +99,83 @@ fn value_to_json(v: &Value) -> serde_json::Value {
             })
         }
     }
+}
+
+/// Map a `truecalc_workbook::Value` onto the shared WASM `EvalResult` surface
+/// shape (`truecalc-wasm-value`, also used by `@truecalc/core`).
+///
+/// Structurally the same conversion as [`value_to_json`] above, but marshals
+/// through `tsify`'s real WASM ABI instead of a JSON string. This crate's
+/// `Value` (`truecalc_workbook::Value`) is a distinct type from
+/// `truecalc_core::Value` — the type `truecalc-wasm-value::value_to_result`
+/// already converts — so it needs its own arm-by-arm mapping here.
+/// `Boolean` deliberately maps to `EvalResult::Bool` (tag `"bool"`), not
+/// `"boolean"`: [`value_to_json`] already emits `"bool"` for parity with
+/// `@truecalc/core`'s published shape, despite `truecalc_workbook::Value`'s
+/// own `Serialize` impl (the *canonical on-disk/JSON* form) using
+/// `"boolean"` — this keeps the new typed surface's tag consistent with the
+/// existing `get()`/`resolved()` JSON tag, not with the workbook's
+/// persisted-document encoding.
+fn value_to_eval_result(v: &Value) -> EvalResult {
+    match v {
+        Value::Number(n) => EvalResult::Number { value: *n },
+        Value::Date(n) => EvalResult::Date { value: *n },
+        Value::Zoned(z) => EvalResult::Zoned { value: z.to_rfc9557() },
+        Value::Text(s) => EvalResult::Text { value: s.clone() },
+        Value::Boolean(b) => EvalResult::Bool { value: *b },
+        Value::Error(code) => EvalResult::Error { error: code.clone(), message: None },
+        Value::ErrorMsg(code, msg) => {
+            EvalResult::Error { error: code.clone(), message: Some(msg.clone()) }
+        }
+        Value::Empty => EvalResult::Empty,
+        // `truecalc_workbook::Value::Array` is `Vec<Vec<Value>>` (always
+        // rectangular, never nested), unlike `EvalResult::Array`'s flat,
+        // self-nesting `Vec<EvalResult>` — wrapped here as an outer `array` of
+        // `array` rows so the shape matches the recursive row-array
+        // convention `EvalResult`'s own doc comment describes for a 2-D
+        // result.
+        Value::Array(rows) => EvalResult::Array {
+            value: rows
+                .iter()
+                .map(|row| EvalResult::Array {
+                    value: row.iter().map(value_to_eval_result).collect(),
+                })
+                .collect(),
+        },
+        // `SparklineSpec`/`SparklineValue` are the identical
+        // `truecalc_core::types` re-exports `truecalc-wasm-value` already maps
+        // for `@truecalc/core`, so the per-point conversion is reused as-is.
+        Value::Sparkline(spec) => EvalResult::Sparkline {
+            value: truecalc_wasm_value::SparklineSpecResult {
+                charttype: spec.chart_type.as_str().to_string(),
+                data: spec.data.iter().map(sparkline_value_to_result).collect(),
+                options: spec
+                    .options
+                    .iter()
+                    .map(|(k, v)| (k.clone(), sparkline_value_to_result(v)))
+                    .collect(),
+            },
+        },
+    }
+}
+
+/// Typed counterpart of `get()`'s `{"formula": ..., "value": ...}` JSON shape.
+#[derive(Tsify, Serialize)]
+#[tsify(into_wasm_abi)]
+pub struct GetResult {
+    #[tsify(optional)]
+    pub formula: Option<String>,
+    pub value: EvalResult,
+}
+
+/// Typed counterpart of `resolved()`'s tagged-value-plus-optional-`anchor`
+/// JSON shape.
+#[derive(Tsify, Serialize)]
+#[tsify(into_wasm_abi)]
+pub struct ResolvedResult {
+    pub value: EvalResult,
+    #[tsify(optional)]
+    pub anchor: Option<String>,
 }
 
 /// Serialize a `Change` to a `serde_json::Value`.
@@ -290,6 +368,12 @@ impl JsWorkbook {
     ///
     /// Returns a tagged JSON object: `{"formula": "=A1+1"|null, "value": <a
     /// tagged value object, the same shape resolved()/get() share>}`.
+    ///
+    /// A typed replacement, [`getTyped`](Self::get_typed), returns the same
+    /// information as a real `GetResult` marshaled across the WASM ABI
+    /// instead of a JSON string — callers that `JSON.parse()` this method's
+    /// return value should migrate to it. `get` itself is unchanged and will
+    /// keep returning this JSON-string shape.
     pub fn get(&self, sheet: &str, a1: &str) -> Result<JsValue, JsError> {
         let addr = Address::from_a1(a1)
             .ok_or_else(|| JsError::new(&format!("invalid A1 address: {a1:?}")))?;
@@ -305,6 +389,24 @@ impl JsWorkbook {
                 Ok(JsValue::from_str(&s))
             }
         }
+    }
+
+    /// Typed counterpart of [`get`](Self::get): the authored cell's formula
+    /// and value as a real `GetResult` (a real `EvalResult`, marshaled across
+    /// the WASM ABI at the type-system level via `tsify`), instead of a JSON
+    /// string the caller must `JSON.parse()`.
+    ///
+    /// Returns `undefined` — not `get`'s `null` — when no cell is authored at
+    /// `a1`: the idiomatic optional-value shape for a typed WASM return.
+    #[wasm_bindgen(js_name = getTyped)]
+    pub fn get_typed(&self, sheet: &str, a1: &str) -> Result<Option<GetResult>, JsError> {
+        let addr = Address::from_a1(a1)
+            .ok_or_else(|| JsError::new(&format!("invalid A1 address: {a1:?}")))?;
+
+        Ok(self.inner.get(sheet, addr).map(|cell| GetResult {
+            formula: cell.formula().map(str::to_owned),
+            value: value_to_eval_result(cell.value()),
+        }))
     }
 
     /// Defines a workbook-scoped named range.
@@ -445,6 +547,12 @@ impl JsWorkbook {
     /// formula on the same sheet; the key is absent for an authored cell.
     /// Use [`get`](Self::get) to read only what is physically authored at
     /// `a1`.
+    ///
+    /// A typed replacement, [`resolvedTyped`](Self::resolved_typed), returns
+    /// the same information as a real `ResolvedResult` marshaled across the
+    /// WASM ABI instead of a JSON string — callers that `JSON.parse()` this
+    /// method's return value should migrate to it. `resolved` itself is
+    /// unchanged and will keep returning this JSON-string shape.
     pub fn resolved(&self, sheet: &str, a1: &str) -> Result<JsValue, JsError> {
         let addr = Address::from_a1(a1)
             .ok_or_else(|| JsError::new(&format!("invalid A1 address: {a1:?}")))?;
@@ -463,6 +571,32 @@ impl JsWorkbook {
                 Ok(JsValue::from_str(&s))
             }
         }
+    }
+
+    /// Typed counterpart of [`resolved`](Self::resolved): the effective value
+    /// at `a1` on `sheet` (resolved through array spills) as a real
+    /// `ResolvedResult` (a real `EvalResult`, marshaled across the WASM ABI at
+    /// the type-system level via `tsify`), instead of a JSON string the
+    /// caller must `JSON.parse()`.
+    ///
+    /// `anchor` carries the spilling formula's A1 address when the queried
+    /// cell is a spilled (non-anchor) cell, exactly as `resolved`'s JSON
+    /// `"anchor"` key does; it is absent for an authored cell.
+    ///
+    /// Returns `undefined` — not `resolved`'s `null` — when the cell has no
+    /// value: the idiomatic optional-value shape for a typed WASM return.
+    #[wasm_bindgen(js_name = resolvedTyped)]
+    pub fn resolved_typed(&self, sheet: &str, a1: &str) -> Result<Option<ResolvedResult>, JsError> {
+        let addr = Address::from_a1(a1)
+            .ok_or_else(|| JsError::new(&format!("invalid A1 address: {a1:?}")))?;
+
+        Ok(self
+            .inner
+            .resolved(sheet, addr)
+            .map(|Resolved { value, anchor }| ResolvedResult {
+                value: value_to_eval_result(&value),
+                anchor: anchor.map(|a| a.to_a1()),
+            }))
     }
 
     /// What the cell at `a1` on `sheet` **reads** — its precedents.
